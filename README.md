@@ -25,9 +25,11 @@ While it is possible to run Spectra by itself, this is not its main purpose. It 
 
 Getting this to work on Plover any other way requires dragging-and-dropping two folders to the right place. After installing the program as above, there should now be a folder labeled ``spectra_lexer.egg-info`` sitting next to ``spectra_lexer``. Take these two folders and copy them to one of the following locations (paths may be slightly different depending on your OS and build of Plover).
 
+```
 %PROGRAMFILES(X86)%\Open Steno Project\Plover 4.0.0.dev8\data\Lib\site-packages
 %USERPROFILE%\AppData\Local\plover\plover\plugins\win\Python36\site-packages
 Basically, any folder named "site-packages" is a good bet.
+```
 
 By default, the pre-packaged binaries of Plover are essentially a self-contained Python distribution bundled with the program and all its required dependencies. Spectra's dependencies are a subset of Plover's, so it should be *technically* possible to run the setup script and install it to Plover's local environment without any other version of Python on your system at all. A less insane choice would be to wait for it to appear on PyPI and get it through the plugins manager. ;)
 
