@@ -1,0 +1,3 @@
+# After compiling UI and resources to .py, the only non-Python
+# files required for distribution are the rules files.
+include spectra_lexer/assets/*.json

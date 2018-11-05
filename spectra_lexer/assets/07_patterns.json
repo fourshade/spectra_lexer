@@ -1,0 +1,39 @@
+# Other unique rule patterns/combinations not specified elsewhere
+
+{
+  # prefixes
+  "enter.": ["SPWR",  "(ent.)e(r.)",  "", "ONLY works as prefix"],
+  "inter.": ["SPWR",  "(int.)e(r.)",  "", "ONLY works as prefix"],
+  "synd.":  ["STK",   "(s.)yn(d.)",   "", "drop middle"],
+
+  # connecting strokes
+  "b/b":    ["-B/PW",      "b",   "RARE", "consonant `b` split between strokes"],
+  "c/c":    ["-BG/K",      "c",   "RARE", "consonant `c` split between strokes"],
+  "C/C":    ["-S/S",       "c",   "RARE", "consonant `c` split between strokes"],
+  "d/d":    ["-D/TK",      "d",   "RARE", "consonant `d` split between strokes"],
+  "f/f":    ["-F/TP",      "f",   "RARE", "consonant `f` split between strokes"],
+  "g/g":    ["-G/TKPW",    "g",   "RARE", "consonant `g` split between strokes"],
+  "G/G":    ["-PBLG/SKWR", "g",   "RARE", "consonant `g` split between strokes"],
+  "j/j":    ["-PBLG/SKWR", "j",   "RARE", "consonant `j` split between strokes"],
+  "k/k":    ["-BG/K",      "k",   "RARE", "consonant `k` split between strokes"],
+  "l/l":    ["-L/HR",      "l",   "RARE", "consonant `l` split between strokes"],
+  "m/m":    ["-PL/PH",     "m",   "RARE", "consonant `m` split between strokes"],
+  "n/n":    ["-PB/TPH",    "n",   "RARE", "consonant `n` split between strokes"],
+  "p/p":    ["-P/P",       "p",   "RARE", "consonant `p` split between strokes"],
+  "q/qu":   ["-BG/KW",     "qu",  "RARE", "consonant `q` split between strokes"],
+  "r/r":    ["-R/R",       "r",   "RARE", "consonant `r` split between strokes"],
+  "s/s":    ["-S/S",       "s",   "RARE", "consonant `s` split between strokes"],
+  "t/t":    ["-T/T",       "t",   "RARE", "consonant `t` split between strokes"],
+
+  # large eliminations
+  "rep.":   ["R",   "(r.)ep",     "", "drop `e` and consonant for common `re` words"],
+  "ret.":   ["R",   "(r.)et",     "", "drop `e` and consonant for common `re` words"],
+  ".othe.": ["OE",  "(o)th(e)",   "", "drop middle `th` (PHOER → mother)"],
+
+  # specific shortenings used in the most common words
+  "some.":  ["S",   "some",       "", "prefix `some` in common compound words"],
+  ".thing": ["-G",  "thing",      "", "suffix `thing` in common compound words"],
+  ".ever":  ["-FR", "e(.v)e(.r)", "", "suffix `ever` in common compound words"],
+  ".body":  ["-B",  "self",       "", "suffix `body` in common compound words"],
+  ".self":  ["*S",  "self",       "", "suffix `self` in common pronouns"]
+}

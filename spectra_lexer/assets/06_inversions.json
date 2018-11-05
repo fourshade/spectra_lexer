@@ -1,0 +1,40 @@
+# Folds and inversions
+
+{
+  # left bank
+  "dis.":  ["STK", "(d.)i(s.)",  "INV", "s/d inversion"],
+  "des.":  ["STK", "(d.)e(s.)",  "INV", "s/d inversion"],
+  "ins.":  ["STPH","(in.)(s.)",  "INV", "s/n inversion (STPHERT → insert)"],
+
+  # right bank
+  ".lf":   ["-FL", "(.l)(.f)",   "INV", "f/l inversion"],
+  ".lph":  ["-FL", "(.l)(.ph)",  "INV", "f/l inversion"],
+  ".mar":  ["-RPL","(.m)a(.r)",  "INV", "r/m inversion"],
+  ".mer":  ["-RPL","(.m)e(.r)",  "INV", "r/m inversion"],
+  ".ner":  ["-RPB","(.n)e(.r)",  "INV", "r/n inversion"],
+  ".tl":   ["-LT", "(.t)(.l)",   "INV", "l/t inversion"],
+  ".tal":  ["-LT", "(.t)a(.l)",  "INV", "l/t inversion"],
+  ".tel":  ["-LT", "(.t)e(.l)",  "INV", "l/t inversion"],
+
+  ".ding": ["-GD", "(.d)(.ing)", "INV", "folded -ing"],
+  ".ting": ["-GT", "(.t)(.ing)", "INV", "folded -ing"],
+  ".sing": ["-GS", "(.s)(.ing)", "INV", "folded -ing"],
+  ".ter":  ["-RT", "(.t)(.er)",  "INV", "folded -er"],
+  ".ser":  ["-RS", "(.s)(.er)",  "INV", "folded -er"],
+  ".ler":  ["-RL", "(.l)(.er)",  "INV", "folded -er"],
+  ".der":  ["-RD", "(.d)(.er)",  "INV", "folded -er"],
+  ".gly":  ["-LG", "(.g)(.ly)",  "INV", "folded -ly"],
+  ".tly":  ["-LT", "(.t)(.ly)",  "INV", "folded -ly"],
+  ".tely": ["-LT", "(.t)e(.ly)", "INV", "folded -ly"],
+  ".sly":  ["-LS", "(.s)(.ly)",  "INV", "folded -ly"],
+  ".sely": ["-LS", "(.s)e(.ly)", "INV", "folded -ly"],
+  ".cely": ["-LS", "(.ce)(.ly)", "INV", "folded -ly"],
+  ".dly":  ["-LD", "(.d)(.ly)",  "INV", "folded -ly"],
+
+  # full board
+  "-ary":  ["AER", "(a)(.r)[y|e]", "INV", "uses E as folded -y"],
+  ".arry": ["AER", "(a)(.rr)[y|e]","INV", "uses E as folded -y"],
+  ".ory":  ["OER", "(o)(.r)[y|e]", "INV", "uses E as folded -y"],
+  ".orry": ["OER", "(o)(.rr)[y|e]","INV", "uses E as folded -y"],
+  ".ady":  ["AED", "(a)(.d)[y|e]", "INV", "uses E as folded -y"]
+}

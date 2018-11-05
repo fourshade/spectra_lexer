@@ -1,0 +1,43 @@
+# Common briefs, especially those that may form phrases or otherwise screw with the lexer
+
+{
+  # left bank
+  "and":    ["SKP",  "and",         "WORD", "purely positional brief; no dependencies on other rules"],
+  "is":     ["S",    "i(s.)",       "WORD", "common brief"],
+  "it":     ["T",    "i(t.)",       "WORD", "common brief"],
+  "this":   ["TH",   "(th.)is",     "WORD", "common brief"],
+  "can":    ["K",    "(c.)an",      "WORD", "common brief"],
+  "about":  ["PW",   "a(b.)out",    "WORD", "common brief"],
+  "had":    ["H",    "(h.)ad",      "WORD", "common brief"],
+  "are":    ["R",    "a(r.)e",      "WORD", "common brief"],
+  "with":   ["W",    "(w.)ith",     "WORD", "common brief"],
+  "have":   ["SR",   "ha(v.)e",     "WORD", "common brief"],
+  "did":    ["TK",   "(d.)id",      "WORD", "common brief"],
+  "if":     ["TP",   "i(f.)",       "WORD", "common brief"],
+  "will":   ["HR",   "wil(l.)",     "WORD", "common brief"],
+  "in":     ["TPH",  "i(n.)",       "WORD", "common brief"],
+  "why":    ["KWR",  "wh(y.)",      "WORD", "common brief"],
+  "go":     ["TKPW", "(g.)o",       "WORD", "common brief"],
+  "from":   ["TPR",  "(fr.)om",     "WORD", "common brief"],
+  "there":  ["THR",  "(th.)e(r.)e", "WORD", "common brief"],
+
+  # right bank
+  "of":     ["-F",   "o(.f)",       "WORD", "common brief"],
+  "ever":   ["-FR",  "e(.v)e(.r)",  "WORD", "common brief"],
+  "are+":   ["-R",   "a(.r)e",      "WORD", "common brief"],
+  "be":     ["-B",   "(.b)e",       "WORD", "common brief"],
+  "the":    ["-T",   "(.t)he",      "WORD", "common brief"],
+  "was":    ["-FS",  "was",         "WORD", "purely positional brief; no dependencies on other rules"],
+
+  # vowels
+  "he":     ["E",    "h(e)",        "WORD", "common brief"],
+  "you":    ["U",    "yo(u)",       "WORD", "common brief"],
+
+  # left + vowels
+  "they":   ["THE",  "(th.)(e)y",   "WORD", "common brief"],
+  "very":   ["SRE",  "(v.)(e)ry",   "WORD", "common brief"],
+  "for":    ["TP-R", "(f.)o(.r)",   "WORD", "common brief"],
+
+  # full board
+  "were":   ["W-R",  "(w.)e(.r)e",  "WORD", "common brief"]
+}

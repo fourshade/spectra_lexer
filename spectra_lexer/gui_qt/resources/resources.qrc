@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/spectra_lexer">
+    <file>board.svg</file>
+    <file>icon.svg</file>
+  </qresource>
+</RCC>

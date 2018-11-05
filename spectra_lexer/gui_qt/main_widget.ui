@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWidget</class>
+ <widget class="QWidget" name="MainWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>520</width>
+    <height>400</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>510</width>
+    <height>400</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>MAIN</string>
+  </property>
+  <layout class="QHBoxLayout" name="layout_main">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="InputWidget" name="w_input" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>150</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>150</width>
+       <height>16777215</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="OutputWidget" name="w_output" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>OutputWidget</class>
+   <extends>QWidget</extends>
+   <header>spectra_lexer.gui_qt.output_widget</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>InputWidget</class>
+   <extends>QWidget</extends>
+   <header>spectra_lexer.gui_qt.input_widget</header>
+   <container>1</container>
+   <slots>
+    <signal>querySelected(QString,QString)</signal>
+    <signal>queryBestStroke(PyQt_PyObject,QString)</signal>
+   </slots>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>w_input</sender>
+   <signal>querySelected(QString,QString)</signal>
+   <receiver>MainWidget</receiver>
+   <slot>query(QString,QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>86</x>
+     <y>156</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>104</x>
+     <y>-11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>w_input</sender>
+   <signal>queryBestStroke(PyQt_PyObject,QString)</signal>
+   <receiver>MainWidget</receiver>
+   <slot>query_best(PyQt_PyObject,QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>148</x>
+     <y>96</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>372</x>
+     <y>-11</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>query(QString,QString)</slot>
+  <slot>query_best(PyQt_PyObject,QString)</slot>
+ </slots>
+</ui>

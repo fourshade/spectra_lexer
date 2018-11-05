@@ -1,0 +1,83 @@
+# Orthography for various sounds in English text.
+
+{
+  # left bank
+  "Ch.":    ["SH",       "(C.)(h.)",   "RARE","`ch` as in `chandelier`"],
+  "ge.":    ["SKWRE",    "(G.)(e)",    "",    "soft `g` onset is usually followed by `e` or `i`"],
+  "gi.":    ["SKWRAOEU", "(G.)(I)",    "",    "soft `g` onset is usually followed by `e` or `i`"],
+
+  "ph.":    ["TP",       "[ph|f.]",    "",    "`ph`onetic"],
+  "qu.":    ["KW",       "(q.)[u|w.]", "",    "phonetic"],
+
+  "exc.":   ["KP",       "[exc|ex.]",  "",    "combined consonant sounds"],
+
+  # right bank
+  ".bb":    ["-B",   "[bb|.b]",        "",    "doubled consonant"],
+  ".cc":    ["-BG",  "[cc|.c]",        "",    "doubled consonant"],
+  ".dd":    ["-D",   "[dd|.d]",        "",    "doubled consonant"],
+  ".ff":    ["-F",   "[ff|.f]",        "",    "doubled consonant"],
+  ".gg":    ["-G",   "[gg|.g]",        "",    "doubled consonant"],
+  ".ll":    ["-L",   "[ll|.l]",        "",    "doubled consonant"],
+  ".mm":    ["-PL",  "[mm|.m]",        "",    "doubled consonant"],
+  ".nn":    ["-PB",  "[nn|.n]",        "",    "doubled consonant"],
+  ".pp":    ["-P",   "[pp|.p]",        "",    "doubled consonant"],
+  ".rr":    ["-R",   "[rr|.r]",        "",    "doubled consonant"],
+  ".ss.":   ["-F",   "[ss|.s.]",       "",    "doubled consonant"],
+  ".ss":    ["-S",   "[ss|.s]",        "",    "doubled consonant"],
+  ".tt":    ["-T",   "[tt|.t]",        "",    "doubled consonant"],
+  ".zz":    ["-Z",   "[zz|.z]",        "",    "doubled consonant"],
+
+  ".t!":    ["-FP",  "[t|.ch]",        "RARE","phonetic (TPHAFP/RAL → natural)"],
+  ".nc":    ["*PBG", "[nc|.nk]",       "RARE","phonetic"],
+  ".ph":    ["-F",   "[ph|.f]",        "",    "`ph`onetic"],
+  ".cc+":   ["-BGS", "[cc|.x]",        "",    "phonetic"],
+  ".ss.+":  ["-RB",  "[ss|.sh]",       "",    "phonetic (TPEURB/UR → fissure)"],
+
+  ".ck":    ["-BG",  "[ck|.k]",        "",    "combined consonant sounds"],
+  ".dj":    ["-PBLG","[dj|.G]",        "",    "combined consonant sounds"],
+  ".dg":    ["-PBLG","[dg|.G]",        "",    "combined consonant sounds"],
+  ".sch":   ["-RB",  "[sch|.sh]",      "",    "combined consonant sounds"],
+  ".tch":   ["-FP",  "[tch|.ch]",      "",    "combined consonant sounds"],
+
+  ".cian":  ["-GS",  "[cian|~shun]",   "",    "phonetic"],
+  ".cion":  ["-GS",  "[cion|~shun]",   "",    "phonetic"],
+  ".sion":  ["-GS",  "[sion|~shun]",   "",    "phonetic"],
+  ".tion":  ["-GS",  "[tion|~shun]",   "",    "phonetic"],
+  ".ction": ["-BGS", "[ction|~kshun]", "",    "phonetic"],
+  ".ction+":["*BGS", "(.ction)",       "*:CF","used to disambiguate `kshun` vs. `x` (ABGS → axe vs. A*BGS → action)"],
+  ".xion":  ["-BGS", "[xion|~kshun]",  "",    "phonetic"],
+  ".xion+": ["*BGS", "(.xion)",        "*:CF","used to disambiguate `kshun` vs. `x` (ABGS → axe vs. A*BGS → action)"],
+
+  # vowels
+  "y+":  ["AOEU","[y|I]",   "",     "`y` as in `fly`"],
+  "aI":  ["AOEU","[ai|I]",  "",     "`ai` as in `haiku`"],
+  "eI":  ["AOEU","[ei|I]",  "",     "`ei` as in `heist`"],
+  "Ai":  ["AEU", "[ai|A]",  "",     "`ai` as in `fair`"],
+  "Ay":  ["AEU", "[ay|A]",  "",     "`ay` as in `stay`"],
+  "ei":  ["AEU", "[ei|A]",  "",     "`ei` as in `their`"],
+  "ea+": ["E",   "[ea|e]",  "",     "`ea` as in `learn`"],
+  "Ea":  ["AOE", "[ea|E]",  "",     "`ea` as in `deal`"],
+  "Ee":  ["AOE", "[ee|E]",  "",     "`ee` as in `feel`"],
+  "iE":  ["AOE", "[ie|E]",  "",     "PWHRAOEF → belief"],
+  "i+":  ["AOE", "[i|E]",   "RARE", "TPA/TAOEG → fatigue"],
+  "Oa":  ["OE",  "[oa|O]",  "",     "`oa` as in `float`"],
+  "Oe":  ["OE",  "[oe|O]",  "",     "`oe` as in `foe`"],
+  "Ow":  ["OE",  "[ow|O]",  "",     "`ow` as in `own`"],
+  "ou+": ["U",   "[ou|u]",  "",     "`ou` as in `trouble`"],
+  "ew":  ["AOU", "[ew|U]",  "",     "`ew` as in `lewd`"],
+  "eU":  ["AOU", "[eu|U]",  "",     "`eu` as in `maneuver`"],
+  "Ue":  ["AOU", "[ue|U]",  "",     "`ue` as in `fuel`"],
+  "UU":  ["AOU", "[uu|U]",  "",     "`uu` as in `vacuum`"],
+  "o+":  ["AOU", "[o|U]",   "RARE", "HRAOUS → lose"],
+  "aw":  ["AU",  "[aw|au]", "",     "`aw` as in `dawn`"],
+  "ow":  ["OU",  "[ow|ou]", "",     "`ow` as in `down`"],
+  "oy":  ["OEU", "[oy|oi]", "",     "`oy` as in `oyster`"],
+
+  "eau": ["OE",  "[eau|O]", "RARE", "`eau` as in `tableau`"],
+
+   # full board
+  "wu~":   ["WU",   "(w.)(u)",      "SPEC", "`wu` sound"],
+  "on.":   ["WUPB", "[o|wu~](.n)",  "RARE", "unique `w` sound as in `one` and `once`"],
+  "su.":   ["SHU",  "[s|sh.](u)",   "RARE", "unique `sh`  sound as in `sure` and `sugar`"],
+  ".tur":  ["KHUR", "[t|ch.](u)(.r)]",  "", "phonetic"]
+}

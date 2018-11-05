@@ -1,0 +1,22 @@
+# Packages
+*.egg
+*.egg-info
+build
+dist
+lib
+
+# Build files
+*.py[cod]
+*_ui.py
+*_rc.py
+
+# PyTest
+.pytest_cache
+
+# PyCharm
+.idea
+.cache
+
+# Vim swap/undo files
+*.swp
+*.un

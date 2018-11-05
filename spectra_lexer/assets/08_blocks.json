@@ -1,0 +1,48 @@
+# Pure combinations of basic rules to form building blocks
+# Helps to make matches for common letter combinations vs. rare ones
+
+{
+  # left bank
+  "bl.": ["PWHR",  "(b.)(l.)",  "", "common consonant pair"],
+  "br.": ["PWR",   "(b.)(r.)",  "", "common consonant pair"],
+  "ch.": ["KH",    "(c.)(h.)",  "", "common consonant pair"],
+  "cl.": ["KHR",   "(c.)(l.)",  "", "common consonant pair"],
+  "cr.": ["KR",    "(c.)(r.)",  "", "common consonant pair"],
+  "dr.": ["TKR",   "(d.)(r.)",  "", "common consonant pair"],
+  "fr.": ["TPR",   "(f.)(r.)",  "", "common consonant pair"],
+  "fl.": ["TPHR",  "(f.)(l.)",  "", "common consonant pair"],
+  "gl.": ["TKPWHR","(g.)(l.)",  "", "common consonant pair"],
+  "gr.": ["TKPWR", "(g.)(r.)",  "", "common consonant pair"],
+  "pl.": ["PHR",   "(p.)(l.)",  "", "common consonant pair"],
+  "pr.": ["PR",    "(p.)(r.)",  "", "common consonant pair"],
+  "sh.": ["SH",    "(s.)(h.)",  "", "common consonant pair"],
+  "sl.": ["SHR",   "(s.)(l.)",  "", "common consonant pair"],
+  "sp.": ["SP",    "(s.)(p.)",  "", "common consonant pair"],
+  "st.": ["ST",    "(s.)(t.)",  "", "common consonant pair"],
+  "sw.": ["SW",    "(s.)(w.)",  "", "common consonant pair"],
+  "th.": ["TH",    "(t.)(h.)",  "", "common consonant pair"],
+  "tr.": ["TR",    "(t.)(r.)",  "", "common consonant pair"],
+  "tw.": ["TW",    "(t.)(w.)",  "", "common consonant pair"],
+  "wh.": ["WH",    "(w.)(h.)",  "", "common consonant pair"],
+  "wr.": ["WR",    "(w.)(r.)",  "", "common consonant pair"],
+
+  "shr.": ["SHR",  "(sh.)(r.)", "", "common consonant triad"],
+  "str.": ["STR",  "(st.)(r.)", "", "common consonant triad"],
+  "spr.": ["SPR",  "(sp.)(r.)", "", "common consonant triad"],
+  "thr.": ["THR",  "(th.)(r.)", "", "common consonant triad"],
+
+  # right bank
+  ".bl":  ["-BL",  "(.b)(.l)",  "", "common consonant pair"],
+  ".nd":  ["-PBD", "(.n)(.d)",  "", "common consonant pair"],
+  ".ng":  ["-PBG", "(.n)(.g)",  "", "common consonant pair"],
+  ".nt":  ["-PBT", "(.n)(.t)",  "", "common consonant pair"],
+  ".pl":  ["-PL",  "(.p)(.l)",  "", "common consonant pair"],
+  ".rc":  ["-RBG", "(.r)(.c)",  "", "common consonant pair"],
+  ".rd":  ["-RD",  "(.r)(.d)",  "", "common consonant pair"],
+  ".rn":  ["-RPB", "(.r)(.n)",  "", "common consonant pair"],
+  ".rp":  ["-RP",  "(.r)(.p)",  "", "common consonant pair"],
+  ".rk":  ["-RBG", "(.r)(.k)",  "", "common consonant pair"],
+  ".sk":  ["-FBG", "(.s.)(.k)", "", "common consonant pair"],
+  ".sp":  ["-FP",  "(.s.)(.p)", "", "common consonant pair"],
+  ".st":  ["-FT",  "(.s.)(.t)", "", "common consonant pair"]
+}

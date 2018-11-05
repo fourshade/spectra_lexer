@@ -1,0 +1,5 @@
+# Rules that actively involve symbols. Still must include at least one alphanumeric character.
+
+{
+  "'s": ["AES", "'s", "", "possessive suffix `'s`"]
+}

@@ -1,0 +1,45 @@
+# Orthography for English text with silent letters.
+# Also includes steno patterns that drop unstressed letters.
+
+{
+  # left bank
+  "ch.+": ["K",     "(c.)h",      "", "hard `c`, `h` is silent"],
+  "gh.":  ["TKPW",  "(g.)h",      "", "`h` is silent"],
+  "gn.":  ["TPH",   "g(n.)",      "", "`g` is silent"],
+  "kn.":  ["TPH",   "k(n.)",      "", "`k` is silent"],
+
+  "chr.": ["KR",    "(ch.+)(r.)", "", "hard `chr` prefix"],
+  "sc.":  ["SK",    "(s.)(c.)",   "", "also applies to soft `sc` words such as `science`"],
+  "sch.": ["SH",    "(s.)c(h.)",  "", "soft `sch` prefix"],
+  "sch.+":["SK",    "(s.)(ch.+)", "", "hard `sch` prefix"],
+
+  # right bank
+  ".gn":  ["-PB",   "g(.n)",      "", "`g` is silent"],
+  ".ght": ["-T",    "gh(.t)",     "", "`gh` is silent"],
+  ".rve": ["-FRB",  "(.rv)e",     "", "`rv` coda must end with silent `e`"],
+  ".ce":  ["-S",    "(.C)e",      "", "soft `c` coda must end with silent `e`"],
+  ".ge":  ["-PBLG", "(.G)e",      "", "soft `g` coda must end with silent `e`"],
+  ".dge": ["-PBLG", "(.dg)e",     "", "soft `g` coda must end with silent `e`"],
+  ".nge": ["-PBG",  "[ng|.nj]e",  "", "soft `g` coda must end with silent `e`"],
+  ".que": ["-BG",   "(.q)ue",     "", "`ue` is silent"],
+  ".gue": ["-G",    "(.g)ue",     "", "`ue` is silent"],
+
+  ".ded": ["-TD",   "[d|.t](.ed)","", "SKWRAEUTD → jaded (standard?)"],
+  ".xed": ["-BGD",  "[x|.k](.ed)","", "PLEUBGD → mixed"],
+  ".ket": ["-BGT",  "(.k)e(.t)",  "", "drop unstressed vowel"],
+
+  ".cial":  ["-RBL","[ci|.sh]a(.l)",  "", "drop unstressed vowel"],
+  ".sual":  ["-RBL","[s|.sh]ua(.l)",  "", "drop unstressed vowels"],
+  ".cious": ["-RBS","[ci|.sh]ou(.s)", "", "drop unstressed vowels"],
+  ".sious": ["-RBS","[si|.sh]ou(.s)", "", "drop unstressed vowels"],
+
+  # full board
+  ".ave":   ["AF",  "(.av)e",     "", "`v` coda must end with silent `e`"],
+  ".ieve":  ["EF",  "[iev|.ev]e", "", "`v` coda must end with silent `e`"],
+  ".eave":  ["EF",  "[eav|.ev]e", "", "`v` coda must end with silent `e`"],
+  ".ive":   ["EUF", "(.iv)e",     "", "`v` coda must end with silent `e`"],
+  ".ove":   ["OF",  "(.ov)e",     "", "`v` coda must end with silent `e`"],
+  ".ove+":  ["UF",  "[ov|.uv]e",  "", "`v` coda must end with silent `e`"],
+
+  ".ough":  ["UF",  "(ou+)[gh|.f]",  "", "TUF → tough"]
+}
