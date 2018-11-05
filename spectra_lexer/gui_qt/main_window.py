@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
-from spectra_lexer.file import get_file_formats, load_steno_dictionaries
+from spectra_lexer.file import get_file_formats, RawStenoDictionary
 from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
 
 
@@ -36,6 +36,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def load_dicts(self, *filenames:str) -> None:
         """ Attempt to load one or more steno dictionaries given by filename.
             If there is more than one, they will be merged. Give the results to the main widget. """
-        d = load_steno_dictionaries(*filenames)
+        d = RawStenoDictionary(*filenames)
         if d:
             self.w_main.set_dictionary(d)

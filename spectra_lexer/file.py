@@ -29,7 +29,7 @@ def _decode_JSON(fname: str) -> Any:
     with open(fname, 'rb') as fp:
         contents = fp.read().decode('utf-8')
     stripped_lines = filter(None, map(str.strip, contents.splitlines()))
-    data_lines = [line for line in stripped_lines if not any(map(line.startswith, _JSON_COMMENT_PREFIXES))]
+    data_lines = [line for line in stripped_lines if line[0] not in _JSON_COMMENT_PREFIXES]
     try:
         return json.loads("\n".join(data_lines))
     except json.decoder.JSONDecodeError:
@@ -69,23 +69,24 @@ def _recursive_decode_all(filenames:Iterable[str]) -> List[dict]:
     return d_list
 
 
-def _merge_dicts(d_iter:Iterable[dict]) -> dict:
-    """ Merge all the dicts from an iterable into a new one. """
-    merged = {}
-    for d in d_iter:
-        merged.update(d)
-    return merged
-
-
 def get_file_formats() -> List[str]:
     """ Return a list of the supported file format extensions for file dialogs. """
     return sorted(_DECODERS.keys())
 
 
-def load_steno_dictionaries(*filenames: str) -> Dict[str, str]:
-    """ Load a basic steno dictionary from a supported file.
-        For compatibility with Plover, this must remain a basic dict type of stroke:translation string pairs. """
-    return _merge_dicts(_recursive_decode_all(filenames))
+class RawStenoDictionary(Dict[str, str]):
+    """
+    Class for creating an unformatted steno dictionary from a set of files.
+    Each file contains a single JSON dict with the following key-value pairs (all strings):
+
+    key   - A series of steno keys in RTFCRE format. Strokes are separated with the "/" delimiter.
+    value - An English text translation.:
+    """
+    def __init__(self, *filenames:str):
+        """ Load every steno dict found in the given filenames. """
+        super().__init__()
+        for d in _recursive_decode_all(filenames):
+            self.update(d)
 
 
 class RawRulesDictionary(Dict[str, NamedTuple]):
@@ -104,6 +105,6 @@ class RawRulesDictionary(Dict[str, NamedTuple]):
 
     def __init__(self, *filenames:str):
         """ Load every rules dict found in the given filenames, or the built-in ones if not specified. """
-        src_dict = _merge_dicts(_recursive_decode_all(filenames if filenames else [_RULES_DIR]))
+        src_dicts = _recursive_decode_all(filenames or [_RULES_DIR])
         RawRule = self._RawRule
-        super().__init__({k: RawRule(*src_dict[k]) for k in src_dict})
+        super().__init__({k: RawRule(*d[k]) for d in src_dicts for k in d})
