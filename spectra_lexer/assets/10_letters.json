@@ -9,7 +9,7 @@
   # lowercase letters
   "a*": ["A*",     "(a)",  "STRK|*:FS", "fingerspelling: `a`"],
   "b*": ["PW*",    "(b.)", "STRK|*:FS", "fingerspelling: `b`"],
-  "c*": ["KR*",    "(c.!)","STRK|*:FS", "fingerspelling: `c`"],
+  "c*": ["KR*",    "(C.+)","STRK|*:FS", "fingerspelling: `c`"],
   "d*": ["TK*",    "(d.)", "STRK|*:FS", "fingerspelling: `d`"],
   "e*": ["*E",     "(e)",  "STRK|*:FS", "fingerspelling: `e`"],
   "f*": ["TP*",    "(f.)", "STRK|*:FS", "fingerspelling: `f`"],

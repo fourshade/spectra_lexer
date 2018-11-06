@@ -2,6 +2,8 @@
 
 {
   # prefixes
+  "ent.":   ["SPW",   "ent",          "", "prefix `ent` (SPWER → enter)"],
+  "int.":   ["SPW",   "int",          "", "prefix `int` (SPWELGT → intelligent)"],
   "enter.": ["SPWR",  "(ent.)e(r.)",  "", "ONLY works as prefix"],
   "inter.": ["SPWR",  "(int.)e(r.)",  "", "ONLY works as prefix"],
   "synd.":  ["STK",   "(s.)yn(d.)",   "", "drop middle"],
@@ -34,6 +36,6 @@
   "some.":  ["S",   "some",       "", "prefix `some` in common compound words"],
   ".thing": ["-G",  "thing",      "", "suffix `thing` in common compound words"],
   ".ever":  ["-FR", "e(.v)e(.r)", "", "suffix `ever` in common compound words"],
-  ".body":  ["-B",  "self",       "", "suffix `body` in common compound words"],
+  ".body":  ["-B",  "body",       "", "suffix `body` in common compound words"],
   ".self":  ["*S",  "self",       "", "suffix `self` in common pronouns"]
 }

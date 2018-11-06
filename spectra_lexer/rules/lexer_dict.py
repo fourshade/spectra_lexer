@@ -8,6 +8,7 @@ from spectra_lexer.rules.parser import StenoRuleParser
 from spectra_lexer.rules.rules import StenoRule
 
 # Acceptable rule flags that indicate special behavior for the lexer's matching system.
+# TODO: Only attempt RARE matches after failing with the normal set of rules.
 MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer should never know about these.",
                "WORD": "Exact word match. The parser only does a simple dict lookup for these before trying"
                        "to break a word down, so these entries do not adversely affect lexer performance.",

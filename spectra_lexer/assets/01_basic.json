@@ -8,8 +8,7 @@
 #
 #   RULE    = soft variants of consonants, long variants of vowels
 #
-#   rule+,  = stroke required because of conflict with another entry
-#   rule!     (also resolves key name conflicts)
+#   rule+,  = stroke required because of conflict with another entry (also resolves key name conflicts)
 #
 #   rule-   = independent prefix stroke
 #   -rule   = independent suffix stroke
@@ -24,7 +23,7 @@
 #   SPEC    = special rule used internally, do not match directly using lexer
 #   STRK    = only matches a full stroke (i.e. fingerspelling)
 #   WORD    = only matches a full word (i.e. common briefs)
-#   RARE    = low-precedence rule (rarely found in practice), only use after trying everything else
+#   RARE    = rarely found in practice, may cause false positives, only use after trying everything else
 #   *:XX    = determines purpose of an asterisk (or other key) that doesn't contribute to the letters in the word
 
 # Basic steno rules

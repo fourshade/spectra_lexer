@@ -27,15 +27,15 @@
   "9.": ["#-T",   "(9)",    "#:NM", "number 9"],
 
   # double digits repeated
-  "11": ["#S-D",  "[11|1]", "#:NM|d:NM", "number 11"],
-  "22": ["#T-D",  "[22|2]", "#:NM|d:NM", "number 22"],
-  "33": ["#P-D",  "[33|3]", "#:NM|d:NM", "number 33"],
-  "44": ["#H-D",  "[44|4]", "#:NM|d:NM", "number 44"],
-  "55": ["#AD",   "[55|5]", "#:NM|d:NM", "number 55"],
-  "66": ["#-FD",  "[66|6]", "#:NM|d:NM", "number 66"],
-  "77": ["#-PD",  "[77|7]", "#:NM|d:NM", "number 77"],
-  "88": ["#-LD",  "[88|8]", "#:NM|d:NM", "number 88"],
-  "99": ["#-TD",  "[99|9]", "#:NM|d:NM", "number 99"],
+  "11": ["#S-D",  "[11|1]", "#:NM|d:NM",  "number 11"],
+  "22": ["#T-D",  "[22|2]", "#:NM|d:NM",  "number 22"],
+  "33": ["#P-D",  "[33|3]", "#:NM|d:NM",  "number 33"],
+  "44": ["#H-D",  "[44|4]", "#:NM|d:NM",  "number 44"],
+  "55": ["#AD",   "[55|5]", "#:NM|d:NM",  "number 55"],
+  "66": ["#-FD",  "[66|6]", "#:NM|d:NM",  "number 66"],
+  "77": ["#-PD",  "[77|7]", "#:NM|d:NM",  "number 77"],
+  "88": ["#-LD",  "[88|8]", "#:NM|d:NM",  "number 88"],
+  "99": ["#-TD",  "[99|9]", "#:NM|d:NM",  "number 99"],
 
   # double digits distinct
   "12": ["#ST",   "(1)(2)", "#:NM",       "number 12"],
@@ -121,7 +121,7 @@
   "98": ["#EULT", "(9)(8)", "#:NM|EU:NM", "number 98"],
 
   # hundreds
-  "~00":  ["-Z",    "00",         "SPEC", "use -Z to produce a multiple of 100"],
+  "~00":  ["-Z",    "00",         "SPEC", "use to produce a multiple of 100"],
   "100":  ["#S-Z",  "(1.)(~00)",  "STRK", "number 100"],
   "200":  ["#T-Z",  "(2.)(~00)",  "STRK", "number 200"],
   "300":  ["#P-Z",  "(3.)(~00)",  "STRK", "number 300"],
@@ -133,7 +133,7 @@
   "900":  ["#-TZ",  "(9.)(~00)",  "STRK", "number 900"],
 
   # 12 hour time
-  "~:00": ["-BG",   ":00",        "SPEC", "use -BG to produce a time (o' clock)"],
+  "~:00": ["-BG",   ":00",        "SPEC", "use to produce a time (o' clock)"],
   "1:00": ["#S-BG", "(1.)(~:00)", "STRK", "time - 1:00"],
   "2:00": ["#T-BG", "(2.)(~:00)", "STRK", "time - 2:00"],
   "3:00": ["#P-BG", "(3.)(~:00)", "STRK", "time - 3:00"],
@@ -148,7 +148,7 @@
   "12:00":["#ST-BG","(12)(~:00)", "STRK", "time - 12:00"],
 
   # fractions
-  "~/":   ["OEU",   "/",          "SPEC", "use -OEU to produce simple fractions"],
+  "~/":   ["OEU",   "/",          "SPEC", "use to produce simple fractions"],
   "1/2":  ["#STOEU","(1)(~/)(2)", "#:NM", "fraction - 1/2"],
   "1/3":  ["#SPOEU","(1)(~/)(3)", "#:NM", "fraction - 1/3"],
   "1/4":  ["#SHOEU","(1)(~/)(4)", "#:NM", "fraction - 1/4"],

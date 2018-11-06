@@ -7,6 +7,7 @@
   "ins.":  ["STPH","(in.)(s.)",  "INV", "s/n inversion (STPHERT → insert)"],
 
   # right bank
+  ".rf":   ["-FR", "(.r)(.f)",   "INV", "f/r inversion"],
   ".lf":   ["-FL", "(.l)(.f)",   "INV", "f/l inversion"],
   ".lph":  ["-FL", "(.l)(.ph)",  "INV", "f/l inversion"],
   ".mar":  ["-RPL","(.m)a(.r)",  "INV", "r/m inversion"],

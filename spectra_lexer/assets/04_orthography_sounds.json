@@ -70,6 +70,7 @@
   "UU":  ["AOU", "[uu|U]",  "",     "`uu` as in `vacuum`"],
   "o+":  ["AOU", "[o|U]",   "RARE", "HRAOUS → lose"],
   "aw":  ["AU",  "[aw|au]", "",     "`aw` as in `dawn`"],
+  "a+":  ["AU",  "[a|au]",  "RARE", "KAUL → call"],
   "ow":  ["OU",  "[ow|ou]", "",     "`ow` as in `down`"],
   "oy":  ["OEU", "[oy|oi]", "",     "`oy` as in `oyster`"],
 
@@ -78,6 +79,6 @@
    # full board
   "wu~":   ["WU",   "(w.)(u)",      "SPEC", "`wu` sound"],
   "on.":   ["WUPB", "[o|wu~](.n)",  "RARE", "unique `w` sound as in `one` and `once`"],
-  "su.":   ["SHU",  "[s|sh.](u)",   "RARE", "unique `sh`  sound as in `sure` and `sugar`"],
+  "su.":   ["SHU",  "[s|sh.](u)",   "RARE", "unique `sh` sound as in `sure` and `sugar`"],
   ".tur":  ["KHUR", "[t|ch.](u)(.r)]",  "", "phonetic"]
 }

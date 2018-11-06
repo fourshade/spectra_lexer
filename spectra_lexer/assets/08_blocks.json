@@ -1,5 +1,5 @@
 # Pure combinations of basic rules to form building blocks
-# Helps to make matches for common letter combinations vs. rare ones
+# Helps with precedence of common letter combinations over rare ones
 
 {
   # left bank
