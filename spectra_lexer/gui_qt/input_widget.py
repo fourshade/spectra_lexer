@@ -20,27 +20,23 @@ class InputWidget(QWidget, Ui_InputWidget):
     w_strokes - QListView, list box to show the possibilities for strokes that map to the chosen word.
     """
 
+    _dictionary: ReverseStenoDict  # Dictionary of all words mapped to lists of their corresponding strokes.
+    _last_word: str                # Last word selected by the user.
+
     def __init__(self, *args, **kwargs):
-        """
-        Set up the window with parameters that hold:
-        - the dictionary of all words mapped to lists of their corresponding strokes.
-        - the last word selected by the user.
-        """
         super().__init__(*args, **kwargs)
         self.setupUi(self)
         self._dictionary = ReverseStenoDict()
         self._last_word = ""
 
-    def set_dictionary(self, d:dict) -> None:
-        """ Create the search dictionary, a ReverseStenoDict that can give partial word matches, from a normal one.
-            Then clear and enable all search fields/lists. """
-        self._dictionary = ReverseStenoDict()
-        self._dictionary.match_forward(d)
+    def set_dictionary(self, d:ReverseStenoDict) -> None:
+        """ Set the search dictionary and clear and enable all search fields/lists. """
+        self._dictionary = d
         self.set_search_enabled(True)
         self.w_input.setPlaceholderText("Search...")
 
     def set_search_enabled(self, enabled:bool) -> None:
-        """ Clear all of the search fields, then enable/disable each one according to the argument (True/False). """
+        """ Clear all search fields, then enable/disable each one according to the argument (True/False). """
         for w in (self.w_input, self.w_words, self.w_strokes):
             w.clear()
             w.setEnabled(enabled)
@@ -77,7 +73,7 @@ class InputWidget(QWidget, Ui_InputWidget):
             try:
                 results = self._dictionary.regex_match_keys(pattern, WORD_SEARCH_LIMIT)
             except re.error:
-                self.w_words.set_items("REGEX ERROR")
+                self.w_words.set_items(["REGEX ERROR"])
                 return
         else:
             results = self._dictionary.partial_match_keys(pattern, WORD_SEARCH_LIMIT)

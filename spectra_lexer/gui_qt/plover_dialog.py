@@ -21,7 +21,6 @@ class PloverDialog(QDialog, Ui_PloverDialog):
     _plugin_layer: PloverPluginLayer  # Delegate practically everything to the plugin layer.
 
     def __init__(self, *args):
-        # TODO: save the window state when closed?
         super().__init__()
         self.setupUi(self)
         # Only two things of interest can happen: we can get a new set of dictionaries,
