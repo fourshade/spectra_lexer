@@ -21,7 +21,11 @@ class OutputWidget(QWidget, Ui_OutputWidget):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
 
-    def send(self, out:LexerOutput) -> None:
+    def show_message(self, msg:str) -> None:
+        """ Show a message in the title bar. """
+        self.w_title.setText(msg)
+
+    def send_output(self, out:LexerOutput) -> None:
         """ Compute and send the given lexer format to all necessary child widgets. """
         self.w_title.setText(out.title)
         self.w_text.set_output(out)

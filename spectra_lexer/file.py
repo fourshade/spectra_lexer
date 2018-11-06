@@ -1,9 +1,13 @@
+import configparser
 import json
 import os
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple
 
-# Local directory containing the built-in JSON rules files
+# Local directory containing the built-in JSON rules files.
 _RULES_DIR: str = os.path.join(os.path.dirname(__file__), "assets")
+# Default directory in user space for Plover configuration/assets on Windows.
+_PLOVER_USER_DIR: str = os.path.join("AppData", "Local", "plover", "plover")
 
 # All decoding functions take a file name and return a dict.
 _DECODER_TYPE = Callable[[str], dict]
@@ -24,15 +28,22 @@ def _decodes(*exts:str) -> Callable[[], _DECODER_TYPE]:
 
 
 @_decodes(".json")
-def _decode_JSON(fname: str) -> Any:
+def _decode_JSON(fname:str) -> Any:
     """ Load a single object from a JSON file with single-line standalone comments. """
     with open(fname, 'rb') as fp:
         contents = fp.read().decode('utf-8')
+    # Try first without stripping comments.
+    try:
+        return json.loads(contents)
+    except json.decoder.JSONDecodeError:
+        pass
+    # If that fails, strip out the comments and try again.
     stripped_lines = filter(None, map(str.strip, contents.splitlines()))
     data_lines = [line for line in stripped_lines if line[0] not in _JSON_COMMENT_PREFIXES]
     try:
         return json.loads("\n".join(data_lines))
     except json.decoder.JSONDecodeError:
+        # If that fails too, we can't read the file.
         print("Problem decoding JSON file `{}`".format(fname))
         raise
 
@@ -69,9 +80,28 @@ def _recursive_decode_all(filenames:Iterable[str]) -> List[dict]:
     return d_list
 
 
-def get_file_formats() -> List[str]:
+def dict_file_formats() -> List[str]:
     """ Return a list of the supported file format extensions for file dialogs. """
     return sorted(_DECODERS.keys())
+
+
+def dict_files_from_plover_cfg() -> Iterable[str]:
+    """ Get an iterator containing all dictionaries from the local Plover installation.
+        Return them in priority order (reverse of normal, since earlier keys overwrite later ones). """
+    files = []
+    ploverdir = os.path.join(str(Path.home()), _PLOVER_USER_DIR)
+    cfg = configparser.ConfigParser()
+    cfg_read = cfg.read(os.path.join(ploverdir, "plover.cfg"))
+    if cfg_read:
+        try:
+            dict_section = cfg['System: English Stenotype']['dictionaries']
+            for d in json.loads(dict_section):
+                files.append(os.path.join(ploverdir, d['path']))
+        except KeyError:
+            print("Could not find dictionaries in plover.cfg.")
+        except json.decoder.JSONDecodeError:
+            print("Problem decoding JSON in plover.cfg.")
+    return reversed(files)
 
 
 class RawStenoDictionary(Dict[str, str]):

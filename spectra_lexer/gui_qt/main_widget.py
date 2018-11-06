@@ -23,10 +23,12 @@ class MainWidget(QWidget, Ui_MainWidget):
         self.setupUi(self)
         self._lexer = StenoLexer()
 
-    def set_dictionary(self, d:Dict[str, str]) -> None:
-        """ Give a new steno dictionary to the input widget.
-            This dictionary must have both keys and values in string form at this point. """
+    def set_dictionary(self, d:Dict[str, str], load_msg:str="") -> None:
+        """ Give a new steno dictionary to the input widget. Show a loading message if given.
+            The dictionary must have both keys and values in string form at this point. """
         self.w_input.set_dictionary(d)
+        if load_msg:
+            self.w_output.show_message(load_msg)
 
     # Slots
     @pyqtSlot(str, str)
@@ -37,7 +39,7 @@ class MainWidget(QWidget, Ui_MainWidget):
         word:       String of English text.
         """
         result = self._lexer.parse(keys, word)
-        self.w_output.send(result)
+        self.w_output.send_output(result)
 
     @pyqtSlot('PyQt_PyObject', str)
     def query_best(self, key_str_list:Collection[str], word:str) -> None:
@@ -45,4 +47,4 @@ class MainWidget(QWidget, Ui_MainWidget):
             We only get the results from the best stroke. Send its keys to the input widget as well. """
         result = self._lexer.parse(key_str_list, word)
         self.w_input.set_best_stroke(result.keys)
-        self.w_output.send(result)
+        self.w_output.send_output(result)
