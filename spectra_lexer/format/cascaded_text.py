@@ -1,4 +1,5 @@
 from collections import defaultdict
+
 from typing import Dict, List, NamedTuple, Sequence, Tuple, Union
 
 from spectra_lexer.keys import KEY_SPLIT
@@ -17,16 +18,24 @@ _CONTAINER_CHARACTER_SET = {char for s in _CONTAINER_SYMBOLS.values() for char i
 _GRAPH_CHARACTER_SET = _CONTAINER_CHARACTER_SET | {_LINE_SYMBOL, _CORNER_SYMBOL, " "}
 
 
+class TextFormatInfo(NamedTuple):
+    """ Data structure representing a formatting action over a single line of text. """
+    row: int                      # Which row in the text this action affects.
+    start: int                    # Starting character/column to format (inclusive)
+    end: int                      # Ending character/column to format (exclusive)
+    color: Tuple[int, int, int]   # RGB 0-255 color tuple for this range's highlighting
+    bold: bool                    # If true, apply boldface to this range of text.
+
+
 class TextRuleInfo(NamedTuple):
     """
     Data structure returned by get_info_at. For a given rule that is displayed somewhere in the text,
-    contains its steno keys and description as well as ranges that indicate which rows in the text
-    to add highlighting to and where to add it when the mouse is over the correct area.
-    It is one of the only classes that should be exposed to the GUI and console script.
+    contains its steno keys and description as well as a list of locations in the text that correspond
+    to it (and how it should be formatted when the mouse goes over it).
     """
-    keys: str                           # Steno keys to be displayed on the diagram.
-    description: str                    # Text description of the rule highlighted.
-    highlight_ranges: Dict[int, range]  # Pairs of (row:colrange) to place highlighting in.
+    keys: str                          # Steno keys to be displayed on the diagram.
+    description: str                   # Text description of the rule highlighted.
+    format_info: List[TextFormatInfo]  # Areas to place formatting in and what to do.
 
 
 class _TextOutputLine(str):
@@ -75,20 +84,9 @@ class _TextOutputLine(str):
         other._node_map = self._node_map
         return other
 
-    def get_node_ranges(self) -> Tuple[tuple,dict]:
-        """ Make a dictionary of nodes mapped to the ranges of characters each one owns.
-            Return the original tuple of references along with this dict. """
-        if self._node_map:
-            r_dict = {}
-            old_i = -1
-            old_n = None
-            for i, n in enumerate(self._node_map + (None,)):
-                if n is not old_n:
-                    if old_n:
-                        r_dict[old_n] = range(old_i, i)
-                    old_i, old_n = i, n
-            return self._node_map, r_dict
-        return (), {}
+    def get_node_map(self) -> tuple:
+        """ Return the tuple of node references, or an empty tuple if it's still None. """
+        return self._node_map or ()
 
 
 class _TextFormatter(object):
@@ -163,39 +161,29 @@ class _TextFormatter(object):
         """ Make the final plaintext string by joining the list with newlines. Rule metadata is not included. """
         return "\n".join(self._output_lines)
 
-    def make_node_info(self) -> Tuple[Sequence[Sequence[TextRuleInfo]],dict]:
+    def make_node_info(self) -> Tuple[Sequence[Sequence[OutputNode]],Dict[OutputNode,List[tuple]]]:
         """ Compile and return the saved node info into a list grid and dict. """
-        # Combine the rows and ranges from all lines into a dict of lists for each node.
-        node_grid, range_dicts = zip(*[line.get_node_ranges() for line in self._output_lines])
-        highlight_dict = defaultdict(dict)
-        for (row, d) in enumerate(range_dicts):
-            for (k, rng) in d.items():
-                highlight_dict[k][row] = rng
-        # Start from the root node (should be first in the grid) and add highlights recursively to each child.
-        # Each node's dict should have its own highlights along with the highlights of every ancestor in order.
-        stack = [node_grid[0][0]]
-        while stack:
-            k = stack.pop()
-            parent_highlights = highlight_dict[k]
-            for c in k.children:
-                parent_end = max(parent_highlights)
-                highlight_dict[c] = child = {**parent_highlights, **highlight_dict[c]}
-                if parent_end in child:
-                    child[parent_end] = range(parent_highlights[parent_end].start, child[parent_end].stop)
-                if c.children:
-                    stack.append(c)
-        # Pack the ranges and other info into a structure for each node and add everything to a dict.
-        info_dict = {k: TextRuleInfo(k.raw_keys, k.description, v) for (k, v) in highlight_dict.items()}
-        return node_grid, info_dict
+        # Combine the rows and ranges from all lines into a dict by node.
+        node_grid = [line.get_node_map() for line in self._output_lines]
+        format_dict = defaultdict(list)
+        for (row, nmap) in enumerate(node_grid):
+            old_i = -1
+            old_n = None
+            for i, n in enumerate(nmap + (None,)):
+                if n is not old_n:
+                    if old_n is not None:
+                        format_dict[old_n].append((row, old_i, i))
+                    old_i, old_n = i, n
+        return node_grid, format_dict
 
 
 class CascadedTextDisplay(object):
     """ Cascaded plaintext representation of lexer output. One of the only top-level classes.
         Must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
-    text: str                                   # Plaintext output.
-    _node_grid: List[List[OutputNode]]          # List of lists of node references in [row][col] format.
-    _info_dict: Dict[OutputNode, TextRuleInfo]  # Dict of special display info for each node.
+    text: str                                    # Plaintext output.
+    _node_grid: List[List[OutputNode]]           # List of lists of node references in [row][col] format.
+    _format_dict: Dict[OutputNode, List[tuple]]  # Dict of special display info for each node.
 
     def __init__(self, src:OutputNode):
         """ Generate a text format map from a lexer-generated output tree. """
@@ -203,14 +191,38 @@ class CascadedTextDisplay(object):
         output = _TextFormatter(src)
         # Generate and assign instance attributes.
         self.text = output.make_text()
-        self._node_grid, self._info_dict = output.make_node_info()
+        self._node_grid, self._format_dict = output.make_node_info()
 
     def get_info_at(self, x:int, y:int) -> Union[TextRuleInfo,None]:
-        """ Find the character at (x/column, y/row) of the text format and see if it's part of a rule display.
-            If it is, return that rule's info structure. If it isn't, return None. """
-        try:
-            node = self._node_grid[y][x]
-        except IndexError:
-            return None
-        if node is not None:
-            return self._info_dict[node]
+        """ Find the character at (x/column, y/row) of the text format and see if it's part of a node display.
+            If it is, make an info structure for that node and return it. If it isn't, return None. """
+        if 0 <= y < len(self._node_grid):
+            row = self._node_grid[y]
+            if 0 <= x < len(row):
+                node = row[x]
+                if node is not None:
+                    return self._make_format_info(node)
+
+    def _make_format_info(self, node:OutputNode) -> TextRuleInfo:
+        """ Make a format info structure for a given node, which consists of instructions to highlight
+            and/or bold ranges of text (ordered left-to-right, top-to-bottom) with different colors. """
+        row_formats = []
+        info = TextRuleInfo(node.raw_keys, node.description, row_formats)
+        nodes = []
+        while node is not None:
+            nodes.append(node)
+            node = node.parent
+        for level, n in enumerate(reversed(nodes)):
+            rng_tuples = self._format_dict[n]
+            last_row = rng_tuples[-1][0]
+            for (row, start, end) in rng_tuples:
+                # Color is based on the node depth and row position.
+                # Only the last row of each node can be bold (box-drawing characters mess up).
+                color = _text_color(level, row)
+                row_formats.append(TextFormatInfo(row, start, end, color, row==last_row))
+        return info
+
+
+def _text_color(level:int, row:int) -> Tuple[int, int, int]:
+    """ Return an RGB 0-255 color value for any possible text row position and node depth. """
+    return min(192, level * 64), min(192, row * 8), 255

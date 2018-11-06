@@ -13,8 +13,13 @@ OUTPUT_FLAG_SET = set(OUTPUT_FLAGS.keys())
 
 
 class OutputNode(object):
-    """ Class representing a node in a tree structure (each node contains data along with a list of child nodes).
-        The complete tree contains the information required to display a graph of an analysis from the lexer. """
+    """
+    Class representing a node in a tree structure (each node contains data along with a list of child nodes).
+    The complete tree contains the information required to display a graph of an analysis from the lexer.
+
+    Note that nodes do not have entirely immutable contents. Since they must be used as dict keys, hashing
+    is by identity only (the default for class `object`). This is sufficient for any purposes we need.
+    """
 
     attach_start: int             # Index of character where this node attaches to its parent.
     attach_length: int            # Length of the attachment (may be different than its letters due to substitutions).
@@ -24,9 +29,10 @@ class OutputNode(object):
     is_separator: bool = False    # Directive for drawing the stroke separator rule.
     is_inversion: bool = False    # Directive for drawing a rule that uses inversion.
     is_key_rule: bool = False     # Directive for drawing key rules. These don't map to any letters at all.
+    parent: __qualname__          # Direct parent of the node. If None, it is the root node.
     children: List[__qualname__]  # Direct children of the node. If empty, it is considered a "base rule".
 
-    def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int, root:bool=False):
+    def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int, parent:__qualname__=None):
         """
         Create a new node from a rule and recursively populate child nodes with rules from the map.
         max_depth = 0 only displays the root node.
@@ -40,8 +46,9 @@ class OutputNode(object):
         self.is_separator = rule.is_separator()
         self.is_inversion = "INV" in flags
         self.is_key_rule = "KEY" in flags
-        self.children = [OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap] if maxdepth else []
-        if root:
+        self.parent = parent
+        self.children = [OutputNode(i.rule, i.start, i.length, maxdepth - 1, self) for i in rulemap] if maxdepth else []
+        if parent is None:
             # The root node always shows letters and does not include anything extra in its description.
             self.text = letters
             self.description = desc
@@ -86,4 +93,4 @@ class LexerOutput(object):
     def make_tree(self, maxdepth: int = RECURSION_LIMIT) -> OutputNode:
         """ Make an output tree from the saved collection of parameters.
             The root node has no map, so set its start to 0 and length to the length of the word. """
-        return OutputNode(self._rule, 0, len(self._rule.letters), min(maxdepth, RECURSION_LIMIT), True)
+        return OutputNode(self._rule, 0, len(self._rule.letters), min(maxdepth, RECURSION_LIMIT), None)
