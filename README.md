@@ -5,10 +5,10 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 
 ![Screenshot](doc/screenshot.png)
 
-Installation
-------------
+Source Installation
+-------------------
 
-To use this software, you must have a correctly installed Python distribution (3.6 or greater). Download or clone the source into a free directory, change to this directory in a terminal and type:
+To run this software on its own from source, you must have a correctly installed Python distribution (3.6 or greater). Download or clone the source into a free directory, change to this directory in a terminal and type:
 
 ``python3 setup.py install``
 
@@ -16,24 +16,14 @@ This will install it to your Python distribution as a console script, allowing y
 
 ``spectra_lexer [DICT1 DICT2 ...]``
 
-where each DICT is a path to a JSON file containing a single dictionary mapping steno key sequences to text (the dictionaries used by Plover are in the correct format). You can also execute the script without arguments and load the search dictionaries via a dialog from the menu bar.
+where each DICT is a path to a JSON file containing a single dictionary mapping steno key sequences to text (the dictionaries used by Plover are in the correct format). You can also execute the script without arguments and load the search dictionaries manually via a dialog from the menu bar. If you are running Windows, the program may be able to find your Plover dictionaries and load them automatically as well.
 
 With Plover
 -----------
 
-While it is possible to run Spectra by itself, this is not its main purpose. It is primarily designed as a plugin for Plover, though using it as such requires a bit more setup until I can get it packaged and added to PyPI. If you have also installed Plover from source as a standard Python package (rather than as a binary), it should automatically find Spectra in your installed packages and add the plugin to the main toolbar. Used this way, the main dialog will automatically load Plover's dictionaries and will attempt to analyze strokes sent from Plover in addition to the manual lookup methods.
+While it is possible to run Spectra by itself, it is primarily designed as a plugin for Plover. When run as such, the main dialog will automatically load Plover's dictionaries and will attempt to analyze strokes sent from Plover in addition to the manual lookup methods. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you.
 
-Getting this to work on Plover any other way requires dragging-and-dropping two folders to the right place. After installing the program as above, there should now be a folder labeled ``spectra_lexer.egg-info`` sitting next to ``spectra_lexer``. Take these two folders and copy them to one of the following locations (paths may be slightly different depending on your OS and build of Plover).
-
-```
-%PROGRAMFILES(X86)%\Open Steno Project\Plover 4.0.0.dev8\data\Lib\site-packages
-%USERPROFILE%\AppData\Local\plover\plover\plugins\win\Python36\site-packages
-Basically, any folder named "site-packages" is a good bet.
-```
-
-By default, the pre-packaged binaries of Plover are essentially a self-contained Python distribution bundled with the program and all its required dependencies. Spectra's dependencies are a subset of Plover's, so it should be *technically* possible to run the setup script and install it to Plover's local environment without any other version of Python on your system at all. A less insane choice would be to wait for it to appear on PyPI and get it through the plugins manager. ;)
-
-
+If you have built and installed Plover from source, it is not likely to have the plugins manager by default. In this case it is possible to install Spectra through pip like any other Python package. Plover searches through all available Python paths to find plugins; so long as it ends up in the same general place that Plover looks for its other dependencies, it should find it just fine. Note, however, that this will NOT work if you are running a pre-built Plover binary, as these are essentially self-contained distributions of Python with their own isolated environment.
 
 Operation
 ---------
