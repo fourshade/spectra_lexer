@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" Main test module for the Spectra steno lexer. Currently handles all components except the GUI. """
+""" Main test module for the Spectra steno lexer. Currently handles all components except search and the GUI. """
 
 import pytest
 
