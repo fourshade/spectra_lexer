@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QWidget
 
 from spectra_lexer.gui_qt.main_widget_ui import Ui_MainWidget
 from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.search import ReverseStenoDict
+from spectra_lexer.search import StenoSearchDict
 
 
 class MainWidget(QWidget, Ui_MainWidget):
@@ -19,8 +19,8 @@ class MainWidget(QWidget, Ui_MainWidget):
 
     # Instance attributes are lost when the container dialog is closed and re-opened.
     # These are relatively expensive to create, so save them on the class to retain their state.
-    _lexer: ClassVar[StenoLexer] = StenoLexer()             # Main lexer object.
-    _dict: ClassVar[ReverseStenoDict] = ReverseStenoDict()  # Main search dict object.
+    _lexer: ClassVar[StenoLexer] = StenoLexer()           # Main lexer object.
+    _dict: ClassVar[StenoSearchDict] = StenoSearchDict()  # Main search dict object.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,7 +32,7 @@ class MainWidget(QWidget, Ui_MainWidget):
         """ Create a new steno dictionary for the input widget. Show a loading message if given.
             The source dictionary must have both keys and values in string form at this point. """
         if d:
-            MainWidget._dict = ReverseStenoDict(d)
+            MainWidget._dict = StenoSearchDict(d)
             self.w_input.set_dictionary(self._dict)
             if load_msg:
                 self.w_output.show_message(load_msg)

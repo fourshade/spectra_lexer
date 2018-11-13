@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidget
 
 from spectra_lexer.gui_qt.input_widget_ui import Ui_InputWidget
-from spectra_lexer.search import ReverseStenoDict
+from spectra_lexer.search import StenoSearchDict
 
 # Hard limit on the number of words returned by a search.
 WORD_SEARCH_LIMIT = 100
@@ -20,16 +20,16 @@ class InputWidget(QWidget, Ui_InputWidget):
     w_strokes - QListView, list box to show the possibilities for strokes that map to the chosen word.
     """
 
-    _dictionary: ReverseStenoDict  # Dictionary of all words mapped to lists of their corresponding strokes.
-    _last_word: str                # Last word selected by the user.
+    _dictionary: StenoSearchDict  # Dictionary of all words mapped to lists of their corresponding strokes.
+    _last_word: str               # Last word selected by the user.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
-        self._dictionary = ReverseStenoDict()
+        self._dictionary = StenoSearchDict()
         self._last_word = ""
 
-    def set_dictionary(self, d:ReverseStenoDict) -> None:
+    def set_dictionary(self, d:StenoSearchDict) -> None:
         """ Set the search dictionary and clear and enable all search fields/lists. """
         self._dictionary = d
         self.set_search_enabled(True)
@@ -76,7 +76,7 @@ class InputWidget(QWidget, Ui_InputWidget):
                 self.w_words.set_items(["REGEX ERROR"])
                 return
         else:
-            results = self._dictionary.partial_match_keys(pattern, WORD_SEARCH_LIMIT)
+            results = self._dictionary.prefix_match_keys(pattern, WORD_SEARCH_LIMIT)
         self.w_words.set_items(results)
         # If there's only one result, go ahead and select it to begin stroke analysis.
         if len(results) == 1:
