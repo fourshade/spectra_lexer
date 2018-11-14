@@ -1,10 +1,13 @@
 import itertools
+import pkg_resources
 from typing import Callable, ClassVar, List, Optional, Sequence
 
 from spectra_lexer.keys import join_strokes
 
-# Class structures that specify a minimum level of functionality for compatibility with Plover.
+# Minimum version of Plover required for plugin compatibility.
+_PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
 
+# Partial class structures that specify a minimum level of functionality for compatibility with Plover.
 class PloverStenoDict:
     enabled: bool
     items: Callable
@@ -40,13 +43,20 @@ class PloverPluginLayer:
     _last_text: List[str]                       # Most recent text output from those strokes.
     _dict_callback: Callable[[dict], None]      # GUI callback to replace the search dictionary.
     _out_callback: Callable[[str, str], None]   # GUI callback to make a new lexer query.
+    _msg_callback: Callable[[str], None]        # GUI callback to display a status message.
 
-    def __init__(self, engine:PloverEngine, dict_callback:Callable, out_callback:Callable):
+    def __init__(self, engine:PloverEngine, dict_callback:Callable, out_callback:Callable, msg_callback:Callable):
+        # If the calling version of Plover is incompatible, don't register the callbacks.
+        # Instead, show an error message and prevent any further interaction with Plover.
+        if not _compatibility_check():
+            msg_callback("ERROR: Plover v{} or greater required.".format(_PLOVER_VERSION_REQUIRED))
+            return
         self._engine = engine
         self._last_strokes = []
         self._last_text = []
         self._dict_callback = dict_callback
         self._out_callback = out_callback
+        self._msg_callback = msg_callback
         self._engine.signal_connect('dictionaries_loaded', self.parse_dict_collection)
         self._engine.signal_connect('translated', self.parse_translations)
         # Only load a fresh copy of the dicts if a window wasn't opened before.
@@ -91,3 +101,12 @@ class PloverPluginLayer:
         # action, the new variables will still be blank, so this resets everything to empty.
         self._last_strokes = new_strokes
         self._last_text = new_text
+
+
+def _compatibility_check():
+    """ Return True only if a compatible version of Plover is found in the working set. """
+    try:
+        pkg_resources.working_set.require("plover>="+_PLOVER_VERSION_REQUIRED)
+        return True
+    except pkg_resources.ResolutionError:
+        return False

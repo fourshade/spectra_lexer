@@ -28,4 +28,5 @@ class PloverDialog(QDialog, Ui_PloverDialog):
         # the results dispatched to the child widget through callbacks.
         self._plugin_layer = PloverPluginLayer(*args,
                                                dict_callback=self.w_main.set_dictionary,
-                                               out_callback=self.w_main.query)
+                                               out_callback=self.w_main.query,
+                                               msg_callback=self.w_main.show_status_message)
