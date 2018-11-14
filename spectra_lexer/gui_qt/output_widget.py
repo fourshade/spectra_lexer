@@ -21,7 +21,7 @@ class OutputWidget(QWidget, Ui_OutputWidget):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
 
-    def show_message(self, msg:str) -> None:
+    def show_status_message(self, msg:str) -> None:
         """ Show a message in the title bar. """
         self.w_title.setText(msg)
 

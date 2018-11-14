@@ -40,4 +40,5 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def load_dicts(self, filenames:Iterable[str], src:str="") -> None:
         """ Attempt to load and/or merge one or more steno dictionaries given by filename.
             Give the results (and a string telling where they came from) to the main widget. """
-        self.w_main.set_dictionary(RawStenoDictionary(*filenames), "Loaded dictionaries from {}.".format(src))
+        self.w_main.set_dictionary(RawStenoDictionary(*filenames))
+        self.w_main.show_status_message("Loaded dictionaries from {}.".format(src))

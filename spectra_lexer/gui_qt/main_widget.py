@@ -28,14 +28,16 @@ class MainWidget(QWidget, Ui_MainWidget):
         if self._dict:
             self.w_input.set_dictionary(self._dict)
 
-    def set_dictionary(self, d:Dict[str, str], load_msg:str="") -> None:
-        """ Create a new steno dictionary for the input widget. Show a loading message if given.
+    def set_dictionary(self, d:Dict[str, str]) -> None:
+        """ Create a new steno dictionary for the input widget.
             The source dictionary must have both keys and values in string form at this point. """
         if d:
             MainWidget._dict = StenoSearchDict(d)
             self.w_input.set_dictionary(self._dict)
-            if load_msg:
-                self.w_output.show_message(load_msg)
+
+    def show_status_message(self, msg:str) -> None:
+        """ Pass a text message straight to the output title bar. """
+        self.w_output.show_status_message(msg)
 
     # Slots
     @pyqtSlot(str, str)
