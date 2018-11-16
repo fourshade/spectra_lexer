@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple
 
-# Local directory containing the built-in JSON rules files.
+# Local directory containing the built-in JSON-based rules files.
 _RULES_DIR: str = os.path.join(os.path.dirname(__file__), "assets")
 # Default directory in user space for Plover configuration/assets on Windows.
 _PLOVER_USER_DIR: str = os.path.join("AppData", "Local", "plover", "plover")
@@ -14,8 +14,8 @@ _DECODER_TYPE = Callable[[str], dict]
 # Dictionary containing each supported file extension mapped to its decoding function.
 _DECODERS: Dict[str, _DECODER_TYPE] = {}
 
-# Allowable prefixes for comments for the JSON decoder. Only full-line comments are currently supported.
-_JSON_COMMENT_PREFIXES: Iterable[str] = ("#", "//")
+# Allowable prefixes for comments for the CSON decoder. Only full-line comments are currently supported.
+_CSON_COMMENT_PREFIXES: Iterable[str] = ("#", "//")
 
 
 def _decodes(*exts:str) -> Callable[[], _DECODER_TYPE]:
@@ -29,23 +29,22 @@ def _decodes(*exts:str) -> Callable[[], _DECODER_TYPE]:
 
 @_decodes(".json")
 def _decode_JSON(fname:str) -> Any:
+    """ Load a single object from a JSON file. """
+    with open(fname, 'rb') as fp:
+        contents = fp.read().decode('utf-8')
+    return json.loads(contents)
+
+
+@_decodes(".cson")
+def _decode_CSON(fname:str) -> Any:
     """ Load a single object from a JSON file with single-line standalone comments. """
     with open(fname, 'rb') as fp:
         contents = fp.read().decode('utf-8')
-    # Try first without stripping comments.
-    try:
-        return json.loads(contents)
-    except json.decoder.JSONDecodeError:
-        pass
-    # If that fails, strip out the comments and try again.
-    stripped_lines = filter(None, map(str.strip, contents.splitlines()))
-    data_lines = [line for line in stripped_lines if line[0] not in _JSON_COMMENT_PREFIXES]
-    try:
-        return json.loads("\n".join(data_lines))
-    except json.decoder.JSONDecodeError:
-        # If that fails too, we can't read the file.
-        print("Problem decoding JSON file `{}`".format(fname))
-        raise
+    # JSON doesn't care about leading or trailing whitespace, so strip every line.
+    stripped_lines = map(str.strip, contents.splitlines())
+    # Empty lines and lines starting with a comment tag after stripping are removed before parsing.
+    data_lines = [line for line in stripped_lines if line and line[0] not in _CSON_COMMENT_PREFIXES]
+    return json.loads("\n".join(data_lines))
 
 
 def _decode_dict(filename:str) -> dict:
