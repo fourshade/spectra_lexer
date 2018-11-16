@@ -1,8 +1,8 @@
 # Start of spectra_lexer JSON rules files. File extension is .cson for "commented JSON".
 # It is alternately named so that normal JSON parsers won't try to read it (JSON does not support comments).
 #
-# Steno rule format:
-#  "NAME": ["KEYS", "LETTERS", "FLAGS", "DESCRIPTION"]
+# Steno rule format (all fields are strings, * fields are optional):
+#   NAME: [KEYS, LETTERS, *FLAGS, *DESCRIPTION, *EXAMPLES]
 #
 # Legend for NAME field:
 #   rule.   = keys on left side

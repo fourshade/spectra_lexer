@@ -35,7 +35,7 @@ class StenoRuleParser(Dict[str, StenoRule]):
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object, with optional flags and description fields. """
-        keys, pattern, flag_str, description = self._src_dict[k]
+        keys, pattern, flag_str, description, examples = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
         letters, rulemap = self._substitute(pattern)
         # If there was a flags argument, look for key flags, add them as ending rules, and remove them.
@@ -44,7 +44,10 @@ class StenoRuleParser(Dict[str, StenoRule]):
             rulemap.add_key_rules(flags, len(letters), remove_flags=True)
         else:
             flags = ()
-        # Get the description if any, make the rule tuple, then add final key rules if we had the right flags.
+        # For now, just include examples as a line after the description joined with commas.
+        if examples:
+            description = "{}\n({})".format(description, examples.replace("|", ", "))
+        # Make the rule tuple, then add final key rules if we had the right flags.
         self[k] = StenoRule(k, StenoKeys.parse(keys), letters, flags, description, rulemap)
 
     def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:

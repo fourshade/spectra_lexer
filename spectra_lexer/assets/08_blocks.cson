@@ -33,6 +33,9 @@
 
   # right bank
   ".bl":  ["-BL",  "(.b)(.l)",  "", "common consonant pair"],
+  ".mb":  ["-FRB", "(.m.)(.b)", "", "uncommon consonant pair", "TKPBEUFRBL → gimble"],
+  ".mp":  ["-FRP", "(.m.)(.p)", "", "uncommon consonant pair", "KAFRP → camp"],
+  ".ml":  ["-FRL", "(.m.)(.l)", "", "uncommon consonant pair", "KAFRL → camel"],
   ".nd":  ["-PBD", "(.n)(.d)",  "", "common consonant pair"],
   ".ng":  ["-PBG", "(.n)(.g)",  "", "common consonant pair"],
   ".nt":  ["-PBT", "(.n)(.t)",  "", "common consonant pair"],

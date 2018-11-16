@@ -2,8 +2,8 @@
 
 {
   # prefixes
-  "ent.":   ["SPW",   "ent",          "", "prefix `ent` (SPWER → enter)"],
-  "int.":   ["SPW",   "int",          "", "prefix `int` (SPWELGT → intelligent)"],
+  "ent.":   ["SPW",   "ent",          "", "prefix `ent`", "SPWER → enter"],
+  "int.":   ["SPW",   "int",          "", "prefix `int`", "SPWELGT → intelligent"],
   "enter.": ["SPWR",  "(ent.)e(r.)",  "", "ONLY works as prefix"],
   "inter.": ["SPWR",  "(int.)e(r.)",  "", "ONLY works as prefix"],
   "synd.":  ["STK",   "(s.)yn(d.)",   "", "drop middle"],
@@ -30,7 +30,7 @@
   # large eliminations
   "rep.":   ["R",   "(r.)ep",     "", "drop `e` and consonant for common `re` words"],
   "ret.":   ["R",   "(r.)et",     "", "drop `e` and consonant for common `re` words"],
-  ".othe.": ["OE",  "(o)th(e)",   "", "drop middle `th` (PHOER → mother)"],
+  ".othe.": ["OE",  "(o)th(e)",   "", "drop middle `th`", "PHOER → mother"],
 
   # specific shortenings used in the most common words
   "some.":  ["S",   "some",       "", "prefix `some` in common compound words"],

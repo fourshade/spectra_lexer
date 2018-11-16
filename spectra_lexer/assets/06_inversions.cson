@@ -4,7 +4,7 @@
   # left bank
   "dis.":  ["STK", "(d.)i(s.)",  "INV", "s/d inversion"],
   "des.":  ["STK", "(d.)e(s.)",  "INV", "s/d inversion"],
-  "ins.":  ["STPH","(in.)(s.)",  "INV", "s/n inversion (STPHERT → insert)"],
+  "ins.":  ["STPH","(in.)(s.)",  "INV", "s/n inversion", "STPHERT → insert"],
 
   # right bank
   ".rf":   ["-FR", "(.r)(.f)",   "INV", "f/r inversion"],

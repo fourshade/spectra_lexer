@@ -3,7 +3,7 @@
 {
   # left bank
   "in.":  ["TPH",  "[in|n.]",     "",    "included vowel sound"],
-  "en.":  ["TPH",  "[en|n.]" ,    "",    "included vowel sound (TPHERPBLG → energy)"],
+  "en.":  ["TPH",  "[en|n.]" ,    "",    "included vowel sound", "TPHERPBLG → energy"],
   "ex.":  ["KP",   "[ex|x.]",     "",    "included vowel sound"],
   "ext.": ["KP",   "[ext|ex.]",   "",    "shortening of `ext`; must not conflict with other words using KP"],
   "exp.": ["SP",   "[ex|s.](p.)", "",    "slurred short form of `exp`"],
@@ -11,7 +11,7 @@
   "con.": ["K",    "(c.)on",      "",    "shortening of `con`; must not conflict with other words using K"],
   "cons.":["K",    "(con.)s",     "",    "shortening of `cons`; must not conflict with other words using K"],
   "cont.":["K",    "(con.)t",     "",    "shortening of `cont`; must not conflict with other words using K"],
-  "com.": ["K",    "(c.)om",      "",    "shortening of `com`; must not conflict with other words using K (KPLAOET → complete)"],
+  "com.": ["K",    "(c.)om",      "",    "shortening of `com`; must not conflict with other words using K", "KPLAOET → complete"],
   "comp.":["KP",   "(com.)(p.)",  "",    "usually overrides `ex` in conflicts"],
 
   "-ly":  ["HREU", "(l.)(y)",     "",    "standalone suffix stroke"],
@@ -28,8 +28,8 @@
   ".es":  ["-S",   "e(.s)",       "",    "drop unstressed vowel"],
   ".al":  ["-L",   "a(.l)",       "",    "drop unstressed vowel"],
   ".el":  ["-L",   "e(.l)",       "",    "drop unstressed vowel"],
-  ".ly":  ["-L",   "(.l)y",       "",    "common suffix; must not conflict with other words using -L (SHROEL → slowly)"],
-  ".ty":  ["-T",   "(.t)y",       "",    "common suffix; must not conflict with other words using -T (ABLT → ability)"],
+  ".ly":  ["-L",   "(.l)y",       "",    "common suffix; must not conflict with other words using -L", "SHROEL → slowly"],
+  ".ty":  ["-T",   "(.t)y",       "",    "common suffix; must not conflict with other words using -T", "ABLT → ability"],
   ".king":["-G",   "king",        "",    "`king`: special case for suffix after `k`"],
   ".kly": ["-LG",  "kly",         "",    "`kly`: special case for suffix after `k`"],
 

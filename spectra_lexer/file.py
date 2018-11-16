@@ -111,6 +111,7 @@ class RawStenoDictionary(Dict[str, str]):
     key   - A series of steno keys in RTFCRE format. Strokes are separated with the "/" delimiter.
     value - An English text translation.:
     """
+
     def __init__(self, *filenames:str):
         """ Load every steno dict found in the given filenames. """
         super().__init__()
@@ -126,11 +127,13 @@ class RawRulesDictionary(Dict[str, NamedTuple]):
     key   - A canonical name for the rule. Can be used as a reference in the <pattern> field of other rules.
     value - A list of 2-4 parameters, converted to a named tuple for field access. Each tuple consists of:
     """
+
     class _RawRule(NamedTuple):
         keys: str              # RTFCRE formatted series of steno strokes.
         pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
         flag_str: str = ""     # Optional pipe-delimited series of flags.
         description: str = ""  # Optional description for when the rule is displayed in the GUI.
+        examples: str = ""     # Optional pipe-delimited series of example translations using this rule.
 
     def __init__(self, *filenames:str):
         """ Load every rules dict found in the given filenames, or the built-in ones if not specified. """
