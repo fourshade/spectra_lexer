@@ -27,7 +27,7 @@
   ".ded":   ["-TD",   "[d|.t](.ed)",  "", "use -T for first of two `d`s (standard?)", "SKWRAEUTD → jaded"],
   ".xed":   ["-BGD",  "[x|.k](.ed)",  "", "treat `x` as `k` to avoid -SD combo", "PLEUBGD → mixed"],
 
-  ".cial":  ["-RBL","[ci|.sh]a(.l)",  "", "drop unstressed vowel"],
+  ".cial":  ["-RBL","[c|.sh]ia(.l)",  "", "drop unstressed vowels"],
   ".sual":  ["-RBL","[s|.sh]ua(.l)",  "", "drop unstressed vowels"],
   ".cious": ["-RBS","[ci|.sh]ou(.s)", "", "drop unstressed vowels"],
   ".sious": ["-RBS","[si|.sh]ou(.s)", "", "drop unstressed vowels"],

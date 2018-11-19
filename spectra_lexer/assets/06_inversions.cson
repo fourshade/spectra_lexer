@@ -37,5 +37,6 @@
   ".arry": ["AER", "(a)(.rr)[y|e]","INV", "uses E as folded -y"],
   ".ory":  ["OER", "(o)(.r)[y|e]", "INV", "uses E as folded -y"],
   ".orry": ["OER", "(o)(.rr)[y|e]","INV", "uses E as folded -y"],
-  ".ady":  ["AED", "(a)(.d)[y|e]", "INV", "uses E as folded -y"]
+  ".ady":  ["AED", "(a)(.d)[y|e]", "INV", "uses E as folded -y"],
+  ".addy": ["AED", "(a)(.dd)[y|e]","INV", "uses E as folded -y"]
 }
