@@ -2,8 +2,9 @@ from collections import defaultdict
 
 from typing import Dict, List, NamedTuple, Sequence, Tuple, Union
 
-from spectra_lexer.keys import KEY_SPLIT
-from spectra_lexer.output import OutputNode
+from spectra_lexer.keys import KEY_SPLIT, StenoKeys
+from spectra_lexer.display.base import OutputNode, DisplayEngine
+from spectra_lexer.rules import StenoRule
 
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
 _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
@@ -33,7 +34,7 @@ class TextRuleInfo(NamedTuple):
     contains its steno keys and description as well as a list of locations in the text that correspond
     to it (and how it should be formatted when the mouse goes over it).
     """
-    keys: str                          # Steno keys to be displayed on the diagram.
+    keys: StenoKeys                    # Steno keys to be displayed on the diagram.
     description: str                   # Text description of the rule highlighted.
     format_info: List[TextFormatInfo]  # Areas to place formatting in and what to do.
 
@@ -177,31 +178,39 @@ class _TextFormatter(object):
         return node_grid, format_dict
 
 
-class CascadedTextDisplay(object):
-    """ Cascaded plaintext representation of lexer output. One of the only top-level classes.
-        Must be displayed with a monospaced font that supports Unicode box-drawing characters. """
+class CascadedTextDisplayEngine(DisplayEngine):
+    """ Generates cascaded plaintext representation of lexer output. One of the only top-level classes.
+        Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
-    text: str                                    # Plaintext output.
-    _node_grid: List[List[OutputNode]]           # List of lists of node references in [row][col] format.
-    _format_dict: Dict[OutputNode, List[tuple]]  # Dict of special display info for each node.
+    text: str = ""                                      # Plaintext output.
+    _node_grid: List[List[OutputNode]]  = None          # List of lists of node references in [row][col] format.
+    _format_dict: Dict[OutputNode, List[tuple]] = None  # Dict of special display info for each node.
 
-    def __init__(self, src:OutputNode):
-        """ Generate a text format map from a lexer-generated output tree. """
-        # Compile the initial list from the node tree.
-        output = _TextFormatter(src)
+    def make_text_display(self, rule:StenoRule) -> None:
+        """ Compute a full text display for GUI rendering. """
+        # Start by making a node tree
+        src = self._make_tree(rule)
+        # Compile the initial list of lines from the node tree using the formatter.
+        formatter = _TextFormatter(src)
         # Generate and assign instance attributes.
-        self.text = output.make_text()
-        self._node_grid, self._format_dict = output.make_node_info()
+        self.text = formatter.make_text()
+        self._node_grid, self._format_dict = formatter.make_node_info()
 
     def get_info_at(self, x:int, y:int) -> Union[TextRuleInfo,None]:
         """ Find the character at (x/column, y/row) of the text format and see if it's part of a node display.
             If it is, make an info structure for that node and return it. If it isn't, return None. """
+        if not self._node_grid:
+            return None
         if 0 <= y < len(self._node_grid):
             row = self._node_grid[y]
             if 0 <= x < len(row):
                 node = row[x]
                 if node is not None:
                     return self._make_format_info(node)
+
+    def get_base_info(self) -> Union[TextRuleInfo,None]:
+        """ Return info for the base rule, which always has a character at (0, 0) if it exists at all. """
+        return self.get_info_at(0,0)
 
     def _make_format_info(self, node:OutputNode) -> TextRuleInfo:
         """ Make a format info structure for a given node, which consists of instructions to highlight

@@ -1,3 +1,5 @@
+""" Module for generic key-search dicts. """
+
 from bisect import bisect_left
 from collections import defaultdict
 from itertools import islice
@@ -147,7 +149,7 @@ class SimilarKeyDict(Dict[KT, VT]):
         return keys
 
 
-class StringSearchDict(SimilarKeyDict[str, str]):
+class StringSearchDict(SimilarKeyDict[str, VT]):
     """ A similar-key dictionary with special search methods for strings. """
 
     def prefix_match_keys(self, prefix:str, count:int=None) -> List[str]:
@@ -221,23 +223,3 @@ class ReverseDict(Dict[VT, List[KT]]):
         for (k, v) in fdict.items():
             list_append(rdict[v], k)
         self.update(rdict)
-
-
-class StenoSearchDict(StringSearchDict, ReverseDict):
-    """ The main search dict is a string-based similar-key searchable dict which is
-        created by reversing a normal steno dict (where key:value = strokes:translation).
-        It maps translations to lists of stroke sequences that will produce them. """
-
-    def __init__(self, *args, strip_chars:str=' ', **kwargs):
-        """ Initialize the base dict with the search function and any given arguments.
-            For the similarity function, remove case and strip a user-defined set of symbols. """
-        # Define these methods as function closure locals for speed.
-        strip = str.strip
-        lower = str.lower
-        def simfn(s:str) -> str:
-            return lower(strip(s, strip_chars))
-        super().__init__(simfn=simfn, **kwargs)
-        # Use the positional argument (if given, and only one) as a source forward dict.
-        if args:
-            assert len(args) == 1
-            self.match_forward(args[0])

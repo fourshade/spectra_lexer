@@ -1,7 +1,7 @@
 from typing import List
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules.rules import RuleMap, StenoRule
+from spectra_lexer.rules import StenoRule
 
 # Default limit on number of recursion steps to allow for rules that contain other rules.
 RECURSION_LIMIT = 10
@@ -33,12 +33,7 @@ class OutputNode(object):
     children: List[__qualname__]  # Direct children of the node. If empty, it is considered a "base rule".
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int, parent:__qualname__=None):
-        """
-        Create a new node from a rule and recursively populate child nodes with rules from the map.
-        max_depth = 0 only displays the root node.
-        max_depth = 1 displays the root node and all of the rules that make it up.
-        max_depth = 2 also displays the rules that make up each of those, and so on.
-        """
+        """ Create a new node from a rule and recursively populate child nodes with rules from the map. """
         name, keys, letters, flags, desc, rulemap = rule
         self.attach_start = start
         self.attach_length = length
@@ -66,31 +61,20 @@ class OutputNode(object):
                 self.description = "{} → {}: {}".format(formatted_keys, letters, desc)
 
 
-class LexerOutput(object):
-    """ Base class for analyzing and formatting the text display of a rule tree.
-        It is one of the only classes that should be exposed to the GUI and console script. """
+class DisplayEngine:
+    """ Base output class for drawing a finished rule breakdown of steno translations. """
 
-    keys: StenoKeys   # The unformatted key set used to set up the board diagram.
-    desc: str         # The description of the lexer output as shown when a stroke is selected.
-    title: str        # The text displayed in the title bar above the text.
-    _rule: StenoRule  # The root rule used to construct the output tree.
+    _max_depth: int   # Maximum recursion depth to draw in output tree.
+                      # max_depth = 0 only displays the root node.
+                      # max_depth = 1 displays the root node and all of the rules that make it up.
+                      # max_depth = 2 also displays the rules that make up each of those, and so on.
+    title: str = ""   # Most recent text displayed in the title bar.
 
-    def __init__(self, keys: StenoKeys, letters: str, rulemap: RuleMap):
-        self.keys = keys
-        if rulemap:
-            matchable_letters = sum(c is not ' ' for c in letters)
-            if matchable_letters:
-                percent_match = rulemap.letters_matched() * 100 / matchable_letters
-            else:
-                percent_match = 0
-            self.desc = "Found {:d}% match.".format(int(percent_match))
-        else:
-            self.desc = "No matches found."
-        # The title of the analysis 'strokes -> word'
-        self.title = "{} → {}".format(keys.inv_parse(), letters)
-        self._rule = StenoRule(str(id(self)), keys, letters, (), self.desc, rulemap)
+    def __init__(self, maxdepth:int=RECURSION_LIMIT):
+        self._max_depth = min(maxdepth, RECURSION_LIMIT)
 
-    def make_tree(self, maxdepth: int = RECURSION_LIMIT) -> OutputNode:
-        """ Make an output tree from the saved collection of parameters.
+    def _make_tree(self, rule:StenoRule) -> OutputNode:
+        """ Make a display tree (and title) from the given lexer output.
             The root node has no map, so set its start to 0 and length to the length of the word. """
-        return OutputNode(self._rule, 0, len(self._rule.letters), min(maxdepth, RECURSION_LIMIT), None)
+        self.title = "{} → {}".format(rule.keys.inv_parse(), rule.letters)
+        return OutputNode(rule, 0, len(rule.letters), self._max_depth, None)

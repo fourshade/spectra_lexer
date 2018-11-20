@@ -1,10 +1,10 @@
 from typing import List
 
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QItemSelection, QItemSelectionModel, QStringListModel, Qt
+from PyQt5.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel, QStringListModel, Qt
 from PyQt5.QtWidgets import QListView
 
 
-class InputListWidget(QListView):
+class SearchListWidget(QListView):
     """ Simple QListView extension with strings that sends a signal when the selection has changed. """
 
     def __init__(self, *args, **kwargs):
@@ -29,7 +29,6 @@ class InputListWidget(QListView):
     itemSelected = pyqtSignal([str])
 
     # Slots
-    @pyqtSlot(QItemSelection, QItemSelection)
     def selectionChanged(self, selected:QItemSelection, deselected:QItemSelection) -> None:
         """ Send signal on selection change with the first selected item (if any). """
         super().selectionChanged(selected, deselected)

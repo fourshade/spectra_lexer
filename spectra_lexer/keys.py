@@ -2,7 +2,6 @@ from collections import defaultdict
 from operator import methodcaller
 
 # Key constant definitions; includes the separator and hyphen, which aren't physical steno keys but appear in strings.
-
 KEY_SEP = "/"
 KEY_SPLIT = "-"
 KEY_STAR = "*"
@@ -15,7 +14,7 @@ R_KEYS = "frpblgtsdz"
 LC_KEYS = L_KEYS + C_KEYS
 ALL_KEYS = LC_KEYS + R_KEYS
 
-# Various sets of keys for membership testing.
+# Various sets of keys for fast membership testing.
 C_KEYS_SET = set(C_KEYS)
 VALID_CHAR_SET = set(ALL_KEYS + R_KEYS.upper() + KEY_SEP + KEY_SPLIT)
 UNORDERED_KEYS = {KEY_STAR}
@@ -25,21 +24,26 @@ UNORDERED_KEYS_IN = UNORDERED_KEYS.intersection
 NUMBER_ALIASES = "OSTPHAfplt"
 
 # Translation tables for cleansing steno strings of unknown origin.
-NUM_TF_DICT = {ord(str(n)): NUMBER_ALIASES[n] for n in range(10)}
+NUM_TF_DICT = dict(enumerate(NUMBER_ALIASES, ord("0")))
 VALID_TF_DICT = defaultdict(lambda: None, {ord(k): k for k in VALID_CHAR_SET})
 
 # Exportable methods for joining and splitting strokes by "/"
 join_strokes = KEY_SEP.join
 split_strokes = methodcaller("split", KEY_SEP)
 
+
 class StenoKeys(str):
     """
     Container class for a sequence of steno keys, with the full key string as the base object.
 
     There are two general string-based formats of steno keys:
-    1. StenoKeys: Each character is a unique key, lowercase letters used for right-side keys.
-    2. str:       All uppercase, hyphen disambiguates left vs. right side of the board.
+    StenoKeys - Each character is a unique key, lowercase letters used for right-side keys.
+                Used by the lexer since one key is always one character with no possible
+                ambiguity over sides even if the keys are in the wrong order.
+    RTFCRE - Keys are all uppercase, hyphen disambiguates left vs. right side of the board.
+             Most steno dictionaries (i.e. for use in Plover) are in this format.
     To differentiate between these, the first can be typed as StenoKeys and the latter just as str.
+    Characters from an outside source (JSON files or the Plover engine) are assumed to be RTFCRE.
     """
 
     ordered: str    # Ordered list of normal keys that must be consumed starting from the left.
@@ -47,7 +51,8 @@ class StenoKeys(str):
 
     def __new__(cls, key_seq:str) -> __qualname__:
         """ Create the base string with all keys, then use that to start an ordered copy.
-            Filter the unordered keys out of that and save it for use as a dict key. """
+            Filter the unordered keys out of that and save it for use as a dict key.
+            Keys must already be in dehyphenated, case-distinct format."""
         self = super().__new__(cls, key_seq)
         unordered = UNORDERED_KEYS_IN(key_seq)
         if unordered:
@@ -68,7 +73,7 @@ class StenoKeys(str):
 
     def inv_parse(self) -> str:
         """ Perform the opposite of a lexer parse to get the keys back into
-            a regular string with all uppercase letters and maybe a hyphen. """
+            RTFCRE format with all uppercase letters and maybe a hyphen. """
         s_list = []
         # Iterate over all strokes (may only be 1).
         for s in split_strokes(self):
@@ -89,7 +94,7 @@ class StenoKeys(str):
 
     @classmethod
     def parse(cls, key_str:str) -> __qualname__:
-        """ Parse a standard stroke key string and return a key sequence with
+        """ Parse a standard RTFCRE key string and return a key sequence with
             no hyphens and lowercase characters for every key on the right side. """
         s_list = []
         # Iterate over all strokes (may only be 1) and attempt to split each string into LC/R keys.
@@ -121,7 +126,7 @@ class StenoKeys(str):
     @classmethod
     def cleanse(cls, key_str:str) -> __qualname__:
         """
-        A more vigorous formatting operation for stroke strings closer to user operation.
+        A more vigorous formatting operation for RTFCRE strings closer to user operation.
         Remove all characters that are considered invalid in steno strings for the parser.
         Translate any literal numbers by replacing them with their key equivalents and adding
         a number key to the beginning of the stroke if one or more was replaced.

@@ -4,8 +4,8 @@ from typing import Dict, Iterable, List
 
 from spectra_lexer.file import RawRulesDictionary
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules.parser import StenoRuleParser
-from spectra_lexer.rules.rules import StenoRule
+from spectra_lexer.lexer.parser import StenoRuleParser
+from spectra_lexer.rules import StenoRule
 
 # Acceptable rule flags that indicate special behavior for the lexer's matching system.
 # TODO: Only attempt RARE matches after failing with the normal set of rules.

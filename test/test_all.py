@@ -5,13 +5,13 @@
 import pytest
 
 from spectra_lexer.file import RawRulesDictionary, _recursive_decode_all, _RULES_DIR
-from spectra_lexer.format.cascaded_text import CascadedTextDisplay
+from spectra_lexer.display.cascaded_text import CascadedTextDisplayEngine
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.output import OUTPUT_FLAG_SET
-from spectra_lexer.rules.lexer_dict import MATCH_FLAG_SET
-from spectra_lexer.rules.parser import StenoRuleParser
-from spectra_lexer.rules.rules import KEY_FLAG_SET
+from spectra_lexer.lexer.base import StenoLexer
+from spectra_lexer.display.base import OUTPUT_FLAG_SET
+from spectra_lexer.lexer.dict import MATCH_FLAG_SET
+from spectra_lexer.lexer.parser import StenoRuleParser
+from spectra_lexer.rules import KEY_FLAG_SET
 
 
 def test_dicts():
@@ -50,8 +50,9 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r.name, key_diff)
 
 
-# Make a lexer containing everything for the parse and format tests.
+# Make a lexer and display engine containing everything for the parse and format tests.
 LEXER = StenoLexer()
+ENGINE = CascadedTextDisplayEngine()
 
 # Test data consisting of a set of steno keys, a word that maps to it, and how many letters that must match.
 # A test will fail if an exception is raised or if fewer letters were matched than the goal (which is all by default).
@@ -84,7 +85,7 @@ def test_lexer(trial):
     else:
         letters_goal = goals[0]
     output = LEXER.parse(keys, word)
-    rulemap = output._rule.rulemap
+    rulemap = output.rulemap
     assert rulemap, STR_KEYS_FAIL.format(stroke, word)
     letters_found = rulemap.letters_matched()
     assert letters_found >= letters_goal, STR_LETTERS_FAIL.format(stroke, word)
@@ -96,4 +97,5 @@ def test_output(trial):
     stroke, word, *goal = trial
     keys = StenoKeys.cleanse(stroke)
     result = LEXER.parse(keys, word)
-    assert CascadedTextDisplay(result.make_tree()).text
+    ENGINE.make_text_display(result)
+    assert ENGINE.text

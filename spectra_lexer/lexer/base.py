@@ -1,16 +1,14 @@
-from typing import Collection, List, Sequence, Tuple, Union
+from typing import Iterable, List
 
 from spectra_lexer.keys import StenoKeys, KEY_SEP, KEY_STAR
-from spectra_lexer.output import LexerOutput
-from spectra_lexer.rules.lexer_dict import LexerDictionary
-from spectra_lexer.rules.rules import RuleMap
+from spectra_lexer.lexer.dict import LexerDictionary
+from spectra_lexer.rules import RuleMap, StenoRule
 
 
-class StenoLexer(object):
+class StenoLexer:
     """
     The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
-    It is one of the only classes that should be exposed to the GUI and console script.
     """
 
     _rule_dict: LexerDictionary  # The only state the lexer needs is the rule-matching dictionary.
@@ -18,27 +16,24 @@ class StenoLexer(object):
     def __init__(self, *filenames:str):
         self._rule_dict = LexerDictionary(*filenames)
 
-    def parse(self, key_strings:Union[str,Collection[str]], word:str) -> LexerOutput:
-        """ Given a key string (or collection of key strings) with possible series' of strokes and a
-            matching translation, use a series of steno rules to match steno keys to printed characters.
+    def parse(self, keys:str, word:str) -> StenoRule:
+        """ Given a key string with strokes and matching translation, use a
+            series of steno rules to match steno keys to printed characters.
             Return only the best-fit rule out of every possibility. """
-        # Thoroughly cleanse and parse each key string (user strokes cannot be trusted).
-        if isinstance(key_strings, str):
-            keys_list = [StenoKeys.cleanse(key_strings)]
-        else:
-            keys_list = list(map(StenoKeys.cleanse, key_strings))
-        # Collect all possible rule maps and their matching keys for the given word into tuples.
-        results = []
-        for keys in keys_list:
-            for m in self._match_rules(keys, word):
-                results.append((keys, word, m))
-        # Return a blank rule map (with only the first set of keys and the word) if we found nothing.
-        # Otherwise keep only the highest ranked rule map according to how accurately it (probably) mapped the stroke.
-        if not results:
-            params_out = (keys_list[0], word, RuleMap())
-        else:
-            params_out = max(results, key=_rank_value)
-        return LexerOutput(*params_out)
+        # Thoroughly cleanse and parse the key string (user strokes cannot be trusted).
+        keys = StenoKeys.cleanse(keys)
+        # Collect all possible results for the given keys and word).
+        maps = self._match_rules(keys, word)
+        # Return output with the highest ranked rule map according to how accurately
+        # it (probably) mapped the stroke to the translation (or an empty map if none).
+        return StenoRule.from_lexer(keys, word, max(maps, key=RuleMap.rank, default=RuleMap()))
+
+    def parse_all(self, key_strings:Iterable[str], word:str) -> StenoRule:
+        """ Same as above, but takes a series of possible key strings instead.
+            Still only returns one map; use to determine the "best" strokes for a given word. """
+        keys_list = list(map(StenoKeys.cleanse, key_strings))
+        results = [(keys, word, m) for keys in keys_list for m in self._match_rules(keys, word)]
+        return StenoRule.from_lexer(*max(results, key=lambda p: p[2].rank(), default=(keys_list[0], word, RuleMap())))
 
     def _match_rules(self, keys:StenoKeys, word:str) -> List[RuleMap]:
         """
@@ -89,14 +84,11 @@ class StenoLexer(object):
                     word_inc = word_len + i
                     stack.append((test_keys.without(r.keys), test_word[word_inc:],
                                   wordptr + word_inc, lc + word_len, new_map))
-                else:
-                    # This mapping will never be finished. For now, discard it and move on to the next stack item.
-                    pass
             else:
-                # If we got here, we finished a legitimate mapping.
+                # If we got here, we finished a legitimate mapping. See if it beats the current best.
                 # Save the best letter count so we can reject bad maps early.
-                best_letters = max(best_letters, lc)
                 maps.append(rulemap)
+                best_letters = max(best_letters, lc)
         return maps
 
 
@@ -115,19 +107,3 @@ def _decipher_star(keys:StenoKeys, word:str, rulemap:RuleMap) -> str:
     if (KEY_SEP in keys) ^ any(KEY_SEP in r.keys for r in rulemap.rules()):
         return "*:PS"
     return "*:??"
-
-
-def _rank_value(params:Tuple[StenoKeys,str,RuleMap]) -> Sequence[int]:
-    """
-    Determine the "value" of a rule map for sorting of lexer format. A larger value should reflect
-    a more accurate mapping. Rank value is determined by a tuple of these values, in order:
-        - least keys unmatched
-        - most letters matched
-        - fewest child rules
-        - end-to-end word coverage
-    """
-    keys, _, rulemap = params
-    return (rulemap.keys_matched() - len(keys),
-            rulemap.letters_matched(),
-            -len(rulemap),
-            rulemap.get_word_coverage())

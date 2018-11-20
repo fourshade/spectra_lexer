@@ -6,26 +6,17 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>520</width>
+    <width>525</width>
     <height>400</height>
    </rect>
   </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
   <property name="minimumSize">
    <size>
-    <width>510</width>
+    <width>525</width>
     <height>400</height>
    </size>
   </property>
-  <property name="windowTitle">
-   <string>MAIN</string>
-  </property>
-  <layout class="QHBoxLayout" name="layout_main">
+  <layout class="QGridLayout" name="layout_main" columnstretch="2,5" columnminimumwidth="150,375">
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -38,30 +29,82 @@
    <property name="bottomMargin">
     <number>0</number>
    </property>
-   <item>
-    <widget class="InputWidget" name="w_input" native="true">
+   <item row="0" column="0">
+    <widget class="QLineEdit" name="w_input">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
      <property name="minimumSize">
       <size>
-       <width>150</width>
-       <height>0</height>
+       <width>0</width>
+       <height>22</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>150</width>
-       <height>16777215</height>
+       <width>16777215</width>
+       <height>22</height>
       </size>
+     </property>
+     <property name="frame">
+      <bool>true</bool>
+     </property>
+     <property name="readOnly">
+      <bool>false</bool>
+     </property>
+     <property name="placeholderText">
+      <string>No dictionary.</string>
      </property>
     </widget>
    </item>
-   <item>
-    <widget class="OutputWidget" name="w_output" native="true">
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="w_title">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>22</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>22</height>
+      </size>
+     </property>
+     <property name="font">
+      <font>
+       <family>Courier New</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="frame">
+      <bool>true</bool>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="placeholderText">
+      <string/>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="SearchListWidget" name="w_words">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        <horstretch>0</horstretch>
@@ -71,68 +114,355 @@
      <property name="minimumSize">
       <size>
        <width>0</width>
-       <height>0</height>
+       <height>180</height>
       </size>
      </property>
+     <property name="autoScroll">
+      <bool>false</bool>
+     </property>
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="showDropIndicator" stdset="0">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="TextGraphWidget" name="w_text">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>180</height>
+      </size>
+     </property>
+     <property name="font">
+      <font>
+       <family>Courier New</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="undoRedoEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QTextEdit::NoWrap</enum>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="acceptRichText">
+      <bool>false</bool>
+     </property>
+     <property name="placeholderText">
+      <string>Stroke a word to see its breakdown.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QFrame" name="w_bottom">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>180</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>180</height>
+      </size>
+     </property>
+     <layout class="QVBoxLayout" name="layout_bottom">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="SearchListWidget" name="w_strokes">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>120</height>
+         </size>
+        </property>
+        <property name="autoScroll">
+         <bool>false</bool>
+        </property>
+        <property name="editTriggers">
+         <set>QAbstractItemView::NoEditTriggers</set>
+        </property>
+        <property name="showDropIndicator" stdset="0">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="w_regex">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Regex Search</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QFrame" name="w_info">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>180</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>180</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QVBoxLayout" name="layout_info">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>6</number>
+      </property>
+      <property name="topMargin">
+       <number>6</number>
+      </property>
+      <property name="rightMargin">
+       <number>6</number>
+      </property>
+      <property name="bottomMargin">
+       <number>6</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="w_desc">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>1</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="font">
+         <font>
+          <family>Courier New</family>
+          <pointsize>10</pointsize>
+         </font>
+        </property>
+        <property name="lineWidth">
+         <number>1</number>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::AutoText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="StenoBoardWidget" name="w_board" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>3</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>310</width>
+          <height>120</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>310</width>
+          <height>120</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>OutputWidget</class>
-   <extends>QWidget</extends>
-   <header>spectra_lexer.gui_qt.output_widget</header>
-   <container>1</container>
+   <class>SearchListWidget</class>
+   <extends>QListView</extends>
+   <header>spectra_lexer.gui_qt.search_list_widget</header>
+   <slots>
+    <signal>itemSelected(QString)</signal>
+   </slots>
   </customwidget>
   <customwidget>
-   <class>InputWidget</class>
-   <extends>QWidget</extends>
-   <header>spectra_lexer.gui_qt.input_widget</header>
-   <container>1</container>
+   <class>TextGraphWidget</class>
+   <extends>QTextEdit</extends>
+   <header>spectra_lexer.gui_qt.text_graph_widget</header>
    <slots>
-    <signal>querySelected(QString,QString)</signal>
-    <signal>queryBestStroke(PyQt_PyObject,QString)</signal>
+    <signal>mouseover_output_text(int,int)</signal>
    </slots>
+  </customwidget>
+  <customwidget>
+   <class>StenoBoardWidget</class>
+   <extends>QWidget</extends>
+   <header>spectra_lexer.gui_qt.steno_board_widget</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
  <connections>
   <connection>
    <sender>w_input</sender>
-   <signal>querySelected(QString,QString)</signal>
+   <signal>textEdited(QString)</signal>
    <receiver>MainWidget</receiver>
-   <slot>query(QString,QString)</slot>
+   <slot>search(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>86</x>
-     <y>156</y>
+     <x>20</x>
+     <y>20</y>
     </hint>
     <hint type="destinationlabel">
-     <x>104</x>
-     <y>-11</y>
+     <x>20</x>
+     <y>20</y>
     </hint>
    </hints>
   </connection>
   <connection>
-   <sender>w_input</sender>
-   <signal>queryBestStroke(PyQt_PyObject,QString)</signal>
+   <sender>w_words</sender>
+   <signal>itemSelected(QString)</signal>
    <receiver>MainWidget</receiver>
-   <slot>query_best(PyQt_PyObject,QString)</slot>
+   <slot>choose_word(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>148</x>
-     <y>96</y>
+     <x>20</x>
+     <y>20</y>
     </hint>
     <hint type="destinationlabel">
-     <x>372</x>
-     <y>-11</y>
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>w_strokes</sender>
+   <signal>itemSelected(QString)</signal>
+   <receiver>MainWidget</receiver>
+   <slot>choose_stroke(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>w_regex</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWidget</receiver>
+   <slot>set_regex_enabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>w_text</sender>
+   <signal>mouseover_text_graph(int,int)</signal>
+   <receiver>MainWidget</receiver>
+   <slot>mouseover_text_graph(int,int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
-  <slot>query(QString,QString)</slot>
-  <slot>query_best(PyQt_PyObject,QString)</slot>
+  <slot>search(QString)</slot>
+  <slot>choose_word(QString)</slot>
+  <slot>choose_stroke(QString)</slot>
+  <slot>set_regex_enabled(bool)</slot>
+  <slot>mouseover_text_graph(QString,QString)</slot>
  </slots>
 </ui>

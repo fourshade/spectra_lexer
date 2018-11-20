@@ -10,19 +10,17 @@
     <height>450</height>
    </rect>
   </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
   <property name="windowTitle">
    <string>Spectra Lexer</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="resources/resources.qrc">
+    <normaloff>:/spectra_lexer/icon.svg</normaloff>:/spectra_lexer/icon.svg</iconset>
   </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout">
+  <layout class="QHBoxLayout" name="layout_main">
    <item>
     <widget class="MainWidget" name="w_main" native="true">
      <property name="sizePolicy">

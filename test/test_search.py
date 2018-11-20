@@ -6,7 +6,8 @@ import re
 
 import pytest
 
-from spectra_lexer.search import SimilarKeyDict, ReverseDict, StenoSearchDict
+from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict
+from spectra_lexer.search.base import _ReverseStenoSearchDict
 
 
 def test_skdict_basic():
@@ -169,9 +170,9 @@ def test_rdict():
 
 
 def test_search():
-    """ Unit tests for the main steno search dict class and its special search methods. """
+    """ Unit tests for the reverse steno search dict class and its special search methods. """
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
-    d = StenoSearchDict(strip_chars=' #{^}')
+    d = _ReverseStenoSearchDict(strip_chars=' #{^}')
     d.append_key('beautiful', ('WAOUFL',))
     d.append_key('Beautiful', ('PWAOUFL',))
     d.append_key('{^BEAUTIFUL}  ', ('PWAOUT', '-FL'))

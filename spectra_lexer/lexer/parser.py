@@ -3,7 +3,7 @@ from typing import Dict, Iterable, Tuple
 
 from spectra_lexer.file import RawRulesDictionary
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules.rules import RuleMap, StenoRule
+from spectra_lexer.rules import RuleMap, StenoRule
 
 # Available bracket pairs for parsing rules and the regex pattern that uses them.
 LEFT_BRACKETS = r'\(\['
@@ -34,21 +34,21 @@ class StenoRuleParser(Dict[str, StenoRule]):
         return iter(self.values())
 
     def _parse(self, k:str) -> None:
-        """ Parse a source dictionary rule into a StenoRule object, with optional flags and description fields. """
-        keys, pattern, flag_str, description, examples = self._src_dict[k]
+        """ Parse a source dictionary rule into a StenoRule object. """
+        raw_rule = self._src_dict[k]
+        # The keys must be converted from RTFCRE form into lexer form.
+        keys = StenoKeys.parse(raw_rule.keys)
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
-        letters, rulemap = self._substitute(pattern)
-        # If there was a flags argument, look for key flags, add them as ending rules, and remove them.
-        if flag_str:
-            flags = flag_str.split("|")
+        letters, rulemap = self._substitute(raw_rule.pattern)
+        # Look for key flags, add them as ending rules, and remove them.
+        flags = set(raw_rule.flag_str.split("|")) if raw_rule.flag_str else set()
+        if flags:
             rulemap.add_key_rules(flags, len(letters), remove_flags=True)
-        else:
-            flags = ()
+        description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.
-        if examples:
-            description = "{}\n({})".format(description, examples.replace("|", ", "))
-        # Make the rule tuple, then add final key rules if we had the right flags.
-        self[k] = StenoRule(k, StenoKeys.parse(keys), letters, flags, description, rulemap)
+        if raw_rule.example_str:
+            description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
+        self[k] = StenoRule(k, keys, letters, flags, description, rulemap)
 
     def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:
         """

@@ -30,7 +30,7 @@
      <height>0</height>
     </size>
    </property>
-   <layout class="QHBoxLayout" name="horizontalLayout">
+   <layout class="QHBoxLayout" name="layout_main">
     <item>
      <widget class="MainWidget" name="w_main" native="true">
       <property name="sizePolicy">

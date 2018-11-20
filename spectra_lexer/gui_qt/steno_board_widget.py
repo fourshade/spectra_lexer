@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QWidget
 BOARD_GFX = ':/spectra_lexer/board.svg'
 
 
-class OutputBoardWidget(QWidget):
+class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
     _gfx_board: QSvgRenderer  # Painter of base steno board graphic.

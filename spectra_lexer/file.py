@@ -106,10 +106,10 @@ def dict_files_from_plover_cfg() -> Iterable[str]:
 class RawStenoDictionary(Dict[str, str]):
     """
     Class for creating an unformatted steno dictionary from a set of files.
-    Each file contains a single JSON dict with the following key-value pairs (all strings):
+    Each file contains a single JSON dict with the following key-value pairs:
 
     key   - A series of steno keys in RTFCRE format. Strokes are separated with the "/" delimiter.
-    value - An English text translation.:
+    value - An English text translation.
     """
 
     def __init__(self, *filenames:str):
@@ -119,24 +119,25 @@ class RawStenoDictionary(Dict[str, str]):
             self.update(d)
 
 
-class RawRulesDictionary(Dict[str, NamedTuple]):
+class RawRule(NamedTuple):
+    """ Data structure for raw string fields read from each line in a JSON rules file. """
+    keys: str              # RTFCRE formatted series of steno strokes.
+    pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
+    flag_str: str = ""     # Optional pipe-delimited series of flags.
+    description: str = ""  # Optional description for when the rule is displayed in the GUI.
+    example_str: str = ""  # Optional pipe-delimited series of example translations using this rule.
+
+
+class RawRulesDictionary(Dict[str, RawRule]):
     """
     Class for creating an unformatted rules dictionary from a set of files.
-    Each file contains a single JSON dict with the following key-value pairs (all strings):
+    Each file contains a single JSON dict with the following key-value pairs:
 
-    key   - A canonical name for the rule. Can be used as a reference in the <pattern> field of other rules.
-    value - A list of 2-4 parameters, converted to a named tuple for field access. Each tuple consists of:
+    key   - Canonical name for the rule. Used as a reference in the <pattern> field of other rules.
+    value - List of 2-5 string parameters, converted to a RawRule named tuple for field access.
     """
-
-    class _RawRule(NamedTuple):
-        keys: str              # RTFCRE formatted series of steno strokes.
-        pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
-        flag_str: str = ""     # Optional pipe-delimited series of flags.
-        description: str = ""  # Optional description for when the rule is displayed in the GUI.
-        examples: str = ""     # Optional pipe-delimited series of example translations using this rule.
 
     def __init__(self, *filenames:str):
         """ Load every rules dict found in the given filenames, or the built-in ones if not specified. """
         src_dicts = _recursive_decode_all(filenames or [_RULES_DIR])
-        RawRule = self._RawRule
         super().__init__({k: RawRule(*d[k]) for d in src_dicts for k in d})
