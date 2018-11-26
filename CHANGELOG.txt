@@ -1,0 +1,28 @@
+0.2.0
+-----
+* Program code is completely refactored to use an event/command based message system
+* Lexer processing is faster
+* Text graph has wider range of colors and highlights letters more precisely
+* Search is available by stroke as well as by word
+* Large numbers of bugs are fixed (mostly related to text graph output)
+
+0.1.3
+-----
+* Checks for Plover version compatibility
+* Example translations are supported in steno rules
+* JSON rules file extensions are renamed to indicate non-standard behavior (they contain comments)
+
+0.1.2
+-----
+* Text graph generation and formatting is faster
+* Program is ready for distribution on PyPI
+
+0.1.1
+-----
+* Standalone script finds Plover dictionaries automatically on Windows
+* Search and rule dictionaries load faster
+* Program state is saved between window openings (when used as a plugin)
+
+0.1.0
+-----
+* Initial version
