@@ -25,8 +25,5 @@ class PloverDialog(QDialog, Ui_PloverDialog):
         self.setupUi(self)
         # Only two things of interest can happen: we can get a new set of dictionaries,
         # or a new set of translations. Either will be handled by the plugin layer and
-        # the results dispatched to the child widget through callbacks.
-        self._plugin_layer = PloverPluginLayer(*args,
-                                               dict_callback=self.w_main.set_search_dict,
-                                               out_callback=self.w_main.query,
-                                               msg_callback=self.w_main.show_status_message)
+        # the results dispatched to the GUI and/or the engine.
+        self._plugin_layer = PloverPluginLayer(*args, gui=self.w_main)

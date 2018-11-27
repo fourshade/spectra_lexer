@@ -99,8 +99,8 @@ class StenoRule(NamedTuple):
         return self is _RULE_SEP
 
     @classmethod
-    def from_lexer(cls, keys:StenoKeys, letters:str, rulemap:RuleMap):
-        """ Make a new rule from parameters given by the lexer. """
+    def from_lexer_result(cls, keys:StenoKeys, letters:str, rulemap:RuleMap):
+        """ Make a new rule from output parameters given by the lexer. """
         if rulemap:
             matchable_letters = sum(c is not ' ' for c in letters)
             if matchable_letters:

@@ -1,42 +1,33 @@
 from collections import defaultdict
 
-from typing import Dict, List, NamedTuple, Sequence, Tuple, Union
+from typing import Dict, List, Sequence, Tuple
 
-from spectra_lexer.keys import KEY_SPLIT, StenoKeys
-from spectra_lexer.display.base import OutputNode, DisplayEngine
+from spectra_lexer.display.base import OutputNode, OutputDisplay
+from spectra_lexer.engine import SpectraEngine
+from spectra_lexer.keys import KEY_SPLIT
 from spectra_lexer.rules import StenoRule
 
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
 _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
                       "BOTTOM": "├─┐",
+                      "S_BEND": "└─┐",
+                      "Z_BEND": "┌─┘",
                       "INV":    "◄═►"}
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
-# Sets of various drawing symbols for quick membership testing.
-_LINE_CHARACTER_SET = {_LINE_SYMBOL, " "}
-_CONTAINER_CHARACTER_SET = {char for s in _CONTAINER_SYMBOLS.values() for char in s}
-_GRAPH_CHARACTER_SET = _CONTAINER_CHARACTER_SET | {_LINE_SYMBOL, _CORNER_SYMBOL, " "}
+# RGB 0-255 colors of the root node and starting color of other nodes when highlighted.
+_ROOT_COLOR = (255, 64, 64)
+_BASE_COLOR = (0, 0, 255)
 
 
-class TextFormatInfo(NamedTuple):
-    """ Data structure representing a formatting action over a single line of text. """
-    row: int                      # Which row in the text this action affects.
-    start: int                    # Starting character/column to format (inclusive)
-    end: int                      # Ending character/column to format (exclusive)
-    color: Tuple[int, int, int]   # RGB 0-255 color tuple for this range's highlighting
-    bold: bool                    # If true, apply boldface to this range of text.
-
-
-class TextRuleInfo(NamedTuple):
-    """
-    Data structure returned by get_info_at. For a given rule that is displayed somewhere in the text,
-    contains its steno keys and description as well as a list of locations in the text that correspond
-    to it (and how it should be formatted when the mouse goes over it).
-    """
-    keys: StenoKeys                    # Steno keys to be displayed on the diagram.
-    description: str                   # Text description of the rule highlighted.
-    format_info: List[TextFormatInfo]  # Areas to place formatting in and what to do.
+def _text_container(length:int, position:str) -> str:
+    """ Make a text "container" ├--┐ string based on a left, middle, and right symbol.
+        If the container is only a single character wide, use a straight line connector instead. """
+    if length < 2:
+        return _LINE_SYMBOL
+    (left, middle, right) = _CONTAINER_SYMBOLS[position]
+    return left + middle * (length - 2) + right
 
 
 class _TextOutputLine(str):
@@ -45,7 +36,7 @@ class _TextOutputLine(str):
 
     _node_map: Tuple[OutputNode] = None  # Sequence of node references to indicate which node "owns" each character.
 
-    def _overwrite_copy(self, src:OutputNode, s:str, start:int) -> __qualname__:
+    def _overwrite_copy(self, s:str, src:OutputNode, start:int) -> __qualname__:
         """ Make a copy of this object with the string <s> overwriting characters starting
             at <start>, padding with spaces if necessary and writing to the node map as well. """
         end = start + len(s)
@@ -57,27 +48,21 @@ class _TextOutputLine(str):
             other._node_map = nmap[:start] + (src,) * len(s) + nmap[end:]
         return other
 
-    def with_container(self, src:OutputNode, start:int, length:int, position:str="TOP") -> __qualname__:
-        """ Place a vertical "container" ├--┐ based on a left, middle, and right symbol and return a copy.
-            If the container is only a single character wide, use a straight line connector instead. """
-        if length < 2:
-            s = _LINE_SYMBOL
-        else:
-            (left, middle, right) = _CONTAINER_SYMBOLS[position]
-            s = left + middle * (length - 2) + right
-        return self._overwrite_copy(src, s, start)
+    def with_container(self, src:OutputNode, start:int, length:int, position:str) -> __qualname__:
+        """ Write a "container" ├--┐ at index <start> and return a copy. """
+        return self._overwrite_copy(_text_container(length, position), src, start)
 
-    def with_connector(self, src: OutputNode, start: int) -> __qualname__:
+    def with_connector(self, src:OutputNode, start:int) -> __qualname__:
         """ Write a vertical line connector at index <start> and return a copy. """
-        return self._overwrite_copy(src, _LINE_SYMBOL, start)
+        return self._overwrite_copy(_LINE_SYMBOL, src, start)
 
     def with_corner(self, src:OutputNode, start:int) -> __qualname__:
         """ Write a corner character at index <start> and return a copy. """
-        return self._overwrite_copy(src, _CORNER_SYMBOL, start)
+        return self._overwrite_copy(_CORNER_SYMBOL, src, start)
 
     def with_node_string(self, src:OutputNode, start:int) -> __qualname__:
         """ Write the node's text starting at <start> and return a copy. """
-        return self._overwrite_copy(src, src.text, start)
+        return self._overwrite_copy(src.text, src, start)
 
     def replace(self, *args) -> __qualname__:
         """ Override the basic string replace function to copy the node map as well. """
@@ -90,32 +75,29 @@ class _TextOutputLine(str):
         return self._node_map or ()
 
 
-class _TextFormatter(object):
-    """ Main parser/formatter for output text. On creation, builds a list of plaintext strings
+class _TextGenerator:
+    """ Main generator for output text. On creation, builds a list of plaintext strings
         from a node tree and tracks additional info about node locations for tooltip support. """
 
     _output_lines: List[_TextOutputLine]  # Lines containing the raw text as well as each character's source node.
 
     def __init__(self, src:OutputNode):
-        """ Create a list of special strings that will map to a text box with locational tooltip info. """
-        self._output_lines = []
+        """ Create a list of special strings that will map to a text box with locational info. """
         if src.children:
             # Use the helper function to add lines recursively, starting at the left end with no placeholders.
-            self._draw_node(src, 0, _TextOutputLine())
-            self._output_lines.reverse()
+            output_lines = []
+            self._draw_node(output_lines, src, 0, _TextOutputLine())
+            output_lines.reverse()
         else:
             # An empty output means we didn't find any complete matches when we parsed it.
-            word_len = len(src.text)
-            self._output_lines = [_TextOutputLine().with_node_string(src, 0),
-                                  _TextOutputLine(_LINE_SYMBOL * word_len),
-                                  _TextOutputLine("?" * word_len)]
+            output_lines = self._incomplete_graph(src)
+        self._output_lines = output_lines
 
-    def _draw_node(self, src:OutputNode, offset:int, placeholders:_TextOutputLine) -> None:
+    def _draw_node(self, out:List[_TextOutputLine], src:OutputNode, offset:int, placeholders:_TextOutputLine) -> None:
         """ Add lines of vertical cascaded plaintext to the string list. They are added recursively in reverse order.
             This means that the order must be reversed back by the caller at the top level. """
         text = src.text
         children = src.children
-        out = self._output_lines
         # If there are children, start adding results in reverse order building up.
         if children:
             top = placeholders
@@ -127,7 +109,7 @@ class _TextFormatter(object):
                     start = child.attach_start
                     wp = start + offset
                     # Add child recursively.
-                    self._draw_node(child, wp, placeholders)
+                    self._draw_node(out, child, wp, placeholders)
                     # Add a line with the bottom connector.
                     # If the text leads with a hyphen, the connector shouldn't cover it.
                     bottom_len = len(child.text)
@@ -139,7 +121,7 @@ class _TextFormatter(object):
                     # Add a permanent connector line to the placeholders.
                     placeholders = placeholders.with_connector(child, wp)
             # Destroy the last line if the first child had one character (i.e. connection is a line).
-            if out[-1][offset] in _LINE_CHARACTER_SET:
+            if out[-1][offset] == _LINE_SYMBOL:
                 out.pop()
             # Add the finished set of top connectors.
             out.append(top)
@@ -158,13 +140,20 @@ class _TextFormatter(object):
         # The first line contains the text itself. It will overwrite any interfering placeholders.
         out.append(placeholders.with_node_string(src, offset))
 
-    def make_text(self) -> str:
-        """ Make the final plaintext string by joining the list with newlines. Rule metadata is not included. """
-        return "\n".join(self._output_lines)
+    @staticmethod
+    def _incomplete_graph(src:OutputNode) -> List[_TextOutputLine]:
+        """ Draw a graph with the base node along with lines that show the lexer's failure to make a good guess. """
+        word_len = len(src.text)
+        return [_TextOutputLine().with_node_string(src, 0),
+                _TextOutputLine(_LINE_SYMBOL * word_len),
+                _TextOutputLine("?" * word_len)]
 
-    def make_node_info(self) -> Tuple[Sequence[Sequence[OutputNode]],Dict[OutputNode,List[tuple]]]:
-        """ Compile and return the saved node info into a list grid and dict. """
-        # Combine the rows and ranges from all lines into a dict by node.
+    def get_text_lines(self) -> List[str]:
+        """ Return the generated strings, free of the context of any metadata they carry as a subclass. """
+        return self._output_lines
+
+    def get_node_info(self) -> Tuple[List[Tuple[OutputNode]], Dict[OutputNode, List[tuple]]]:
+        """ Compile all saved node info into a 2D grid (indexed by position) and dict (indexed by node). """
         node_grid = [line.get_node_map() for line in self._output_lines]
         format_dict = defaultdict(list)
         for (row, nmap) in enumerate(node_grid):
@@ -178,60 +167,130 @@ class _TextFormatter(object):
         return node_grid, format_dict
 
 
-class CascadedTextDisplayEngine(DisplayEngine):
+def _text_color(level:int, row:int) -> Tuple[int,int,int]:
+    """ Return an RGB 0-255 color value for any possible text row position and node depth. """
+    if level == 0 and row == 0:
+        return _ROOT_COLOR
+    r, g, b = _BASE_COLOR
+    r += min(192, level * 64)
+    g += min(192, row * 8)
+    return r, g, b
+
+
+def _format_row(lines:List[str], idx:int, start:int, end:int, color:Tuple[int,int,int], bold:bool) -> None:
+    """ Format a section of a row in a list of strings with HTML color and/or boldface. """
+    if start < end:
+        line = lines[idx]
+        text = line[start:end]
+        text = """<span style="color:#{0:02x}{1:02x}{2:02x};">{3}</span>""".format(*color, text)
+        if bold:
+             text = "<b>{}</b>".format(text)
+        lines[idx] = "".join((line[:start], text, line[end:]))
+
+
+class _TextFormatter:
+    """ Receives a list of text lines and instructions on formatting to apply in various places when any given
+        node is highlighted. Creates structures with explicit formatting operations to be used by the GUI. """
+
+    _lines: List[str]                            # Lines containing the raw text.
+    _format_dict: Dict[OutputNode, List[tuple]]  # Dict of special display info for each node.
+
+    def __init__(self, lines:List[str], format_dict:Dict[OutputNode, List[tuple]]):
+        self._lines = lines
+        self._format_dict = format_dict
+
+    def make_graph_text(self, lines:List[str]=None) -> str:
+        """ Make a full graph text string by joining a list of line strings and setting the preformatted tag.
+            If no lines are specified, use the last set of raw text strings unformatted. """
+        if lines is None:
+            lines = self._lines
+        return "<pre>"+"\n".join(lines)+"</pre>"
+
+    def make_formatted_text(self, node:OutputNode) -> str:
+        """ Make a formatted text graph string for a given node, with highlighted and/or bolded ranges of text. """
+        lines = self._lines[:]
+        # Color the full ancestry line of the selected node, starting with that node and going up.
+        # This ensures that formatting happens right-to-left on rows with more than one operation.
+        nodes = node.get_ancestors()
+        derived_start = sum(n.attach_start for n in nodes)
+        derived_end = derived_start + node.attach_length
+        level = len(nodes) - 1
+        for n in nodes:
+            rng_tuples = self._format_dict[n]
+            # All of the node's characters above the text will be box-drawing characters.
+            # These mess up when bolded, so only bold the last row (first in the reversed iterator).
+            bold = True
+            for (row, start, end) in reversed(rng_tuples):
+                # If this is the last row of any ancestor node, only highlight the text our node derives from.
+                if bold and n is not node:
+                    start, end = derived_start, derived_end
+                _format_row(lines, row, start, end, _text_color(level, row), bold)
+                bold = False
+            level -= 1
+        return self.make_graph_text(lines)
+
+
+class _NodeLocator:
+    """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths. """
+
+    _node_grid: Sequence[Sequence[OutputNode]]  # List of lists of node references in [row][col] format.
+
+    def __init__(self, node_grid:Sequence[Sequence[OutputNode]]):
+        self._node_grid = node_grid
+
+    def get_node_at(self, row:int, col:int) -> OutputNode:
+        """ Return the node that was responsible for the text character at (row, col).
+            Return None if no node owns that character or the index is out of range. """
+        if 0 <= row < len(self._node_grid):
+            node_row = self._node_grid[row]
+            if 0 <= col < len(node_row):
+                return node_row[col]
+
+
+class CascadedTextDisplay(OutputDisplay):
     """ Generates cascaded plaintext representation of lexer output. One of the only top-level classes.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
-    text: str = ""                                      # Plaintext output.
-    _node_grid: List[List[OutputNode]]  = None          # List of lists of node references in [row][col] format.
-    _format_dict: Dict[OutputNode, List[tuple]] = None  # Dict of special display info for each node.
+    _formatter: _TextFormatter = None   # Formats the output text based on which node is selected (if any).'
+    _locator: _NodeLocator = None       # Finds which node the mouse is over during a mouseover event.
+    _last_node: OutputNode = None       # Most recent node from a mouse move event.
 
-    def make_text_display(self, rule:StenoRule) -> None:
-        """ Compute a full text display for GUI rendering. """
-        # Start by making a node tree
+    def engine_commands(self) -> dict:
+        """ Individual components must define the signals they respond to and the appropriate callbacks. """
+        return {**super().engine_commands(),
+                "new_window":      self.on_new_window,
+                "display_rule":    self.show_graph,
+                "display_info_at": self.show_info_at,}
+
+    def on_new_window(self) -> None:
+        """ Clear the last locator so that the old output isn't drawn on a fresh window. """
+        self._locator = None
+
+    def show_graph(self, rule:StenoRule) -> None:
+        """ Generate a text graph and info for a steno rule and send it to the GUI. """
+        # Start by making a general node tree.
         src = self._make_tree(rule)
-        # Compile the initial list of lines from the node tree using the formatter.
-        formatter = _TextFormatter(src)
-        # Generate and assign instance attributes.
-        self.text = formatter.make_text()
-        self._node_grid, self._format_dict = formatter.make_node_info()
+        # Compile the plaintext output and node reference structures from the tree using the generator.
+        generator = _TextGenerator(src)
+        lines = generator.get_text_lines()
+        node_grid, format_dict = generator.get_node_info()
+        # Create a locator and formatter using these structures.
+        self._formatter = _TextFormatter(lines, format_dict)
+        self._locator = _NodeLocator(node_grid)
+        # Send the unformatted text graph and base rule data to the GUI.
+        self.engine_send("gui_display_title", self._title)
+        self.engine_send("gui_display_graph", self._formatter.make_graph_text())
+        self.engine_send("gui_display_info", self._root.raw_keys, self._root.description)
 
-    def get_info_at(self, x:int, y:int) -> Union[TextRuleInfo,None]:
-        """ Find the character at (x/column, y/row) of the text format and see if it's part of a node display.
-            If it is, make an info structure for that node and return it. If it isn't, return None. """
-        if not self._node_grid:
-            return None
-        if 0 <= y < len(self._node_grid):
-            row = self._node_grid[y]
-            if 0 <= x < len(row):
-                node = row[x]
-                if node is not None:
-                    return self._make_format_info(node)
-
-    def get_base_info(self) -> Union[TextRuleInfo,None]:
-        """ Return info for the base rule, which always has a character at (0, 0) if it exists at all. """
-        return self.get_info_at(0,0)
-
-    def _make_format_info(self, node:OutputNode) -> TextRuleInfo:
-        """ Make a format info structure for a given node, which consists of instructions to highlight
-            and/or bold ranges of text (ordered left-to-right, top-to-bottom) with different colors. """
-        row_formats = []
-        info = TextRuleInfo(node.raw_keys, node.description, row_formats)
-        nodes = []
-        while node is not None:
-            nodes.append(node)
-            node = node.parent
-        for level, n in enumerate(reversed(nodes)):
-            rng_tuples = self._format_dict[n]
-            last_row = rng_tuples[-1][0]
-            for (row, start, end) in rng_tuples:
-                # Color is based on the node depth and row position.
-                # Only the last row of each node can be bold (box-drawing characters mess up).
-                color = _text_color(level, row)
-                row_formats.append(TextFormatInfo(row, start, end, color, row==last_row))
-        return info
-
-
-def _text_color(level:int, row:int) -> Tuple[int, int, int]:
-    """ Return an RGB 0-255 color value for any possible text row position and node depth. """
-    return min(192, level * 64), min(192, row * 8), 255
+    def show_info_at(self, row:int, col:int) -> None:
+        """ Find the character at (row, col) of the text format and see if it's part of a node display.
+            If it is (and isn't the one currently shown), make an info structure for that node and display it. """
+        if self._locator:
+            node = self._locator.get_node_at(row, col)
+            if node is not None and node is not self._last_node:
+                # Send the new formatted text to the GUI. Make sure it doesn't affect the current scroll position.
+                self.engine_send("gui_display_graph", self._formatter.make_formatted_text(node), False)
+                # Send parts from the given rule info to the GUI.
+                self.engine_send("gui_display_info", node.raw_keys, node.description)
+            # Store the current node so we can avoid redraw.
+            self._last_node = node

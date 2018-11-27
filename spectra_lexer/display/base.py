@@ -1,5 +1,6 @@
 from typing import List
 
+from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
 
@@ -60,21 +61,47 @@ class OutputNode(object):
                 self.text = letters
                 self.description = "{} → {}: {}".format(formatted_keys, letters, desc)
 
+    def get_ancestors(self) -> List[__qualname__]:
+        """ Get a list of all ancestors of this node (including itself) up to the root. """
+        nodes = []
+        while self is not None:
+            nodes.append(self)
+            self = self.parent
+        return nodes
 
-class DisplayEngine:
-    """ Base output class for drawing a finished rule breakdown of steno translations. """
+    def get_descendents(self) -> List[__qualname__]:
+        """ Get a list of all descendents of this node (including itself) down to the base. """
+        stack = self.children[:]
+        nodes = [self]
+        while stack:
+            node = stack.pop()
+            nodes.append(node)
+            stack.extend(node.children)
+        return nodes
 
-    _max_depth: int   # Maximum recursion depth to draw in output tree.
-                      # max_depth = 0 only displays the root node.
-                      # max_depth = 1 displays the root node and all of the rules that make it up.
-                      # max_depth = 2 also displays the rules that make up each of those, and so on.
-    title: str = ""   # Most recent text displayed in the title bar.
+    def __str__(self):
+        return  "{} → {}".format(self.text, self.children)
+
+    __repr__ = __str__
+
+
+class OutputDisplay(SpectraEngineComponent):
+    """ Base output class for drawing a finished rule breakdown of steno translations.
+        Only meant to be subclassed by more specific classes that render the output (graphics, text, etc.) """
+
+    _max_depth: int           # Maximum recursion depth to draw in output tree.
+                              # max_depth = 0 only displays the root node.
+                              # max_depth = 1 displays the root node and all of the rules that make it up.
+                              # max_depth = 2 also displays the rules that make up each of those, and so on.
+    _title: str = ""          # Most recent text displayed in the title bar.
+    _root: OutputNode = None  # Root node of the most recently generated tree.
 
     def __init__(self, maxdepth:int=RECURSION_LIMIT):
         self._max_depth = min(maxdepth, RECURSION_LIMIT)
 
     def _make_tree(self, rule:StenoRule) -> OutputNode:
-        """ Make a display tree (and title) from the given lexer output.
+        """ Make a display tree (and title) from the given rule.
             The root node has no map, so set its start to 0 and length to the length of the word. """
-        self.title = "{} → {}".format(rule.keys.inv_parse(), rule.letters)
-        return OutputNode(rule, 0, len(rule.letters), self._max_depth, None)
+        self._title = "{} → {}".format(rule.keys.inv_parse(), rule.letters)
+        self._root = OutputNode(rule, 0, len(rule.letters), self._max_depth, None)
+        return self._root

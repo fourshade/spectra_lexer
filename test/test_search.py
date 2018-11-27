@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict
-from spectra_lexer.search.base import _ReverseStenoSearchDict
+from spectra_lexer.search.search_dict import ReverseDict, SimilarKeyDict
+from spectra_lexer.search.steno_dict import _ReverseStenoSearchDict
 
 
 def test_skdict_basic():

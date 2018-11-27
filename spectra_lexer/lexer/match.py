@@ -2,13 +2,12 @@ from collections import defaultdict
 from functools import reduce
 from typing import Dict, Iterable, List
 
-from spectra_lexer.file import RawRulesDictionary
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.lexer.parser import StenoRuleParser
 from spectra_lexer.rules import StenoRule
 
-# Acceptable rule flags that indicate special behavior for the lexer's matching system.
 # TODO: Only attempt RARE matches after failing with the normal set of rules.
+
+# Acceptable rule flags that indicate special behavior for the lexer's matching system.
 MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer should never know about these.",
                "WORD": "Exact word match. The parser only does a simple dict lookup for these before trying"
                        "to break a word down, so these entries do not adversely affect lexer performance.",
@@ -47,21 +46,20 @@ class PrefixTree(defaultdict):
         return reversed(lst)
 
 
-class LexerDictionary(object):
-    """ A master dictionary of steno rules. Each component dict maps strings to steno rules in some way. """
+class LexerRuleMatcher:
+    """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
     _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
     _word_dict: Dict[str, StenoRule]          # Rules that match by exact word only (whitespace-separated).
     _prefix_tree: PrefixTree                  # Rules that match by starting with a certain number of keys in order.
 
-    def __init__(self, *files:str):
-        # Use the given file(s) to create a basic, unsorted rules dict.
-        raw_dict = RawRulesDictionary(*files)
+    def __init__(self, rules:Iterable[StenoRule]):
+        """ Construct a specially-structured series of dictionaries from an unordered iterable of finished rules. """
         # Sort the rules into specific dictionaries based on their flags.
         stroke_dict = {}
         word_dict = {}
         prefix_tree = PrefixTree()
-        for v in StenoRuleParser(raw_dict):
+        for v in rules:
             flags = v.flags
             # The lexer shouldn't use internal/special rules at all. Skip them.
             if "SPEC" in flags:

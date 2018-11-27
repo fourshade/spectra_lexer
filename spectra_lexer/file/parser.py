@@ -1,24 +1,25 @@
 import re
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Tuple
 
-from spectra_lexer.file import RawRulesDictionary
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMap, StenoRule
 
-# Available bracket pairs for parsing rules and the regex pattern that uses them.
+# Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
 RIGHT_BRACKETS = r'\)\]'
-SUBRULE_RX = re.compile(r'[{0}][^{0}{1}]*?[{1}]'.format(LEFT_BRACKETS, RIGHT_BRACKETS))
 
+# Rule substitutions must match a left bracket, one or more non-brackets, and a right bracket.
+SUBRULE_RX = re.compile(r'[{}]'.format(LEFT_BRACKETS) +
+                        r'[^{0}{1}]+?'.format(LEFT_BRACKETS, RIGHT_BRACKETS) +
+                        r'[{}]'.format(RIGHT_BRACKETS))
 
-class StenoRuleParser(Dict[str, StenoRule]):
+class StenoRuleDict(Dict[str, StenoRule]):
     """ Class which gets a freshly loaded source dict of raw JSON entries and parses them
-        recursively to get a final set of independent steno rules indexed by internal name.
-        That this class subclasses dict is an implementation detail only. """
+        recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    _src_dict: RawRulesDictionary  # Keep the source dict in the instance to avoid passing it everywhere.
+    _src_dict: 'RawRulesDictionary'  # Keep the source dict in the instance to avoid passing it everywhere.
 
-    def __init__(self, src_dict:RawRulesDictionary):
+    def __init__(self, src_dict:'RawRulesDictionary'):
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from all source dictionaries in the given filename list or directory (built-in by default).
         self._src_dict = src_dict
@@ -29,17 +30,13 @@ class StenoRuleParser(Dict[str, StenoRule]):
             if k not in self:
                 self._parse(k)
 
-    def __iter__(self) -> Iterable[StenoRule]:
-        """ Return only the parsed rules one-by-one. This should be the only public accessor. """
-        return iter(self.values())
-
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
         raw_rule = self._src_dict[k]
-        # The keys must be converted from RTFCRE form into lexer form.
-        keys = StenoKeys.parse(raw_rule.keys)
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
         letters, rulemap = self._substitute(raw_rule.pattern)
+        # The keys must be converted from RTFCRE form into lexer form.
+        keys = StenoKeys.parse(raw_rule.keys)
         # Look for key flags, add them as ending rules, and remove them.
         flags = set(raw_rule.flag_str.split("|")) if raw_rule.flag_str else set()
         if flags:

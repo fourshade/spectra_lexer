@@ -1,4 +1,4 @@
-""" Module for generic key-search dicts. """
+""" Module for generic key-search and reverse dicts. """
 
 from bisect import bisect_left
 from collections import defaultdict

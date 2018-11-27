@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from PyQt5.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel, QStringListModel, Qt
 from PyQt5.QtWidgets import QListView
@@ -17,12 +17,18 @@ class SearchListWidget(QListView):
     def set_items(self, s_list:List[str]) -> None:
         self.model().setStringList(s_list)
 
-    def select(self, idx:int, suppress_event:bool=False) -> None:
-        """ Programmatically select a specific item by index (w/ or w/out tripping the selectionChanged event). """
-        sel_idx = self.model().index(idx, 0)
-        if suppress_event:
-            self.blockSignals(True)
-        self.selectionModel().select(sel_idx, QItemSelectionModel.SelectCurrent)
+    def select(self, key:Union[int, str]) -> None:
+        """ Programmatically select a specific item by index or first instance.
+            Suppress signals to keep from tripping the selectionChanged event. """
+        if isinstance(key, str):
+            # The lexer may get queries from sources other than search, so if the item doesn't exist, do nothing.
+            try:
+                key = self.model().stringList().index(key)
+            except ValueError:
+                return
+        idx = self.model().index(key, 0)
+        self.blockSignals(True)
+        self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)
         self.blockSignals(False)
 
     # Signals

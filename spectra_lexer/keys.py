@@ -64,7 +64,7 @@ class StenoKeys(str):
         return self
 
     def without(self, keys:str) -> __qualname__:
-        """ Return a copy of this key sequence object without the given keys. """
+        """ Return a copy of this key sequence object without each of the given keys (taken from the left). """
         if self.startswith(keys):
             return StenoKeys(self[len(keys):])
         for k in keys:
@@ -103,7 +103,7 @@ class StenoKeys(str):
             if KEY_SPLIT in s_set:
                 # If there is a hyphen (KEY_SPLIT), we know exactly where to split the string.
                 # Lowercase the right side, rejoin the string, and add it to the list.
-                lc, r = s.split(KEY_SPLIT)
+                lc, r = s.split(KEY_SPLIT, 1)
                 s_list.append(lc + r.lower())
             else:
                 # If there's not a hyphen, we must find the split point.

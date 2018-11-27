@@ -1,15 +1,19 @@
 import sys
-from typing import Iterable
+from functools import partial
+from typing import Iterable, Dict, List
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
-from spectra_lexer.file import dict_file_formats, dict_files_from_plover_cfg, RawStenoDictionary
+from spectra_lexer.engine import SpectraEngine, SpectraEngineComponent
 from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
+from spectra_lexer.file import FileHandler
+from spectra_lexer.display.cascaded_text import CascadedTextDisplay
+from spectra_lexer.lexer import StenoLexer
+from spectra_lexer.search import SearchEngine
 
-
-class MainWindow(QMainWindow, Ui_MainWindow):
+class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
     """
-    Main QT application window as called from the command line.
+    Main QT application window as called from the command line. Top-level class for standalone execution.
 
     Children:
     w_central - QWidget, top-most container for main window UI elements.
@@ -21,24 +25,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """ Set up the window, which contains references to methods called by menu bar actions. """
         super().__init__(*args, **kwargs)
         self.setupUi(self)
-        self.m_file_load.triggered.connect(self.dialog_load)
-        self.m_file_exit.triggered.connect(sys.exit)
+        # Make the engine, add everything to it, and start it.
+        SpectraEngine(FileHandler(), StenoLexer(), SearchEngine(),
+                      CascadedTextDisplay(), self.w_main, self).start()
         # All command-line arguments are assumed to be steno dictionary files. Load them on start-up.
-        # If none were given, attempt to locate Plover's dictionaries and load those.
+        # If none were given, make an attempt to locate Plover's dictionaries and load those.
         if len(sys.argv) > 1:
-            self.load_dicts(sys.argv[1:], "command line")
+            self._load_dicts(sys.argv[1:], "command line")
         else:
-            self.load_dicts(dict_files_from_plover_cfg(), "Plover config")
+            self._load_dicts(None, "Plover config")
+        # Send command to set up anything else that needs it for a new GUI.
+        self.engine_send("new_window")
 
-    def dialog_load(self) -> None:
+    def engine_commands(self) -> dict:
+        """ Individual components must define the signals they respond to and the appropriate callbacks. """
+        return {"gui_open_file_dialog": self.dialog_load}
+
+    def engine_connect(self, engine:SpectraEngine) -> None:
+        """ At engine connect, route all Qt signals to their corresponding engine signals (or other methods). """
+        super().engine_connect(engine)
+        self.m_file_load.triggered.connect(lambda *args: self.engine_send("file_get_dict_formats"))
+        self.m_file_exit.triggered.connect(sys.exit)
+
+    def dialog_load(self, file_formats:List[str]) -> None:
         """ Present a dialog for the user to select a steno dictionary file. Attempt to load it if not empty. """
         (fname, _) = QFileDialog.getOpenFileName(self, 'Load Steno Dictionary', '.',
-                                                 "Supported file formats (*" + " *".join(dict_file_formats()) + ")")
+                                                 "Supported file formats (*" + " *".join(file_formats) + ")")
         if fname:
-            self.load_dicts((fname,), "file dialog")
+            self._load_dicts((fname,), "file dialog")
 
-    def load_dicts(self, filenames:Iterable[str], src:str="") -> None:
-        """ Attempt to load and/or merge one or more steno dictionaries given by filename.
-            Give the results (and a string telling where they came from) to the main widget. """
-        self.w_main.set_search_dict(RawStenoDictionary(*filenames))
-        self.w_main.show_status_message("Loaded dictionaries from {}.".format(src))
+    def _load_dicts(self, filenames:Iterable[str]=None, src_string:str="") -> None:
+        self.engine_send("file_load_steno_dicts", filenames)
+        if src_string:
+            self.engine_send("gui_show_status_message", "Loaded dictionaries from {}.".format(src_string))
