@@ -27,10 +27,10 @@ def test_dicts():
 # Create the minimum necessary components we need for the tests.
 RULES_LIST = load_rules_dicts()
 LEXER = StenoLexer()
-LEXER.engine_connect(None)
+LEXER.set_engine_callback(None)
 LEXER.set_rules(RULES_LIST)
 DISPLAY = CascadedTextDisplay()
-DISPLAY.engine_connect(None)
+DISPLAY.set_engine_callback(None)
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 
 

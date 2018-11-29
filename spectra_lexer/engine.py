@@ -1,9 +1,11 @@
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 # TODO: implement threading and thread safety between GUI and processing components.
 
 class SpectraEngineComponent:
+    """ Mixin class for any component that sends and receives commands from the Spectra engine.
+        Subclass must define commands it accepts (if any) by overriding engine_commands. """
 
     def engine_send(self, command:str, *args) -> Exception:
         """ Any command that gets called by an (unintentionally) unconnected component raises an error. """
@@ -13,13 +15,17 @@ class SpectraEngineComponent:
         """ Components provide a dict with the commands they accept here. By default, they accept nothing. """
         return {}
 
-    def engine_connect(self, engine:Optional['SpectraEngine']) -> None:
-        """ Override the engine_command method to start sending commands to <engine>.
-            If <engine> is None, run the component without the engine by setting engine_command to do nothing. """
-        if engine is None:
+    def set_engine_callback(self, callback:Optional[Callable]=None) -> None:
+        """ Override the engine_send method to start sending commands to the engine via <callback>.
+            If <callback> is None, run the component without the engine by setting engine_send to do nothing. """
+        if callback is None:
             self.engine_send = lambda *args: None
         else:
-            self.engine_send = engine.send
+            self.engine_send = callback
+
+    def remove_engine_callback(self) -> None:
+        """ Remove the engine_send instance method so it throws an exception again. """
+        del self.engine_send
 
 
 class SpectraEngine:
@@ -57,34 +63,40 @@ class SpectraEngine:
         self._signal_map = defaultdict(list)
         self.connect(*components)
 
-    def connect(self, *components:SpectraEngineComponent) -> None:
-        """ Connect all of the specified components to the engine, adding their commands to the signal table. """
+    def connect(self, *components:SpectraEngineComponent, overwrite:bool=False) -> None:
+        """ Connect all of the specified components to the engine, adding their commands to the signal table.
+            If overwrite is True, disconnect any existing instances of the new components first. """
+        if overwrite:
+            self._disconnect_same_type_as(*components)
         for c in components:
+            if c in self._component_dict:
+                raise KeyError("Component is already connected.")
             cmd_dict = c.engine_commands()
             self._component_dict[c] = cmd_dict
-            self._modify_signal_map(cmd_dict, list_op="append")
-            c.engine_connect(self)
+            self._modify_signal_map(c, cmd_dict, list_op="append")
+            c.set_engine_callback(self.send)
 
     def disconnect(self, *components:SpectraEngineComponent) -> None:
         """ Disconnect all of the specified components, removing all dict entries and callbacks. """
         for c in components:
-            cmd_dict = self._component_dict[c]
-            self._modify_signal_map(cmd_dict, list_op="remove")
+            cmd_dict = self._component_dict.get(c)
+            if c is None:
+                raise KeyError("Component is not connected.")
+            c.remove_engine_callback()
+            self._modify_signal_map(c, cmd_dict, list_op="remove")
             del self._component_dict[c]
 
-    def connect_overwrite(self, *components:SpectraEngineComponent) -> None:
-        """ Disconnect old components with the same type as any of the new ones, then connect the new ones.
-            Used to connect GUI components after close and re-open, overwriting the old references. """
+    def _disconnect_same_type_as(self, *components:SpectraEngineComponent) -> None:
+        """ Disconnect all instances of the same type as the specified components. """
         overwrite_types = set(map(type, components))
-        same_class_components = [c for c in self._component_dict if type(c) in overwrite_types]
-        self.disconnect(*same_class_components)
-        self.connect(*components)
+        same_type_components = [c for c in self._component_dict if type(c) in overwrite_types]
+        self.disconnect(*same_type_components)
 
-    def _modify_signal_map(self, cmd_dict:dict, list_op:str="append") -> None:
-        """ Add or remove callbacks from the signal map based on a dictionary of signals and callbacks.
-            Callbacks may be either a raw callable or a tuple with a callable and subsequent commands. """
-        for (signal, callbacks) in cmd_dict.items():
-            callback_tuple = callbacks if isinstance(callbacks, tuple) else (callbacks,)
+    def _modify_signal_map(self, c:SpectraEngineComponent, cmd_dict:dict, list_op:str="append") -> None:
+        """ Add or remove callbacks from the signal map based on a dictionary of signals and callback data.
+            Data items may be either a raw callable or a tuple with a callable and subsequent commands. """
+        for (signal, data) in cmd_dict.items():
+            callback_tuple = (c, *data) if isinstance(data, tuple) else (c, data)
             getattr(self._signal_map[signal], list_op)(callback_tuple)
 
     def start(self) -> None:
@@ -94,9 +106,14 @@ class SpectraEngine:
 
     def send(self, command:str, *args) -> None:
         """ Call the methods listed under <command>, piping the output to other commands in each tuple. """
-        callbacks = self._signal_map.get(command)
-        if callbacks:
-            for func, *pipe_to in callbacks:
+        for cmp, func, *pipe_to in self._signal_map[command]:
+            try:
+                # Call the method and recursively call output commands (if any) with the return value.
                 val = func(*args)
                 for cmd in pipe_to:
                     self.send(cmd, val)
+            except RuntimeError:
+                # If we got here, we tried to call a method on a deleted object.
+                # Disconnect it from the engine if it's still there.
+                if cmp in self._component_dict:
+                    self.disconnect(cmp)

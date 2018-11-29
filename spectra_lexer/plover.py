@@ -2,9 +2,9 @@ import itertools
 import pkg_resources
 from typing import Callable, ClassVar, List, Optional, Sequence
 
+from spectra_lexer.display.cascaded_text import CascadedTextDisplay
 from spectra_lexer.engine import SpectraEngineComponent, SpectraEngine
 from spectra_lexer.file import FileHandler
-from spectra_lexer.display.cascaded_text import CascadedTextDisplay
 from spectra_lexer.keys import join_strokes
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.search import SearchEngine
@@ -63,8 +63,8 @@ class PloverPluginLayer(SpectraEngineComponent):
             # Only attempt to load a fresh copy of the dicts if the engine wasn't loaded before.
             self.parse_dict_collection(plover_engine.dictionaries)
         else:
-            # Connect the new GUI and this object to the existing engine, overwriting the previous (deleted) ones.
-            self._engine.connect_overwrite(gui, self)
+            # Connect the new GUI and this object to the existing engine, overwriting the old ones.
+            self._engine.connect(gui, self, overwrite=True)
         # Send command to set up anything else that needs it for a new GUI.
         self._engine.send("new_window")
         # If everything else turned out good, connect this component to the Plover engine and await callbacks.

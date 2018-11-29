@@ -1,3 +1,7 @@
+0.2.1
+-----
+* Engine no longer crashes when accessing previously closed GUI windows
+
 0.2.0
 -----
 * Program code is completely refactored to use an event/command based message system

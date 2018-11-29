@@ -2,7 +2,7 @@ from functools import partial
 
 from PyQt5.QtWidgets import QWidget
 
-from spectra_lexer.engine import SpectraEngineComponent, SpectraEngine
+from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.gui_qt.main_widget_ui import Ui_MainWidget
 
 
@@ -18,10 +18,10 @@ class MainWidget(QWidget, Ui_MainWidget, SpectraEngineComponent):
             w_search_type     - QCheckBox, determines whether to use word or stroke search.
             w_search_regex    - QCheckBox, determines whether to use prefix or regex search.
         Output:
-            w_display_title - QLineEdit, displays status messages and mapping of keys to word.
-            w_display_text  - QTextEdit, displays formatted text breakdown graph.
-            w_display_desc  - QLineEdit, displays rule description.
-            w_display_board - QWidget, displays steno board diagram.
+            w_display_title   - QLineEdit, displays status messages and mapping of keys to word.
+            w_display_text    - QTextEdit, displays formatted text breakdown graph.
+            w_display_desc    - QLineEdit, displays rule description.
+            w_display_board   - QWidget, displays steno board diagram.
     """
 
     def __init__(self, *args, **kwargs):
@@ -31,7 +31,8 @@ class MainWidget(QWidget, Ui_MainWidget, SpectraEngineComponent):
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks.
             Some commands have identical signatures to the Qt GUI methods; those can be passed directly. """
-        return {"gui_reset_search":        self.reset_search,
+        return {"new_window":              self.on_new_window,
+                "gui_reset_search":        self.reset_search,
                 "gui_set_match_list":      self.w_search_matches.set_items,
                 "gui_set_mapping_list":    self.w_search_mappings.set_items,
                 "gui_select_match":        self.w_search_matches.select,
@@ -41,9 +42,8 @@ class MainWidget(QWidget, Ui_MainWidget, SpectraEngineComponent):
                 "gui_display_graph":       self.w_display_text.set_graph,
                 "gui_display_info":        self.display_info,}
 
-    def engine_connect(self, engine:SpectraEngine) -> None:
-        """ At engine connect, route all Qt signals to their corresponding engine signals (or other methods). """
-        super().engine_connect(engine)
+    def on_new_window(self) -> None:
+        """ Route all Qt signals to their corresponding engine signals (or other methods). """
         SLOT_ROUTING_TABLE = {self.w_search_input.textEdited:         "search_query",
                               self.w_search_matches.itemSelected:     "search_choose_match",
                               self.w_search_mappings.itemSelected:    "search_choose_mapping",
