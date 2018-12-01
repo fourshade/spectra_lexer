@@ -3,12 +3,10 @@ from typing import Iterable, List
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
-from spectra_lexer.display.cascaded_text import CascadedTextDisplay
-from spectra_lexer.engine import SpectraEngine, SpectraEngineComponent
-from spectra_lexer.file import FileHandler
+from spectra_lexer import SpectraApplication
+from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.search import SearchEngine
+
 
 class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
     """
@@ -20,27 +18,32 @@ class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
     m_menu - QMenuBar, main menu at the top of the window.
     """
 
+    _app: SpectraApplication  # Top-level application object. Must be a singleton that retains state.
+
     def __init__(self, *args, **kwargs):
-        """ Set up the window, which contains references to methods called by menu bar actions. """
+        """ Set up the application with the main GUI widget and the file menu interface (this object). """
         super().__init__(*args, **kwargs)
         self.setupUi(self)
-        # Make the engine, connect everything to it, and start it.
-        SpectraEngine(FileHandler(), StenoLexer(), SearchEngine(),
-                      CascadedTextDisplay(), self.w_main, self).start()
-        # All command-line arguments are assumed to be steno dictionary files. Load them on start-up.
-        # If none were given, make an attempt to locate Plover's dictionaries and load those.
-        if len(sys.argv) > 1:
-            self._load_dicts(sys.argv[1:], "command line")
-        else:
-            self._load_dicts(None, "Plover config")
-        # Send command to set up anything else that needs it for a new GUI and connect the Qt signals.
-        self.engine_send("new_window")
-        self.m_file_load.triggered.connect(lambda *args: self.engine_send("file_get_dict_formats"))
-        self.m_file_exit.triggered.connect(sys.exit)
+        self._app = SpectraApplication(self.w_main, self)
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {"gui_open_file_dialog": self.dialog_load}
+        return {"engine_start": self.on_engine_start,
+                "new_window":   self.on_new_window,
+                "gui_open_file_dialog": self.dialog_load,}
+
+    def on_engine_start(self) -> None:
+        """ Command-line arguments are assumed to be steno dictionary files. Load them on engine start. """
+        if len(sys.argv) > 1:
+            self._load_dicts(sys.argv[1:], "command line")
+        else:
+            # If no arguments were given, make an attempt to locate Plover's dictionaries and load those.
+            self._load_dicts(None, "Plover config")
+
+    def on_new_window(self) -> None:
+        """ Connect the Qt signals to the engine once it's ready for GUI actions. """
+        self.m_file_load.triggered.connect(lambda *args: self.engine_send("file_get_dict_formats"))
+        self.m_file_exit.triggered.connect(sys.exit)
 
     def dialog_load(self, file_formats:List[str]) -> None:
         """ Present a dialog for the user to select a steno dictionary file. Attempt to load it if not empty. """

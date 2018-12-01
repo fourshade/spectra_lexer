@@ -1,13 +1,9 @@
 import itertools
 import pkg_resources
-from typing import Callable, ClassVar, List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
-from spectra_lexer.display.cascaded_text import CascadedTextDisplay
-from spectra_lexer.engine import SpectraEngineComponent, SpectraEngine
-from spectra_lexer.file import FileHandler
+from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.keys import join_strokes
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.search import SearchEngine
 
 # Minimum version of Plover required for plugin compatibility.
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
@@ -38,41 +34,41 @@ class PloverEngine:
 
 
 class PloverPluginLayer(SpectraEngineComponent):
-    """ Compatibility layer for Plover plugin functionality.
-        This is the only class that should touch objects passed in by Plover.
-        It is the top-level class for plugin functionality; the engine must reside here. """
+    """ Compatibility layer (top-level class) for Plover plugin functionality.
+        This is the only class that should touch objects passed in by Plover. """
 
-    # Instance attributes are lost when the container dialog is closed and re-opened.
-    # The engine is relatively expensive to create, so save it on the class to retain its state.
-    _engine: ClassVar[SpectraEngine] = None
+    _plover_engine: PloverEngine  # Plover engine, required to access dictionaries and the most recent translations.
+    _last_strokes: List[str]      # Most recent set of contiguous strokes.
+    _last_text: List[str]         # Most recent text output from those strokes.
 
-    _plover_engine: PloverEngine            # Plover engine, required to access the most recent translations.
-    _last_strokes: List[str]                # Most recent set of contiguous strokes.
-    _last_text: List[str]                   # Most recent text output from those strokes.
-
-    def __init__(self, plover_engine:PloverEngine, *, gui:SpectraEngineComponent):
-        if self._engine is None:
-            # Load the engine only once, the first time the window is opened, and store it on the class.
-            PloverPluginLayer._engine = SpectraEngine(FileHandler(), StenoLexer(), SearchEngine(),
-                                                      CascadedTextDisplay(), gui, self)
-            self._engine.start()
-            # If the calling version of Plover is incompatible, don't connect its callbacks.
-            # Instead, show an error message and prevent any further interaction with Plover.
-            if not self._compatibility_check():
-                return
-            # Only attempt to load a fresh copy of the dicts if the engine wasn't loaded before.
-            self.parse_dict_collection(plover_engine.dictionaries)
-        else:
-            # Connect the new GUI and this object to the existing engine, overwriting the old ones.
-            self._engine.connect(gui, self, overwrite=True)
-        # Send command to set up anything else that needs it for a new GUI.
-        self._engine.send("new_window")
-        # If everything else turned out good, connect this component to the Plover engine and await callbacks.
+    def __init__(self, plover_engine:PloverEngine):
         self._plover_engine = plover_engine
         self._last_strokes = []
         self._last_text = []
-        plover_engine.signal_connect('dictionaries_loaded', self.parse_dict_collection)
-        plover_engine.signal_connect('translated', self.parse_translations)
+
+    def engine_commands(self) -> dict:
+        """ Individual components must define the signals they respond to and the appropriate callbacks. """
+        return {"engine_start": self.on_engine_start,
+                "new_window":   self.on_new_window,}
+
+    def on_engine_start(self) -> None:
+        # If the detected version of Plover is incompatible, don't connect its callbacks.
+        # Instead, show an error message and prevent any further interaction with Plover.
+        if not self._compatibility_check():
+            return
+        # Attempt to load a fresh copy of the dicts if the engine wasn't loaded before.
+        with self._plover_engine as plover:
+            self.parse_dict_collection(plover.dictionaries)
+
+    def on_new_window(self) -> None:
+        # If the detected version of Plover is incompatible, don't connect its callbacks.
+        # Instead, show an error message and prevent any further interaction with Plover.
+        if not self._compatibility_check():
+            return
+        # If everything turned out good, connect this component to the Plover engine and await callbacks.
+        with self._plover_engine as plover:
+            plover.signal_connect('dictionaries_loaded', self.parse_dict_collection)
+            plover.signal_connect('translated', self.parse_translations)
 
     def parse_dict_collection(self, steno_dc:PloverStenoDictCollection) -> None:
         """ When Plover dictionaries become available, merge them all into a standard dict for the main lexer window.

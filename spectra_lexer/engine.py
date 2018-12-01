@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional
 
-# TODO: implement threading and thread safety between GUI and processing components.
 
 class SpectraEngineComponent:
     """ Mixin class for any component that sends and receives commands from the Spectra engine.
@@ -30,13 +29,21 @@ class SpectraEngineComponent:
 
 class SpectraEngine:
     """
-    Top-level class for operation of the Spectra program. Instantiated by the master GUI widget very
-    shortly after initialization. Is expected to persist across multiple windows when used as a plugin.
+    Master component communications class for the Spectra program. Routes messages and ata structures between
+    the application, the GUI, and all other constituent components.
 
-    The program itself is conceptually divided into three parts that form a pipeline:
-        Search/input - translations for the program to parse have to come from somewhere, and usually it's a JSON
+    The program itself is conceptually divided into parts that form a pipeline:
+        File/input - The most basic operation of the lexer requires a set of rules that map steno keys to letters,
+        and these must be loaded from disk. The first step on startup after connecting the components is for the
+        lexer to ask for a dictionary of rules, and this module will load these from the built-in directory.
+
+        Search/input - Translations for the program to parse have to come from somewhere, and usually it's a JSON
         dictionary loaded from outside. The search component handles all search functionality and sends queries
         to the lexer at certain points when the old information is ready to be overwritten by new information.
+
+        Plover/input - Translations and search dictionaries may also come from Plover when activated as a plugin.
+        Strokes from Plover are handled independently of search results; the output window will display the last
+        translation no matter where it came from.
 
         Lexer/processing - A translation consists of a series of strokes mapped to an English word, and it is the
         lexer's job to match pieces of each using a dictionary of rules it has loaded from storage. All rules handling
@@ -47,18 +54,16 @@ class SpectraEngine:
         which puts it in its final form for the GUI to display, including the text graph and the steno board layout
         diagram. This is strictly one-way - no information needs to pass back to the lexer or search from here.
 
-    This class glues these three components together, handling communication between each one and the GUI as well as
+    This class glues these components together, handling communication between each one and the GUI as well as
     passing information from one stage of the pipeline to the next. Facilitating communication is *all* it should do;
-    any actual software functionality should be implemented in one of the three component classes or the GUI.
-
-    This object must handle calls from above as well as below; in particular, the search engine must be able to
-    accept dictionaries from the main window, and the lexer must be able to accept queries from the Plover layer.
+    any actual software functionality should be implemented in one of the component classes or the GUI.
     """
 
     _component_dict: Dict[SpectraEngineComponent, dict]  # Dict mapping components to their command dicts, id hashed.
     _signal_map: Dict[str, List[tuple]]                  # Mapping of every command to a list of callback structures.
 
     def __init__(self, *components:SpectraEngineComponent):
+        """ Construct the engine and immediately add the specified components to it, if any. """
         self._component_dict = {}
         self._signal_map = defaultdict(list)
         self.connect(*components)
