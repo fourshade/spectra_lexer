@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from spectra_lexer.search.search_dict import ReverseDict, SimilarKeyDict
-from spectra_lexer.search.steno_dict import _ReverseStenoSearchDict
+from spectra_lexer.search.key_search import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.steno_search import strip_lower_simfn
 
 
 def test_skdict_basic():
@@ -136,8 +136,61 @@ def test_skdict_similar():
     assert d.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "^hates^", "a"]
 
 
-def test_rdict():
-    """ Unit tests for the reverse dict class. """
+def test_string_dict():
+    """ Unit tests for the added functionality of the string-based search dict class. """
+    # Similarity is based on string equality after removing case and stripping certain characters from the ends.
+    keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
+    d = StringSearchDict.fromkeys(keys, simfn=strip_lower_simfn(' #{^}'))
+    assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
+    assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
+    assert d.get_similar_keys('') == []
+
+    # Prefix search will return words in sorted order which are supersets of the input starting from
+    # the beginning after applying the similarity function. Also stops at the end of the dictionary.
+    keys = ['beau', 'beautiful', 'Beautiful', 'beautifully', 'BEAUTIFULLY', 'ugly', 'ugliness']
+    d.clear()
+    d.update(dict.fromkeys(keys))
+    assert d.prefix_match_keys('beau',   count=4) == ['beau', 'Beautiful', 'beautiful', 'BEAUTIFULLY']
+    assert d.prefix_match_keys('UGLY',   count=2) == ['ugly']
+    assert d.prefix_match_keys('beauty', count=1) == []
+
+    # Even if a prefix isn't present by itself, the search will return words that contain it
+    # going forward from the index where it *would* be found if it was there.
+    assert d.prefix_match_keys('beaut', count=3) == ['Beautiful', 'beautiful', 'BEAUTIFULLY']
+    assert d.prefix_match_keys('',      count=1) == ['beau']
+
+    # If count is None or not given, prefix search will return all possible supersets in the dictionary.
+    assert d.prefix_match_keys('beaut', count=None) == ['Beautiful', 'beautiful', 'BEAUTIFULLY', 'beautifully']
+    assert set(d.prefix_match_keys('')) == set(keys)
+
+    # If raw is False, the similarity keys (case-stripped) will be directly returned.
+    assert d.prefix_match_keys('beautiful', raw=False) == ['beautiful', 'beautiful', 'beautifully', 'beautifully']
+
+    # Regex search is straightforward; return up to count entries in order that match the given regular expression.
+    # If no regex metacharacters are present, should just be a case-sensitive prefix search.
+    assert d.regex_match_keys('beau',          count=4) == ['beau', 'beautiful', 'beautifully']
+    assert d.regex_match_keys('beautiful.?.?', count=2) == ['beautiful', 'beautifully']
+    assert d.regex_match_keys(' beautiful',    count=3) == []
+    assert d.regex_match_keys('(b|u).{3}$',    count=2) == ['beau', 'ugly']
+    assert d.regex_match_keys('B',             count=9) == ['Beautiful', 'BEAUTIFULLY']
+    assert d.regex_match_keys('.*ly',          count=5) == ['beautifully', 'ugly']
+
+    # If count is None or not given, regex search should just go through the entire list in order.
+    assert d.regex_match_keys('.*u.+y', count=None) == ['beautifully', 'ugly']
+    assert set(d.regex_match_keys('')) == set(keys)
+
+    # If raw is False, the similarity keys (case-stripped) will be searched instead.
+    assert d.regex_match_keys('.*y$',      raw=False) == ['beautifully', 'beautifully', 'ugly']
+    assert d.regex_match_keys('Beautiful', raw=False) == []
+
+    # Regex errors won't raise if the algorithm short circuits a pattern with no possible matches.
+    assert d.regex_match_keys('an open group that doesn\'t raise(', count=5) == []
+    with pytest.raises(re.error):
+        d.regex_match_keys('beautiful...an open group(', count=1)
+
+
+def test_reverse_dict():
+    """ Unit tests for the added functionality of the reverse dict class. """
     # A reverse dict must add items to a list rather than overwrite them.
     rd = ReverseDict()
     rd.append_key('beautiful', ('WAOUFL',))
@@ -167,57 +220,3 @@ def test_rdict():
                  "b": [2, 6],
                  "c": [4],
                  "d": [8]}
-
-
-def test_search():
-    """ Unit tests for the reverse steno search dict class and its special search methods. """
-    # Similarity is based on string equality after removing case and stripping certain characters from the ends.
-    d = _ReverseStenoSearchDict(strip_chars=' #{^}')
-    d.append_key('beautiful', ('WAOUFL',))
-    d.append_key('Beautiful', ('PWAOUFL',))
-    d.append_key('{^BEAUTIFUL}  ', ('PWAOUT', '-FL'))
-    d.append_key('ugly', ('ULG',))
-    assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
-    assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
-    assert d.get_similar_keys('') == []
-
-    # Prefix search will return words in sorted order which are supersets of the input starting from
-    # the beginning after applying the similarity function. Also stops at the end of the dictionary.
-    d.clear()
-    d.append_key('beau', ('PWAOU',))
-    d.append_key('beautiful', ('WAOUFL',))
-    d.append_key('Beautiful', ('PWAOUFL',))
-    d.append_key('beautifully', ('PWAOUFL', 'HREU'))
-    d.append_key('beautifully', ('PWAOUFL', 'KWREU'))
-    d.append_key('ugly', ('ULG',))
-    d.append_key('ugliness', ('UG', 'HREU', '-PBS'))
-    assert d.prefix_match_keys('beau',   count=4) == ['beau', 'Beautiful', 'beautiful', 'beautifully']
-    assert d.prefix_match_keys('UGLY',   count=2) == ['ugly']
-    assert d.prefix_match_keys('beauty', count=1) == []
-
-    # Even if a prefix isn't present by itself, the search will return words that contain it
-    # going forward from the index where it *would* be found if it was there.
-    assert d.prefix_match_keys('beaut', count=5) == ['Beautiful', 'beautiful', 'beautifully']
-    assert d.prefix_match_keys('',      count=1) == ['beau']
-
-    # If count is None or not given, prefix search will return all possible supersets in the dictionary.
-    assert d.prefix_match_keys('beaut', count=None) == ['Beautiful', 'beautiful', 'beautifully']
-    assert d.prefix_match_keys('') == ['beau', 'Beautiful', 'beautiful', 'beautifully', 'ugliness', 'ugly']
-
-    # Regex search is straightforward; return up to count entries in order that match the given regular expression.
-    # If no regex metacharacters are present, should just be a case-sensitive starts-with search.
-    assert d.regex_match_keys('beau',          count=4) == ['beau', 'beautiful', 'beautifully']
-    assert d.regex_match_keys('beautiful.?.?', count=2) == ['beautiful', 'beautifully']
-    assert d.regex_match_keys(' beautiful',    count=3) == []
-    assert d.regex_match_keys('(b|u).{3}$',    count=2) == ['beau', 'ugly']
-    assert d.regex_match_keys('B',             count=9) == ['Beautiful']
-    assert d.regex_match_keys('.*ly',          count=5) == ['beautifully', 'ugly']
-
-    # If count is None or not given, regex search should just go through the entire list in order.
-    assert d.regex_match_keys('.*u.+y', count=None) == ['beautifully', 'ugly']
-    assert d.regex_match_keys('') == ['beau', 'Beautiful', 'beautiful', 'beautifully', 'ugliness', 'ugly']
-
-    # Regex errors won't raise if the algorithm short circuits a pattern with no possible matches.
-    assert d.regex_match_keys('an open group that doesn\'t raise(', count=5) == []
-    with pytest.raises(re.error):
-        d.regex_match_keys('beautiful...an open group(', count=1)

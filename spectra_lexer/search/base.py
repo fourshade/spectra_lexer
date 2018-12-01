@@ -1,20 +1,27 @@
-from typing import Dict
+import re
+from typing import Dict, List
 
 from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.rules import StenoRule
+from spectra_lexer.search.steno_search import BidirectionalStenoSearchDict
+from spectra_lexer.search.key_search import StringSearchDict
 
-from spectra_lexer.search.steno_dict import CompositeSearchDictionary
+# Hard limit on the number of matches returned by a special search.
+_MATCH_LIMIT = 100
 
 
 class SearchEngine(SpectraEngineComponent):
     """ Main search class for finding strokes and translations that are similar to one another. """
 
-    _dict: CompositeSearchDictionary  # Current search dict (contains both forward and reverse dicts)
-    _last_pattern: str = ""           # Last detected text in the search box.
-    _last_match: str = ""             # Last search match selected by the user in the list.
+    _dict: BidirectionalStenoSearchDict  # Current search dict (contains both forward and reverse dicts)
+    _last_pattern: str = ""              # Last detected text in the search box.
+    _last_match: str = ""                # Last search match selected by the user in the list.
+    _mode_strokes: bool = False          # If True, use the forward dict, else use the reverse dict.
+    _mode_regex: bool = False            # If True, treat search text input as a regular expression.
 
     def __init__(self):
-        self._dict = CompositeSearchDictionary({})
+        """ Initialize the base dict with the search function and any given arguments. """
+        self._dict = BidirectionalStenoSearchDict()
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
@@ -31,13 +38,14 @@ class SearchEngine(SpectraEngineComponent):
         """ After opening a new window, clear everything and enable
             searching only if there is a search dictionary loaded. """
         self._last_pattern = self._last_match = ""
-        self._dict.mode_strokes = self._dict.mode_regex = False
+        self._mode_strokes = self._mode_regex = False
         self.engine_send("gui_reset_search", bool(self._dict))
 
     def set_dict(self, src_dict:Dict[str, str]) -> None:
         """ Create the search dictionary from the raw steno dictionary given.
             Reset everything GUI-related afterwards. """
-        self._dict = CompositeSearchDictionary(src_dict)
+        self._dict.clear()
+        self._dict.update(src_dict)
         self.on_new_window()
 
     def on_search(self, pattern:str) -> None:
@@ -51,7 +59,7 @@ class SearchEngine(SpectraEngineComponent):
             self.engine_send("gui_set_match_list", [])
             return
         # Choose the right type of search based on the mode flags, execute it, and send the list to the GUI.
-        matches = self._dict.search(pattern)
+        matches = self._search(self._raw_dict(),pattern)
         self.engine_send("gui_set_match_list", matches)
         # If there's only one match and it's new, select it and begin analysis.
         if len(matches) == 1 and matches[0] != self._last_match:
@@ -61,12 +69,12 @@ class SearchEngine(SpectraEngineComponent):
     def on_choose_match(self, match:str) -> None:
         """ When a match is chosen from the upper list, look up its mappings and display them in the lower list. """
         self._last_match = match
-        mapping_or_list = self._dict.get(match)
+        mapping_or_list = self._raw_dict().get(match)
         if not mapping_or_list:
             return
         # We now have either a non-empty string (stroke mode) or a non-empty list of strings (word mode).
         # In either case, display the mapping results in list form and begin analysis.
-        m_list = [mapping_or_list] if self._dict.mode_strokes else mapping_or_list
+        m_list = [mapping_or_list] if self._mode_strokes else mapping_or_list
         self.engine_send("gui_set_mapping_list", m_list)
         # With one mapping (either mode), it is a regular query with a defined stroke and word.
         if len(m_list) == 1:
@@ -82,20 +90,39 @@ class SearchEngine(SpectraEngineComponent):
         if not match or not mapping:
             return
         # The order of strokes/word depends on the mode.
-        strokes, word = (match, mapping) if self._dict.mode_strokes else (mapping, match)
+        strokes, word = (match, mapping) if self._mode_strokes else (mapping, match)
         self.engine_send("lexer_query", strokes, word)
 
     def on_set_mode_strokes(self, enabled:bool=True) -> None:
         """ Switch to strokes or text mode, then start a new search to overwrite the previous one. """
-        self._dict.mode_strokes = enabled
+        self._mode_strokes = enabled
         self.on_search(self._last_pattern)
 
     def on_set_mode_regex(self, enabled:bool) -> None:
         """ Set regex enabled or disabled. In either case, start a new search to overwrite the previous one. """
-        self._dict.mode_regex = enabled
+        self._mode_regex = enabled
         self.on_search(self._last_pattern)
 
     def on_lexer_finished(self, result:StenoRule) -> None:
         """ If the lexer's output contains a mapping from our list, select it, else do nothing. """
-        mapping = result.letters if self._dict.mode_strokes else result.keys.inv_parse()
+        mapping = result.letters if self._mode_strokes else result.keys.inv_parse()
         self.engine_send("gui_select_mapping", mapping)
+
+    def _raw_dict(self) -> StringSearchDict:
+        return self._dict if self._mode_strokes else self._dict.reverse
+
+    def _search(self, d:StringSearchDict, pattern:str, count:int=_MATCH_LIMIT) -> List[str]:
+        """
+        Perform a special search in the current direction (for strokes given a translation
+        or translations given a stroke) and return a list of matches.
+
+        pattern: Text pattern to match.
+        count: Maximum number of matches to return.
+        """
+        if self._mode_regex:
+            try:
+                return d.regex_match_keys(pattern, count)
+            except re.error:
+                return ["REGEX ERROR"]
+        else:
+            return d.prefix_match_keys(pattern, count)

@@ -5,14 +5,14 @@ from collections import defaultdict
 from itertools import islice
 from operator import methodcaller
 import re
-from typing import Callable, Dict, Iterable, Mapping, List, Tuple, TypeVar
+from typing import Callable, Dict, Iterable, Mapping, List, Tuple, TypeVar, Union
 
 # Regex to match ASCII characters without special regex behavior when used at the start of a pattern.
 # Will always return at least the empty string (which is a prefix of everything).
 REGEX_MATCH_LITERAL_PREFIX = re.compile(r'[\w \"#%\',\-:;<=>@`~]*').match
 
-SKT = TypeVar("SKT")  # Similarity key type.
-KT = TypeVar("KT")    # Key type.
+SKT = TypeVar("SKT")  # Similarity-transformed key (simkey) type.
+KT = TypeVar("KT")    # Raw key type.
 VT = TypeVar("VT")    # Value type.
 
 
@@ -27,11 +27,15 @@ class SimilarKeyDict(Dict[KT, VT]):
     The "similarity function" returns a measure of how close two keys are to one another. This function should take a
     single key as input, and the return values should compare equal for keys that are deemed to be "similar". Even if
     they are not equal, keys with return values that are close will be close together in the list and may appear
-    together in a search where equality is not required (i.e filter_keys with no filter). All implemented
-    functionality other than similarity search is equivalent to that of a regular dictionary.
+    together in a search where equality is not required (subclasses must implement these searches). All implemented
+    functionality other than similar key search is equivalent to that of a regular dictionary.
 
-    The keys must be of a type that is immutable, hashable, and totally orderable (i.e. it is possible to rank all
-    the keys from least to greatest using comparisons) both before and after applying the given similarity function.
+    Due to the dual nature of the data structure, there are additional restrictions on the data types allowed to be
+    keys. As with a regular dict, keys must be of a type that is hashable, but they also must be totally orderable
+    (i.e. it is possible to rank all the keys from least to greatest using comparisons) in order for sorting to work.
+    A frozenset, for instance, would not work despite being hashable because it has no well-defined sorting order.
+    The output type of the similarity function (if it is different) must be totally orderable as well.
+
     Inside the list, keys are stored in sorted order as tuples of (simkey, rawkey), which means they are ordered first
     by the value computed by the similarity function, and if those are equal, then by their natural value.
 
@@ -50,7 +54,7 @@ class SimilarKeyDict(Dict[KT, VT]):
     """
 
     _list: List[Tuple[SKT, KT]]  # Sorted list of tuples: the similarity function output paired with the original key.
-    _simfn: Callable[[KT], KT]   # Similarity function, mapping one key to another of the same type.
+    _simfn: Callable[[KT], SKT]  # Similarity function, mapping raw keys that share some property to the same "simkey".
 
     def __init__(self, *args, simfn:Callable[[KT],SKT]=lambda x: x, **kwargs):
         """ Initialize the dict and list to empty and set up the similarity function (identity if not provided).
@@ -59,7 +63,7 @@ class SimilarKeyDict(Dict[KT, VT]):
         self._list = []
         self._simfn = simfn
         if args or kwargs:
-            self.update(*args, **kwargs)
+            self._update_empty(*args, **kwargs)
 
     def clear(self) -> None:
         super().clear()
@@ -82,12 +86,17 @@ class SimilarKeyDict(Dict[KT, VT]):
         """ Update the dict and list using items from the given arguments. Because this is typically used
             to fill dictionaries with large amounts of items, a fast path is included if this one is empty. """
         if not self:
-            super().update(*args, **kwargs)
-            self._list = list(zip(map(self._simfn, self), self))
-            self._list.sort()
+            self._update_empty(*args, **kwargs)
         else:
             for (k, v) in dict(*args, **kwargs).items():
                 self[k] = v
+
+    def _update_empty(self, *args, **kwargs) -> None:
+        """ Fill the dict from empty and remake the list using items from the given arguments. """
+        assert not self
+        super().update(*args, **kwargs)
+        self._list = list(zip(map(self._simfn, self), self))
+        self._list.sort()
 
     def pop(self, k:KT, *default:VT) -> VT:
         """ Remove an item from the dict and list and return its value, or <default> if not found. """
@@ -109,19 +118,18 @@ class SimilarKeyDict(Dict[KT, VT]):
         """ Get an item from the dictionary. If it isn't there, set it to <default> and return it. """
         if k in self:
             return self[k]
-        else:
-            self[k] = default
-            return default
+        self[k] = default
+        return default
 
     def copy(self) -> __qualname__:
         """ Make a shallow copy of the dict. The list will simply be reconstructed in the new copy. """
         return SimilarKeyDict(self, simfn=self._simfn)
 
-    @staticmethod
-    def fromkeys(seq:Iterable[KT], value:VT=None, *args, **kwargs) -> __qualname__:
+    @classmethod
+    def fromkeys(cls, seq:Iterable[KT], value:VT=None, **kwargs) -> __qualname__:
         """ Make a new dict from a collection of keys, setting the value of each to <value>.
             simfn can still be set by including it as a keyword argument after <value>. """
-        return SimilarKeyDict(dict.fromkeys(seq, value), **kwargs)
+        return cls(dict.fromkeys(seq, value), **kwargs)
 
     def _index_left(self, simkey:SKT) -> int:
         """ Find the leftmost list index of <simkey> (or the place it *would* be) using bisection search. """
@@ -149,11 +157,16 @@ class SimilarKeyDict(Dict[KT, VT]):
         return keys
 
 
-class StringSearchDict(SimilarKeyDict[str, VT]):
-    """ A similar-key dictionary with special search methods for strings. """
+class StringSearchDict(SimilarKeyDict):
+    """
+    A similar-key dictionary with special search methods for strings.
+    Raw keys can be any hashable, orderable data type, but the similarity transform function must map them to strings.
+    In order for the standard optimizations involving literal prefixes to work, the similarity function must
+    not change the relative order of characters (i.e. changing case is fine, reversing the string is not.)
+    """
 
-    def prefix_match_keys(self, prefix:str, count:int=None) -> List[str]:
-        """ Return a list producing all possible raw keys that could contain <prefix>, up to <count>. """
+    def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[Union[SKT,KT]]:
+        """ Return a list of keys (of either type) where the simkey starts with <prefix>, up to <count>. """
         sk_start = self._simfn(prefix)
         if not sk_start:
             # If the prefix is empty after transformation, it could possibly match anything.
@@ -167,18 +180,21 @@ class StringSearchDict(SimilarKeyDict[str, VT]):
             if count is not None:
                 idx_end = min(idx_end, idx_start + count)
             matches = self._list[idx_start:idx_end]
-        return [i[1] for i in matches]
+        # For the (simkey, rawkey) tuples, we can use the boolean as an index for the key type we want.
+        return [i[raw] for i in matches]
 
-    def regex_match_keys(self, pattern:str, count:int=None) -> List[str]:
-        """ Return a list of at most <count> translations that match the regex <pattern> from the start. """
+    def regex_match_keys(self, pattern:str, count:int=None, raw=True) -> List[Union[SKT,KT]]:
+        """ Return a list of at most <count> keys that match the regex <pattern> from the start.
+            Can search and return either the raw keys (default) or sim keys (required if raw keys aren't strings). """
         # First, figure out how much of the pattern string from the start is literal (no regex special characters).
         literal_prefix = REGEX_MATCH_LITERAL_PREFIX(pattern).group()
         # If all matches must start with a certain literal prefix, we can narrow the range of our search.
-        keys = self.prefix_match_keys(literal_prefix)
+        # Only keep the type of key (raw or simkey) that we're interested in searching.
+        keys = self.prefix_match_keys(literal_prefix, count=None, raw=raw)
         if not keys:
             return []
         # If the prefix and pattern are equal, we have a complete literal string. Regex is not necessary.
-        # Just do a raw (case-sensitive) prefix match in that case. Otherwise, compile the regular expression.
+        # Just do a (case-sensitive) prefix match in that case. Otherwise, compile the regular expression.
         if literal_prefix == pattern:
             match_op = methodcaller("startswith", pattern)
         else:
@@ -198,6 +214,13 @@ class ReverseDict(Dict[VT, List[KT]]):
     Naming conventions are reversed - in a reverse dictionary, we look up a value to get a list
     of keys that would map to it in the forward dictionary.
     """
+
+    def __init__(self, *args, **kwargs):
+        """ Use the positional argument (if given, and only one) as a source forward dict. """
+        super().__init__(**kwargs)
+        if args:
+            assert len(args) == 1
+            self.match_forward(args[0])
 
     def append_key(self, v:VT, k:KT) -> None:
         """ Append the key <k> to the list located under the value <v>.
