@@ -1,9 +1,9 @@
 Spectra Lexer
-================
+=============
 
 The Spectra Steno Lexer is an experimental tool for analyzing and matching patterns of steno keys against the text they produce using various rules from steno theories (mostly Plover theory). It also has advanced search functions for steno dictionaries which have been mostly lacking in Plover up to this point.
 
-![Screenshot](https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot.png)
+|Main Screenshot|
 
 Source Installation
 -------------------
@@ -31,3 +31,5 @@ Operation
 This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. If it cannot match every single steno key to letters in the word, it will simply not return a result at all (to avoid guessing wrong). Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
 
 When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will attempt to analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke), choosing shorter strokes over longer ones to break ties.
+
+.. |Main Screenshot| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot.png
