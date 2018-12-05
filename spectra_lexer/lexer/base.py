@@ -1,5 +1,5 @@
 from itertools import repeat
-from typing import Dict, Iterable, List, Union
+from typing import Iterable, List, Union
 
 from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.keys import StenoKeys, KEY_SEP, KEY_STAR
@@ -17,8 +17,7 @@ class StenoLexer(SpectraEngineComponent):
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {"engine_start":    (lambda: None, "file_load_rules_dicts"),
-                "lexer_set_rules": self.set_rules,
+        return {"lexer_set_rules": self.set_rules,
                 "lexer_query":     (self.query,     "display_rule"),
                 "lexer_query_all": (self.query_all, "display_rule"),}
 

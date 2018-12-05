@@ -104,11 +104,6 @@ class SpectraEngine:
             callback_tuple = (c, *data) if isinstance(data, tuple) else (c, data)
             getattr(self._signal_map[signal], list_op)(callback_tuple)
 
-    def start(self) -> None:
-        """ Send a start command to any components that handle it. Must be called after engine setup. """
-        # TODO: Use this method to start a separate thread for the engine.
-        self.send("engine_start")
-
     def send(self, command:str, *args) -> None:
         """ Call the methods listed under <command>, piping the output to other commands in each tuple. """
         for cmp, func, *pipe_to in self._signal_map[command]:

@@ -4,14 +4,13 @@ from typing import List
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
-from spectra_lexer import SpectraApplication
 from spectra_lexer.engine import SpectraEngineComponent
 from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
 
 
 class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
     """
-    Main QT application window as called from the command line or Plover.
+    Main QT application window as created from the command line script or Plover.
     Contains all GUI elements and is the initial recipient of all GUI callbacks.
 
     Interactive children:
@@ -27,14 +26,9 @@ class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
         w_display_board   - QWidget, displays steno board diagram.
     """
 
-    _app: SpectraApplication  # Top-level application object. Must be a singleton that retains state.
-
-    def __init__(self, *args, **kwargs):
-        """ Set up the application with the main GUI widget/file menu interface (this object).
-            If Plover was responsible for initialization, its components will be in args, so add them too. """
+    def __init__(self):
         super().__init__()
         self.setupUi(self)
-        self._app = SpectraApplication(self, *args, **kwargs)
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks.
@@ -46,7 +40,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
                 "gui_set_mapping_list":    self.w_search_mappings.set_items,
                 "gui_select_match":        self.w_search_matches.select,
                 "gui_select_mapping":      self.w_search_mappings.select,
-                "gui_show_status_message": self.w_display_title.setText,
+                "set_status_message":      self.w_display_title.setText,
                 "gui_display_title":       self.w_display_title.setText,
                 "gui_display_graph":       self.w_display_text.set_graph,
                 "gui_display_info":        self.display_info,}
@@ -72,7 +66,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
                                                  "Supported file formats (*" + " *".join(file_formats) + ")")
         if fname:
             self.engine_send("file_load_steno_dicts", (fname,))
-            self.w_display_title.setText("Loaded new dictionaries from file dialog.")
+            self.engine_send("set_status_message", "Loaded new dictionaries from file dialog.")
 
     # Search widgets
     def reset_search(self, enabled:bool) -> None:
