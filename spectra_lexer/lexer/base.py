@@ -18,7 +18,7 @@ class StenoLexer(SpectraComponent):
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
-                "lexer_set_rules": self.set_rules,
+                "new_rules":       self.set_rules,
                 "lexer_query":     self.query,
                 "lexer_query_all": self.query_all}
 

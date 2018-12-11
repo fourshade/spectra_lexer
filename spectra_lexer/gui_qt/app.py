@@ -1,5 +1,5 @@
 import sys
-from functools import partial
+from typing import Iterable
 
 from PyQt5.QtWidgets import QApplication
 
@@ -24,7 +24,8 @@ class GUIQtBaseApplication(SpectraApplication):
         return {**super().engine_commands(),
                 "close_window":               (lambda *args: sys.exit()),
                 "user_load_translations":     self.dialog_load_translations,
-                "dialog_translations_chosen": partial(self.load_translations_from, src_string="file dialog")}
+                "app_query_and_display":      self.query_and_display,
+                "app_query_and_display_best": self.query_and_display_best}
 
     def engine_subcomponents(self) -> tuple:
         """ Default GUI support components. """
@@ -33,10 +34,21 @@ class GUIQtBaseApplication(SpectraApplication):
     def dialog_load_translations(self, *args) -> None:
         """ Present a dialog for the user to select one or more steno dictionary files.
             Attempt to load it if not empty. """
-        file_formats = self.engine_call("file_get_dict_formats")
+        file_formats = self.engine_call("file_get_decodable_exts")
         fname = self.engine_call("gui_dialog_load_dict", file_formats)
         if fname:
-            self.engine_call("dialog_translations_chosen", (fname,))
+            self.load_translations_from((fname,), src_string="file dialog")
+
+    def query_and_display(self, strokes, text) -> None:
+        # Make a lexer query and display the results.
+        result = self.engine_call("lexer_query", strokes, text)
+        self.engine_call("display_rule", result)
+
+    def query_and_display_best(self, strokes_list, text) -> None:
+        # Make a lexer query for several strokes and display the results, returning the best one to the caller.
+        result = self.engine_call("lexer_query_all", strokes_list, text)
+        self.engine_call("display_rule", result)
+        return result
 
 
 class GUIQtMainApplication(GUIQtBaseApplication):

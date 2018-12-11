@@ -19,6 +19,7 @@ class GUIQtComponent(SpectraComponent):
         return {}
 
     def on_new_window(self) -> None:
-        """ Route all Qt signals to their corresponding engine signals (or other methods) once the engine is ready. """
+        """ Route all Qt signals to their corresponding engine signals (or other methods) once the engine is ready.
+            These signals come from Qt threads, so they must be async in order to be called on the engine thread. """
         for (slot, cmd) in self.engine_slots().items():
-            slot.connect(partial(self.engine_call, cmd))
+            slot.connect(partial(self.engine_call_async, cmd))

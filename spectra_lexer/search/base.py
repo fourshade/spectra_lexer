@@ -26,7 +26,7 @@ class SearchEngine(SpectraComponent):
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
                 "new_window":               self.on_new_window,
-                "search_set_dict":          self.set_dict,
+                "new_search_dict":          self.set_dict,
                 "search_query":             self.on_search,
                 "search_choose_match":      self.on_choose_match,
                 "search_choose_mapping":    self.on_choose_mapping,
@@ -80,8 +80,7 @@ class SearchEngine(SpectraComponent):
             self.on_choose_mapping(m_list[0])
             return
         # If there is more than one mapping (only in word mode), make a lexer query to select the best one.
-        result = self.engine_call("lexer_query_all", m_list, match)
-        self.engine_call("display_rule", result)
+        result = self.engine_call("app_query_and_display_best", m_list, match)
         # If the lexer's output contains a mapping from our list, select it.
         mapping = result.letters if self._mode_strokes else result.keys.inv_parse()
         self.engine_call("gui_select_mapping", mapping)
@@ -93,8 +92,7 @@ class SearchEngine(SpectraComponent):
             return
         # The order of strokes/word depends on the mode.
         strokes, word = (match, mapping) if self._mode_strokes else (mapping, match)
-        result = self.engine_call("lexer_query", strokes, word)
-        self.engine_call("display_rule", result)
+        self.engine_call("app_query_and_display", strokes, word)
 
     def on_set_mode_strokes(self, enabled:bool=True) -> None:
         """ Switch to strokes or text mode, then start a new search to overwrite the previous one. """

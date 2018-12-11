@@ -13,9 +13,9 @@ class FileHandler(SpectraComponent):
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
-                "file_load_rules":        self.load_rules,
-                "file_load_translations": self.load_translations,
-                "file_get_dict_formats":  DECODERS.keys}
+                "file_load_rules":         self.load_rules,
+                "file_load_translations":  self.load_translations,
+                "file_get_decodable_exts": DECODERS.keys}
 
     @staticmethod
     def load_rules(filenames:Iterable[str]=()) -> List[StenoRule]:
