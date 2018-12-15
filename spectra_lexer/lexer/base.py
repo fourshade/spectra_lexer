@@ -4,7 +4,7 @@ from typing import Iterable, List
 from spectra_lexer import SpectraComponent
 from spectra_lexer.keys import KEY_SEP, KEY_STAR, StenoKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
-from spectra_lexer.rules import RuleMap, StenoRule
+from spectra_lexer.rules import RuleMap, StenoRule, MutableRuleMap
 
 
 class StenoLexer(SpectraComponent):
@@ -64,7 +64,7 @@ class StenoLexer(SpectraComponent):
         get_rule_matches = self._rule_matcher.match
         # Initialize the stack with the start position ready at the bottom and start processing.
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
-        stack = [(keys, word.lower(), 0, 0, RuleMap())]
+        stack = [(keys, word.lower(), 0, 0, MutableRuleMap())]
         while stack:
             # Take the next search path off the stack.
             test_keys, test_word, wordptr, lc, rulemap = stack.pop()
@@ -95,7 +95,7 @@ class StenoLexer(SpectraComponent):
                         continue
                     # Make a copy of the current map and add the new rule + its location in the complete word.
                     word_len = len(r.letters)
-                    new_map = RuleMap(rulemap)
+                    new_map = MutableRuleMap(rulemap)
                     new_map.add_child(r, wordptr + i, word_len)
                     # Push a stack item with the new map, and with the matched keys and letters removed.
                     word_inc = word_len + i

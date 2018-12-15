@@ -2,7 +2,7 @@ import re
 from typing import Dict, NamedTuple, Tuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, StenoRule
+from spectra_lexer.rules import ImmutableRuleMap, MutableRuleMap, StenoRule
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -55,17 +55,18 @@ class StenoRuleDict(Dict[str, StenoRule]):
         letters, rulemap = self._substitute(raw_rule.pattern)
         # The keys must be converted from RTFCRE form into lexer form.
         keys = StenoKeys.parse(raw_rule.keys)
-        # Look for key flags, add them as ending rules, and remove them.
-        flags = set(raw_rule.flag_str.split("|")) if raw_rule.flag_str else set()
+        # Parse the flag string and add key flags as ending rules.
+        flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
         if flags:
-            rulemap.add_key_rules(flags, len(letters), remove_flags=True)
+            rulemap.add_key_rules(flags, len(letters))
         description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.
         if raw_rule.example_str:
             description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
-        self[k] = StenoRule(keys, letters, flags, description, rulemap)
+        # The rulemap must be frozen before final inclusion in a rule.
+        self[k] = StenoRule(keys, letters, flags, description, ImmutableRuleMap(rulemap))
 
-    def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:
+    def _substitute(self, pattern:str) -> Tuple[str, MutableRuleMap]:
         """
         From a rule's raw pattern string, find all the child rule references in brackets and make a map
         so the format code can break it down again if needed. For those in () brackets, we must substitute
@@ -75,7 +76,7 @@ class StenoRuleDict(Dict[str, StenoRule]):
         not finished yet will still contain their own child rules in brackets. If we find one of these,
         we have to parse it first in a recursive manner. Circular references will crash the program.
         """
-        rulemap = RuleMap()
+        rulemap = MutableRuleMap()
         m = SUBRULE_RX.search(pattern)
         while m:
             # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
