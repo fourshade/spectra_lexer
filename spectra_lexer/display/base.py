@@ -85,9 +85,9 @@ class OutputNode:
     __repr__ = __str__
 
 
-class OutputDisplay(SpectraComponent):
-    """ Base output class for drawing a finished rule breakdown of steno translations.
-        Only meant to be subclassed by more specific classes that render the output (graphics, text, etc.) """
+class OutputFormatter(SpectraComponent):
+    """ Base output class for creating and formatting a finished rule breakdown of steno translations.
+        Only meant to be subclassed by more specific classes based on the output type (graphics, text, etc.) """
 
     _max_depth: int  # Maximum recursion depth to draw in output tree.
                      # max_depth = 0 only displays the root node.

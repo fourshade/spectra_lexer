@@ -8,7 +8,7 @@ from spectra_lexer.file import FileHandler
 from spectra_lexer.file.codecs import decode_assets
 from spectra_lexer.file.io_path import assets_in_package
 from spectra_lexer.display.base import OUTPUT_FLAG_SET
-from spectra_lexer.display.cascaded_text import CascadedTextDisplay
+from spectra_lexer.display.cascaded_text import CascadedTextFormatter
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAG_SET
@@ -31,7 +31,7 @@ RULES_LIST = FILE.load_rules()
 LEXER = StenoLexer()
 LEXER.set_test_callback()
 LEXER.set_rules(RULES_LIST)
-DISPLAY = CascadedTextDisplay()
+DISPLAY = CascadedTextFormatter()
 DISPLAY.set_test_callback()
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 

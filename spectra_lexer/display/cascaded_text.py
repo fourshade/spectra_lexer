@@ -2,8 +2,9 @@ from collections import defaultdict
 
 from typing import Dict, List, Tuple
 
-from spectra_lexer.display import OutputDisplay
+from spectra_lexer.display import OutputFormatter
 from spectra_lexer.display.base import OutputNode
+from spectra_lexer.display.html import HTMLFormatter
 from spectra_lexer.keys import KEY_SPLIT
 from spectra_lexer.rules import StenoRule
 
@@ -16,9 +17,7 @@ _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
-# RGB 0-255 colors of the root node and starting color of other nodes when highlighted.
-_ROOT_COLOR = (255, 64, 64)
-_BASE_COLOR = (0, 0, 255)
+
 
 
 def _text_container(length:int, position:str) -> str:
@@ -168,69 +167,6 @@ class _TextGenerator:
         return node_grid, format_dict
 
 
-def _text_color(level:int, row:int) -> Tuple[int,int,int]:
-    """ Return an RGB 0-255 color value for any possible text row position and node depth. """
-    if level == 0 and row == 0:
-        return _ROOT_COLOR
-    r, g, b = _BASE_COLOR
-    r += min(192, level * 64)
-    g += min(192, row * 8)
-    return r, g, b
-
-
-def _format_row(lines:List[str], idx:int, start:int, end:int, color:Tuple[int,int,int], bold:bool) -> None:
-    """ Format a section of a row in a list of strings with HTML color and/or boldface. """
-    if start < end:
-        line = lines[idx]
-        text = line[start:end]
-        text = """<span style="color:#{0:02x}{1:02x}{2:02x};">{3}</span>""".format(*color, text)
-        if bold:
-            text = "<b>{}</b>".format(text)
-        lines[idx] = "".join((line[:start], text, line[end:]))
-
-
-class _TextFormatter:
-    """ Receives a list of text lines and instructions on formatting to apply in various places when any given
-        node is highlighted. Creates structures with explicit formatting operations to be used by the GUI. """
-
-    _lines: List[str]                                         # Lines containing the raw text.
-    _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
-
-    def __init__(self, lines:List[str], format_dict:Dict[OutputNode, List[Tuple[int,int,int]]]):
-        self._lines = lines
-        self._format_dict = format_dict
-
-    def make_graph_text(self, lines:List[str]=None) -> str:
-        """ Make a full graph text string by joining a list of line strings and setting the preformatted tag.
-            If no lines are specified, use the last set of raw text strings unformatted. """
-        if lines is None:
-            lines = self._lines
-        return "<pre>"+"\n".join(lines)+"</pre>"
-
-    def make_formatted_text(self, node:OutputNode) -> str:
-        """ Make a formatted text graph string for a given node, with highlighted and/or bolded ranges of text. """
-        lines = self._lines[:]
-        # Color the full ancestry line of the selected node, starting with that node and going up.
-        # This ensures that formatting happens right-to-left on rows with more than one operation.
-        nodes = node.get_ancestors()
-        derived_start = sum(n.attach_start for n in nodes)
-        derived_end = derived_start + node.attach_length
-        level = len(nodes) - 1
-        for n in nodes:
-            rng_tuples = self._format_dict[n]
-            # All of the node's characters above the text will be box-drawing characters.
-            # These mess up when bolded, so only bold the last row (first in the reversed iterator).
-            bold = True
-            for (row, start, end) in reversed(rng_tuples):
-                # If this is the last row of any ancestor node, only highlight the text our node derives from.
-                if bold and n is not node:
-                    start, end = derived_start, derived_end
-                _format_row(lines, row, start, end, _text_color(level, row), bold)
-                bold = False
-            level -= 1
-        return self.make_graph_text(lines)
-
-
 class _NodeLocator:
     """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths. """
 
@@ -248,24 +184,24 @@ class _NodeLocator:
                 return node_row[col]
 
 
-class CascadedTextDisplay(OutputDisplay):
+class CascadedTextFormatter(OutputFormatter):
     """ Generates cascaded plaintext representation of lexer output. One of the only top-level classes.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
-    _formatter: _TextFormatter = None   # Formats the output text based on which node is selected (if any).'
-    _locator: _NodeLocator = None       # Finds which node the mouse is over during a mouseover event.
-    _last_node: OutputNode = None       # Most recent node from a mouse move event.
+    _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
+    _locator: _NodeLocator = None      # Finds which node the mouse is over during a mouseover event.
+    _last_node: OutputNode = None      # Most recent node from a mouse move event.
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
-                "new_window":      self.on_new_window,
+                "display_clear":   self.clear,
                 "display_rule":    self.show_graph,
                 "display_info_at": self.show_info_at,}
 
-    def on_new_window(self) -> None:
-        """ Clear the last locator so that the old output isn't drawn on a fresh window. """
-        self._locator = None
+    def clear(self) -> None:
+        """ Clear the last output state completely. """
+        self._formatter = self._locator = self._last_node = None
 
     def show_graph(self, rule:StenoRule) -> None:
         """ Generate a text graph and info for a steno rule and send it to the GUI. """
@@ -276,7 +212,7 @@ class CascadedTextDisplay(OutputDisplay):
         lines = generator.get_text_lines()
         node_grid, format_dict = generator.get_node_info()
         # Create a locator and formatter using these structures.
-        self._formatter = _TextFormatter(lines, format_dict)
+        self._formatter = HTMLFormatter(lines, format_dict)
         self._locator = _NodeLocator(node_grid)
         # Send the title, unformatted text graph, and root node info to the GUI.
         self.engine_call("gui_display_title", str(rule))

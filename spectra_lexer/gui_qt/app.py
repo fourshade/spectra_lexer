@@ -1,10 +1,9 @@
 import sys
-from typing import Iterable
 
 from PyQt5.QtWidgets import QApplication
 
 from spectra_lexer.app import SpectraApplication
-from spectra_lexer.display.cascaded_text import CascadedTextDisplay
+from spectra_lexer.display.cascaded_text import CascadedTextFormatter
 from spectra_lexer.gui_qt.window import BaseWindow, MainWindow
 
 
@@ -29,7 +28,7 @@ class GUIQtBaseApplication(SpectraApplication):
 
     def engine_subcomponents(self) -> tuple:
         """ Default GUI support components. """
-        return (*super().engine_subcomponents(), CascadedTextDisplay())
+        return (*super().engine_subcomponents(), CascadedTextFormatter())
 
     def dialog_load_translations(self, *args) -> None:
         """ Present a dialog for the user to select one or more steno dictionary files.
@@ -40,15 +39,16 @@ class GUIQtBaseApplication(SpectraApplication):
             self.load_translations_from((fname,), src_string="file dialog")
 
     def query_and_display(self, strokes, text) -> None:
-        # Make a lexer query and display the results.
+        """ Make a lexer query and display the results. """
         result = self.engine_call("lexer_query", strokes, text)
         self.engine_call("display_rule", result)
 
-    def query_and_display_best(self, strokes_list, text) -> None:
-        # Make a lexer query for several strokes and display the results, returning the best one to the caller.
+    def query_and_display_best(self, strokes_list, text) -> str:
+        """ Make a lexer query for several strokes and display the results.
+            Return the best-performing keys (parsed back into RTFCRE) to the caller. """
         result = self.engine_call("lexer_query_all", strokes_list, text)
         self.engine_call("display_rule", result)
-        return result
+        return result.keys.inv_parse()
 
 
 class GUIQtMainApplication(GUIQtBaseApplication):

@@ -1,1 +1,1 @@
-from .base import OutputDisplay
+from .base import OutputFormatter
