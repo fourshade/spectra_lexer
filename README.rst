@@ -12,9 +12,9 @@ To run this software on its own from source, you must have a correctly installed
 
 ``python3 setup.py install``
 
-This will install it to your Python distribution as a console script, allowing you to execute the main program by typing:
+This will install it to your Python distribution as a console script, allowing you to execute the main GUI program by typing:
 
-``spectra_lexer [DICT1 DICT2 ...]``
+``spectra_lexer gui [DICT1 DICT2 ...]``
 
 where each DICT is a path to a JSON file containing a single dictionary mapping steno key sequences to text (the dictionaries used by Plover are in the correct format). You can also execute the script without arguments and load the search dictionaries manually via a dialog from the menu bar. If you are running Windows, the program may be able to find your Plover dictionaries and load them automatically as well.
 
