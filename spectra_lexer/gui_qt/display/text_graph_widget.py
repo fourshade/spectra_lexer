@@ -2,8 +2,9 @@ from PyQt5.QtCore import pyqtSignal, QPoint
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTextEdit
 
-# Pixel offset to add when calculating character position from mouse cursor (half a column).
+# Pixel offset to add when calculating character position from mouse cursor.
 _CURSOR_X_OFFSET = 1
+
 
 class TextGraphWidget(QTextEdit):
     """ Formatted text widget whose sole purpose is to display and respond to interaction
@@ -34,8 +35,8 @@ class TextGraphWidget(QTextEdit):
         local_pos = event.pos()
         local_pos -= QPoint(_CURSOR_X_OFFSET, 0)
         location_cursor = self.cursorForPosition(local_pos)
-        # Get the row and column of the mouse's position within the text and see if there's
-        # a rule displayed within that range. Don't waste time if the row and column are the same as before.
+        # Get the row and column of the mouse's position within the text and see if there's a rule
+        # displayed within that range. Don't waste time if the row and column are the same as before.
         row, col = location_cursor.blockNumber(), location_cursor.columnNumber()
         if self._last_row != row or self._last_col != col:
             self.mouseOverCharacter.emit(row, col)

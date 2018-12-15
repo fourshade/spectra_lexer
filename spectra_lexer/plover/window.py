@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal
 from spectra_lexer.gui_qt.main_window import MainWindow
 
 
-class PloverWindow(MainWindow):
+class PloverPluginWindow(MainWindow):
     """ Main QT application window as opened from Plover. Must emulate a dialog type. """
 
     # Class constants required by Plover for toolbar.

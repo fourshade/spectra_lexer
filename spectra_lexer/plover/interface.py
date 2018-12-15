@@ -2,7 +2,7 @@ import itertools
 import pkg_resources
 from typing import Callable, Iterable, List, Optional, Sequence
 
-from spectra_lexer.engine import SpectraEngineComponent
+from spectra_lexer import SpectraComponent
 from spectra_lexer.keys import join_strokes
 
 # Minimum version of Plover required for plugin compatibility.
@@ -34,7 +34,7 @@ class PloverEngine:
     signal_connect: Callable
 
 
-class PloverPluginInterface(SpectraEngineComponent):
+class PloverPluginInterface(SpectraComponent):
     """ Interface class for Plover plugin. It is the only class that should directly access Plover's objects.
         Receives and processes dictionaries and translations from Plover using callbacks. """
 
@@ -58,7 +58,7 @@ class PloverPluginInterface(SpectraEngineComponent):
             return
         # If the compatibility check is passed, we should be confident that the only argument is the Plover engine.
         self._plover_engine = args[0]
-        # Load a fresh copy of the dicts, connect to the Plover engine, and await callbacks.
+        # Lock the Plover engine thread, load a fresh copy of the dicts, and connect the callbacks.
         with self._plover_engine as plover:
             self.load_dict_collection(plover.dictionaries)
             plover.signal_connect('dictionaries_loaded', self.load_dict_collection)
@@ -67,13 +67,14 @@ class PloverPluginInterface(SpectraEngineComponent):
     def load_dict_collection(self, steno_dc:PloverStenoDictCollection) -> None:
         """ When Plover dictionaries become available, parse and merge them all into a standard dict for search. """
         if steno_dc and steno_dc.dicts:
-            parsed = _parse_dicts([d for d in steno_dc.dicts if d and d.enabled])
+            parsed = _parse_plover_dicts([d for d in steno_dc.dicts if d and d.enabled])
             self.engine_send("search_set_dict", parsed)
 
     def on_new_translation(self, _, new:Sequence[PloverAction]) -> None:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         new_strokes = []
         new_text = []
+        # Lock the Plover engine thread to read the translator state.
         with self._plover_engine as plover:
             t_list = plover.translator_state.translations
             t = t_list[-1] if t_list else None
@@ -105,7 +106,7 @@ def _compatibility_check() -> bool:
         return False
 
 
-def _parse_dicts(d_iter:Iterable[PloverStenoDict]) -> dict:
+def _parse_plover_dicts(d_iter:Iterable[PloverStenoDict]) -> dict:
     """ Merge all Plover dictionaries into a standard dict. They only have a subset of the standard dict methods.
         If strokes are in tuple form, they must be joined with stroke separators into ordinary strings. """
     merged = {}

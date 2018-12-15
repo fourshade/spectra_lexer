@@ -1,1 +1,1 @@
-from .base import SpectraGUIQtApplication, SpectraGUIQtBase
+from .base import GUIQtComponent

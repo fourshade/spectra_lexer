@@ -196,7 +196,7 @@ def test_reverse_dict():
     rd.append_key('beautiful', ('WAOUFL',))
     rd.append_key('BEAUTIFUL', ('PWAOUT', '-FL'))
     rd.append_key('beautiful', ('PWAOUFL',))
-    assert rd  == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
                   'BEAUTIFUL': [('PWAOUT', '-FL')]}
     # Items can be removed from any list; the leftovers will stay in their original order.
     rd.append_key('ugly', ('LUG',))
@@ -205,18 +205,20 @@ def test_reverse_dict():
     rd.append_key('ugly', ('UG', 'HREU'))
     rd.remove_key('ugly', ('LUG',))
     rd.remove_key('ugly', ('UG', 'LY'))
-    assert rd  == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
                   'BEAUTIFUL': [('PWAOUT', '-FL')],
                   'ugly':      [('ULG',), ('UG', 'HREU')]}
     # Any list with all entries removed should be totally removed from the dict (don't leave an empty list).
     rd.remove_key('ugly', ('ULG',))
     rd.remove_key('ugly', ('UG', 'HREU'))
-    assert rd  == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
                   'BEAUTIFUL': [('PWAOUT', '-FL')]}
     # A reverse dict should be able to invert any mapping at the most basic level.
     fd = SimilarKeyDict({1: "a", 2: "b", 3: "a", 4: "c", 5: "a", 6: "b", 7: "a", 8: "d"}, simfn=id)
     rd.match_forward(fd)
     assert rd == {"a": [1, 3, 5, 7],
-                 "b": [2, 6],
-                 "c": [4],
-                 "d": [8]}
+                  "b": [2, 6],
+                  "c": [4],
+                  "d": [8]}
+
+# TODO: Add bidirectional search dict tests

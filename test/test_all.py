@@ -4,8 +4,9 @@
 
 import pytest
 
-from spectra_lexer.file.base import load_rules_dicts, _RULES_DIR
-from spectra_lexer.file.decoder import recursive_decode_all
+from spectra_lexer.file import FileHandler
+from spectra_lexer.file.codecs import decode_assets
+from spectra_lexer.file.io_path import assets_in_package
 from spectra_lexer.display.base import OUTPUT_FLAG_SET
 from spectra_lexer.display.cascaded_text import CascadedTextDisplay
 from spectra_lexer.keys import StenoKeys
@@ -14,10 +15,10 @@ from spectra_lexer.lexer.match import MATCH_FLAG_SET
 from spectra_lexer.rules import KEY_FLAG_SET
 
 
-def test_dicts():
-    """ Load and perform basic integrity tests on the individual rules dictionaries. """
+def test_dict_files():
+    """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in recursive_decode_all([_RULES_DIR]):
+    for d in decode_assets(assets_in_package()):
         # Check for rules that have identical names (keys)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
@@ -25,7 +26,8 @@ def test_dicts():
 
 
 # Create the minimum necessary components we need for the tests.
-RULES_LIST = load_rules_dicts()
+FILE = FileHandler()
+RULES_LIST = FILE.load_rule_dicts()
 LEXER = StenoLexer()
 LEXER.set_engine_callback(None)
 LEXER.set_rules(RULES_LIST)
@@ -40,7 +42,7 @@ def test_rules(r):
     # If the entry has flags, verify that all of them are valid.
     if r.flags:
         bad_flags = set(r.flags) - LEGAL_FLAGS
-        assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r.name, bad_flags)
+        assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r, bad_flags)
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     if r.rulemap:
         child_key_sets = [set(cr.keys) for cr in r.rulemap.rules()]
@@ -48,11 +50,11 @@ def test_rules(r):
         # Make sure none of the child rules have overlapping keys.
         for s in child_key_sets:
             conflicts = combined_child_keys & s
-            assert not conflicts, "Entry {} has child rules with overlapping keys: {}".format(r.name, conflicts)
+            assert not conflicts, "Entry {} has child rules with overlapping keys: {}".format(r, conflicts)
             combined_child_keys |= s
         # Make sure the child rules contain all the keys of the parent between them (and no extras).
         key_diff = set(r.keys) ^ combined_child_keys
-        assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r.name, key_diff)
+        assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
 # Test data consisting of a set of steno keys, a word that maps to it, and how many letters that must match.
@@ -78,11 +80,11 @@ MSG_LETTERS_FAIL = "Lexer failed to match enough letters on {} -> {}."
 @pytest.mark.parametrize("trial", TEST_DATA)
 def test_lexer(trial):
     """ Perform all tests for parsing. It fails if the parser can't match all the keys and at least a specified
-        number of letters. If no letter count is given, it must match EVERY letter to pass the test."""
+        number of letters. If no letter count is given, it must match EVERY non-space character to pass the test."""
     stroke, word, *goals = trial
     keys = StenoKeys.cleanse(stroke)
     if not goals:
-        letters_goal = len(word.replace(" ",""))
+        letters_goal = len(word.replace(" ", ""))
     else:
         letters_goal = goals[0]
     result = LEXER.query(keys, word)
@@ -99,13 +101,11 @@ def test_display(trial):
     keys = StenoKeys.cleanse(stroke)
     result = LEXER.query(keys, word)
     DISPLAY.show_graph(result)
-    # Hopefully there is a title and some helper objects after this.
-    assert DISPLAY._title
+    # Hopefully there are some helper objects after this.
     assert DISPLAY._formatter
     assert DISPLAY._locator
     # The root node starts in the upper left and has no parent.
-    root = DISPLAY._root
-    assert DISPLAY._locator.get_node_at(0, 0) is root
+    root = DISPLAY._locator.get_node_at(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()

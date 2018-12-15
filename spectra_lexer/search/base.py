@@ -1,16 +1,16 @@
 import re
 from typing import Dict, List
 
-from spectra_lexer.engine import SpectraEngineComponent
+from spectra_lexer import SpectraComponent
 from spectra_lexer.rules import StenoRule
-from spectra_lexer.search.steno_search import BidirectionalStenoSearchDict
 from spectra_lexer.search.key_search import StringSearchDict
+from spectra_lexer.search.steno_search import BidirectionalStenoSearchDict
 
 # Hard limit on the number of matches returned by a special search.
 _MATCH_LIMIT = 100
 
 
-class SearchEngine(SpectraEngineComponent):
+class SearchEngine(SpectraComponent):
     """ Main search class for finding strokes and translations that are similar to one another. """
 
     _dict: BidirectionalStenoSearchDict  # Current search dict (contains both forward and reverse dicts)
@@ -25,7 +25,8 @@ class SearchEngine(SpectraEngineComponent):
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {"new_window":               self.on_new_window,
+        return {**super().engine_commands(),
+                "new_window":               self.on_new_window,
                 "search_set_dict":          self.set_dict,
                 "search_query":             self.on_search,
                 "search_choose_match":      self.on_choose_match,

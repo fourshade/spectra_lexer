@@ -1,9 +1,9 @@
 from collections import defaultdict
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Tuple
 
-from spectra_lexer.display.base import OutputNode, OutputDisplay
-from spectra_lexer.engine import SpectraEngine
+from spectra_lexer.display import OutputDisplay
+from spectra_lexer.display.base import OutputNode
 from spectra_lexer.keys import KEY_SPLIT
 from spectra_lexer.rules import StenoRule
 
@@ -110,12 +110,13 @@ class _TextGenerator:
                     wp = start + offset
                     # Add child recursively.
                     self._draw_node(out, child, wp, placeholders)
-                    # Add a line with the bottom connector.
+                    # Add a line with the bottom connector (using different symbols if the rule uses inversion).
                     # If the text leads with a hyphen, the connector shouldn't cover it.
                     bottom_len = len(child.text)
                     if not child.children and wp > 0 and child.text[0] == KEY_SPLIT:
                         bottom_len -= 1
-                    out.append(placeholders.with_container(child, wp, bottom_len, "INV" if child.is_inversion else "BOTTOM"))
+                    bottom_container_type = "INV" if child.is_inversion else "BOTTOM"
+                    out.append(placeholders.with_container(child, wp, bottom_len, bottom_container_type))
                     # Place this child's top connector on the holding container.
                     top = top.with_container(child, wp, child.attach_length, "TOP")
                     # Add a permanent connector line to the placeholders.
@@ -152,7 +153,7 @@ class _TextGenerator:
         """ Return the generated strings, free of the context of any metadata they carry as a subclass. """
         return self._output_lines
 
-    def get_node_info(self) -> Tuple[List[Tuple[OutputNode]], Dict[OutputNode, List[tuple]]]:
+    def get_node_info(self) -> Tuple[List[Tuple[OutputNode]], Dict[OutputNode, List[Tuple[int,int,int]]]]:
         """ Compile all saved node info into a 2D grid (indexed by position) and dict (indexed by node). """
         node_grid = [line.get_node_map() for line in self._output_lines]
         format_dict = defaultdict(list)
@@ -184,7 +185,7 @@ def _format_row(lines:List[str], idx:int, start:int, end:int, color:Tuple[int,in
         text = line[start:end]
         text = """<span style="color:#{0:02x}{1:02x}{2:02x};">{3}</span>""".format(*color, text)
         if bold:
-             text = "<b>{}</b>".format(text)
+            text = "<b>{}</b>".format(text)
         lines[idx] = "".join((line[:start], text, line[end:]))
 
 
@@ -192,10 +193,10 @@ class _TextFormatter:
     """ Receives a list of text lines and instructions on formatting to apply in various places when any given
         node is highlighted. Creates structures with explicit formatting operations to be used by the GUI. """
 
-    _lines: List[str]                            # Lines containing the raw text.
-    _format_dict: Dict[OutputNode, List[tuple]]  # Dict of special display info for each node.
+    _lines: List[str]                                         # Lines containing the raw text.
+    _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
 
-    def __init__(self, lines:List[str], format_dict:Dict[OutputNode, List[tuple]]):
+    def __init__(self, lines:List[str], format_dict:Dict[OutputNode, List[Tuple[int,int,int]]]):
         self._lines = lines
         self._format_dict = format_dict
 
@@ -233,9 +234,9 @@ class _TextFormatter:
 class _NodeLocator:
     """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths. """
 
-    _node_grid: Sequence[Sequence[OutputNode]]  # List of lists of node references in [row][col] format.
+    _node_grid: List[Tuple[OutputNode]]  # List of tuples of node references in [row][col] format.
 
-    def __init__(self, node_grid:Sequence[Sequence[OutputNode]]):
+    def __init__(self, node_grid:List[Tuple[OutputNode]]):
         self._node_grid = node_grid
 
     def get_node_at(self, row:int, col:int) -> OutputNode:
@@ -268,19 +269,19 @@ class CascadedTextDisplay(OutputDisplay):
 
     def show_graph(self, rule:StenoRule) -> None:
         """ Generate a text graph and info for a steno rule and send it to the GUI. """
-        # Start by making a general node tree.
-        src = self._make_tree(rule)
+        # Start by making a generic rule node tree. The entire tree is contained by the root node.
+        root_node = self.make_tree(rule)
         # Compile the plaintext output and node reference structures from the tree using the generator.
-        generator = _TextGenerator(src)
+        generator = _TextGenerator(root_node)
         lines = generator.get_text_lines()
         node_grid, format_dict = generator.get_node_info()
         # Create a locator and formatter using these structures.
         self._formatter = _TextFormatter(lines, format_dict)
         self._locator = _NodeLocator(node_grid)
-        # Send the unformatted text graph and base rule data to the GUI.
-        self.engine_send("gui_display_title", self._title)
+        # Send the title, unformatted text graph, and root node info to the GUI.
+        self.engine_send("gui_display_title", str(rule))
         self.engine_send("gui_display_graph", self._formatter.make_graph_text())
-        self.engine_send("gui_display_info", self._root.raw_keys, self._root.description)
+        self.engine_send("gui_display_info", root_node.raw_keys, root_node.description)
 
     def show_info_at(self, row:int, col:int) -> None:
         """ Find the character at (row, col) of the text format and see if it's part of a node display.

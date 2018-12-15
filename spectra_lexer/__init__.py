@@ -1,1 +1,1 @@
-from .base import SpectraApplication
+from .base import SpectraComponent

@@ -49,9 +49,9 @@ class PrefixTree(defaultdict):
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
-    _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
-    _word_dict: Dict[str, StenoRule]          # Rules that match by exact word only (whitespace-separated).
-    _prefix_tree: PrefixTree                  # Rules that match by starting with a certain number of keys in order.
+    _stroke_dict: Dict[str, StenoRule]  # Rules that match by full stroke only.
+    _word_dict: Dict[str, StenoRule]    # Rules that match by exact word only (whitespace-separated).
+    _prefix_tree: PrefixTree            # Rules that match by starting with a certain number of keys in order.
 
     def __init__(self, rules:Iterable[StenoRule]):
         """ Construct a specially-structured series of dictionaries from an unordered iterable of finished rules. """

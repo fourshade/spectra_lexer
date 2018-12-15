@@ -1,13 +1,13 @@
 from itertools import repeat
 from typing import Iterable, List, Union
 
-from spectra_lexer.engine import SpectraEngineComponent
-from spectra_lexer.keys import StenoKeys, KEY_SEP, KEY_STAR
+from spectra_lexer import SpectraComponent
+from spectra_lexer.keys import KEY_SEP, KEY_STAR, StenoKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.rules import RuleMap, StenoRule
 
 
-class StenoLexer(SpectraEngineComponent):
+class StenoLexer(SpectraComponent):
     """
     The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
@@ -17,7 +17,8 @@ class StenoLexer(SpectraEngineComponent):
 
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {"lexer_set_rules": self.set_rules,
+        return {**super().engine_commands(),
+                "lexer_set_rules": self.set_rules,
                 "lexer_query":     (self.query,     "display_rule"),
                 "lexer_query_all": (self.query_all, "display_rule"),}
 
@@ -73,7 +74,7 @@ class StenoLexer(SpectraEngineComponent):
             test_keys, test_word, wordptr, lc, rulemap = stack.pop()
             # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
             if test_keys and test_keys[0] == KEY_STAR and (len(test_keys) == 1 or test_keys[1] == KEY_SEP):
-                rulemap.add_key_rules([_decipher_star(test_keys, word, rulemap)], wordptr)
+                rulemap.add_key_rules({_decipher_star(test_keys, word, rulemap)}, wordptr)
                 test_keys = test_keys.without(KEY_STAR)
             # If we end up with a stroke separator at the pointer, consume it and add the rule.
             if test_keys and test_keys[0] == KEY_SEP:

@@ -1,7 +1,7 @@
 from operator import attrgetter
-from typing import Iterable, List, NamedTuple, Sequence, Set, Union
+from typing import Iterable, List, NamedTuple, Sequence, Set
 
-from spectra_lexer.keys import StenoKeys, KEY_SEP
+from spectra_lexer.keys import KEY_SEP, StenoKeys
 
 # Acceptable rule flags that provide specific meanings to a key (usually the asterisk).
 # Each of these will be transformed into a special rule that appears at the end of a result.
@@ -34,14 +34,14 @@ class RuleMap(List[_MapItem]):
         """ Add a single rule to the end of the map. """
         self.append(_MapItem(rule, start, length))
 
-    def add_key_rules(self, flags:Union[List[str],Set[str]], start:int, remove_flags:bool=False) -> None:
+    def add_key_rules(self, flags:Set[str], start:int, remove_flags:bool=False) -> None:
         """ Add key rules to the end of the rulemap from the given flags (only if they are key flags).
             If remove_flags is True, remove the key flags we used from the source container. """
-        key_flags = KEY_FLAG_SET.intersection(flags)
+        key_flags = flags & KEY_FLAG_SET
         for f in key_flags:
             self.append(_MapItem(_KEY_RULES[f], start, 0))
-            if remove_flags:
-                flags.remove(f)
+        if remove_flags:
+            flags -= key_flags
 
     def add_separator(self, start:int) -> None:
         """ Add a stroke separator rule to the rulemap at the given position. """
@@ -87,7 +87,6 @@ class StenoRule(NamedTuple):
     """ A general rule mapping a set of steno keys to a set of letters.
         May include flags, a description, and/or a submapping of rules that compose it. """
 
-    name: str          # Reference name used for compound rules.
     keys: StenoKeys    # String of steno keys that make up the rule, pre-parsed and sorted.
     letters: str       # Raw English text of the word.
     flags: Set[str]    # Set of strings describing flags that apply to the rule.
@@ -99,7 +98,7 @@ class StenoRule(NamedTuple):
         return self is _RULE_SEP
 
     @classmethod
-    def from_lexer_result(cls, keys:StenoKeys, letters:str, rulemap:RuleMap):
+    def from_lexer_result(cls, keys:StenoKeys, letters:str, rulemap:RuleMap) -> __qualname__:
         """ Make a new rule from output parameters given by the lexer. """
         if rulemap:
             matchable_letters = sum(c is not ' ' for c in letters)
@@ -110,9 +109,15 @@ class StenoRule(NamedTuple):
             desc = "Found {:d}% match.".format(int(percent_match))
         else:
             desc = "No matches found."
-        return cls(str(id(rulemap)), keys, letters, set(), desc, rulemap)
+        return cls(keys, letters, set(), desc, rulemap)
+
+    def __str__(self) -> str:
+        return "{} → {}".format(self.keys.inv_parse(), self.letters)
+
+    def __repr__(self) -> str:
+        return str(self._asdict())
 
 
 # Rule constants governing separators and star flags.
-_RULE_SEP = StenoRule(KEY_SEP, StenoKeys(KEY_SEP), "", {"SPEC"}, "Stroke separator", RuleMap())
-_KEY_RULES = {k: StenoRule(k, StenoKeys(k.split(":", 1)[0]), "", {"KEY"}, v, RuleMap()) for (k, v) in KEY_FLAGS.items()}
+_RULE_SEP = StenoRule(StenoKeys(KEY_SEP), "", {"SPEC"}, "Stroke separator", RuleMap())
+_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", {"KEY"}, v, RuleMap()) for (k, v) in KEY_FLAGS.items()}

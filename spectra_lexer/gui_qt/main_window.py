@@ -1,14 +1,15 @@
-from functools import partial
 import sys
-from typing import List
+from typing import Iterable
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
-from spectra_lexer.engine import SpectraEngineComponent
+from spectra_lexer.gui_qt import GUIQtComponent
+from spectra_lexer.gui_qt.display import GUIQtDisplay
 from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
+from spectra_lexer.gui_qt.search import GUIQtSearch
 
 
-class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
+class MainWindow(QMainWindow, Ui_MainWindow, GUIQtComponent):
     """
     Main QT application window as created from the command line script or Plover.
     Contains all GUI elements and is the initial recipient of all GUI callbacks.
@@ -33,56 +34,34 @@ class MainWindow(QMainWindow, Ui_MainWindow, SpectraEngineComponent):
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks.
             Some commands have identical signatures to the Qt GUI methods; those can be passed directly. """
-        return {"new_window":              self.on_new_window,
-                "gui_open_file_dialog":    self.dialog_load,
-                "gui_reset_search":        self.reset_search,
-                "gui_set_match_list":      self.w_search_matches.set_items,
-                "gui_set_mapping_list":    self.w_search_mappings.set_items,
-                "gui_select_match":        self.w_search_matches.select,
-                "gui_select_mapping":      self.w_search_mappings.select,
-                "set_status_message":      self.w_display_title.setText,
-                "gui_display_title":       self.w_display_title.setText,
-                "gui_display_graph":       self.w_display_text.set_graph,
-                "gui_display_info":        self.display_info,}
+        return {**super().engine_commands(),
+                "gui_open_file_dialog": self.dialog_load,
+                "set_status_message":   self.w_display_title.setText}
+
+    def engine_subcomponents(self) -> tuple:
+        """ Components provide a tuple of subcomponents to connect here.  """
+        return (*super().engine_subcomponents(),
+                GUIQtSearch(self.w_search_input,
+                            self.w_search_matches,
+                            self.w_search_mappings,
+                            self.w_search_type,
+                            self.w_search_regex, ),
+                GUIQtDisplay(self.w_display_title,
+                             self.w_display_text,
+                             self.w_display_desc,
+                             self.w_display_board))
 
     def on_new_window(self) -> None:
         """ Route all Qt signals to their corresponding engine signals (or other methods) once the engine is ready. """
-        SLOT_ROUTING_TABLE = {self.w_search_input.textEdited:         "search_query",
-                              self.w_search_matches.itemSelected:     "search_choose_match",
-                              self.w_search_mappings.itemSelected:    "search_choose_mapping",
-                              self.w_search_type.toggled:             "search_set_stroke_search",
-                              self.w_search_regex.toggled:            "search_set_regex_enabled",
-                              self.w_display_text.mouseOverCharacter: "display_info_at"}
-        for (slot, cmd) in SLOT_ROUTING_TABLE.items():
-            slot.connect(partial(self.engine_send, cmd))
+        super().on_new_window()
         # Menu signals provide arguments that the callees don't expect, so discard them in a lambda first.
         self.m_file_load.triggered.connect(lambda *args: self.engine_send("file_get_dict_formats"))
         self.m_file_exit.triggered.connect(lambda *args: sys.exit())
 
-    # Menu widget
-    def dialog_load(self, file_formats:List[str]) -> None:
+    def dialog_load(self, file_formats:Iterable[str]) -> None:
         """ Present a dialog for the user to select a steno dictionary file. Attempt to load it if not empty. """
         (fname, _) = QFileDialog.getOpenFileName(self, 'Load Steno Dictionary', '.',
                                                  "Supported file formats (*" + " *".join(file_formats) + ")")
         if fname:
             self.engine_send("file_load_steno_dicts", (fname,))
             self.engine_send("set_status_message", "Loaded new dictionaries from file dialog.")
-
-    # Search widgets
-    def reset_search(self, enabled:bool) -> None:
-        """ Reset all search widgets, then enable/disable them according to the argument. """
-        self.w_search_input.clear()
-        self.w_search_input.setPlaceholderText("Search..." if enabled else "No dictionaries.")
-        self.w_search_matches.clear()
-        self.w_search_mappings.clear()
-        self.w_search_type.setChecked(False)
-        self.w_search_regex.setChecked(False)
-        for w in (self.w_search_input, self.w_search_matches, self.w_search_mappings,
-                  self.w_search_type, self.w_search_regex):
-            w.setEnabled(enabled)
-
-    # Display widgets
-    def display_info(self, keys:str, desc:str) -> None:
-        """ Send the given rule info to the board info widgets. """
-        self.w_display_desc.setText(desc)
-        self.w_display_board.show_keys(keys)

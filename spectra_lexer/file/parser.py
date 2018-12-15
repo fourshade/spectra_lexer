@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Tuple
+from typing import Dict, NamedTuple, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMap, StenoRule
@@ -13,15 +13,33 @@ SUBRULE_RX = re.compile(r'[{}]'.format(LEFT_BRACKETS) +
                         r'[^{0}{1}]+?'.format(LEFT_BRACKETS, RIGHT_BRACKETS) +
                         r'[{}]'.format(RIGHT_BRACKETS))
 
+
+class RawRule(NamedTuple):
+    """ Data structure for raw string fields read from each line in a JSON rules file. """
+    keys: str              # RTFCRE formatted series of steno strokes.
+    pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
+    flag_str: str = ""     # Optional pipe-delimited series of flags.
+    description: str = ""  # Optional description for when the rule is displayed in the GUI.
+    example_str: str = ""  # Optional pipe-delimited series of example translations using this rule.
+
+
+class RawRuleDict(Dict[str, RawRule]):
+    """ Class for an unformatted rules dictionary to be saved to/loaded from disk. """
+    def __init__(self, src_dict:dict):
+        super().__init__({k: RawRule(*v) for (k, v) in src_dict.items()})
+
+
 class StenoRuleDict(Dict[str, StenoRule]):
-    """ Class which gets a freshly loaded source dict of raw JSON entries and parses them
-        recursively to get a final dict of independent steno rules indexed by internal name. """
+    """ Class which takes a source dict of raw JSON rule entries with nested references and parses
+        them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    _src_dict: 'RawRulesDictionary'  # Keep the source dict in the instance to avoid passing it everywhere.
+    _src_dict: RawRuleDict  # Keep the source dict in the instance to avoid passing it everywhere.
 
-    def __init__(self, src_dict:'RawRulesDictionary'):
+    def __init__(self, src_dict:dict):
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
-        # Unpack rules from all source dictionaries in the given filename list or directory (built-in by default).
+        # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
+        if not isinstance(src_dict, RawRuleDict):
+            src_dict = RawRuleDict(src_dict)
         self._src_dict = src_dict
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
@@ -45,13 +63,13 @@ class StenoRuleDict(Dict[str, StenoRule]):
         # For now, just include examples as a line after the description joined with commas.
         if raw_rule.example_str:
             description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
-        self[k] = StenoRule(k, keys, letters, flags, description, rulemap)
+        self[k] = StenoRule(keys, letters, flags, description, rulemap)
 
     def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:
         """
-        From a rule's raw YAML pattern string, find all the child rule references in brackets and make a map
+        From a rule's raw pattern string, find all the child rule references in brackets and make a map
         so the format code can break it down again if needed. For those in () brackets, we must substitute
-        in their letters as well: (.d)e(.s) -> des. For [] brackets, only add the rulemap entries.
+        in the letters: (.d)e(.s) -> des. For [] brackets, the letters and reference are given separately.
 
         Only already-finished rules from the results dict can be directly substituted. Any rules that are
         not finished yet will still contain their own child rules in brackets. If we find one of these,
@@ -60,7 +78,7 @@ class StenoRuleDict(Dict[str, StenoRule]):
         rulemap = RuleMap()
         m = SUBRULE_RX.search(pattern)
         while m:
-            # For every child rule, strip the parentheses to get the dict key (and the letters for () rules).
+            # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
             rule_str = m.group()
             if rule_str[0] == '(':
                 letters = None

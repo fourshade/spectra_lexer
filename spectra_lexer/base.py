@@ -1,28 +1,32 @@
-from typing import Iterable, List, Type
-
-from spectra_lexer.engine import SpectraEngine, SpectraEngineComponent
-from spectra_lexer.file import FileHandler
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.search import SearchEngine
-
-# Default non-GUI engine components for basic operation of the program. Each must initialize with no arguments.
-BASE_COMPONENTS:List[Type[SpectraEngineComponent]] = [FileHandler, SearchEngine, StenoLexer]
+from typing import Callable, Optional
 
 
-class SpectraApplication:
-    """ Top-level class for operation of the Spectra program. Subclassed by GUI implementations. """
+class SpectraComponent:
+    """ Base class for any component that sends and receives commands from the Spectra engine.
+        It is the lowest-level class of the Spectra lexer package, being subclassed directly
+        or indirectly by nearly every important (externally-visible) piece of the program.
+        As such, it cannot depend on anything inside the package itself. """
 
-    engine: SpectraEngine = None  # Engine object. Must be accessible from subclasses.
+    def engine_send(self, command:str, *args) -> Exception:
+        """ Any command that gets called by an (unintentionally) unconnected component raises an error. """
+        raise AttributeError("Signal sent by unconnected component.")
 
-    def __init__(self, *, files:Iterable[str]=None, **kwargs) -> None:
-        """ Initialize the application with base components and keyword arguments from the caller. """
-        self.engine = SpectraEngine(*[cmp() for cmp in BASE_COMPONENTS])
-        # Load the rules dicts from the built-in directories.
-        self.engine.send("file_load_rules_dicts")
-        # If <files> was given as a parameter, try to load the steno dictionary files inside it on start-up.
-        # If the parameter was given but empty, make an attempt to locate Plover's dictionaries and load those.
-        # If the parameter is not given at all, do nothing. A subclass might provide the dicts.
-        if files is not None:
-            self.engine.send("file_load_steno_dicts", files)
-            src_string = "command line" if files else "Plover config"
-            self.engine.send("set_status_message", "Loaded dictionaries from {}.".format(src_string))
+    def engine_commands(self) -> dict:
+        """ Components provide a dict with the commands they accept here. By default, they accept nothing. """
+        return {}
+
+    def engine_subcomponents(self) -> tuple:
+        """ Components provide a tuple of subcomponents to connect here. By default, they have none. """
+        return ()
+
+    def set_engine_callback(self, callback:Optional[Callable]=None) -> None:
+        """ Override the engine_send method to start sending commands to the engine via <callback>.
+            If <callback> is None, run the component without the engine by setting engine_send to do nothing. """
+        if callback is None:
+            self.engine_send = lambda *args: None
+        else:
+            self.engine_send = callback
+
+    def remove_engine_callback(self) -> None:
+        """ Remove the engine_send instance method so it throws an exception again. """
+        del self.engine_send

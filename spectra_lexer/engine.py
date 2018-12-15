@@ -1,35 +1,12 @@
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List
 
-
-class SpectraEngineComponent:
-    """ Mixin class for any component that sends and receives commands from the Spectra engine.
-        Subclass must define commands it accepts (if any) by overriding engine_commands. """
-
-    def engine_send(self, command:str, *args) -> Exception:
-        """ Any command that gets called by an (unintentionally) unconnected component raises an error. """
-        raise AttributeError("Signal sent by unconnected component.")
-
-    def engine_commands(self) -> dict:
-        """ Components provide a dict with the commands they accept here. By default, they accept nothing. """
-        return {}
-
-    def set_engine_callback(self, callback:Optional[Callable]=None) -> None:
-        """ Override the engine_send method to start sending commands to the engine via <callback>.
-            If <callback> is None, run the component without the engine by setting engine_send to do nothing. """
-        if callback is None:
-            self.engine_send = lambda *args: None
-        else:
-            self.engine_send = callback
-
-    def remove_engine_callback(self) -> None:
-        """ Remove the engine_send instance method so it throws an exception again. """
-        del self.engine_send
+from spectra_lexer import SpectraComponent
 
 
 class SpectraEngine:
     """
-    Master component communications class for the Spectra program. Routes messages and ata structures between
+    Master component communications class for the Spectra program. Routes messages and data structures between
     the application, the GUI, and all other constituent components.
 
     The program itself is conceptually divided into parts that form a pipeline:
@@ -54,23 +31,27 @@ class SpectraEngine:
         which puts it in its final form for the GUI to display, including the text graph and the steno board layout
         diagram. This is strictly one-way - no information needs to pass back to the lexer or search from here.
 
-    This class glues these components together, handling communication between each one and the GUI as well as
-    passing information from one stage of the pipeline to the next. Facilitating communication is *all* it should do;
-    any actual software functionality should be implemented in one of the component classes or the GUI.
+        GUI - As the frontend for accepting user input and displaying lexer output, the GUI fits on top of all of
+        the rest of the components. Interactions between the GUI and its components are mediated by an application
+        layer, which is either above or below the GUI layer depending on the requirements for entry points.
+
+    This class glues these components together, handling communication between each one as well as passing
+    information from one stage of the pipeline to the next. Facilitating communication is *all* it should do;
+    any actual software functionality should be implemented in one of the component classes.
     """
 
-    _component_dict: Dict[SpectraEngineComponent, dict]  # Dict mapping components to their command dicts, id hashed.
+    _component_dict: Dict[SpectraComponent, dict]  # Dict mapping components to their command dicts, id hashed.
     _signal_map: Dict[str, List[tuple]]                  # Mapping of every command to a list of callback structures.
 
-    def __init__(self, *components:SpectraEngineComponent):
+    def __init__(self, *components: SpectraComponent):
         """ Construct the engine and immediately add the specified components to it, if any. """
         self._component_dict = {}
         self._signal_map = defaultdict(list)
         self.connect(*components)
 
-    def connect(self, *components:SpectraEngineComponent, overwrite:bool=False) -> None:
-        """ Connect all of the specified components to the engine, adding their commands to the signal table.
-            If overwrite is True, disconnect any existing instances of the new components first. """
+    def connect(self, *components: SpectraComponent, overwrite:bool=False) -> None:
+        """ Connect all of the specified components to the engine, adding their commands to the signal table. """
+        # If overwrite is True, disconnect any existing instances of the new components first.
         if overwrite:
             self._disconnect_same_type_as(*components)
         for c in components:
@@ -80,10 +61,18 @@ class SpectraEngine:
             self._component_dict[c] = cmd_dict
             self._modify_signal_map(c, cmd_dict, list_op="append")
             c.set_engine_callback(self.send)
+            # If the component contains its own subcomponents, connect them recursively.
+            subcomponents = c.engine_subcomponents()
+            if subcomponents:
+                self.connect(*subcomponents, overwrite=overwrite)
 
-    def disconnect(self, *components:SpectraEngineComponent) -> None:
-        """ Disconnect all of the specified components, removing all dict entries and callbacks. """
+    def disconnect(self, *components: SpectraComponent) -> None:
+        """ Disconnect all of the specified components, removing all dict entries and signal callbacks. """
         for c in components:
+            # If the component contains its own subcomponents, disconnect them recursively.
+            subcomponents = c.engine_subcomponents()
+            if subcomponents:
+                self.disconnect(*subcomponents)
             cmd_dict = self._component_dict.get(c)
             if c is None:
                 raise KeyError("Component is not connected.")
@@ -91,13 +80,13 @@ class SpectraEngine:
             self._modify_signal_map(c, cmd_dict, list_op="remove")
             del self._component_dict[c]
 
-    def _disconnect_same_type_as(self, *components:SpectraEngineComponent) -> None:
+    def _disconnect_same_type_as(self, *components: SpectraComponent) -> None:
         """ Disconnect all instances of the same type as the specified components. """
         overwrite_types = set(map(type, components))
         same_type_components = [c for c in self._component_dict if type(c) in overwrite_types]
         self.disconnect(*same_type_components)
 
-    def _modify_signal_map(self, c:SpectraEngineComponent, cmd_dict:dict, list_op:str="append") -> None:
+    def _modify_signal_map(self, c: SpectraComponent, cmd_dict:dict, list_op:str= "append") -> None:
         """ Add or remove callbacks from the signal map based on a dictionary of signals and callback data.
             Data items may be either a raw callable or a tuple with a callable and subsequent commands. """
         for (signal, data) in cmd_dict.items():

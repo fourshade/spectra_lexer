@@ -1,7 +1,8 @@
 """ Module for steno-specific key-search dicts, including reverse and bidirectional dicts. """
-from typing import Dict, TypeVar, Tuple
 
-from spectra_lexer.search.key_search import StringSearchDict, ReverseDict
+from typing import Dict, Tuple, TypeVar
+
+from spectra_lexer.search.key_search import ReverseDict, StringSearchDict
 
 KT = TypeVar("KT")    # Key type.
 VT = TypeVar("VT")    # Value type.
