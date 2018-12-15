@@ -10,15 +10,9 @@ from spectra_lexer.output import OutputFormatter
 class GUIQtApplication(SpectraApplication):
     """ Base class for operation of the Spectra program with a GUI. """
 
-    def __new__(cls, **kwargs):
-        self = super().__new__(cls, **kwargs)
+    def __init__(self, *components, window:BaseWindow, **kwargs):
         # Default GUI support components.
-        self.add_children([OutputFormatter()])
-        return self
-
-    def set_window(self, window:BaseWindow) -> None:
-        """ Set up the window in a separate step. It may be destroyed independently. """
-        self.engine.connect(window)
+        super().__init__(OutputFormatter(), window, *components, **kwargs)
         window.show()
         # All engine components must be informed of the new window's existence.
         self.engine_call("new_window")
@@ -30,9 +24,8 @@ def main() -> None:
     qt_app = QApplication(sys.argv)
     # All command-line arguments are assumed to be steno dictionary files.
     # If there are no arguments, Plover's dictionaries may be loaded instead.
-    spectra_app = GUIQtApplication(dict_files=sys.argv[1:])
     # The base window class is currently suitable to be the main standalone GUI.
-    spectra_app.set_window(BaseWindow())
+    GUIQtApplication(window=BaseWindow(), dict_files=sys.argv[1:])
     qt_app.exec_()
 
 
