@@ -3,8 +3,8 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from spectra_lexer.app import SpectraApplication
-from spectra_lexer.output import OutputFormatter
 from spectra_lexer.gui_qt.window import BaseWindow
+from spectra_lexer.output import OutputFormatter
 
 
 class GUIQtApplication(SpectraApplication):

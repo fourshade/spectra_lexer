@@ -1,3 +1,11 @@
+0.3.0
+-----
+* Program code is heavily refactored to allow easier re-use/extension
+* Resources are now loaded correctly using pkg_resources (so they can be stored compressed)
+* GUI for Plover plugin is no longer reset upon window close
+* Text graph is displayed correctly more often
+* Distribution documents and metadata are fixed
+
 0.2.1
 -----
 * Engine no longer crashes when accessing previously closed GUI windows

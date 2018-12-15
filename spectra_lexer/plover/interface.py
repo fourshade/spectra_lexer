@@ -15,7 +15,7 @@ class PloverPluginInterface(SpectraComponent):
     _last_text: List[str]                # Most recent text output from those strokes.
 
     def __init__(self, *args) -> None:
-        """ Perform setup if a compatible version of Plover is detected. """
+        """ Set up the interface with args from a compatible version of Plover. """
         super().__init__()
         self._last_strokes = []
         self._last_text = []
@@ -28,7 +28,7 @@ class PloverPluginInterface(SpectraComponent):
             plover.signal_connect('translated', self.on_new_translation)
 
     def force_load_dicts(self):
-        """ On startup, lock the engine and load all current dictionaries regardless of signals. """
+        """ After engine connection, lock the engine and load all current dictionaries regardless of signals. """
         with self._plover_engine as plover:
             self.load_dict_collection(plover.dictionaries)
 
@@ -57,7 +57,7 @@ class PloverPluginInterface(SpectraComponent):
             # Extend lists with all strokes from the given translation and text from all the given actions.
             new_strokes.extend(t_strokes)
             new_text.extend(a.text for a in new if a.text)
-            # Combine the strokes and text into single strings, make a lexer query, and display the results.
+            # Combine the strokes and text into single strings and send a new lexer query.
             self.engine_call("new_query", join_strokes(new_strokes), "".join(new_text))
         # Reset the "previous" variables for next time. If we skipped the analysis due to a bad translation
         # or action, the new variables will still be blank, so this resets everything to empty.

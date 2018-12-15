@@ -28,7 +28,7 @@ class PloverPlugin(BaseWindow):
     app: PloverPluginApplication = None
 
     def __new__(cls, *args):
-        """ Initialize the application on the first call; use the saved instance otherwise. """
+        """ Initialize the window and application on the first call; use the saved instance otherwise. """
         if cls.instance is not None:
             return cls.instance
         self = cls.instance = super().__new__(cls)

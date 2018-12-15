@@ -48,6 +48,7 @@ def test_rules(r):
         bad_flags = set(r.flags) - LEGAL_FLAGS
         assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r, bad_flags)
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
+    # These tests only work for rules that do not allow the same key to appear in two different strokes.
     if r.rulemap:
         child_key_sets = [set(cr.keys) for cr in r.rulemap.rules()]
         combined_child_keys = set()

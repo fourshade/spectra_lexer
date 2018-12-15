@@ -19,15 +19,18 @@ class CommandMeta(type):
         # If no run method is given and the name matches one from setuptools, use that as the base.
         if "run" not in dct and name in setuptools.command.__all__:
             bases = (getattr(import_module("setuptools.command."+name), name),)
-        # If there are dependencies, make a new run method to handle them first, then run the original.
-        if "requires" in dct:
-            deps = dct["requires"].split()
+        # If there are dependencies or finishers, make a new run method to run them before/after the original.
+        deps = dct.get("requires", "")
+        finishers = dct.get("finish_with", "")
+        if deps or finishers:
             run = dct.get("run") or bases[0].run
-            def run_deps_first(self):
-                for cmd in deps:
+            def run_sequence(self):
+                for cmd in deps.split():
                     self.run_command(cmd)
                 run(self)
-            dct["run"] = run_deps_first
+                for cmd in finishers.split():
+                    self.run_command(cmd)
+            dct["run"] = run_sequence
         # Each class is recorded in a dict to give to setuptools.setup().
         cls = super().__new__(mcs, name, bases, dct)
         CMDCLASS_DICT[name] = cls
@@ -39,6 +42,7 @@ class Command(setuptools.Command, metaclass=CommandMeta):
     user_options = []
     def initialize_options(self): self.args = []
     def finalize_options(self): pass
+    def run(self): pass
 
 
 class build_ui(Command):
@@ -68,7 +72,7 @@ class build_ui(Command):
 
 
 class clean(Command):
-    description = "Remove all build-generated files."
+    description = "Remove all build and test-generated files."
     patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py', '**/*_rc.py')
 
     def run(self):
@@ -94,7 +98,7 @@ class run(Command):
     requires = "build_ui"
 
     def run(self):
-        cmd = (sys.executable, '-m', 'spectra_lexer.__main__', *self.args)
+        cmd = (sys.executable, '-m', 'spectra_lexer', *self.args)
         subprocess.check_call(cmd)
 
 
@@ -108,8 +112,7 @@ class test(Command):
 
     def run(self):
         pkg_resources.working_set.__init__()
-        main = pkg_resources.load_entry_point('pytest', 'console_scripts', 'py.test')
-        sys.exit(main())
+        pkg_resources.load_entry_point('pytest', 'console_scripts', 'py.test')()
 
 
 # Any command above may be run by name, e.g. > python3 setup.py clean

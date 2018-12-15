@@ -18,6 +18,7 @@ class PloverPluginApplication(GUIQtApplication):
         return self
 
     def __init__(self, *args, **kwargs):
+        """ After everything else is set up, attempt to load the current Plover dictionaries. """
         super().__init__(**kwargs)
         self.engine_call("plover_load_dicts")
 

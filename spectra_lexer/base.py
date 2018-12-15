@@ -9,9 +9,9 @@ class SpectraComponent:
     As such, it cannot depend on anything inside the package itself.
 
     The super() method is unreliable with extended multiple-inheritance hierarchies. It is far
-    too easy for one of the many ancestors of a class to break the super() call chain on the
-    way to __init__ in this class, so it is skipped and attributes are checked dynamically.
-    """
+    too easy for one of the many ancestors of a class (some of which may be from external libraries)
+    to break the super() call chain on the way to __init__ in this class. For this reason,
+    initialization is skipped and instance attributes are checked dynamically as properties. """
 
     def add_commands(self, cmd_dict:Dict[str, Callable]) -> None:
         """ Components may add commands they accept here, overwriting commands with the same name from superclasses. """

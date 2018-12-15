@@ -141,10 +141,11 @@ class _TextGenerator:
     @staticmethod
     def _incomplete_graph(src:OutputNode) -> List[_TextOutputLine]:
         """ Draw a graph with the base node along with lines that show the lexer's failure to make a good guess. """
-        word_len = len(src.text)
+        word = src.text
+        connectors = "".join([_LINE_SYMBOL if c.isalnum() else " " for c in word])
         return [_TextOutputLine().with_node_string(src, 0),
-                _TextOutputLine(_LINE_SYMBOL * word_len),
-                _TextOutputLine("?" * word_len)]
+                _TextOutputLine(connectors),
+                _TextOutputLine(connectors.replace(_LINE_SYMBOL, "?"))]
 
     def get_text_lines(self) -> List[str]:
         """ Return the generated strings, free of the context of any metadata they carry as a subclass. """
