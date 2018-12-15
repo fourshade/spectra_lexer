@@ -35,6 +35,7 @@ class PloverEngine:
 
 class PloverPluginLayer(SpectraEngineComponent):
     """ Compatibility layer (top-level class) for Plover plugin functionality.
+        Receives and processes dictionaries and translations from Plover.
         This is the only class that should touch objects passed in by Plover. """
 
     _plover_engine: PloverEngine  # Plover engine, required to access dictionaries and the most recent translations.

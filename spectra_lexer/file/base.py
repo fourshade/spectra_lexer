@@ -74,14 +74,14 @@ class RawRulesDictionary(Dict[str, RawRule]):
         super().__init__({k: RawRule(*d[k]) for d in src_dicts for k in d})
 
 
-def load_steno_dicts(filenames:Iterable[str]=None) -> RawStenoDictionary:
+def load_steno_dicts(filenames:Iterable[str]=()) -> RawStenoDictionary:
     """ Attempt to load and/or merge one or more steno dictionaries given by filename.
         If none were given, attempt to locate Plover's dictionaries and load those. """
     filenames = filenames or _dict_files_from_plover_cfg()
     return RawStenoDictionary(*filenames)
 
 
-def load_rules_dicts(filenames:Iterable[str]=None) -> List[StenoRule]:
+def load_rules_dicts(filenames:Iterable[str]=()) -> List[StenoRule]:
     """ Attempt to load one or more rules dictionaries given by filename.
         If none were given, attempt to locate Plover's dictionaries and load those.
         Parse them into finished form and send them in a list to the lexer. """
