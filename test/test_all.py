@@ -27,12 +27,12 @@ def test_dict_files():
 
 # Create the minimum necessary components we need for the tests.
 FILE = FileHandler()
-RULES_LIST = FILE.load_rule_dicts()
+RULES_LIST = FILE.load_rules()
 LEXER = StenoLexer()
-LEXER.set_engine_callback(None)
+LEXER.set_test_callback()
 LEXER.set_rules(RULES_LIST)
 DISPLAY = CascadedTextDisplay()
-DISPLAY.set_engine_callback(None)
+DISPLAY.set_test_callback()
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 
 

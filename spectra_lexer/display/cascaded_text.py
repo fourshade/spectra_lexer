@@ -279,9 +279,9 @@ class CascadedTextDisplay(OutputDisplay):
         self._formatter = _TextFormatter(lines, format_dict)
         self._locator = _NodeLocator(node_grid)
         # Send the title, unformatted text graph, and root node info to the GUI.
-        self.engine_send("gui_display_title", str(rule))
-        self.engine_send("gui_display_graph", self._formatter.make_graph_text())
-        self.engine_send("gui_display_info", root_node.raw_keys, root_node.description)
+        self.engine_call("gui_display_title", str(rule))
+        self.engine_call("gui_display_graph", self._formatter.make_graph_text())
+        self.engine_call("gui_display_info", root_node.raw_keys, root_node.description)
 
     def show_info_at(self, row:int, col:int) -> None:
         """ Find the character at (row, col) of the text format and see if it's part of a node display.
@@ -290,8 +290,8 @@ class CascadedTextDisplay(OutputDisplay):
             node = self._locator.get_node_at(row, col)
             if node is not None and node is not self._last_node:
                 # Send the new formatted text to the GUI. Make sure it doesn't affect the current scroll position.
-                self.engine_send("gui_display_graph", self._formatter.make_formatted_text(node), False)
+                self.engine_call("gui_display_graph", self._formatter.make_formatted_text(node), False)
                 # Send parts from the given rule info to the GUI.
-                self.engine_send("gui_display_info", node.raw_keys, node.description)
+                self.engine_call("gui_display_info", node.raw_keys, node.description)
             # Store the current node so we can avoid redraw.
             self._last_node = node

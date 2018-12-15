@@ -19,8 +19,8 @@ class StenoLexer(SpectraComponent):
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
                 "lexer_set_rules": self.set_rules,
-                "lexer_query":     (self.query,     "display_rule"),
-                "lexer_query_all": (self.query_all, "display_rule"),}
+                "lexer_query":     self.query,
+                "lexer_query_all": self.query_all}
 
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
         """ Take a sequence of rules parsed from a file and sort them into categories for the lexer. """

@@ -13,12 +13,12 @@ class FileHandler(SpectraComponent):
     def engine_commands(self) -> dict:
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {**super().engine_commands(),
-                "file_load_steno_dicts": (self.load_steno_dicts, "search_set_dict"),
-                "file_load_rules_dicts": (self.load_rule_dicts,  "lexer_set_rules"),
-                "file_get_dict_formats": (DECODERS.keys,         "gui_open_file_dialog")}
+                "file_load_rules":        self.load_rules,
+                "file_load_translations": self.load_translations,
+                "file_get_dict_formats":  DECODERS.keys}
 
     @staticmethod
-    def load_rule_dicts(filenames:Iterable[str]=()) -> List[StenoRule]:
+    def load_rules(filenames:Iterable[str]=()) -> List[StenoRule]:
         """ Attempt to load one or more rules dictionaries given by filename.
             If none were given, attempt to load the built-in rules files.
             Parse them into a finished dict and keep a copy in memory.
@@ -31,8 +31,8 @@ class FileHandler(SpectraComponent):
         return list(rule_dict.values())
 
     @staticmethod
-    def load_steno_dicts(filenames:Iterable[str]=()) -> Dict[str, str]:
-        """ Attempt to load one or more steno dictionaries given by filename.
+    def load_translations(filenames:Iterable[str]=()) -> Dict[str, str]:
+        """ Attempt to load one or more steno translation dictionaries given by filename.
             If none were given, attempt to locate Plover's dictionaries and load those.
             Keys are RTFCRE stroke strings, values are English text translations. """
         filenames = filenames or dict_files_from_plover_cfg()

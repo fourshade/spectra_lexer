@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QLineEdit, QWidget
 
 from spectra_lexer.gui_qt import GUIQtComponent
 from spectra_lexer.gui_qt.display.steno_board_widget import StenoBoardWidget
@@ -7,12 +7,12 @@ from spectra_lexer.gui_qt.display.text_graph_widget import TextGraphWidget
 
 class GUIQtDisplay(GUIQtComponent):
 
-    w_title: QLineEdit         # displays status messages and mapping of keys to word.
-    w_text: TextGraphWidget    # displays formatted text breakdown graph.
-    w_desc: QLineEdit          # displays rule description.
-    w_board: StenoBoardWidget  # displays steno board diagram.
+    w_title: QLineEdit         # Displays status messages and mapping of keys to word.
+    w_text: TextGraphWidget    # Displays formatted text breakdown graph.
+    w_desc: QLineEdit          # Displays rule description.
+    w_board: StenoBoardWidget  # Displays steno board diagram.
 
-    def __init__(self, *widgets):
+    def __init__(self, *widgets:QWidget):
         super().__init__()
         self.w_title, self.w_text, self.w_desc, self.w_board = widgets
 

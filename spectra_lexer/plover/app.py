@@ -10,7 +10,7 @@ class PloverPluginApplication(GUIQtAppBase):
         super().__init__(**kwargs)
         # Plover currently initializes plugins with only positional arguments,
         # so just pass those along to the interface without looking at them.
-        self.engine_send("plover_setup", *args)
+        self.engine_call("plover_setup", *args)
 
     def engine_subcomponents(self) -> tuple:
         """ Default plugin support components. """

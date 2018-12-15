@@ -50,11 +50,11 @@ class PloverPluginInterface(SpectraComponent):
         """ Individual components must define the signals they respond to and the appropriate callbacks. """
         return {"plover_setup": self.setup_interface}
 
-    def setup_interface(self, *args):
+    def setup_interface(self, *args) -> None:
         """ Perform setup if a compatible version of Plover is detected. """
         # If not, send an error message and prevent any further interaction with Plover.
         if not _compatibility_check():
-            self.engine_send("set_status_message", _INCOMPATIBLE_MESSAGE)
+            self.engine_call("set_status_message", _INCOMPATIBLE_MESSAGE, broadcast=True)
             return
         # If the compatibility check is passed, we should be confident that the only argument is the Plover engine.
         self._plover_engine = args[0]
@@ -68,7 +68,7 @@ class PloverPluginInterface(SpectraComponent):
         """ When Plover dictionaries become available, parse and merge them all into a standard dict for search. """
         if steno_dc and steno_dc.dicts:
             parsed = _parse_plover_dicts([d for d in steno_dc.dicts if d and d.enabled])
-            self.engine_send("search_set_dict", parsed)
+            self.engine_call("search_set_dict", parsed)
 
     def on_new_translation(self, _, new:Sequence[PloverAction]) -> None:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
@@ -90,7 +90,8 @@ class PloverPluginInterface(SpectraComponent):
             new_strokes.extend(t_strokes)
             new_text.extend(a.text for a in new if a.text)
             # Combine the strokes and text into single strings, make a lexer query, and display the results.
-            self.engine_send("lexer_query", join_strokes(new_strokes), "".join(new_text))
+            result = self.engine_call("lexer_query", join_strokes(new_strokes), "".join(new_text))
+            self.engine_call("display_rule", result)
         # Reset the "previous" variables for next time. If we skipped the analysis due to a bad translation
         # or action, the new variables will still be blank, so this resets everything to empty.
         self._last_strokes = new_strokes

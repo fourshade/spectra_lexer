@@ -1,4 +1,5 @@
 import sys
+from functools import partial
 
 from PyQt5.QtWidgets import QApplication
 
@@ -16,7 +17,7 @@ class GUIQtAppBase(SpectraApplication):
         self.engine.connect(window, overwrite=True)
         window.show()
         # All engine components must reset (or initialize) their memory of the GUI state.
-        self.engine_send("new_window")
+        self.engine_call_async("new_window")
 
     def engine_subcomponents(self) -> tuple:
         """ Default GUI support components. """
@@ -32,3 +33,8 @@ class GUIQtApplication(GUIQtAppBase):
         super().__init__(**kwargs)
         self.new_window(MainWindow())
         app.exec_()
+
+    def engine_commands(self) -> dict:
+        """ Individual components must define the signals they respond to and the appropriate callbacks. """
+        return {**super().engine_commands(),
+                "dialog_translations_chosen": partial(self.load_translations_from, src_string="file dialog")}
