@@ -1,1 +1,1 @@
-from .base import PloverPlugin
+from spectra_lexer.plover.window import PloverPlugin

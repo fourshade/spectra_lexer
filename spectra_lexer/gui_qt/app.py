@@ -29,7 +29,7 @@ def main() -> None:
         For standalone operation, a Qt application object must be created to support the windows. """
     qt_app = QApplication(sys.argv)
     # All command-line arguments are assumed to be steno dictionary files.
-    # If it is empty, Plover's dictionaries may be loaded instead.
+    # If there are no arguments, Plover's dictionaries may be loaded instead.
     spectra_app = GUIQtApplication(dict_files=sys.argv[1:])
     # The base window class is currently suitable to be the main standalone GUI.
     spectra_app.set_window(BaseWindow())

@@ -13,7 +13,6 @@ class PloverPluginApplication(GUIQtApplication):
         self = super().__new__(cls, **kwargs)
         # Default plugin component, only created if the application is compatible with the current version of Plover.
         self.is_compatible = compatibility_check()
-        self.add_commands({"window_destroyed": self.on_window_destroyed})
         if self.is_compatible:
             self.add_children([PloverPluginInterface(*args)])
         return self
@@ -21,10 +20,6 @@ class PloverPluginApplication(GUIQtApplication):
     def __init__(self, *args, **kwargs):
         super().__init__(**kwargs)
         self.engine_call("plover_load_dicts")
-
-    def on_window_destroyed(self, window:BaseWindow) -> None:
-        """ Disconnect GUI components on close so they aren't called from beyond the grave. """
-        self.engine.disconnect(window)
 
     def set_window(self, window:BaseWindow) -> None:
         """ Connect the window in a separate step. """

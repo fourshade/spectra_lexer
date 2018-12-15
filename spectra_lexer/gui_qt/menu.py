@@ -4,7 +4,8 @@ from spectra_lexer import SpectraComponent
 
 
 class GUIQtMenu(SpectraComponent):
-    """ GUI operations class for menu operations. Each action just consists of clicking a menu bar item. """
+    """ GUI operations class for menu operations. Each action just consists of clicking a menu bar item.
+        It is assumed that these operations are only available in standalone mode (not as a plugin). """
 
     m_menu: QMenuBar      # Top-level widget for the entire menu bar.
     m_file: QMenu         # File submenu (no action by itself).
