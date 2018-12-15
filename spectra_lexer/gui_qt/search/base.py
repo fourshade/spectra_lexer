@@ -2,14 +2,14 @@ from typing import Any
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
-from spectra_lexer.gui_qt import GUIQtComponent
+from spectra_lexer import SpectraComponent
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 # Hard limit on the number of matches returned by a special search.
 _MATCH_LIMIT = 100
 
 
-class GUIQtSearch(GUIQtComponent):
+class GUIQtSearch(SpectraComponent):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
     input_textbox: QLineEdit        # Input box for the user to enter a search string.
@@ -23,25 +23,16 @@ class GUIQtSearch(GUIQtComponent):
     def __init__(self, *widgets:QWidget):
         super().__init__()
         self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
-
-    def engine_commands(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks.
-            Some commands have identical signatures to the Qt GUI methods; those can be passed directly. """
-        return {**super().engine_commands(),
-                "new_search_dict": self.on_new_dict}
-
-    def engine_slots(self) -> dict:
-        """ Individual components must define the slots they handle and the appropriate commands or callbacks. """
-        return {**super().engine_slots(),
-                self.input_textbox.textEdited:  self.on_search,
-                self.match_list.itemSelected:   self.on_choose_match,
-                self.mapping_list.itemSelected: self.on_choose_mapping,
-                self.strokes_chkbox.toggled:    self.on_search,
-                self.regex_chkbox.toggled:      self.on_search}
+        self.input_textbox.textEdited.connect(self.on_search)
+        self.match_list.itemSelected.connect(self.on_choose_match)
+        self.mapping_list.itemSelected.connect(self.on_choose_mapping)
+        self.strokes_chkbox.toggled.connect(self.on_search)
+        self.regex_chkbox.toggled.connect(self.on_search)
+        self.add_commands({"new_window":      self.on_new_window,
+                           "new_search_dict": self.on_new_dict})
 
     def on_new_window(self) -> None:
         """ Enable searching only if there is a search dictionary loaded after initialization."""
-        super().on_new_window()
         first_entry = self.engine_call("search_special", "", 1)
         self._clear_and_set_enabled(bool(first_entry))
 
@@ -98,7 +89,9 @@ class GUIQtSearch(GUIQtComponent):
             return
         # If there is more than one mapping (only in word mode), make a lexer query to select the best one.
         assert not self._mode_strokes
-        keys = self.engine_call("app_query_and_display_best", m_list, match)
+        result = self.engine_call("new_query_product", m_list, [match])
+        # Parse the rule's keys back into RTFCRE form and try to select that string in the list.
+        keys = result.keys.inv_parse()
         self.mapping_list.select(keys)
 
     def on_choose_mapping(self, mapping:str) -> None:
@@ -108,7 +101,7 @@ class GUIQtSearch(GUIQtComponent):
             return
         # The order of strokes/word depends on the mode.
         strokes, word = (match, mapping) if self._mode_strokes else (mapping, match)
-        self.engine_call("app_query_and_display", strokes, word)
+        self.engine_call("new_query", strokes, word)
 
     @property
     def _mode_strokes(self) -> bool:

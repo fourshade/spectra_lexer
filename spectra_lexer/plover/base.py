@@ -15,10 +15,13 @@ class PloverPlugin(PloverPluginWindow):
     # Docstring is used as tooltip on Plover GUI toolbar, so change it dynamically.
     __doc__ = "See the breakdown of words using steno rules."
 
-    def __init__(self, *args):
+    def __new__(cls, *args):
         """ Initialize the application on the first call; use the saved instance otherwise. """
+        if cls._app is None:
+            cls._app = PloverPluginApplication(*args)
+        return super().__new__(cls)
+
+    def __init__(self, *args):
+        """ The window must be fully initialized before passing to set_window. """
         super().__init__()
-        if self._app is None:
-            PloverPlugin._app = PloverPluginApplication(*args, window=self)
-        # In either case, the application needs the new window instance.
-        self._app.new_window(self)
+        self._app.set_window(self)

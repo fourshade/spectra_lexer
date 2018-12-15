@@ -1,33 +1,44 @@
-from functools import partial
-from typing import Callable
+from typing import Callable, Dict, List
 
 
 class SpectraComponent:
-    """ Base class for any component that sends and receives commands from the Spectra engine.
-        It is the lowest-level class of the Spectra lexer package, being subclassed directly
-        or indirectly by nearly every important (externally-visible) piece of the program.
-        As such, it cannot depend on anything inside the package itself. """
+    """
+    Base class for any component that sends and receives commands from the Spectra engine.
+    It is the root class of the Spectra lexer object hierarchy, being subclassed directly
+    or indirectly by nearly every important (externally-visible) piece of the program.
+    As such, it cannot depend on anything inside the package itself.
 
-    _test_callback: Callable = None     # External callback used to test-run components without the engine.
+    The super() method is unreliable with extended multiple-inheritance hierarchies. It is far
+    too easy for one of the many ancestors of a class to break the super() call chain on the
+    way to __init__ in this class, so it is skipped and attributes are checked dynamically.
+    """
 
-    def engine_commands(self) -> dict:
-        """ Components provide a dict with the commands they accept here. By default, they accept nothing.
-            Each subclass should add the commands from its super call to the ones it returns. """
-        return {}
+    def add_commands(self, cmd_dict:Dict[str, Callable]) -> None:
+        """ Components may add commands they accept here, overwriting commands with the same name from superclasses. """
+        self.CMD_DICT.update(cmd_dict)
 
-    def engine_subcomponents(self) -> tuple:
-        """ Components provide a tuple of subcomponents to connect here. By default, they have none.
-            Each subclass should add the components from its super call to the ones it returns. """
-        return ()
+    def add_children(self, subcomponents:List[__qualname__]) -> None:
+        """ Components may add child components (with lifecycles shorter than or equal to their own) here. """
+        self.SUBCOMPONENTS.extend(subcomponents)
 
-    def __getattr__(self, attr:Callable) -> Callable:
-        """ Any invoked method that isn't listed here is assumed to be an engine call.
-            Commands called by an (unintentionally) unconnected component raise an error.
-            In test mode, return the callback pre-loaded with the name of the method we tried to call. """
-        if self._test_callback is not None:
-            return partial(self._test_callback, attr)
-        raise AttributeError("Engine call by unconnected component.")
+    def set_engine_callback(self, cb:Callable=lambda *args: None) -> None:
+        """ Set engine command callback. Default is a no-op (useful for testing individual components). """
+        self.engine_call = cb
 
-    def set_test_callback(self, cb:Callable=lambda *args, **kwargs: None) -> None:
-        """ In order to test individual components, set an external callback (that does nothing by default). """
-        self._test_callback = cb
+    def remove_engine_callback(self) -> None:
+        """ Remove callback so that engine calls result in attribute exceptions again. """
+        del self.engine_call
+
+    @property
+    def CMD_DICT(self) -> Dict[str, Callable]:
+        """ Dict of engine commands. Format is {"command": callback}. """
+        if not hasattr(self, "_CMD_DICT"):
+            self._CMD_DICT = {}
+        return self._CMD_DICT
+
+    @property
+    def SUBCOMPONENTS(self) -> List[__qualname__]:
+        """ List of child components to be added recursively to the engine. """
+        if not hasattr(self, "_SUBCOMPONENTS"):
+            self._SUBCOMPONENTS = []
+        return self._SUBCOMPONENTS

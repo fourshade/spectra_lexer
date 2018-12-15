@@ -1,13 +1,9 @@
-from typing import List
+from typing import List, Tuple
 
-from spectra_lexer import SpectraComponent
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
 
-# Default limit on number of recursion steps to allow for rules that contain other rules.
-RECURSION_LIMIT = 10
-
-# Acceptable rule flags that indicate special behavior for the output formatter.
+# Acceptable rule flags that indicate special behavior for output formatting.
 OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing.",
                 "KEY": "Indicates a rule where a key does not contribute to the letters of the word."}
 OUTPUT_FLAG_SET = set(OUTPUT_FLAGS.keys())
@@ -34,7 +30,11 @@ class OutputNode:
     children: List[__qualname__]  # Direct children of the node. If empty, it is considered a "base rule".
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int, parent:__qualname__=None):
-        """ Create a new node from a rule and recursively populate child nodes with rules from the map. """
+        """ Create a new node from a rule and recursively populate child nodes with rules from the map.
+            maxdepth is the maximum recursion depth to draw nodes out to.
+                maxdepth = 0 only displays the root node.
+                maxdepth = 1 displays the root node and all of the rules that make it up.
+                maxdepth = 2 also displays the rules that make up each of those, and so on. """
         keys, letters, flags, desc, rulemap = rule
         self.attach_start = start
         self.attach_length = length
@@ -44,40 +44,29 @@ class OutputNode:
         self.is_key_rule = "KEY" in flags
         self.parent = parent
         self.children = [OutputNode(i.rule, i.start, i.length, maxdepth - 1, self) for i in rulemap] if maxdepth else []
-        if parent is None:
-            # The root node always shows letters and does not include anything extra in its description.
-            self.text = letters
-            self.description = desc
+        formatted_keys = keys.inv_parse()
+        if not rulemap or not maxdepth:
+            # Base rules (i.e. leaf nodes) and rules at the max depth display their keys instead of their letters.
+            # Since the descriptions of these are rather short, they also include the keys to the left.
+            self.text = formatted_keys
+            self.description = "{}: {}".format(formatted_keys, desc)
         else:
-            formatted_keys = keys.inv_parse()
-            if not rulemap or not maxdepth:
-                # Base rules (i.e. leaf nodes) and rules at the max depth display their keys instead of their letters.
-                # Since the descriptions of these are rather short, they also include the keys to the left.
-                self.text = formatted_keys
-                self.description = "{}: {}".format(formatted_keys, desc)
-            else:
-                # Derived rules (i.e. non-leaf nodes) above the max depth show their letters.
-                # They also include the complete mapping of keys to letters in their description.
-                self.text = letters
-                self.description = "{} → {}: {}".format(formatted_keys, letters, desc)
+            # Derived rules (i.e. non-leaf nodes) above the max depth show their letters.
+            # They also include the complete mapping of keys to letters in their description.
+            self.text = letters
+            self.description = "{} → {}: {}".format(formatted_keys, letters, desc)
 
     def get_ancestors(self) -> List[__qualname__]:
         """ Get a list of all ancestors of this node (starting with itself) up to the root. """
-        nodes = []
-        while self is not None:
-            nodes.append(self)
-            self = self.parent
-        return nodes
+        return [self] + self.parent.get_ancestors()
 
     def get_descendents(self) -> List[__qualname__]:
         """ Get a list of all descendents of this node (starting with itself) down to the base. """
-        stack = self.children[:]
-        nodes = [self]
-        while stack:
-            node = stack.pop()
-            nodes.append(node)
-            stack.extend(node.children)
-        return nodes
+        return sum([c.get_descendents() for c in self.children], [self])
+
+    def get_board_info(self) -> Tuple[StenoKeys, str]:
+        """ Get the basic info necessary to display the rule on a steno board diagram. """
+        return self.raw_keys, self.description
 
     def __str__(self):
         return "{} → {}".format(self.text, self.children)
@@ -85,19 +74,17 @@ class OutputNode:
     __repr__ = __str__
 
 
-class OutputFormatter(SpectraComponent):
-    """ Base output class for creating and formatting a finished rule breakdown of steno translations.
-        Only meant to be subclassed by more specific classes based on the output type (graphics, text, etc.) """
+class OutputTree(OutputNode):
+    """ Special subclass for the root node of an output tree, which contains everything else. """
 
-    _max_depth: int  # Maximum recursion depth to draw in output tree.
-                     # max_depth = 0 only displays the root node.
-                     # max_depth = 1 displays the root node and all of the rules that make it up.
-                     # max_depth = 2 also displays the rules that make up each of those, and so on.
+    def __init__(self, rule:StenoRule, maxdepth:int):
+        """ The root node has no parent, its "attach interval" is arbitrarily
+            defined as starting at 0 and being the length of its letters. """
+        super().__init__(rule, 0, len(rule.letters), maxdepth, None)
+        # The root node always shows letters and does not include anything extra in its description.
+        self.text = rule.letters
+        self.description = rule.desc
 
-    def __init__(self, maxdepth:int=RECURSION_LIMIT):
-        self._max_depth = min(maxdepth, RECURSION_LIMIT)
-
-    def make_tree(self, rule:StenoRule) -> OutputNode:
-        """ Make a display tree from the given rule and return the root node (which contains everything else).
-            The root node has no map, so set its start to 0 and length to the length of the word. """
-        return OutputNode(rule, 0, len(rule.letters), self._max_depth, None)
+    def get_ancestors(self) -> List[__qualname__]:
+        """ The root node has no ancestors, but since ancestry is inclusive, return only itself. """
+        return [self]

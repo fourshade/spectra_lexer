@@ -7,19 +7,20 @@ from spectra_lexer.search.steno_search import BidirectionalStenoSearchDict
 
 
 class SearchEngine(SpectraComponent):
+    """ Core search class for finding steno translations from strokes and vice versa.
+        Not technically required to run the lexer, but necessary for any GUI implementation. """
+
+    # TODO: Call from lexer to find asterisk conflicts.
 
     _dict: BidirectionalStenoSearchDict  # Current search dict (contains both forward and reverse dicts)
 
     def __init__(self):
         """ Initialize the base dict with the search function and any given arguments. """
+        super().__init__()
         self._dict = BidirectionalStenoSearchDict()
-
-    def engine_commands(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {**super().engine_commands(),
-                "new_search_dict": self.set_dict,
-                "search_lookup":   self.get,
-                "search_special":  self.search}
+        self.add_commands({"new_search_dict": self.set_dict,
+                           "search_lookup":   self.get,
+                           "search_special":  self.search})
 
     def set_dict(self, src_dict:Dict[str, str]) -> None:
         """ Create the search dictionary from the raw steno dictionary given. """

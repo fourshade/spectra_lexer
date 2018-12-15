@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, List, Any
+from typing import Any, Dict
 
 from spectra_lexer import SpectraComponent
 
@@ -40,91 +40,35 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _method_aliases: dict                          # Dict mapping names to engine methods called by components.
-    _component_dict: Dict[SpectraComponent, dict]  # Dict mapping components to their command dicts, id hashed.
-    _signal_map: Dict[str, List[tuple]]            # Mapping of every command to a list of callback structures.
+    _command_map: Dict[str, list]  # Mapping of every command to a list of callback structures.
 
-    def __init__(self, *components:SpectraComponent):
-        """ Construct the engine and immediately add the specified components to it, if any. """
-        self._method_aliases = {"engine_call": self.call,
-                                "engine_call_async": self.call_async}
-        self._component_dict = {}
-        self._signal_map = defaultdict(list)
-        self.connect(*components)
+    def __init__(self, root_component:SpectraComponent):
+        """ Construct the engine and immediately add the root component to it. """
+        self._command_map = defaultdict(list)
+        self.connect(root_component)
 
-    def connect(self, *components:SpectraComponent, overwrite:bool=False) -> None:
-        """ Connect all of the specified components to the engine, adding their commands to the signal table. """
-        # If overwrite is True, disconnect any existing instances of the new components first.
-        if overwrite:
-            self._disconnect_same_type_as(*components)
-        for c in components:
-            if c in self._component_dict:
-                raise KeyError("Component is already connected.")
-            cmd_dict = c.engine_commands()
-            self._component_dict[c] = cmd_dict
-            self._add_to_signal_map(c, cmd_dict)
-            for (cb, meth) in self._method_aliases.items():
-                setattr(c, cb, meth)
-            # If the component contains its own subcomponents, connect them recursively.
-            subcomponents = c.engine_subcomponents()
-            if subcomponents:
-                self.connect(*subcomponents, overwrite=overwrite)
+    def connect(self, component:SpectraComponent) -> None:
+        """ Connect the specified component to the engine, adding its commands to the signal table. """
+        # Add all commands it handles with their callbacks and set the engine callback itself.
+        for (command, callback) in component.CMD_DICT.items():
+            self._command_map[command].append(callback)
+        component.set_engine_callback(self.call)
+        # If the component contains its own subcomponents, connect them recursively.
+        for c in component.SUBCOMPONENTS:
+            self.connect(c)
 
-    def disconnect(self, *components:SpectraComponent) -> None:
-        """ Disconnect all of the specified components, removing all dict entries and signal callbacks. """
-        for c in components:
-            # If the component contains its own subcomponents, disconnect them recursively.
-            subcomponents = c.engine_subcomponents()
-            if subcomponents:
-                self.disconnect(*subcomponents)
-            cmd_dict = self._component_dict.get(c)
-            if c is None:
-                raise KeyError("Component is not connected.")
-            for cb in self._method_aliases:
-                delattr(c, cb)
-            self._remove_from_signal_map(c, cmd_dict)
-            del self._component_dict[c]
+    def disconnect(self, component:SpectraComponent) -> None:
+        """ Disconnect the specified component, removing all dict entries and signal callbacks. """
+        # If the component contains its own subcomponents, disconnect them recursively in reverse order.
+        for c in reversed(component.SUBCOMPONENTS):
+            self.disconnect(c)
+        # Remove the engine callback and all commands that this component handled.
+        component.remove_engine_callback()
+        for (command, callback) in component.CMD_DICT.items():
+            self._command_map[command].remove(callback)
 
-    def _disconnect_same_type_as(self, *components:SpectraComponent) -> None:
-        """ Disconnect all instances of the same type as the specified components. """
-        overwrite_types = set(map(type, components))
-        same_type_components = [c for c in self._component_dict if type(c) in overwrite_types]
-        self.disconnect(*same_type_components)
-
-    def _add_to_signal_map(self, c:SpectraComponent, cmd_dict):
-        """ Add callbacks to the signal map based on a dictionary of signals and callbacks. """
-        for (signal, callback) in cmd_dict.items():
-            callback_tuple = (c, callback)
-            self._signal_map[signal].append(callback_tuple)
-
-    def _remove_from_signal_map(self, c:SpectraComponent, cmd_dict):
-        """ Remove callbacks from the signal map based on a dictionary of signals and callbacks. """
-        for (signal, callback) in cmd_dict.items():
-            callback_tuple = (c, callback)
-            self._signal_map[signal].remove(callback_tuple)
-
-    def call(self, command:str, *args) -> Any:
-        """ Call <command> on the last valid target with the given arguments and return its value. """
-        for val in self._call_next(command, *args):
-            return val
-        # If there are no registered components that can handle this command, it's probably an error.
-        raise ValueError("Illegal command: " + command)
-
-    def call_async(self, command:str, *args, callback=None) -> None:
-        """ Call <command> on each valid target with the given arguments. For now, this isn't actually asynchronous.
-            If a callback method was given, invoke it for each return value. """
-        for val in self._call_next(command, *args):
-            if callback is not None:
-                callback(val)
-
-    def _call_next(self, command:str, *args) -> Any:
-        """ Call each method (on existing objects) listed under <command> with the given arguments
-            and yield the return value for each. kwargs are not supported. """
-        for cmp, func in reversed(self._signal_map[command]):
-            try:
-                yield func(*args)
-            except RuntimeError:
-                # If we got here, we tried to call a method on a deleted object.
-                # Disconnect it from the engine and try the next one (if any).
-                if cmp in self._component_dict:
-                    self.disconnect(cmp)
+    def call(self, command:str, *args, default=...) -> Any:
+        """ Call <command> on each valid target with the given arguments and return the last value. """
+        for func in self._command_map[command]:
+            default = func(*args)
+        return default

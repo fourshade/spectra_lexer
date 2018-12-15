@@ -7,8 +7,9 @@ import pytest
 from spectra_lexer.file import FileHandler
 from spectra_lexer.file.codecs import decode_assets
 from spectra_lexer.file.io_path import assets_in_package
-from spectra_lexer.display.base import OUTPUT_FLAG_SET
-from spectra_lexer.display.cascaded_text import CascadedTextFormatter
+from spectra_lexer.output import OutputFormatter
+from spectra_lexer.output.node import OUTPUT_FLAG_SET
+from spectra_lexer.output.text.cascaded_text import CascadedTextFormatter
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAG_SET
@@ -27,12 +28,15 @@ def test_dict_files():
 
 # Create the minimum necessary components we need for the tests.
 FILE = FileHandler()
+FILE.set_engine_callback()
 RULES_LIST = FILE.load_rules()
 LEXER = StenoLexer()
-LEXER.set_test_callback()
+LEXER.set_engine_callback()
 LEXER.set_rules(RULES_LIST)
-DISPLAY = CascadedTextFormatter()
-DISPLAY.set_test_callback()
+OUTPUT = OutputFormatter()
+OUTPUT.set_engine_callback()
+FORMATTER = CascadedTextFormatter()
+FORMATTER.set_engine_callback()
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 
 
@@ -100,12 +104,13 @@ def test_display(trial):
     stroke, word, *goal = trial
     keys = StenoKeys.cleanse(stroke)
     result = LEXER.query(keys, word)
-    DISPLAY.show_graph(result)
+    tree = OUTPUT.make_tree(result)
+    FORMATTER.make_graph(tree)
     # Hopefully there are some helper objects after this.
-    assert DISPLAY._formatter
-    assert DISPLAY._locator
+    assert FORMATTER._formatter
+    assert FORMATTER._locator
     # The root node starts in the upper left and has no parent.
-    root = DISPLAY._locator.get_node_at(0, 0)
+    root = FORMATTER._locator.get_node_at(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -114,4 +119,4 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all(node is root or node.parent in all_nodes_set for node in all_nodes_list)
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(DISPLAY._formatter._format_dict)
+    assert all_nodes_set >= set(FORMATTER._formatter._format_dict)

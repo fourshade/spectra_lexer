@@ -1,5 +1,5 @@
-from itertools import repeat
-from typing import Iterable, List, Union
+from itertools import product, starmap
+from typing import Iterable, List
 
 from spectra_lexer import SpectraComponent
 from spectra_lexer.keys import KEY_SEP, KEY_STAR, StenoKeys
@@ -15,48 +15,44 @@ class StenoLexer(SpectraComponent):
 
     _rule_matcher: LexerRuleMatcher = None  # The only state the lexer needs is the rule-matching dictionary.
 
-    def engine_commands(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {**super().engine_commands(),
-                "new_rules":       self.set_rules,
-                "lexer_query":     self.query,
-                "lexer_query_all": self.query_all}
+    def __init__(self):
+        super().__init__()
+        self.add_commands({"new_rules":         self.set_rules,
+                           "new_query":         self.query,
+                           "new_query_product": self.query_best_product})
 
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
         """ Take a sequence of rules parsed from a file and sort them into categories for the lexer. """
         self._rule_matcher = LexerRuleMatcher(rules)
 
     def query(self, keys:str, word:str) -> StenoRule:
-        """ Given a key string with strokes and matching translation, use a
-            series of steno rules to match steno keys to printed characters.
-            Return only the best-fit rule out of every possibility. """
-        # Thoroughly cleanse and parse the key string (user strokes cannot be trusted).
-        keys = StenoKeys.cleanse(keys)
-        # Collect all possible results for the given keys and word).
-        maps = self._generate_maps(keys, word)
-        # Return output with the highest ranked rule map according to how accurately
-        # it (probably) mapped the stroke to the translation (or an empty map if none).
-        return StenoRule.from_lexer_result(keys, word, max(maps, key=RuleMap.rank, default=RuleMap()))
+        """ Return the best rule that maps the given key string to the given word. Send it to the engine as well. """
+        rule = self._generate_rule(keys, word)
+        self.engine_call("new_lexer_result", rule)
+        return rule
 
-    def query_all(self, keys_iter:Union[str, Iterable[str]], words_iter:Union[str, Iterable[str]]) -> StenoRule:
-        """ Same as above, but takes a series of possible key strings, words, or both. Neither may be empty.
-            If only one of the two is an iterable, test each possibility of it with the other.
-            If both are iterable, test them as corresponding pairs. Only return the best out of everything. """
-        single_key, single_word = isinstance(keys_iter, str), isinstance(words_iter, str)
-        if single_key and single_word:
-            return self.query(keys_iter, words_iter)
-        if single_key:
-            keys_iter = repeat(keys_iter)
-        if single_word:
-            words_iter = repeat(words_iter)
-        results = list(map(self.query, keys_iter, words_iter))
-        if not results:
-            raise ValueError("Iterable arguments may not be empty.")
-        return max(results, key=lambda p: p.rulemap.rank())
+    def query_best_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
+        """ As arguments, take iterables of keys and words and test every possible pairing.
+            Return the best rule out of all combinations. Send it to the engine as well. """
+        rule = StenoRule.best_rule(starmap(self._generate_rule, product(keys, words)))
+        self.engine_call("new_lexer_result", rule)
+        return rule
+
+    def _generate_rule(self, keys:str, word:str) -> StenoRule:
+        """ Given a key string and a matching translation, return the best possible rule relating the two. """
+        # Thoroughly cleanse and parse the key string(s) (user strokes cannot be trusted).
+        keys = StenoKeys.cleanse(keys)
+        # Collect all valid rulemaps (that aren't optimized away) for the given keys and word.
+        maps = self._generate_maps(keys, word)
+        # Find the highest ranked rulemap according to how accurately it (probably) mapped the stroke
+        # to the translation (or an empty map if none). Make a rule out of the result and return it.
+        best_map = RuleMap.best_map(maps)
+        return StenoRule.from_lexer_result(keys, word, best_map)
 
     def _generate_maps(self, keys:StenoKeys, word:str) -> List[RuleMap]:
         """
-        Generate a list of complete rule maps that could possibly produce the given word.
+        Given a string of parsed steno keys and a matching translation, use steno rules to match keys to printed
+        characters in order to generate a list of complete rule maps that could possibly produce the translation.
         A "complete" map is one that matches every one of the given keys to a rule.
 
         The stack is a simple list of tuples, each containing the state of the lexer at some point in time.

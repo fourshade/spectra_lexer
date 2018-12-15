@@ -2,11 +2,10 @@ from collections import defaultdict
 
 from typing import Dict, List, Tuple
 
-from spectra_lexer.display import OutputFormatter
-from spectra_lexer.display.base import OutputNode
-from spectra_lexer.display.html import HTMLFormatter
+from spectra_lexer import SpectraComponent
 from spectra_lexer.keys import KEY_SPLIT
-from spectra_lexer.rules import StenoRule
+from spectra_lexer.output.node import OutputNode
+from spectra_lexer.output.text.html import HTMLFormatter
 
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
 _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
@@ -17,7 +16,6 @@ _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
-
 
 
 def _text_container(length:int, position:str) -> str:
@@ -184,50 +182,39 @@ class _NodeLocator:
                 return node_row[col]
 
 
-class CascadedTextFormatter(OutputFormatter):
-    """ Generates cascaded plaintext representation of lexer output. One of the only top-level classes.
+class CascadedTextFormatter(SpectraComponent):
+    """ Generates cascaded plaintext representation of lexer output.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
-    _locator: _NodeLocator = None      # Finds which node the mouse is over during a mouseover event.
-    _last_node: OutputNode = None      # Most recent node from a mouse move event.
+    _locator: _NodeLocator = None     # Finds which node the mouse is over during a mouseover event.
 
-    def engine_commands(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks. """
-        return {**super().engine_commands(),
-                "display_clear":   self.clear,
-                "display_rule":    self.show_graph,
-                "display_info_at": self.show_info_at,}
+    def __init__(self):
+        super().__init__()
+        self.add_commands({"new_output_tree":     self.make_graph,
+                           "output_text_node_at": self.get_node_at,
+                           "output_text_format":  self.format_graph})
 
-    def clear(self) -> None:
-        """ Clear the last output state completely. """
-        self._formatter = self._locator = self._last_node = None
-
-    def show_graph(self, rule:StenoRule) -> None:
+    def make_graph(self, root:OutputNode) -> str:
         """ Generate a text graph and info for a steno rule and send it to the GUI. """
-        # Start by making a generic rule node tree. The entire tree is contained by the root node.
-        root_node = self.make_tree(rule)
-        # Compile the plaintext output and node reference structures from the tree using the generator.
-        generator = _TextGenerator(root_node)
+        # Compile the plaintext output and node reference structures from the current tree using the generator.
+        generator = _TextGenerator(root)
         lines = generator.get_text_lines()
         node_grid, format_dict = generator.get_node_info()
-        # Create a locator and formatter using these structures.
+        # Create a locator and formatter using these structures and keep them for later reference.
         self._formatter = HTMLFormatter(lines, format_dict)
         self._locator = _NodeLocator(node_grid)
-        # Send the title, unformatted text graph, and root node info to the GUI.
-        self.engine_call("gui_display_title", str(rule))
-        self.engine_call("gui_display_graph", self._formatter.make_graph_text())
-        self.engine_call("gui_display_info", root_node.raw_keys, root_node.description)
+        # Send the new, unformatted text graph to the engine.
+        text = self._formatter.make_graph_text()
+        self.engine_call("new_output_text_graph", text)
+        return text
 
-    def show_info_at(self, row:int, col:int) -> None:
+    def get_node_at(self, row:int, col:int) -> OutputNode:
         """ Find the character at (row, col) of the text format and see if it's part of a node display.
-            If it is (and isn't the one currently shown), make an info structure for that node and display it. """
+            If it is, return that node, otherwise return None. """
         if self._locator:
-            node = self._locator.get_node_at(row, col)
-            if node is not None and node is not self._last_node:
-                # Send the new formatted text to the GUI. Make sure it doesn't affect the current scroll position.
-                self.engine_call("gui_display_graph", self._formatter.make_formatted_text(node), False)
-                # Send parts from the given rule info to the GUI.
-                self.engine_call("gui_display_info", node.raw_keys, node.description)
-            # Store the current node so we can avoid redraw.
-            self._last_node = node
+            return self._locator.get_node_at(row, col)
+
+    def format_graph(self, node:OutputNode) -> str:
+        """ Generate formatted text for a selected node on the current graph and return it. """
+        return self._formatter.make_graph_text(node)

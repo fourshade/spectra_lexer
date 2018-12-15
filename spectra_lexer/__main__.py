@@ -1,12 +1,9 @@
-import sys
-
-from spectra_lexer.gui_qt.app import GUIQtMainApplication
+import spectra_lexer.gui_qt.app
 
 
 def main() -> None:
-    """ Main console entry point for the Spectra steno lexer. Should be simple as possible. """
-    # For now, the GUI app is always started, and all command-line arguments are assumed to be steno dictionary files.
-    GUIQtMainApplication(dict_files=sys.argv[1:])
+    """ Main console entry point for the Spectra steno lexer. For now, redirect to the standalone GUI app. """
+    spectra_lexer.gui_qt.app.main()
 
 
 if __name__ == '__main__':

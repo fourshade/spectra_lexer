@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import QAction, QMenu, QMenuBar, QWidget
 
-from spectra_lexer.gui_qt import GUIQtComponent
+from spectra_lexer import SpectraComponent
 
 
-class GUIQtMenu(GUIQtComponent):
+class GUIQtMenu(SpectraComponent):
+    """ GUI operations class for menu operations. Each action just consists of clicking a menu bar item. """
 
     m_menu: QMenuBar      # Top-level widget for the entire menu bar.
     m_file: QMenu         # File submenu (no action by itself).
@@ -13,16 +14,11 @@ class GUIQtMenu(GUIQtComponent):
     def __init__(self, *widgets:QWidget):
         super().__init__()
         self.m_menu, self.m_file, self.m_file_load, self.m_file_exit = widgets
+        self.m_file_load.triggered.connect(self.dialog_load)
+        self.m_file_exit.triggered.connect(self.window_close)
 
-    def engine_commands(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks.
-            Some commands have identical signatures to the Qt GUI methods; those can be passed directly. """
-        return {**super().engine_commands(),
-                "gui_menu_set_visible": self.m_menu.setVisible}
+    def dialog_load(self, *args):
+        self.engine_call("window_dialog_load")
 
-    def engine_slots(self) -> dict:
-        """ Individual components must define the signals they respond to and the appropriate callbacks.
-            Some commands have identical signatures to the Qt GUI methods; those can be passed directly. """
-        return {**super().engine_slots(),
-                self.m_file_load.triggered: "user_load_translations",
-                self.m_file_exit.triggered: "close_window"}
+    def window_close(self, *args):
+        self.engine_call("window_close")

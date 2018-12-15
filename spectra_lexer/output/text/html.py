@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Dict, List, Tuple
 
-from spectra_lexer.display.base import OutputNode
+from spectra_lexer.output.node import OutputNode
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -58,15 +58,17 @@ class HTMLFormatter:
         self._lines = lines
         self._format_dict = format_dict
 
-    def make_graph_text(self, lines:List[str]=None) -> str:
-        """ Make a full graph text string by joining a list of line strings and setting the preformatted tag.
-            If no lines are specified, use the last set of raw text strings unformatted. """
-        if lines is None:
+    def make_graph_text(self, node:OutputNode=None) -> str:
+        """ Make a full graph text string by joining the list of line strings and setting the preformatted tag.
+            If a node is specified, format the lines with data corresponding to that node first. """
+        if node is None:
             lines = self._lines
+        else:
+            lines = self._make_formatted_text(node)
         return "<pre>"+"\n".join(lines)+"</pre>"
 
-    def make_formatted_text(self, node:OutputNode) -> str:
-        """ Make a formatted text graph string for a given node, with highlighted and/or bolded ranges of text. """
+    def _make_formatted_text(self, node:OutputNode) -> List[str]:
+        """ Format the current set of text lines with highlighted and/or bolded ranges of text for a given node. """
         lines = self._lines[:]
         # Color the full ancestry line of the selected node, starting with that node and going up.
         # This ensures that formatting happens right-to-left on rows with more than one operation.
@@ -86,4 +88,4 @@ class HTMLFormatter:
                 _format_interval(lines, level, row, start, end, bold)
                 bold = False
             level -= 1
-        return self.make_graph_text(lines)
+        return lines

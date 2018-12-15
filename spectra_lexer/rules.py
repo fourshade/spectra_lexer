@@ -51,6 +51,10 @@ class RuleMap(List[_MapItem]):
         """ Is the final rule a stroke separator? """
         return self[-1].rule.is_separator()
 
+    def rules(self, agetter=attrgetter("rule")) -> Iterable['StenoRule']:
+        """ Iterator that returns every rule in sequence. """
+        return map(agetter, self)
+
     def keys_matched(self, agetter=attrgetter("rule.keys")) -> int:
         """ Get the total number of keys matched by mapped rules. """
         return sum(map(len, map(agetter, self)))
@@ -78,9 +82,15 @@ class RuleMap(List[_MapItem]):
         """
         return self.letters_matched(), -len(self), self.word_coverage()
 
-    def rules(self, agetter=attrgetter("rule")) -> Iterable['StenoRule']:
-        """ Iterator that returns every rule in sequence. """
-        return map(agetter, self)
+    @classmethod
+    def best_map(cls, maps:Iterable[__qualname__]) -> __qualname__:
+        """ Return the best out of a series of rule maps based on the rank value of each.
+            Return an empty map if the iterable is empty. """
+        return max(maps, key=cls.rank, default=_RULEMAP_EMPTY)
+
+
+# Empty rulemap constant to be used as a default value. Should never be modified.
+_RULEMAP_EMPTY = RuleMap()
 
 
 class StenoRule(NamedTuple):
@@ -111,6 +121,15 @@ class StenoRule(NamedTuple):
             desc = "No matches found."
         return cls(keys, letters, set(), desc, rulemap)
 
+    @classmethod
+    def best_rule(cls, rules:Iterable[__qualname__]) -> __qualname__:
+        """ Return the best out of a series of rules based on the rank value of each map.
+            max() will throw an exception if the iterable is empty. """
+        r_list = list(rules)
+        maps = [r.rulemap for r in r_list]
+        best_map = RuleMap.best_map(maps)
+        return r_list[maps.index(best_map)]
+
     def __str__(self) -> str:
         return "{} → {}".format(self.keys.inv_parse(), self.letters)
 
@@ -119,5 +138,5 @@ class StenoRule(NamedTuple):
 
 
 # Rule constants governing separators and star flags.
-_RULE_SEP = StenoRule(StenoKeys(KEY_SEP), "", {"SPEC"}, "Stroke separator", RuleMap())
-_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", {"KEY"}, v, RuleMap()) for (k, v) in KEY_FLAGS.items()}
+_RULE_SEP = StenoRule(StenoKeys(KEY_SEP), "", {"SPEC"}, "Stroke separator", _RULEMAP_EMPTY)
+_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", {"KEY"}, v, _RULEMAP_EMPTY) for (k, v) in KEY_FLAGS.items()}
