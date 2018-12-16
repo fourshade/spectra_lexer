@@ -17,7 +17,7 @@ class SpectraApplication(SpectraComponent):
             As the base application class, unused keyword arguments are discarded.
             All components are immediately usable after engine creation. """
         super().__init__()
-        self.add_commands({"set_status_message": print})
+        self.add_commands({"new_status": print})
         self.add_children([FileHandler(), SearchEngine(), StenoLexer(), *components])
         self.engine = SpectraEngine(self)
         # If <rules_files> is given as a parameter, load the rules files inside it and send them to the lexer.

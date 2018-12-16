@@ -15,4 +15,4 @@ class PloverPluginApplication(GUIQtApplication):
         else:
             super().__init__(*components, **kwargs)
             # If the compatibility check failed, send an error message to the new window.
-            self.engine_call("set_status_message", INCOMPATIBLE_MESSAGE)
+            self.engine_call("new_status", INCOMPATIBLE_MESSAGE)

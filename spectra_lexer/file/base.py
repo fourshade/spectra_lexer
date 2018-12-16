@@ -46,7 +46,7 @@ class FileHandler(SpectraComponent):
         """ Send the new resource to the engine using <command> and show a status message. """
         self.engine_call(command, resource)
         if src_string is not None:
-            self.engine_call("set_status_message", "Loaded {} from {}.".format(r_type, src_string))
+            self.engine_call("new_status", "Loaded {} from {}.".format(r_type, src_string))
 
 
 def _decode_and_merge(r_names, asset_type=False):

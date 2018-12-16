@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any, Callable, DefaultDict, List
 
 from spectra_lexer import SpectraComponent
 
@@ -40,7 +40,7 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _command_map: Dict[str, list]  # Mapping of every command to a list of callback structures.
+    _command_map: DefaultDict[str, List[Callable]]  # Mapping of every command to a list of callback structures.
 
     def __init__(self, root_component:SpectraComponent):
         """ Construct the engine and immediately add the root component to it. """
@@ -67,8 +67,16 @@ class SpectraEngine:
         for (command, callback) in component.CMD_DICT.items():
             self._command_map[command].remove(callback)
 
-    def call(self, command:str, *args, default=...) -> Any:
+    def call(self, command:str, *args, default:Any=None) -> Any:
         """ Call <command> on each valid target with the given arguments and return the last value. """
+        # TODO: Find a way to propagate all unhandled exceptions to this level, including ones from Qt.
+        value = default
         for func in self._command_map[command]:
-            default = func(*args)
-        return default
+            try:
+                value = func(*args)
+            except Exception as e:
+                # Try exception handlers (newest first) until one returns True.
+                # any() will short-circuit when this happens. If it never does, re-raise.
+                if not any(handler(e) for handler in reversed(self._command_map["handle_exception"])):
+                    raise
+        return value
