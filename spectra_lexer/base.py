@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 
 
 class SpectraComponent:
@@ -20,18 +20,19 @@ class SpectraComponent:
     def set_engine_callback(self, cb:Callable=lambda *args: None) -> None:
         """ Set engine command callback. Default is a no-op (useful for testing individual components). """
         self.engine_call = cb
+        for c in self.SUBCOMPONENTS:
+            c.set_engine_callback(cb)
 
-    def remove_engine_callback(self) -> None:
-        """ Remove callback so that engine calls result in attribute exceptions again. """
-        del self.engine_call
-
-    def command_dict(self) -> Dict[str, Callable]:
-        """ Return a dict of engine commands this component handles with the bound methods that handle each one. """
+    def command_list(self) -> List[Tuple[str, Callable]]:
+        """ Return a list of engine commands this component handles with the bound methods that handle each one. """
         cls = self.__class__
         cls_attrs = cls.__dict__.values()
         cls_methods = filter(callable, cls_attrs)
         command_methods = [meth for meth in cls_methods if hasattr(meth, "cmd_str")]
-        return {meth.cmd_str: meth.__get__(self, cls) for meth in command_methods}
+        cmd_list = [(meth.cmd_str, meth.__get__(self, cls)) for meth in command_methods]
+        for c in self.SUBCOMPONENTS:
+            cmd_list += c.command_list()
+        return cmd_list
 
     @property
     def SUBCOMPONENTS(self) -> List[__qualname__]:
