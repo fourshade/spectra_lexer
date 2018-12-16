@@ -2,7 +2,7 @@ from typing import Any
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 # Hard limit on the number of matches returned by a special search.
@@ -28,14 +28,14 @@ class GUIQtSearch(SpectraComponent):
         self.mapping_list.itemSelected.connect(self.on_choose_mapping)
         self.strokes_chkbox.toggled.connect(self.on_search)
         self.regex_chkbox.toggled.connect(self.on_search)
-        self.add_commands({"new_window":      self.on_new_window,
-                           "new_search_dict": self.on_new_dict})
 
+    @on("new_window")
     def on_new_window(self) -> None:
         """ Enable searching only if there is a search dictionary loaded after initialization."""
         first_entry = self.engine_call("search_special", "", 1)
         self._clear_and_set_enabled(bool(first_entry))
 
+    @on("new_search_dict")
     def on_new_dict(self, src_dict:dict) -> None:
         """ When a new dict comes along, enable/disable searching based on whether or not it is empty or None. """
         self._clear_and_set_enabled(bool(src_dict))

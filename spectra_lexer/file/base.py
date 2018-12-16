@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.file.codecs import decode_assets, decode_files, DECODERS
 from spectra_lexer.file.io_path import assets_in_package, dict_files_from_plover_cfg
 from spectra_lexer.file.parser import StenoRuleDict
@@ -9,12 +9,7 @@ from spectra_lexer.file.parser import StenoRuleDict
 class FileHandler(SpectraComponent):
     """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
 
-    def __init__(self):
-        super().__init__()
-        self.add_commands({"file_load_rules":         self.load_rules,
-                           "file_load_translations":  self.load_translations,
-                           "file_get_decodable_exts": DECODERS.keys})
-
+    @on("file_load_rules")
     def load_rules(self, filenames:Iterable[str]=(), src_string:str=None) -> list:
         """ Attempt to load one or more rules dictionaries given by filename. """
         if filenames:
@@ -29,6 +24,7 @@ class FileHandler(SpectraComponent):
         # Return the resource in case this was a direct call.
         return rules_list
 
+    @on("file_load_translations")
     def load_translations(self, filenames:Iterable[str]=(), src_string:str=None) -> dict:
         """ Attempt to load one or more steno translation dictionaries given by filename.
             Keys are RTFCRE stroke strings, values are English text translations. """
@@ -41,6 +37,11 @@ class FileHandler(SpectraComponent):
         self._send_resource("new_search_dict", search_dict, "dictionaries", src_string)
         # Return the resource in case this was a direct call.
         return search_dict
+
+    @on("file_get_decodable_exts")
+    def get_decodable_exts(self):
+        """ Return all valid file extensions (including the dot) for decodable dictionaries. """
+        return DECODERS.keys()
 
     def _send_resource(self, command:str, resource, r_type:str, src_string:str) -> None:
         """ Send the new resource to the engine using <command> and show a status message. """

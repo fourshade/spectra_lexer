@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.gui_qt.display import GUIQtDisplay
 from spectra_lexer.gui_qt.menu import GUIQtMenu
 from spectra_lexer.gui_qt.search import GUIQtSearch
@@ -20,14 +20,17 @@ class BaseWindow(QMainWindow, Ui_BaseWindow, SpectraComponent):
         menu = GUIQtMenu(self.m_menu, self.m_file, self.m_file_load, self.m_file_exit)
         # Search subcomponent; initialized with all search-related GUI elements (left half).
         search = GUIQtSearch(self.w_search_input, self.w_search_matches, self.w_search_mappings,
-                                  self.w_search_type, self.w_search_regex)
+                             self.w_search_type, self.w_search_regex)
         # Display subcomponent; initialized with all output-related GUI elements (right half).
         display = GUIQtDisplay(self.w_display_title, self.w_display_text,
-                                    self.w_display_desc, self.w_display_board)
-        self.add_commands({"window_close":       self.close,
-                           "window_dialog_load": self.dialog_load})
+                               self.w_display_desc, self.w_display_board)
         self.add_children([menu, search, display])
 
+    @on("window_close")
+    def close(self):
+        super().close()
+
+    @on("window_dialog_load")
     def dialog_load(self, *args) -> None:
         """ Present a dialog for the user to select a steno dictionary file.
             Attempt to load it if not empty. *args is necessary to eat extra args from Qt signal. """

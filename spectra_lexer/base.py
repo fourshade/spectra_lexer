@@ -13,10 +13,6 @@ class SpectraComponent:
     to break the super() call chain on the way to __init__ in this class. For this reason,
     initialization is skipped and instance attributes are checked dynamically as properties. """
 
-    def add_commands(self, cmd_dict:Dict[str, Callable]) -> None:
-        """ Components may add commands they accept here, overwriting commands with the same name from superclasses. """
-        self.CMD_DICT.update(cmd_dict)
-
     def add_children(self, subcomponents:List[__qualname__]) -> None:
         """ Components may add child components (with lifecycles shorter than or equal to their own) here. """
         self.SUBCOMPONENTS.extend(subcomponents)
@@ -29,12 +25,13 @@ class SpectraComponent:
         """ Remove callback so that engine calls result in attribute exceptions again. """
         del self.engine_call
 
-    @property
-    def CMD_DICT(self) -> Dict[str, Callable]:
-        """ Dict of engine commands. Format is {"command": callback}. """
-        if not hasattr(self, "_CMD_DICT"):
-            self._CMD_DICT = {}
-        return self._CMD_DICT
+    def command_dict(self) -> Dict[str, Callable]:
+        """ Return a dict of engine commands this component handles with the bound methods that handle each one. """
+        cls = self.__class__
+        cls_attrs = cls.__dict__.values()
+        cls_methods = filter(callable, cls_attrs)
+        command_methods = [meth for meth in cls_methods if hasattr(meth, "cmd_str")]
+        return {meth.cmd_str: meth.__get__(self, cls) for meth in command_methods}
 
     @property
     def SUBCOMPONENTS(self) -> List[__qualname__]:
@@ -42,3 +39,11 @@ class SpectraComponent:
         if not hasattr(self, "_SUBCOMPONENTS"):
             self._SUBCOMPONENTS = []
         return self._SUBCOMPONENTS
+
+
+def on(command:str):
+    """ Decorator for methods which handle engine commands. Only works with user-defined methods. """
+    def on_decorator(func:Callable):
+        func.cmd_str = command
+        return func
+    return on_decorator

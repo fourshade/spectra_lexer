@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from typing import Dict, List, Tuple
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.keys import KEY_SPLIT
 from spectra_lexer.output.node import OutputNode
 from spectra_lexer.output.text.html import HTMLFormatter
@@ -190,12 +190,7 @@ class CascadedTextFormatter(SpectraComponent):
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
     _locator: _NodeLocator = None     # Finds which node the mouse is over during a mouseover event.
 
-    def __init__(self):
-        super().__init__()
-        self.add_commands({"new_output_tree":     self.make_graph,
-                           "output_text_node_at": self.get_node_at,
-                           "output_text_format":  self.format_graph})
-
+    @on("new_output_tree")
     def make_graph(self, root:OutputNode) -> str:
         """ Generate a text graph and info for a steno rule and send it to the GUI. """
         # Compile the plaintext output and node reference structures from the current tree using the generator.
@@ -210,12 +205,14 @@ class CascadedTextFormatter(SpectraComponent):
         self.engine_call("new_output_text_graph", text)
         return text
 
+    @on("output_text_node_at")
     def get_node_at(self, row:int, col:int) -> OutputNode:
         """ Find the character at (row, col) of the text format and see if it's part of a node display.
             If it is, return that node, otherwise return None. """
         if self._locator:
             return self._locator.get_node_at(row, col)
 
+    @on("output_text_format")
     def format_graph(self, node:OutputNode) -> str:
         """ Generate formatted text for a selected node on the current graph and return it. """
         return self._formatter.make_graph_text(node)

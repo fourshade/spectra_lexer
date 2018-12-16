@@ -1,7 +1,7 @@
 import itertools
 from typing import Iterable, List, Sequence
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.keys import join_strokes
 from spectra_lexer.plover.compat import PloverAction, PloverEngine, PloverStenoDict, PloverStenoDictCollection
 
@@ -19,7 +19,6 @@ class PloverPluginInterface(SpectraComponent):
         super().__init__()
         self._last_strokes = []
         self._last_text = []
-        self.add_commands({"plover_load_dicts": self.force_load_dicts})
         # If the compatibility check is passed, we should be confident that the only argument is the Plover engine.
         self._plover_engine = args[0]
         # Lock the Plover engine thread and connect the callbacks.
@@ -27,6 +26,7 @@ class PloverPluginInterface(SpectraComponent):
             plover.signal_connect('dictionaries_loaded', self.load_dict_collection)
             plover.signal_connect('translated', self.on_new_translation)
 
+    @on("plover_load_dicts")
     def force_load_dicts(self):
         """ After engine connection, lock the engine and load all current dictionaries regardless of signals. """
         with self._plover_engine as plover:

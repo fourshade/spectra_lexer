@@ -2,7 +2,7 @@ import traceback
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.gui_qt.display.steno_board_widget import StenoBoardWidget
 from spectra_lexer.gui_qt.display.text_graph_widget import TextGraphWidget
 from spectra_lexer.output.node import OutputNode
@@ -25,33 +25,33 @@ class GUIQtDisplay(SpectraComponent):
         super().__init__()
         self.w_title, self.w_text, self.w_desc, self.w_board = widgets
         self.w_text.mouseOverCharacter.connect(self.process_mouseover)
-        self.add_commands({"handle_exception":      self.display_exception,
-                           "new_lexer_result":      self.display_title,
-                           "new_output_tree":       self.display_board_info,
-                           "new_output_text_graph": self.display_new_graph,
-                           "new_status":            self.display_status})
         self.add_children([CascadedTextFormatter()])
 
+    @on("handle_exception")
     def display_exception(self, e:Exception) -> bool:
         """ To avoid crashing Plover, exceptions are displayed in the main text window, then marked as handled. """
         tb_lines = traceback.TracebackException.from_exception(e).format()
         self.w_text.setPlainText("".join(tb_lines))
         return True
 
+    @on("new_lexer_result")
     def display_title(self, rule:StenoRule) -> None:
         """ For a new lexer result, set the title from the rule. """
         self.w_title.setText(str(rule))
 
+    @on("new_output_tree")
     def display_board_info(self, node:OutputNode) -> None:
         """ Display basic info for a node on the steno board diagram. """
         keys, desc = node.get_board_info()
         self.w_board.show_keys(keys)
         self.w_desc.setText(desc)
 
+    @on("new_output_text_graph")
     def display_new_graph(self, text:str, reset_scrollbar:bool=True) -> None:
         """ Display a finished text graph in the main text widget. """
         self.w_text.set_graph(text, reset_scrollbar)
 
+    @on("new_status")
     def display_status(self, msg:str) -> None:
         """ Display engine status messages in the title bar. """
         self.w_title.setText(msg)

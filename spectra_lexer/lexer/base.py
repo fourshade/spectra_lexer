@@ -1,7 +1,7 @@
 from itertools import product, starmap
 from typing import Iterable, List
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import on, SpectraComponent
 from spectra_lexer.keys import KEY_SEP, KEY_STAR, StenoKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.rules import RuleMap, StenoRule, MutableRuleMap
@@ -15,22 +15,19 @@ class StenoLexer(SpectraComponent):
 
     _rule_matcher: LexerRuleMatcher = None  # The only state the lexer needs is the rule-matching dictionary.
 
-    def __init__(self):
-        super().__init__()
-        self.add_commands({"new_rules":         self.set_rules,
-                           "new_query":         self.query,
-                           "new_query_product": self.query_best_product})
-
+    @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
         """ Take a sequence of rules parsed from a file and sort them into categories for the lexer. """
         self._rule_matcher = LexerRuleMatcher(rules)
 
+    @on("new_query")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return the best rule that maps the given key string to the given word. Send it to the engine as well. """
         rule = self._generate_rule(keys, word)
         self.engine_call("new_lexer_result", rule)
         return rule
 
+    @on("new_query_product")
     def query_best_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return the best rule out of all combinations. Send it to the engine as well. """

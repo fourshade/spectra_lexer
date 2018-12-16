@@ -1,1 +1,1 @@
-from .base import SpectraComponent
+from .base import on, SpectraComponent
