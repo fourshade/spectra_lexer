@@ -2,6 +2,7 @@ from typing import List, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
+from spectra_lexer.utils import recurse, traverse
 
 # Acceptable rule flags that indicate special behavior for output formatting.
 OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing.",
@@ -58,11 +59,11 @@ class OutputNode:
 
     def get_ancestors(self) -> List[__qualname__]:
         """ Get a list of all ancestors of this node (starting with itself) up to the root. """
-        return [self] + self.parent.get_ancestors()
+        return list(traverse(self, next_attr="parent"))
 
     def get_descendents(self) -> List[__qualname__]:
         """ Get a list of all descendents of this node (starting with itself) down to the base. """
-        return sum([c.get_descendents() for c in self.children], [self])
+        return list(recurse(self, iter_attr="children"))
 
     def get_board_info(self) -> Tuple[StenoKeys, str]:
         """ Get the basic info necessary to display the rule on a steno board diagram. """
@@ -70,8 +71,6 @@ class OutputNode:
 
     def __str__(self):
         return "{} → {}".format(self.text, self.children)
-
-    __repr__ = __str__
 
 
 class OutputTree(OutputNode):
@@ -84,7 +83,3 @@ class OutputTree(OutputNode):
         # The root node always shows letters and does not include anything extra in its description.
         self.text = rule.letters
         self.description = rule.desc
-
-    def get_ancestors(self) -> List[__qualname__]:
-        """ The root node has no ancestors, but since ancestry is inclusive, return only itself. """
-        return [self]

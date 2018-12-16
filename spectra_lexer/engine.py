@@ -50,7 +50,7 @@ class SpectraEngine:
     def connect(self, component:SpectraComponent) -> None:
         """ Connect the specified component to the engine, adding its commands to the signal table. """
         # Add all commands it handles with their callback methods and set the engine callback itself.
-        for (command, meth) in component.command_list():
+        for (command, meth) in component.commands():
             self._command_map[command].append(meth)
         component.set_engine_callback(self.call)
 
