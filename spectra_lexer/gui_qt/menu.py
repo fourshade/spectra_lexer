@@ -18,6 +18,7 @@ class GUIQtMenu(SpectraComponent):
         self.m_file_load.triggered.connect(self.dialog_load)
         self.m_file_exit.triggered.connect(self.window_close)
 
+    # For the following methods, *args is necessary to eat extra args passed by the Qt signals.
     def dialog_load(self, *args):
         self.engine_call("window_dialog_load")
 

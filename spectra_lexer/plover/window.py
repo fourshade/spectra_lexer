@@ -2,11 +2,11 @@ from typing import ClassVar
 
 from PyQt5.QtCore import pyqtSignal
 
-from spectra_lexer.gui_qt.window import BaseWindow
+from spectra_lexer.gui_qt.window import MainWindow
 from spectra_lexer.plover.app import PloverPluginApplication
 
 
-class PloverPlugin(BaseWindow):
+class PloverPlugin(MainWindow):
     """ Main entry point for Plover plugin. Must be (or appear to be) a subclass of QDialog. """
 
     # Class constants required by Plover for toolbar.
