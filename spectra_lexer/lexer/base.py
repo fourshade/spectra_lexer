@@ -67,7 +67,7 @@ class StenoLexer(SpectraComponent):
             test_keys, test_word, wordptr, lc, rulemap = stack.pop()
             # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
             if test_keys and test_keys[0] == KEY_STAR and (len(test_keys) == 1 or test_keys[1] == KEY_SEP):
-                rulemap.add_key_rules({_decipher_star(test_keys, word, rulemap)}, wordptr)
+                rulemap.add_key_rules({self._decipher_star(test_keys, keys, word, rulemap)}, wordptr)
                 test_keys = test_keys.without(KEY_STAR)
             # If we end up with a stroke separator at the pointer, consume it and add the rule.
             if test_keys and test_keys[0] == KEY_SEP:
@@ -105,19 +105,23 @@ class StenoLexer(SpectraComponent):
                 best_letters = max(best_letters, lc)
         return maps
 
-
-def _decipher_star(keys:StenoKeys, word:str, rulemap:RuleMap) -> str:
-    """ Try to guess the meaning of an asterisk from the remaining keys, the full word, and the current rulemap.
-        Return the flag value for the best-guess rule, or the undecided rule if nothing matches. """
-    # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
-    if "." in word:
-        return "*:AB"
-    # If the word has uppercase letters in it, it's probably a proper noun.
-    if word != word.lower():
-        return "*:PR"
-    # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
-    # If we have recorded separators but none left in the keys, we are at the end of a multi-stroke word.
-    # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
-    if (KEY_SEP in keys) ^ any(KEY_SEP in r.keys for r in rulemap.rules()):
-        return "*:PS"
-    return "*:??"
+    def _decipher_star(self, keys_left:StenoKeys, keys:StenoKeys, word:str, rulemap:RuleMap) -> str:
+        """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
+            the full word, and the current rulemap. Return the flag value for the best-guess rule. """
+        # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
+        if "." in word:
+            return "*:AB"
+        # If the word has uppercase letters in it, it's probably a proper noun.
+        if word != word.lower():
+            return "*:PR"
+        # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
+        # If we have recorded separators but none left in the keys, we are at the end of a multi-stroke word.
+        # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
+        if (KEY_SEP in keys_left) ^ any(KEY_SEP in r.keys for r in rulemap.rules()):
+            return "*:PS"
+        # If the search component is loaded with the standard dictionaries, we can check if there's an
+        # entry with every key *except* the star. If there is, it's probably there because of a conflict.
+        if self.engine_call("search_lookup", keys.without(KEY_STAR).inv_parse()):
+            return "*:CF"
+        # No other possible uses of the star are decidable by the program, so return the "ambiguous" flag.
+        return "*:??"
