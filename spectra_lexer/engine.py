@@ -42,25 +42,29 @@ class SpectraEngine:
 
     _command_map: DefaultDict[str, List[Callable]]  # Mapping of every command to a list of callback structures.
 
-    def __init__(self, root_component:SpectraComponent):
-        """ Construct the engine and immediately add the root component to it. """
+    def __init__(self, *components:SpectraComponent, **kwargs):
+        """ Construct the engine, add built-in commands, connect the root components to it,
+            and start it with the keyword arguments (sent by command line). """
         self._command_map = defaultdict(list)
-        self.connect(root_component)
+        self._command_map["new_status"] = [print]
+        for c in components:
+            self.connect(c)
+        self("start", **kwargs)
 
     def connect(self, component:SpectraComponent) -> None:
         """ Connect the specified component to the engine, adding its commands to the signal table. """
         # Add all commands it handles with their callback methods and set the engine callback itself.
         for (command, meth) in component.commands():
             self._command_map[command].append(meth)
-        component.set_engine_callback(self.call)
+        component.set_engine_callback(self)
 
-    def call(self, command:str, *args, default:Any=None) -> Any:
+    def __call__(self, command:str, *args, default:Any=None, **kwargs) -> Any:
         """ Call <command> on each valid target with the given arguments and return the last value. """
         # TODO: Find a way to propagate all unhandled exceptions to this level, including ones from Qt.
         value = default
         for func in self._command_map[command]:
             try:
-                value = func(*args)
+                value = func(*args, **kwargs)
             except Exception as e:
                 # Try exception handlers (newest first) until one returns True.
                 # any() will short-circuit when this happens. If it never does, re-raise.

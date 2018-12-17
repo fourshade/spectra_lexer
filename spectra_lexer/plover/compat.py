@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Sequence
+from typing import Callable, Iterable, Iterator, Optional, Sequence
 
 import pkg_resources
 
@@ -7,12 +7,12 @@ _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
 INCOMPATIBLE_MESSAGE = "ERROR: Plover v{} or greater required.".format(_PLOVER_VERSION_REQUIRED)
 
 # Partial class structures that specify a minimum level of functionality for compatibility with Plover.
-class PloverStenoDict:
+class PloverStenoDict(Iterable):
     enabled: bool
-    items: Callable
+    items: Callable[[], Iterator[tuple]]
 
 class PloverStenoDictCollection:
-    dicts: Sequence[PloverStenoDict]
+    dicts: Iterable[PloverStenoDict]
 
 class PloverAction:
     prev_attach: bool
@@ -28,7 +28,7 @@ class PloverTranslatorState:
 class PloverEngine:
     dictionaries: PloverStenoDictCollection
     translator_state: PloverTranslatorState
-    signal_connect: Callable
+    signal_connect: Callable[[str, Callable], None]
 
 
 def compatibility_check() -> bool:

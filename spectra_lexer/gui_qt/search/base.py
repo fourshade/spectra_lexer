@@ -29,12 +29,6 @@ class GUIQtSearch(SpectraComponent):
         self.strokes_chkbox.toggled.connect(self.on_search)
         self.regex_chkbox.toggled.connect(self.on_search)
 
-    @on("new_window")
-    def on_new_window(self) -> None:
-        """ Enable searching only if there is a search dictionary loaded after initialization."""
-        first_entry = self.engine_call("search_special", "", 1)
-        self._clear_and_set_enabled(bool(first_entry))
-
     @on("new_search_dict")
     def on_new_dict(self, src_dict:dict) -> None:
         """ When a new dict comes along, enable/disable searching based on whether or not it is empty or None. """

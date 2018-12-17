@@ -13,8 +13,6 @@ class GUIQtApplication(SpectraApplication):
     def __init__(self, *components, window:MainWindow, **kwargs):
         # Default GUI support components.
         super().__init__(OutputFormatter(), *window.components, *components, **kwargs)
-        # All engine components must be informed of the new window's existence.
-        self.engine_call("new_window")
 
 
 def main() -> None:

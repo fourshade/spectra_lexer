@@ -4,10 +4,23 @@ from spectra_lexer import on, SpectraComponent
 from spectra_lexer.file.codecs import decode_assets, decode_files, DECODERS
 from spectra_lexer.file.io_path import assets_in_package, dict_files_from_plover_cfg
 from spectra_lexer.file.parser import StenoRuleDict
+from spectra_lexer.utils import merge
 
 
 class FileHandler(SpectraComponent):
     """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
+
+    @on("start")
+    def load_initial(self, rules_files:Iterable[str]=(), dict_files:Iterable[str]=None, **kwargs) -> None:
+        """ Initial resource load upon startup. Arguments come from the command line. """
+        # If <rules_files> is given as a parameter, load the rules files inside it and send them to the lexer.
+        # If the parameter is empty or not given, load the rules from the built-in directories.
+        self.load_rules(rules_files, "command line")
+        # If <dict_files> is given as a parameter, try to load the steno dictionary files inside it on start-up.
+        # If the parameter is given but empty, make an attempt to locate Plover's dictionaries and load those.
+        # If the parameter is not given at all, do nothing. Some other component might provide the search dict.
+        if dict_files is not None:
+            self.load_translations(dict_files, "command line")
 
     @on("file_load_rules")
     def load_rules(self, filenames:Iterable[str]=(), src_string:str=None) -> list:
@@ -53,7 +66,4 @@ class FileHandler(SpectraComponent):
 def _decode_and_merge(r_names, asset_type=False):
     """ Decode and merge one or more dicts, overwriting earlier entries if keys are duplicated. """
     decode_fn = decode_assets if asset_type else decode_files
-    merged = {}
-    for d in decode_fn(r_names):
-        merged.update(d)
-    return merged
+    return merge(decode_fn(r_names))

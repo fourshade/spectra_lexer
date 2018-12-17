@@ -43,9 +43,9 @@ class GUIQtWindow(SpectraComponent):
         super().__init__()
         self.window = window
 
-    @on("new_window")
-    def show(self) -> None:
-        """ Only show the window once the engine is fully initialized and sends the signal. """
+    @on("start")
+    def show(self, **kwargs) -> None:
+        """ Only show the window once the engine is fully initialized and sends the start signal. """
         self.window.show()
 
     @on("window_close")

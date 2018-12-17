@@ -43,7 +43,7 @@ class RuleMap(Sequence[RuleMapItem]):
         """ Get the total number of keys matched by mapped rules. """
         return sum(map(len, map(agetter, self)))
 
-    def letters_matched(self,  agetter=attrgetter("rule.letters")) -> int:
+    def letters_matched(self, agetter=attrgetter("rule.letters")) -> int:
         """ Get the total number of characters matched by mapped rules. """
         return sum(map(len, map(agetter, self)))
 
