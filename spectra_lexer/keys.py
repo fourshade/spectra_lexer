@@ -17,8 +17,6 @@ ALL_KEYS = LC_KEYS + R_KEYS
 # Various sets of keys for fast membership testing.
 C_KEYS_SET = set(C_KEYS)
 VALID_CHAR_SET = set(ALL_KEYS + R_KEYS.upper() + KEY_SEP + KEY_SPLIT)
-UNORDERED_KEYS = {KEY_STAR}
-UNORDERED_KEYS_IN = UNORDERED_KEYS.intersection
 
 # Steno keys required to produce the numbers 0-9 in order (with the number key).
 NUMBER_ALIASES = "OSTPHAfplt"
@@ -46,33 +44,8 @@ class StenoKeys(str):
     Characters from an outside source (JSON files or the Plover engine) are assumed to be RTFCRE.
     """
 
-    ordered: str    # Ordered list of normal keys that must be consumed starting from the left.
-    unordered: set  # Unordered keys (asterisk) in the current stroke that may be consumed at any time.
-
-    def __new__(cls, key_seq:str) -> __qualname__:
-        """ Create the base string with all keys, then use that to start an ordered copy.
-            Filter the unordered keys out of that and save it for use as a dict key.
-            Keys must already be in dehyphenated, case-distinct format."""
-        self = super().__new__(cls, key_seq)
-        unordered = UNORDERED_KEYS_IN(key_seq)
-        if unordered:
-            unordered = UNORDERED_KEYS_IN(key_seq.split(KEY_SEP, 1)[0])
-            for k in unordered:
-                key_seq = key_seq.replace(k, "", 1)
-        self.ordered = key_seq
-        self.unordered = unordered
-        return self
-
-    def without(self, keys:str) -> __qualname__:
-        """ Return a copy of this key sequence object without each of the given keys (taken from the left). """
-        if self.startswith(keys):
-            return StenoKeys(self[len(keys):])
-        for k in keys:
-            self = self.replace(k, "", 1)
-        return StenoKeys(self)
-
     def inv_parse(self) -> str:
-        """ Perform the opposite of a lexer parse to get the keys back into
+        """ Perform the opposite of a standard parse to get the keys back into
             RTFCRE format with all uppercase letters and maybe a hyphen. """
         s_list = []
         # Iterate over all strokes (may only be 1).

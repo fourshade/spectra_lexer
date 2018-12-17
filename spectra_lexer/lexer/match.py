@@ -1,8 +1,10 @@
 from collections import defaultdict
 from functools import reduce
-from typing import Dict, Iterable, List
+from itertools import starmap
+from typing import Dict, Iterable, Iterator, List
 
 from spectra_lexer.keys import StenoKeys
+from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.rules import StenoRule
 
 # TODO: Only attempt RARE matches after failing with the normal set of rules.
@@ -16,13 +18,29 @@ MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer
 MATCH_FLAG_SET = set(MATCH_FLAGS.keys())
 
 
+class LexerRule(StenoRule):
+    """ Simple subclass for rules used by the lexer with pre-parsed key orderings. """
+
+    keys: LexerKeys  # Subclassed keys structure with unordered keys parsed out in advance.
+
+    @classmethod
+    def convert(cls, keys:StenoKeys, *other_params) -> __qualname__:
+        """ Convert a rule using the regular key format into one using the lexer key format with orderings. """
+        return cls(LexerKeys(keys), *other_params)
+
+
+def _convert_rules(r_iter:Iterable[StenoRule]) -> Iterator[LexerRule]:
+    """ Iterator to convert all rules to lexer format. """
+    return starmap(LexerRule.convert, r_iter)
+
+
 class PrefixTree(defaultdict):
     """ A trie-based structure for figuring out steno rules applicable to a certain prefix of keys.
         It is an associative array structure with string-based keys that has the distinct advantage
         of quickly returning all values that match a given key or any of its prefixes, in order. It
         also allows duplicate keys, returning a list of all values that match it. """
 
-    rules: List[StenoRule]  # Value of the node; contains all rules using the exact keys it took to get there.
+    rules: List[LexerRule]  # Value of the node; contains all rules using the exact keys it took to get there.
 
     def __init__(self):
         """ Create a new tree node. The entire structure is a dictionary of other nodes and a list of rules. """
@@ -33,7 +51,7 @@ class PrefixTree(defaultdict):
         """ Add a new value to the list under the given key. If it doesn't exist, create nodes until you reach it. """
         reduce(dict.__getitem__, k, self).rules.append(v)
 
-    def match(self, s:str) -> Iterable[StenoRule]:
+    def match(self, s:str) -> Iterable[LexerRule]:
         """ From a given string, return an iterable of all of the values that match
             any prefix of it in order from most characters matched to least. """
         node = self
@@ -49,17 +67,17 @@ class PrefixTree(defaultdict):
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
-    _stroke_dict: Dict[str, StenoRule]  # Rules that match by full stroke only.
-    _word_dict: Dict[str, StenoRule]    # Rules that match by exact word only (whitespace-separated).
+    _stroke_dict: Dict[str, LexerRule]  # Rules that match by full stroke only.
+    _word_dict: Dict[str, LexerRule]    # Rules that match by exact word only (whitespace-separated).
     _prefix_tree: PrefixTree            # Rules that match by starting with a certain number of keys in order.
 
     def __init__(self, rules:Iterable[StenoRule]):
         """ Construct a specially-structured series of dictionaries from an unordered iterable of finished rules. """
-        # Sort the rules into specific dictionaries based on their flags.
+        # Convert rules to lexer format and sort into specific dictionaries based on their flags.
         stroke_dict = {}
         word_dict = {}
         prefix_tree = PrefixTree()
-        for v in rules:
+        for v in _convert_rules(rules):
             flags = v.flags
             # The lexer shouldn't use internal/special rules at all. Skip them.
             if "SPEC" in flags:
@@ -70,6 +88,7 @@ class LexerRuleMatcher:
             elif "WORD" in flags:
                 word_dict[v.letters] = v
             # Everything else gets added to the tree-based prefix dictionary.
+            # Only ordered (non-asterisk) keys determine the prefix.
             else:
                 prefix_tree.add(v.keys.ordered, v)
         # All internal dictionaries required for active lexer operation go into instance attributes.
@@ -77,7 +96,7 @@ class LexerRuleMatcher:
         self._word_dict = word_dict
         self._prefix_tree = prefix_tree
 
-    def match(self, keys:StenoKeys, letters:str, is_full_stroke:bool=False, is_full_word:bool=False) -> List[StenoRule]:
+    def match(self, keys:LexerKeys, letters:str, is_full_stroke:bool=False, is_full_word:bool=False) -> List[LexerRule]:
         """ Return a list of all rules from each dictionary that match the given keys and letters:
             from the stroke dictionary - must match the next full stroke and a subset of the given letters.
             from the word dictionary - must match a prefix of the given keys and the next full word.

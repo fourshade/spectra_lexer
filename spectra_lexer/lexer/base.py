@@ -2,7 +2,8 @@ from itertools import product, starmap
 from typing import Iterable, List
 
 from spectra_lexer import on, SpectraComponent
-from spectra_lexer.keys import KEY_SEP, KEY_STAR, StenoKeys
+from spectra_lexer.keys import KEY_SEP, KEY_STAR
+from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.rules import RuleMap, StenoRule, MutableRuleMap
 
@@ -38,7 +39,7 @@ class StenoLexer(SpectraComponent):
     def _generate_rule(self, keys:str, word:str) -> StenoRule:
         """ Given a key string and a matching translation, return the best possible rule relating the two. """
         # Thoroughly cleanse and parse the key string(s) (user strokes cannot be trusted).
-        keys = StenoKeys.cleanse(keys)
+        keys = LexerKeys.cleanse(keys)
         # Collect all valid rulemaps (that aren't optimized away) for the given keys and word.
         maps = self._generate_maps(keys, word)
         # Find the highest ranked rulemap according to how accurately it (probably) mapped the stroke
@@ -46,7 +47,7 @@ class StenoLexer(SpectraComponent):
         best_map = RuleMap.best_map(maps)
         return StenoRule.from_lexer_result(keys, word, best_map)
 
-    def _generate_maps(self, keys:StenoKeys, word:str) -> List[RuleMap]:
+    def _generate_maps(self, keys:LexerKeys, word:str) -> List[RuleMap]:
         """
         Given a string of parsed steno keys and a matching translation, use steno rules to match keys to printed
         characters in order to generate a list of complete rule maps that could possibly produce the translation.
@@ -105,7 +106,7 @@ class StenoLexer(SpectraComponent):
                 best_letters = max(best_letters, lc)
         return maps
 
-    def _decipher_star(self, keys_left:StenoKeys, keys:StenoKeys, word:str, rulemap:RuleMap) -> str:
+    def _decipher_star(self, keys_left:LexerKeys, keys:LexerKeys, word:str, rulemap:RuleMap) -> str:
         """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
             the full word, and the current rulemap. Return the flag value for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
