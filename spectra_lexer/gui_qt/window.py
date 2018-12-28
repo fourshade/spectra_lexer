@@ -1,41 +1,12 @@
-from typing import Optional, List
+from typing import Optional
 
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QWidget
+from PyQt5.QtWidgets import QFileDialog, QMainWindow, QWidget
 
 from spectra_lexer import on, pipe, SpectraComponent
-from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
-from spectra_lexer.gui_qt.menu import GUIQtMenu
-from spectra_lexer.gui_qt.search import GUIQtSearch
-from spectra_lexer.gui_qt.text import GUIQtTextDisplay
-from spectra_lexer.gui_qt.window_ui import Ui_BaseWindow
-
-
-class MainWindow(QMainWindow, Ui_BaseWindow):
-    """ Base class for QT application window as created from the command line script or Plover. """
-
-    def __init__(self):
-        super().__init__()
-        self.setupUi(self)
-
-    def partition(self) -> List[SpectraComponent]:
-        """ Partition all GUI elements into engine components. """
-        # Top-level window handler.
-        window = GUIQtWindow(self)
-        # Menu component; only used in standalone mode (top).
-        menu = GUIQtMenu(self.m_menu)
-        # Search component; initialized with all search-related GUI elements (left half).
-        search = GUIQtSearch(self.w_search_input, self.w_search_matches, self.w_search_mappings,
-                             self.w_search_type, self.w_search_regex)
-        # Text display component; initialized with text output GUI elements (top-right half).
-        text = GUIQtTextDisplay(self.w_display_title, self.w_display_text)
-        # Board display component; initialized with board diagram GUI elements (bottom-right half).
-        board = GUIQtBoardDisplay(self.w_display_desc, self.w_display_board)
-        return [window, menu, search, text, board]
 
 
 class GUIQtWindow(SpectraComponent):
-    """ Top-level GUI engine component, which holds QMainWindow (inheritance from both is too convoluted).
-        Handles top-level window operations separate from the Qt window object. """
+    """ GUI engine component; handles top-level window operations separate from the Qt window object. """
 
     window: QMainWindow  # Main window object. Must be the parent of any new dialogs.
 
@@ -44,11 +15,12 @@ class GUIQtWindow(SpectraComponent):
         self.window = window
 
     @on("configure")
-    def show(self, *args, **kwargs) -> None:
+    def show(self, show_menu=True, **cfg_dict) -> None:
         """ Show the window once the engine is fully initialized and sends the start signal.
-            Menu commands are handled here, so add the basic ones before displaying the window. """
-        self.engine_send("menu_add", "File", "Load Dictionary...", "sig_window_dialog_load")
-        self.engine_send("menu_add", "File", "Exit", "sig_window_close")
+            If the menu is used, add the basic window-based commands before displaying the window. """
+        if show_menu:
+            self.engine_call("gui_menu_add", "File", "Load Dictionary...", "sig_window_dialog_load")
+            self.engine_call("gui_menu_add", "File", "Exit", "sig_window_close")
         self.window.show()
 
     @pipe("sig_window_dialog_load", "file_dict_load")
@@ -59,7 +31,7 @@ class GUIQtWindow(SpectraComponent):
                                                  "Supported file formats (*" + " *".join(file_formats) + ")")
         if not fname:
             return None
-        self.engine_send("new_status", "Loaded dictionaries from file dialog.")
+        self.engine_call("new_status", "Loaded dictionaries from file dialog.")
         return [fname]
 
     @on("sig_window_close")

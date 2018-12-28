@@ -2,14 +2,13 @@ from typing import Dict
 
 from PyQt5.QtWidgets import QAction, QMenu, QMenuBar, QWidget
 
-from spectra_lexer import on
-from spectra_lexer.gui_qt import GUIQtSignalComponent
+from spectra_lexer import on, SpectraComponent
 
 
-class GUIQtMenu(GUIQtSignalComponent):
+class GUIQtMenu(SpectraComponent):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
-        It is assumed that these operations are only available in standalone mode (not as a plugin).
-        Unlike other widgets, this one starts out empty and has items added dynamically on engine start. """
+        It is assumed that the menu items are only available in standalone mode (not as a plugin).
+        Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
     m_menu: QMenuBar                        # Top-level widget for the entire menu bar.
     menus: Dict[str, QMenu]                 # Menu heading objects (File, Edit, etc.).
@@ -21,7 +20,7 @@ class GUIQtMenu(GUIQtSignalComponent):
         self.menus = {}
         self.actions = {}
 
-    @on("menu_add")
+    @on("gui_menu_add")
     def add(self, heading:str, action:str, command:str, *args, **kwargs):
         menu_obj = self.menus.get(heading)
         if not menu_obj:
@@ -33,5 +32,10 @@ class GUIQtMenu(GUIQtSignalComponent):
             action_obj = items[action] = menu_obj.addAction(action)
         # Only call the command with args given on setup. Args passed by the signal are useless.
         def execute(*trash, **garbage):
-            return self.engine_send(command, *args, **kwargs)
+            return self.engine_call(command, *args, **kwargs)
         action_obj.triggered.connect(execute)
+
+    @on("configure")
+    def show(self, show_menu=True, **cfg_dict) -> None:
+        """ Show or hide the menu bar. Is shown by default. """
+        self.m_menu.setVisible(show_menu)

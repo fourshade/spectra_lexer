@@ -1,1 +1,1 @@
-from .main import PloverPluginApplication, PloverPlugin
+from .base import PloverPluginInterface

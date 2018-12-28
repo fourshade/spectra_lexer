@@ -1,9 +1,10 @@
 from typing import List, Optional, Tuple
 
 from spectra_lexer import pipe, SpectraComponent
-from spectra_lexer.node import OutputNode
+from spectra_lexer.rules import StenoRule
 from spectra_lexer.text.generator import generate_text
 from spectra_lexer.text.html import HTMLFormatter
+from spectra_lexer.text.node import OutputNode, OutputTree
 
 
 class _NodeLocator:
@@ -24,21 +25,25 @@ class _NodeLocator:
 
 
 class CascadedTextFormatter(SpectraComponent):
-    """ Generates cascaded plaintext representation of lexer output.
+    """ Base class for creating and formatting a finished rule breakdown of steno translations.
+    Generates cascaded plaintext representation of lexer output.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
     _locator: _NodeLocator = None     # Finds which node the mouse is over during a mouseover event.
     _last_node: OutputNode = None     # Most recent node from a locator event (for identity matching).
 
-    @pipe("new_output_tree", "new_output_graph")
-    def make_graph(self, root:OutputNode) -> str:
-        """ Generate a text graph and info for a steno rule and send it to the GUI. """
+    @pipe("new_lexer_result", "new_output_graph")
+    def make_graph(self, rule:StenoRule) -> str:
+        """ Generate a display tree, text graph, and info for a steno rule and send it to the GUI. """
+        root = OutputTree(rule)
         # Compile the plaintext output and node reference structures from the current tree using the generator.
         lines, node_grid = generate_text(root)
         # Create a locator and formatter using these structures and keep them for later reference.
         self._formatter = HTMLFormatter(lines, node_grid)
         self._locator = _NodeLocator(node_grid)
+        # Send the node data for the board diagram.
+        self.engine_call("new_output_info", root.raw_keys, root.description)
         # Send the new, unformatted text graph to the engine. It will re-scroll to the top by default.
         return self._formatter.make_graph_text()
 
@@ -53,6 +58,6 @@ class CascadedTextFormatter(SpectraComponent):
                 return None
             # Store the current node so we can avoid repeated lookups.
             self._last_node = node
-            # Send the node and text separate so that board diagrams and text graphs can both update.
-            self.engine_call("new_output_selected", node)
+            # Send the node data and text separate so that board diagrams and text graphs can both update.
+            self.engine_call("new_output_info", node.raw_keys, node.description)
             return self._formatter.make_graph_text(node)

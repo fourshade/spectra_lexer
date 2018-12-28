@@ -25,9 +25,9 @@ class DictManager(SpectraComponent):
             raise ValueError("Got an empty dict. Cannot determine type.")
         key, value = next(iter(raw_dict.items()))
         if isinstance(value, str):
-            self.engine_send("dict_parse_translations", raw_dict)
+            self.engine_call("dict_parse_translations", raw_dict)
         else:
-            self.engine_send("dict_parse_rules", raw_dict)
+            self.engine_call("dict_parse_rules", raw_dict)
 
     @pipe("dict_parse_rules", "new_rules")
     def parse_rules(self, raw_dict:dict) -> List[StenoRule]:

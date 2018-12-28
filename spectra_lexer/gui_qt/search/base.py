@@ -1,16 +1,16 @@
-from typing import Any, Tuple, Optional
+from functools import partial
+from typing import Any, Optional, Tuple
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
-from spectra_lexer import on, pipe
-from spectra_lexer.gui_qt import GUIQtSignalComponent
+from spectra_lexer import on, pipe, SpectraComponent
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 # Hard limit on the number of matches returned by a special search.
 _MATCH_LIMIT = 100
 
 
-class GUIQtSearch(GUIQtSignalComponent):
+class GUIQtSearch(SpectraComponent):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
     input_textbox: QLineEdit        # Input box for the user to enter a search string.
@@ -24,12 +24,17 @@ class GUIQtSearch(GUIQtSignalComponent):
     def __init__(self, *widgets:QWidget):
         super().__init__()
         self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
-        self.signal_dict = {self.input_textbox.returnPressed: "sig_on_input_submit",
-                            self.input_textbox.textEdited:    "sig_on_input_changed",
-                            self.match_list.itemSelected:     "sig_on_choose_match",
-                            self.mapping_list.itemSelected:   "sig_on_choose_mapping",
-                            self.strokes_chkbox.toggled:      "sig_on_input_changed",
-                            self.regex_chkbox.toggled:        "sig_on_input_changed"}
+
+    @on("configure")
+    def signal_connect(self, **cfg_dict) -> None:
+        signals = {self.input_textbox.returnPressed: "sig_on_input_submit",
+                   self.input_textbox.textEdited:    "sig_on_input_changed",
+                   self.match_list.itemSelected:     "sig_on_choose_match",
+                   self.mapping_list.itemSelected:   "sig_on_choose_mapping",
+                   self.strokes_chkbox.toggled:      "sig_on_input_changed",
+                   self.regex_chkbox.toggled:        "sig_on_input_changed"}
+        for signal, cmd_key in signals.items():
+            signal.connect(partial(self.engine_call, cmd_key))
 
     @on("new_search_dict")
     def on_new_dict(self, d:dict) -> None:

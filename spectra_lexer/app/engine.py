@@ -1,12 +1,8 @@
-from typing import Any, Hashable, Dict
+from collections import defaultdict
+from typing import Any, Dict, Hashable
 
 from spectra_lexer import SpectraComponent
-from spectra_lexer.base import control_decorator, SpectraCommand
-
-on = control_decorator()              # Most basic decorator; calls the command with nothing else expected.
-pipe = control_decorator("send_key")  # Decorator to mark a command to pipe its return value to another command.
-respond_to = control_decorator()        # like @on, but can return the value to caller.
-fork = control_decorator("send_key")  # like @pipe, but can also return the value to caller.
+from spectra_lexer.utils import nop
 
 
 class SpectraEngine:
@@ -45,48 +41,43 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _command_getters: Dict[SpectraComponent, callable]  # Mapping getter methods for every component's commands.
+    _commands: Dict[Hashable, list]  # Mapping getter methods for every component's commands.
+    _exception_callback: callable    # Application-provided callback for exception handling.
 
-    def __init__(self):
-        self._command_getters = {}
+    def __init__(self, on_exception=nop):
+        self._commands = defaultdict(list)
+        self._exception_callback = on_exception
 
     def connect(self, component:SpectraComponent) -> None:
-        """ Connect the specified component to the engine. """
-        self._command_getters[component] = component.commands().get
-        component.set_engine_callbacks(self.call, self.send)
-
-    def disconnect(self, component:SpectraComponent) -> None:
-        """ Disconnect the specified component from the engine. """
-        del self._command_getters[component]
-        component.set_engine_callbacks()
-
-    def _lookup_commands(self, cmd_key):
-        return list(filter(None, [m(cmd_key) for m in self._command_getters.values()]))
+        """ Add the specified component's commands to the engine and set its callback. """
+        for (k, c) in component.commands():
+            self._commands[k].append(c)
+        component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Call <command> on the last valid target with the given arguments and return the value. """
-        commands = self._lookup_commands(cmd_key)
-        if commands:
-            return self.execute(commands[-1], *args, **kwargs)
-
-    def send(self, cmd_key:Hashable, *args, **kwargs) -> None:
-        """ Call <command> on each valid target with the given arguments and return nothing. """
-        for c in self._lookup_commands(cmd_key):
-            self.execute(c, *args, **kwargs)
-
-    def execute(self, command:SpectraCommand, *args, **kwargs) -> Any:
+        """ Top-level method for engine command calls. Used directly by app and components. Contains exception handler.
+            If an uncaught exception occurs anywhere, either let the application callback handle it or re-raise. """
         try:
-            value = command.func(*args, **kwargs)
-            return self.dispatch(value, **command.kwargs)
+            return self._call(cmd_key, *args, **kwargs)
         except Exception as e:
-            # Call exception handler (newest first). If it fails, re-raise.
-            if not self.call("handle_exception", e):
+            if not self._exception_callback(e):
                 raise e
 
-    def dispatch(self, value, send_key=None, unless=None, unpack=False, **cmd_kwargs) -> Any:
-        if send_key is not None and value is not unless:
+    def _call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
+        """ Call a command on each valid component (in reverse order of connection) with the given arguments.
+            Each target may dispatch its result somewhere else and/or return it to the caller.
+            If a target is required to return a value, stop the loop there and return it. """
+        for c in reversed(self._commands[cmd_key]):
+            value = c.func(*args, **kwargs)
+            if self._dispatch(value, **c.kwargs):
+                return value
+
+    def _dispatch(self, value, next_key=None, unpack=False, ret=False, **cmd_kwargs) -> bool:
+        """ If a command is marked to pipe its output to another command (and it isn't None), start a new call
+            cycle with that command. Return True if the command must (also) return the output to its caller. """
+        if next_key is not None and value is not None:
             if unpack:
-                self.send(send_key, *value, **cmd_kwargs)
+                self._call(next_key, *value, **cmd_kwargs)
             else:
-                self.send(send_key, value, **cmd_kwargs)
-        return value
+                self._call(next_key, value, **cmd_kwargs)
+        return ret

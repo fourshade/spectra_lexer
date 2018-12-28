@@ -1,12 +1,13 @@
+from functools import partial
+
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import on, pipe
-from spectra_lexer.gui_qt import GUIQtSignalComponent
+from spectra_lexer import on, pipe, SpectraComponent
 from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 from spectra_lexer.rules import StenoRule
 
 
-class GUIQtTextDisplay(GUIQtSignalComponent):
+class GUIQtTextDisplay(SpectraComponent):
     """ GUI operations class for displaying rules and finding the mouse position over the text graph.
         Also displays engine output such as status messages and exceptions. """
 
@@ -16,7 +17,11 @@ class GUIQtTextDisplay(GUIQtSignalComponent):
     def __init__(self, *widgets:QWidget):
         super().__init__()
         self.w_title, self.w_text = widgets
-        self.signal_dict = {self.w_text.mouseOverCharacter: "sig_process_mouseover"}
+
+    @on("configure")
+    def signal_connect(self, **cfg_dict) -> None:
+        """ Register the mouseover signal. Keyboard input may also be available from this widget in the future. """
+        self.w_text.mouseOverCharacter.connect(partial(self.engine_call, "sig_process_mouseover"))
 
     @on("new_status")
     def display_status(self, msg:str) -> None:

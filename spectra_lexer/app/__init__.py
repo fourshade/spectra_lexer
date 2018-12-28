@@ -1,1 +1,1 @@
-from .main import SpectraApplication
+from .base import SpectraApplication

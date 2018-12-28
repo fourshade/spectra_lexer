@@ -3,9 +3,8 @@ from typing import List
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
 from spectra_lexer import on, SpectraComponent
-from spectra_lexer.keys import StenoKeys, split_strokes, is_number
-from spectra_lexer.node import OutputNode
 from spectra_lexer.gui_qt.board.steno_board_widget import StenoBoardWidget
+from spectra_lexer.keys import is_number, split_strokes, StenoKeys
 
 # Parameters for creating SVG element IDs from steno characters.
 SVG_PARAMS = {"base_id":       "Base",
@@ -24,21 +23,15 @@ class GUIQtBoardDisplay(SpectraComponent):
         super().__init__()
         self.w_desc, self.w_board = widgets
 
-    @on("new_output_tree")
-    def make_board(self, node:OutputNode) -> None:
+    @on("new_output_info")
+    def make_board(self, raw_keys:StenoKeys, description:str) -> None:
         """ Generate a steno board diagram and info for a steno rule and display it. """
-        elements = _get_svg_ids(node.raw_keys, **SVG_PARAMS)
-        desc = node.description
+        elements = _get_svg_ids(raw_keys, **SVG_PARAMS)
         self.w_board.set_elements(elements)
-        self.w_desc.setText(desc)
-
-    # Currently, only one <on> decorator can attach to a method at once.
-    @on("new_output_selected")
-    def make_board2(self, node:OutputNode) -> None:
-        self.make_board(node)
+        self.w_desc.setText(description)
 
     # TODO: Process mouseover on diagram keys
-    # def process_mouseover(self, x:int, y:int) -> Optional[OutputNode]:
+    # def process_mouseover(self, x:int, y:int):
     #     if node is None or node is self._last_node:
     #         return None
     #     return node

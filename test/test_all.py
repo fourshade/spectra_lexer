@@ -6,7 +6,7 @@ import pytest
 
 from spectra_lexer.dict import DictManager
 from spectra_lexer.text import CascadedTextFormatter
-from spectra_lexer.node import NodeTreeGenerator, OUTPUT_FLAG_SET
+from spectra_lexer.text.node import OUTPUT_FLAG_SET
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAG_SET
@@ -34,7 +34,6 @@ LEXER = StenoLexer()
 RAW_RULES = FILE.load_initial_rules()
 RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.set_rules(RULES_LIST)
-OUTPUT = NodeTreeGenerator()
 FORMATTER = CascadedTextFormatter()
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 
@@ -104,8 +103,7 @@ def test_display(trial):
     stroke, word, *goal = trial
     keys = StenoKeys.from_rtfcre(stroke)
     result = LEXER.query(keys, word)
-    tree = OUTPUT.make_tree(result)
-    FORMATTER.make_graph(tree)
+    FORMATTER.make_graph(result)
     # Hopefully there are some helper objects after this.
     assert FORMATTER._formatter
     assert FORMATTER._locator

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Tuple
 
 from spectra_lexer.keys import KEY_SEP, KEY_SPLIT
-from spectra_lexer.node import OutputNode
+from spectra_lexer.text.node import OutputNode
 
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
 _CONTAINER_SYMBOLS = {"TOP":    "├─┘",

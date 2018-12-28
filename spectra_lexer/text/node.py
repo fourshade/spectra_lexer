@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from spectra_lexer import pipe, SpectraComponent
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import Node
-
 
 # Acceptable rule flags that indicate special behavior for output formatting.
 OUTPUT_FLAGS = {"SEP": "Stroke separator.",
@@ -68,20 +66,10 @@ class OutputNode(Node):
 class OutputTree(OutputNode):
     """ Special subclass for the root node of an output tree, which contains everything else. """
 
-    def __init__(self, rule:StenoRule, maxdepth:int):
+    def __init__(self, rule:StenoRule, maxdepth:int=RECURSION_LIMIT):
         """ The root node has no parent, its "attach interval" is arbitrarily
             defined as starting at 0 and being the length of its letters. """
-        super().__init__(rule, 0, len(rule.letters), maxdepth)
+        super().__init__(rule, 0, len(rule.letters), min(maxdepth, RECURSION_LIMIT))
         # The root node always shows letters and does not include anything extra in its description.
         self.text = rule.letters
         self.description = rule.desc
-
-
-class NodeTreeGenerator(SpectraComponent):
-    """ Base class for creating and formatting a finished rule breakdown of steno translations.
-        Output is meant to be used by more specific classes (graphics, text, etc.) """
-
-    @pipe("new_lexer_result", "new_output_tree")
-    def make_tree(self, rule:StenoRule, maxdepth:int=RECURSION_LIMIT) -> OutputTree:
-        """ Make a display tree from the given rule and save it. Must be handled further by subclasses. """
-        return OutputTree(rule, maxdepth)

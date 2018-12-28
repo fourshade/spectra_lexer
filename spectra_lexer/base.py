@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-from typing import ClassVar, Dict, Hashable, List, NamedTuple
+from typing import ClassVar, Hashable, List, NamedTuple, Tuple
 
 from spectra_lexer.utils import nop
-
-
-class SpectraCommand(NamedTuple):
-    func: callable  # Function or bound method to call.
-    kwargs: dict    # Keyword arguments for either command or function.
 
 
 def control_decorator(*dec_fields:str, **dec_kwargs) -> function:
@@ -29,6 +24,17 @@ def control_decorator(*dec_fields:str, **dec_kwargs) -> function:
     return command_decorator
 
 
+on = control_decorator()                        # Most basic decorator; command is called with no expectations.
+pipe = control_decorator("next_key")            # Call the command and pipe its return value to another command.
+respond_to = control_decorator(ret=True)        # Call the command and return its value to caller.
+fork = control_decorator("next_key", ret=True)  # Combination of @pipe and @respond_to.
+
+
+class SpectraCommand(NamedTuple):
+    func: callable  # Function or bound method to call.
+    kwargs: dict    # Keyword arguments for either command or function.
+
+
 class SpectraComponent:
     """
     Base class for any component that sends and receives commands from the Spectra engine.
@@ -39,7 +45,6 @@ class SpectraComponent:
 
     _cmd_attr_list: ClassVar[List[tuple]] = []  # Default class command parameter list; meant to be copied.
     engine_call: callable = nop  # Default engine callback is a no-op (useful for testing individual components).
-    engine_send: callable = nop  # Send an engine command with no expected response (may be async).
 
     def __init_subclass__(cls) -> None:
         """ Make a list of commands this component class handles with methods that handle each one.
@@ -51,11 +56,10 @@ class SpectraComponent:
                      if callable(func) and hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list
 
-    def commands(self) -> Dict[Hashable, SpectraCommand]:
+    def commands(self) -> List[Tuple[Hashable, SpectraCommand]]:
         """ Bind all class command functions to the instance and return the raw commands. """
-        return {key: SpectraCommand(getattr(self, attr), *rest) for attr, key, *rest in self._cmd_attr_list}
+        return [(key, SpectraCommand(getattr(self, attr), *rest)) for attr, key, *rest in self._cmd_attr_list]
 
-    def set_engine_callbacks(self, cb_call:callable=nop, cb_send:callable=nop) -> None:
-        """ Set the callbacks used for direct engine calls and async engine calls. """
-        self.engine_call = cb_call
-        self.engine_send = cb_send
+    def set_engine_callback(self, cb:callable=nop) -> None:
+        """ Set the callback used for engine calls by individual components. """
+        self.engine_call = cb

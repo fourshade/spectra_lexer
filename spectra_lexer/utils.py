@@ -1,13 +1,13 @@
 """ Module for generic utility functions that could be useful in many applications. """
 
-from typing import Callable, Generator, Iterable
+from typing import Any, Callable, Generator, Iterable
 
 
 def nop(*args, **kwargs) -> None:
     """ ... """
 
 
-def abstract_method(*args, **kwargs):
+def abstract_method(*args, **kwargs) -> Any:
     """ Assign this directly to class attributes to mark them as abstract methods.
         Much simpler than using ABCs, but does not allow default implementations. """
     raise NotImplementedError
@@ -64,7 +64,7 @@ def merge(d_iter:Iterable[dict]) -> dict:
 
 
 def memoize_one_arg(f:callable) -> callable:
-    """ Decorator for the fastest possible method of memoizing a function with one hashable arugment. """
+    """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
     class MemoDict(dict):
         def __missing__(self, key):
             ret = self[key] = f(key)

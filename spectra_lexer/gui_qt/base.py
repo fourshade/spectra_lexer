@@ -1,24 +1,38 @@
-""" Base module for the GUI Qt package. Includes utility functions common to GUI operations. """
+""" Base module for the GUI Qt package. Includes the main component. """
 
-from functools import partial
+from typing import List
 
-from spectra_lexer import on, SpectraComponent
+from spectra_lexer import SpectraComponent
+from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
+from spectra_lexer.gui_qt.main_window import MainWindow
+from spectra_lexer.gui_qt.menu import GUIQtMenu
+from spectra_lexer.gui_qt.search import GUIQtSearch
+from spectra_lexer.gui_qt.text import GUIQtTextDisplay
+from spectra_lexer.gui_qt.window import GUIQtWindow
+
+# Constituent components of the GUI. The window shouldn't be shown until everything else is set up, so connect it last.
+GUI_COMPONENTS = [("menu",   GUIQtMenu),
+                  ("search", GUIQtSearch),
+                  ("text",   GUIQtTextDisplay),
+                  ("board",  GUIQtBoardDisplay),
+                  ("window", GUIQtWindow)]
 
 
-class GUIQtSignalComponent(SpectraComponent):
+class GUIQt(SpectraComponent):
+    """ Component container for the GUI. It isn't a proper component; all commands and callbacks
+        are routed to/from its child components, but the engine can't tell the difference. """
 
-    # By default, components have no signals to connect. This can be overridden in __init__()
-    signal_dict: dict = {}
+    window: MainWindow
+    children: List[SpectraComponent]
 
-    @on("configure")
-    def connect_signals(self, *args, connect_fn=None, **kwargs) -> None:
-        """ Connect a dict of signals from the GUI to commands through the engine.
-            This is required in order for the engine to catch exceptions from this code.
-            The command methods must already have been decorated with their key. """
-        for signal, cmd_key in self.signal_dict.items():
-            call_fn = partial(self.engine_send, cmd_key)
-            if connect_fn is None:
-                # Default behavior is based on pyqtSignal.connect().
-                signal.connect(call_fn)
-            else:
-                connect_fn(signal, call_fn)
+    def __init__(self):
+        self.window = MainWindow()
+        cmp_args = self.window.partition()
+        self.children = [tp(*cmp_args[k]) for (k, tp) in GUI_COMPONENTS]
+
+    def commands(self) -> list:
+        return [i for c in self.children for i in c.commands()]
+
+    def set_engine_callback(self, *args) -> None:
+        for c in self.children:
+            c.set_engine_callback(*args)

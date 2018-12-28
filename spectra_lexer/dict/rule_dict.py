@@ -1,10 +1,9 @@
 from __future__ import annotations
 import re
-from typing import Dict, NamedTuple, Tuple, Iterable, List, Sequence
+from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.dict.steno_dict import ReverseDict
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, StenoRule, RuleMapItem
+from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
