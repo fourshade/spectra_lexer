@@ -1,6 +1,7 @@
 """ Module for encoding/decoding dictionary data types from files and file-like objects. """
 
 import json
+from functools import partial
 from typing import Iterable
 
 from spectra_lexer.file.io_path import get_extension, Readable, Writeable
@@ -21,7 +22,7 @@ def _decode_CSON(contents:str) -> dict:
 
 # Dictionaries containing each supported file format/extension mapped to transcoding functions.
 # Converting between dicts and pure JSON strings is easy, but stripping comments requires an extra step.
-ENCODERS = {".json": json.dumps}
+ENCODERS = {".json": partial(json.dumps, ensure_ascii=False)}
 DECODERS = {".json": json.loads, ".cson": _decode_CSON}
 
 

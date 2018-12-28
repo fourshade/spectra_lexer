@@ -7,7 +7,7 @@ def nop(*args, **kwargs) -> None:
     """ ... """
 
 
-def abstract_method(self, *args, **kwargs):
+def abstract_method(*args, **kwargs):
     """ Assign this directly to class attributes to mark them as abstract methods.
         Much simpler than using ABCs, but does not allow default implementations. """
     raise NotImplementedError

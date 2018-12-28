@@ -1,8 +1,9 @@
-from typing import List, Union
+from typing import Iterable, List, Union
 
 from spectra_lexer import on, pipe, respond_to, SpectraComponent
 from spectra_lexer.dict.rule_dict import StenoRuleDict
 from spectra_lexer.dict.steno_dict import StenoSearchDictionary
+from spectra_lexer.rules import StenoRule
 
 
 class DictManager(SpectraComponent):
@@ -29,10 +30,16 @@ class DictManager(SpectraComponent):
             self.engine_send("dict_parse_rules", raw_dict)
 
     @pipe("dict_parse_rules", "new_rules")
-    def parse_rules(self, raw_dict:dict) -> list:
+    def parse_rules(self, raw_dict:dict) -> List[StenoRule]:
         """ Parse the rules and save the dict. Then send the rules in a list. The lexer does not need the names. """
-        d = self.rules = StenoRuleDict(raw_dict)
-        return list(d.values())
+        d = self.rules = StenoRuleDict()
+        d.update_from_raw(raw_dict)
+        return d.to_list()
+
+    @pipe("dict_save_rules", "file_save", unpack=True)
+    def save_rules(self, filename:str, rules:Iterable[StenoRule]) -> tuple:
+        """ Convert a list of rules into a JSON dict using the previous rules as reference and save it to disk. """
+        return filename, StenoRuleDict.from_values(rules).to_raw(self.rules)
 
     @pipe("dict_parse_translations", "new_search_dict")
     def parse_translations(self, raw_dict:dict) -> StenoSearchDictionary:
@@ -41,6 +48,11 @@ class DictManager(SpectraComponent):
             Create dicts to search in either direction and process requests. """
         d = self.translations = StenoSearchDictionary(raw_dict)
         return d
+
+    @pipe("dict_save_translations", "file_save", unpack=True)
+    def save_translations(self, filename:str, d:StenoSearchDictionary) -> tuple:
+        """ Convert a translation dict back into JSON form and save it to disk. """
+        return filename, d.to_raw()
 
     @respond_to("search_lookup")
     def get(self, match, from_dict:str="forward") -> Union[str, List[str]]:

@@ -1,8 +1,10 @@
+from __future__ import annotations
 import re
-from typing import Dict, NamedTuple, Tuple
+from typing import Dict, NamedTuple, Tuple, Iterable, List, Sequence
 
+from spectra_lexer.dict.steno_dict import ReverseDict
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, StenoRule
+from spectra_lexer.rules import RuleMap, StenoRule, RuleMapItem
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -34,15 +36,15 @@ class StenoRuleDict(Dict[str, StenoRule]):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    _src_dict: Dict[str, RawRule]  # Keep the source dict in the instance to avoid passing it everywhere.
+    _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
+    _ref_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def __init__(self, src_dict:dict=None):
+    def update_from_raw(self, src_dict:Dict[str, str]=None) -> None:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
         self._src_dict = raw_rule_dict(src_dict)
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
-        super().__init__()
         for k in self._src_dict.keys():
             if k not in self:
                 self._parse(k)
@@ -100,3 +102,51 @@ class StenoRuleDict(Dict[str, StenoRule]):
             pattern = pattern.replace(rule_str, letters)
             m = SUBRULE_RX.search(pattern)
         return pattern, built_map
+
+    def to_list(self) -> List[StenoRule]:
+        """ Return a bare list of the rules without reference names attached. """
+        return list(self.values())
+
+    @classmethod
+    def from_values(cls, rules:Iterable[StenoRule]) -> StenoRuleDict:
+        """ From a bare iterable of rules (generally from the lexer),
+            create a new dict using auto-generated reference names. """
+        return cls({str(r): r for r in rules})
+
+    def to_raw(self, master_dict:StenoRuleDict) -> Dict[str, RawRule]:
+        """ Using named rules from a master dictionary, convert the current one
+            into savable form by substituting each rule in the map for its letters. """
+        # The master dict must be reversed one-to-one to look up names given rules.
+        self._ref_dict = {v: k for (k, v) in master_dict.items()}
+        return {k: self._inv_parse(r) for (k, r) in self.items()}
+
+    def _inv_parse(self, r:StenoRule) -> RawRule:
+        """ Convert a StenoRule object into a raw series of fields. """
+        # The keys must be converted to RTFCRE form.
+        keys = r.keys.to_rtfcre()
+        # The pattern must be deduced from the letters, the rulemap, and the reference dict.
+        pattern = self._inv_substitute(r.letters, r.rulemap)
+        # Join the flags into a string. The description is copied verbatim.
+        flag_str = "|".join(r.flags)
+        description = r.desc
+        # There are no examples in a generated rule.
+        example_str = ""
+        return RawRule(keys, pattern, flag_str, description, example_str)
+
+    def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
+        """ For each mapped rule with a name reference, replace the mapped letters with the reference. """
+        # Go from right to left to preserve indexing.
+        for item in reversed(rulemap):
+            r = item.rule
+            # Some rules aren't named or are special. Don't show these in the pattern.
+            name = self._ref_dict.get(r)
+            if not r:
+                continue
+            # Some rules take up no letters. Don't add these even if references exist.
+            start = item.start
+            end = start + item.length
+            if start == end:
+                continue
+            # Replace the letters this rule takes up with a standard parenthesized reference.
+            letters = letters[:start] + "({})".format(name) + letters[end:]
+        return letters

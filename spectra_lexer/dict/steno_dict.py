@@ -96,3 +96,7 @@ class StenoSearchDictionary:
                 return ["REGEX ERROR"]
         else:
             return d.prefix_match_keys(pattern, count)
+
+    def to_raw(self) -> dict:
+        """ For conversion to writeable JSON form, just return the forward dict. """
+        return self.forward

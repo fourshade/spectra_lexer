@@ -6,14 +6,15 @@ from threading import Condition, Thread
 class InterpreterConsole(InteractiveConsole):
 
     condition: Condition
-    in_buffer: str = ""
     out_buffer: StringIO
+    in_buffer: str = ""
+    last_result: object = None
 
     def __init__(self, **kwargs):
         """ Create the interpreter shell and start it in a separate thread. """
         super().__init__(**kwargs)
-        self.out_buffer = StringIO()
         self.condition = Condition()
+        self.out_buffer = StringIO()
         Thread(target=self.interact, daemon=True).start()
 
     def read(self):
@@ -35,10 +36,13 @@ class InterpreterConsole(InteractiveConsole):
         return self.in_buffer
 
     def runcode(self, code):
-        """ Run the code object, then print the result's representation. Used by the console. """
+        """ Run the code object, then print the result's representation (if new). Used by the console. """
         super().runcode(code)
         try:
-            self.write(repr(self.locals["__builtins__"]["_"]) + "\n")
+            result = self.locals["__builtins__"]["_"]
+            if result is not self.last_result:
+                self.write(repr(result) + "\n")
+                self.last_result = result
         except KeyError:
             pass
 
