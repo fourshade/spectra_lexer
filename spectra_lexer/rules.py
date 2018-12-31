@@ -16,7 +16,6 @@ KEY_FLAGS = {"*:??":  "purpose unknown\nPossibly resolves a conflict",
              "#:NM":  "use to shift to number mode",
              "EU:NM": "use to invert the order of two digits",
              "d:NM":  "use to double a digit"}
-KEY_FLAG_SET = set(KEY_FLAGS.keys())
 
 
 class StenoRule(NamedTuple):
@@ -31,12 +30,12 @@ class StenoRule(NamedTuple):
 
     @staticmethod
     def separator() -> StenoRule:
-        return RULE_SEP
+        return _RULE_SEP
 
     @staticmethod
     def key_rules(flags:Iterable[str]) -> List[StenoRule]:
         """ Get key rules from the given flags (only if they are key flags). """
-        return [KEY_RULES[f] for f in KEY_FLAG_SET.intersection(flags)]
+        return [_KEY_RULES[f] for f in flags if f in _KEY_RULES]
 
     def __str__(self) -> str:
         return "{} → {}".format(self.keys.to_rtfcre(), self.letters)
@@ -73,6 +72,6 @@ class _FrozenRuleMap(Tuple[RuleMapItem]):
 
 
 # Rule constants governing key flags and the separator.
-RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({"SEP"}), "Stroke separator", _FrozenRuleMap())
-KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", frozenset({"KEY"}), v, _FrozenRuleMap())
-             for (k, v) in KEY_FLAGS.items()}
+_RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", _FrozenRuleMap())
+_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", frozenset(), v, _FrozenRuleMap())
+              for (k, v) in KEY_FLAGS.items()}

@@ -5,15 +5,15 @@
 import pytest
 
 from spectra_lexer.dict import DictManager
-from spectra_lexer.text import CascadedTextFormatter
-from spectra_lexer.text.node import OUTPUT_FLAG_SET
-from spectra_lexer.keys import StenoKeys
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.lexer.match import MATCH_FLAG_SET
-from spectra_lexer.rules import KEY_FLAG_SET
 from spectra_lexer.file import FileHandler
 from spectra_lexer.file.codecs import decode_resource
 from spectra_lexer.file.io_path import assets_in_package
+from spectra_lexer.keys import StenoKeys
+from spectra_lexer.lexer import StenoLexer
+from spectra_lexer.lexer.match import MATCH_FLAGS
+from spectra_lexer.rules import KEY_FLAGS
+from spectra_lexer.text import CascadedTextFormatter
+from spectra_lexer.text.node import OUTPUT_FLAGS
 
 
 def test_dict_files():
@@ -35,7 +35,7 @@ RAW_RULES = FILE.load_initial_rules()
 RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.set_rules(RULES_LIST)
 FORMATTER = CascadedTextFormatter()
-LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
+LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 
 
 @pytest.mark.parametrize("r", RULES_LIST)
@@ -43,7 +43,7 @@ def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
     # If the entry has flags, verify that all of them are valid.
     if r.flags:
-        bad_flags = set(r.flags) - LEGAL_FLAGS
+        bad_flags = set(r.flags) - LEGAL_FLAG_SET
         assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r, bad_flags)
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     # These tests only work for rules that do not allow the same key to appear in two different strokes.

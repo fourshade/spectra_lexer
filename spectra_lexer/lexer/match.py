@@ -13,7 +13,6 @@ MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer
                        "to break a word down, so these entries do not adversely affect lexer performance.",
                "STRK": "Only matches an entire stroke, not part of one. Handled by exact stroke match.",
                "RARE": "Rule applies to very few words. The lexer should try these last, after failing with others."}
-MATCH_FLAG_SET = set(MATCH_FLAGS.keys())
 
 
 class LexerRuleMatcher:

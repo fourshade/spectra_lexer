@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from spectra_lexer.keys import StenoKeys
+from spectra_lexer.keys import StenoKeys, is_separator
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import Node
 
 # Acceptable rule flags that indicate special behavior for output formatting.
-OUTPUT_FLAGS = {"SEP": "Stroke separator.",
-                "INV": "Inversion of steno order. Should appear different on format drawing.",
-                "KEY": "Indicates a rule where a key does not contribute to the letters of the word."}
-OUTPUT_FLAG_SET = set(OUTPUT_FLAGS.keys())
+OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing."}
 
 
 # Default limit on number of recursion steps to allow for rules that contain other rules.
@@ -28,7 +25,6 @@ class OutputNode(Node):
     description: str              # Rule description for the board diagram.
     is_separator: bool = False    # Directive for drawing the stroke separator rule.
     is_inversion: bool = False    # Directive for drawing a rule that uses inversion of steno order.
-    is_key_rule: bool = False     # Directive for drawing key rules. These don't map to any letters at all.
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
@@ -41,9 +37,8 @@ class OutputNode(Node):
         self.attach_start = start
         self.attach_length = length
         self.raw_keys = keys
-        self.is_separator = "SEP" in flags
+        self.is_separator = is_separator(keys)
         self.is_inversion = "INV" in flags
-        self.is_key_rule = "KEY" in flags
         self.children = []
         if maxdepth:
             self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])

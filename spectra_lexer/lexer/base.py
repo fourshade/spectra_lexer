@@ -122,7 +122,7 @@ class StenoLexer(SpectraComponent):
         """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
             the full word, and the current rulemap. Return the flag value for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
-        keys = rulemap.keys
+        keys: LexerKeys = rulemap.keys
         letters = rulemap.letters
         if "." in letters:
             return "*:AB"

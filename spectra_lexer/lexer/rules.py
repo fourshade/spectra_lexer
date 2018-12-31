@@ -2,14 +2,14 @@ from __future__ import annotations
 from operator import attrgetter
 from typing import Iterable, Sequence
 
-from spectra_lexer.lexer.keys import LexerKeys
+from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMap, StenoRule
 
 
 class LexerResult(RuleMap):
     """ List-based rulemap builder used during lexer matching. """
 
-    keys: LexerKeys  # Full key string
+    keys: StenoKeys  # Full key string
     letters: str     # Full English text of the word.
 
     def __init__(self, keys="", letters="", src:Iterable=()):
@@ -52,19 +52,17 @@ class LexerResult(RuleMap):
                 self._word_coverage())
 
     @classmethod
-    def best_map_to_rule(cls, maps:Iterable[LexerResult], default_keys, default_letters) -> StenoRule:
+    def best_map_to_rule(cls, maps:Iterable[LexerResult], keys:StenoKeys, letters:str) -> StenoRule:
         """ Find the best out of a series of rule maps based on the rank value of each.
-            Build and return it, or return the empty map if the iterable is empty. """
+            Build a rule from it, or return the empty map with defaults if the iterable is empty. """
         best_result = max(maps, key=cls.rank, default=None)
-        if best_result is not None:
+        if best_result is None:
+            best_result = RuleMap()
+            desc = "No matches found."
+        else:
             keys = best_result.keys
             letters = best_result.letters
-            matchable_letters = sum(c is not ' ' for c in letters)
-            if matchable_letters:
-                percent_match = best_result._letters_matched() * 100 / matchable_letters
-            else:
-                percent_match = 0
-            desc = "Found {:d}% match.".format(int(percent_match))
-            return StenoRule(keys, letters, frozenset(), desc, best_result.freeze())
-        else:
-            return StenoRule(default_keys, default_letters, frozenset(), "No matches found.", RuleMap().freeze())
+            matched = best_result._letters_matched()
+            matchable = sum([c != ' ' for c in letters]) or matched
+            desc = "Found {:.0%} match.".format(matched / matchable)
+        return StenoRule(keys, letters, frozenset(), desc, best_result.freeze())
