@@ -1,6 +1,6 @@
 """ Module for generic utility functions that could be useful in many applications. """
 
-from typing import Any, Callable, Generator, Iterable
+from typing import Any, Callable, Generator, Iterable, Mapping, Sequence, Union
 
 
 def nop(*args, **kwargs) -> None:
@@ -55,8 +55,8 @@ def recurse(obj, iter_attr:str=None, sentinel:object=None) -> Generator:
             yield from recurse(item, iter_attr, sentinel)
 
 
-def merge(d_iter:Iterable[dict]) -> dict:
-    """ Merge all items in an iterable of dicts. For duplicate keys, the last value takes precedence. """
+def merge(d_iter:Iterable[Union[Mapping, Iterable[Sequence]]]) -> dict:
+    """ Merge all items in an iterable of mappings or other (k, v) item containers into a single dict. """
     merged = {}
     for d in d_iter:
         merged.update(d)

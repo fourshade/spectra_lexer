@@ -1,6 +1,6 @@
 from __future__ import annotations
 import re
-from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
+from typing import Dict, Iterable, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule
@@ -31,22 +31,24 @@ def raw_rule_dict(src:dict) -> Dict[str, RawRule]:
     return {k: RawRule(*v) for (k, v) in src.items()}
 
 
-class StenoRuleDict(Dict[str, StenoRule]):
+class StenoRuleParser(Dict[str, StenoRule]):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
     _ref_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def update_from_raw(self, src_dict:Dict[str, str]=None) -> None:
+    def from_raw(self, src_dict:Dict[str, str]=None) -> Iterable[StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
         self._src_dict = raw_rule_dict(src_dict)
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
+        self.clear()
         for k in self._src_dict.keys():
             if k not in self:
                 self._parse(k)
+        return self.values()
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
@@ -102,22 +104,12 @@ class StenoRuleDict(Dict[str, StenoRule]):
             m = SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    def to_list(self) -> List[StenoRule]:
-        """ Return a bare list of the rules without reference names attached. """
-        return list(self.values())
-
-    @classmethod
-    def from_values(cls, rules:Iterable[StenoRule]) -> StenoRuleDict:
-        """ From a bare iterable of rules (generally from the lexer),
-            create a new dict using auto-generated reference names. """
-        return cls({str(r): r for r in rules})
-
-    def to_raw(self, master_dict:StenoRuleDict) -> Dict[str, RawRule]:
-        """ Using named rules from a master dictionary, convert the current one
-            into savable form by substituting each rule in the map for its letters. """
-        # The master dict must be reversed one-to-one to look up names given rules.
-        self._ref_dict = {v: k for (k, v) in master_dict.items()}
-        return {k: self._inv_parse(r) for (k, r) in self.items()}
+    def to_raw(self, rules:Iterable[StenoRule]) -> Dict[str, RawRule]:
+        """ From a bare iterable of rules (generally from the lexer), make a new raw dict using auto-generated
+            reference names and substituting rules in each rulemap for their letters. """
+        # This dict must be reversed one-to-one to look up names given rules.
+        self._ref_dict = {v: k for (k, v) in self.items()}
+        return {str(r): self._inv_parse(r) for r in rules}
 
     def _inv_parse(self, r:StenoRule) -> RawRule:
         """ Convert a StenoRule object into a raw series of fields. """

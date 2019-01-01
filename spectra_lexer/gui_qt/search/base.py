@@ -36,7 +36,7 @@ class GUIQtSearch(SpectraComponent):
         for signal, cmd_key in signals.items():
             signal.connect(partial(self.engine_call, cmd_key))
 
-    @on("new_search_dict")
+    @on("new_translations")
     def on_new_dict(self, d:dict) -> None:
         """ For a new search dict, enable/disable searching based on whether or not it's empty. """
         enabled = bool(d)

@@ -24,10 +24,10 @@ class LexerRuleMatcher:
 
     def __init__(self, rules:Iterable[StenoRule]):
         """ Construct a specially-structured series of dictionaries from an unordered iterable of finished rules. """
-        # Convert rules to lexer format and sort into specific dictionaries based on their flags.
         stroke_dict = {}
         word_dict = {}
         prefix_tree = RulePrefixTree()
+        # Sort rules into specific dictionaries based on their flags.
         for r in rules:
             flags = r.flags
             # The lexer shouldn't use internal/special rules at all. Skip them.

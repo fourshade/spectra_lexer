@@ -1,6 +1,6 @@
 from functools import partial
 from itertools import chain
-from typing import Dict, Iterable, Iterator, Sequence, Optional, Tuple
+from typing import Dict, Iterable, Iterator, Optional, Sequence, Tuple
 
 from spectra_lexer import pipe, SpectraComponent
 from spectra_lexer.keys import join_strokes

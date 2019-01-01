@@ -51,8 +51,8 @@ class CommandLine(SpectraComponent):
         """ Record each lexer result to a set for later analysis. """
         self._recorded_rules.add(rule)
 
-    @pipe("system_rule_save", "dict_save_rules", unpack=True)
-    def save_results(self, *args:str) -> Tuple[str, Set[StenoRule]]:
+    @pipe("system_rule_save", "dict_save", unpack=True)
+    def save_results(self, *args:str) -> Tuple[str, str, Set[StenoRule]]:
         """ Save all recorded lexer results to a file. """
         filename = args[0] if args else "rules.json"
-        return filename, self._recorded_rules
+        return "rules", filename, self._recorded_rules
