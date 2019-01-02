@@ -1,1 +1,1 @@
-from .base import class_tester
+from .base import class_tester, get_test_filename

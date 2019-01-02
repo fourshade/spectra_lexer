@@ -3,9 +3,9 @@
 import configparser
 import json
 import os
-from pathlib import Path
-from pkg_resources import resource_listdir, resource_string
 from typing import List
+
+from pkg_resources import resource_listdir, resource_string
 
 from spectra_lexer.utils import abstract_method
 
@@ -13,8 +13,6 @@ from spectra_lexer.utils import abstract_method
 # Package and resource paths containing assets such as the built-in JSON-based rules files.
 _ASSETS_PACKAGE_PATH: str = __name__.split(".", 1)[0]
 _ASSETS_RESOURCE_PATH: str = "assets"
-# Default directory in user space for Plover configuration/assets on Windows.
-_PLOVER_USER_DIR: str = os.path.join(str(Path.home()), "AppData", "Local", "plover", "plover")
 
 
 class Readable(str):
@@ -55,20 +53,30 @@ def assets_in_package() -> List[Asset]:
 
 
 def dict_files_from_plover_cfg() -> List[File]:
-    """ Return a list containing all dictionary files from the local Plover installation in the
-        correct priority order (reverse of normal, since earlier keys overwrite later ones). """
+    """ Attempt to find the local Plover installation and, if found, return a list containing all dictionary
+        files in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
     cfg = configparser.ConfigParser()
-    plover_cfg_path = os.path.join(_PLOVER_USER_DIR, "plover.cfg")
-    if cfg.read(plover_cfg_path):
-        try:
-            dict_section = cfg['System: English Stenotype']['dictionaries']
-            dict_file_entries = reversed(json.loads(dict_section))
-            return [File(os.path.join(_PLOVER_USER_DIR, d['path'])) for d in dict_file_entries]
-        except KeyError:
-            print("Could not find dictionaries in plover.cfg.")
-        except json.decoder.JSONDecodeError:
-            print("Problem decoding JSON in plover.cfg.")
+    for path in _user_data_paths('plover'):
+        cfg_path = os.path.join(path, "plover.cfg")
+        if cfg.read(cfg_path):
+            try:
+                dict_section = cfg['System: English Stenotype']['dictionaries']
+                dict_file_entries = reversed(json.loads(dict_section))
+                return [File(os.path.join(path, d['path'])) for d in dict_file_entries]
+            except KeyError:
+                print("Could not find dictionaries in plover.cfg.")
+            except json.decoder.JSONDecodeError:
+                print("Problem decoding JSON in plover.cfg.")
     return []
+
+
+def _user_data_paths(appname:str) -> List[str]:
+    """ Directories to search for an application's configuration/assets in user space. """
+    paths = [os.path.join(os.path.expanduser('~'), "AppData", "Local", appname),    # Windows
+             os.path.join(os.path.expanduser('~'), "AppData", "Roaming", appname),  # Windows
+             os.path.expanduser('~/Library/Application Support/'),                  # Mac
+             os.getenv('XDG_DATA_HOME', os.path.expanduser("~/.local/share"))]      # Linux
+    return [os.path.join(path, appname) for path in paths if path is not None]
 
 
 def get_extension(name:str) -> str:

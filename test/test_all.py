@@ -2,8 +2,6 @@
 
 """ Main test module for the Spectra steno lexer. Currently handles all components except search and the GUI. """
 
-import os
-
 import pytest
 
 from spectra_lexer.dict import DictManager
@@ -15,6 +13,7 @@ from spectra_lexer.lexer.match import MATCH_FLAGS
 from spectra_lexer.rules import KEY_FLAGS
 from spectra_lexer.text import CascadedTextFormatter
 from spectra_lexer.text.node import OUTPUT_FLAGS
+from test import get_test_filename
 
 
 def test_dict_files():
@@ -33,7 +32,7 @@ FILE = FileHandler()
 DICT = DictManager()
 LEXER = StenoLexer()
 FORMATTER = CascadedTextFormatter()
-TEST_TRANSLATIONS = FILE.load_file(os.path.join(__file__, "..", "data/translations.json"))
+TEST_TRANSLATIONS = FILE.load_file(get_test_filename())
 RAW_RULES = FILE.load_initial_rules()
 RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.set_rules(RULES_LIST)
