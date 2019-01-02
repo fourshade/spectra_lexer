@@ -1,3 +1,11 @@
+0.4.0
+-----
+* Program code is refactored again for better separation of components
+* Most exceptions are now displayed on the main text window instead of crashing the program
+* Lexer now uses the search dictionary to see if an asterisk is required because of conflicts
+* Batch mode added; lexer can take input queries from a JSON dict and output all results to a file
+* Standalone app can find Plover's dictionaries more easily
+
 0.3.0
 -----
 * Program code is heavily refactored to allow easier re-use/extension

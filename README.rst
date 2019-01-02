@@ -5,6 +5,13 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 
 |Main Screenshot|
 
+Installation and Operation
+--------------------------
+
+Spectra is primarily designed as a plugin for Plover. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you. When opened from the main toolbar, Spectra will automatically load Plover's dictionaries for manual searching and will also attempt to analyze strokes sent from Plover as you type.
+
+If you have built and installed Plover from source, it is not likely to have the plugins manager by default. In this case it is possible to install Spectra through pip like any other Python package. Plover searches through all available Python paths to find plugins; so long as it ends up in the same general place that Plover looks for its other dependencies, it should find it just fine.
+
 Source Installation
 -------------------
 
@@ -12,21 +19,25 @@ To run this software on its own from source, you must have a correctly installed
 
 ``python3 setup.py install``
 
-This will install it to your Python distribution as a console script, allowing you to execute the main GUI program by typing:
+This will install it to your Python distribution with all features.
 
-``spectra_lexer gui [DICT1 DICT2 ...]``
+Advanced Operation (from console)
+---------------------------------
 
-where each DICT is a path to a JSON file containing a single dictionary mapping steno key sequences to text (the dictionaries used by Plover are in the correct format). You can also execute the script without arguments and load the search dictionaries manually via a dialog from the menu bar. If you are running Windows, the program may be able to find your Plover dictionaries and load them automatically as well.
+From the console, you can execute the main GUI program on its own by typing:
 
-With Plover
------------
+``spectra_lexer gui [DICT1 DICT2 ... DICTn]``
 
-While it is possible to run Spectra by itself, it is primarily designed as a plugin for Plover. When run as such, the main dialog will automatically load Plover's dictionaries and will attempt to analyze strokes sent from Plover in addition to the manual lookup methods. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you.
+where each DICT argument is a path to a JSON file of steno translations (the dictionaries used by Plover are in the correct format). Without arguments, the program will try to find your Plover dictionaries and load those. The standalone mode operates identically to the plugin in all respects except that it cannot decipher strokes in real-time. There is also a menu bar where dictionaries can be loaded manually.
 
-If you have built and installed Plover from source, it is not likely to have the plugins manager by default. In this case it is possible to install Spectra through pip like any other Python package. Plover searches through all available Python paths to find plugins; so long as it ends up in the same general place that Plover looks for its other dependencies, it should find it just fine. Note, however, that this will NOT work if you are running a pre-built Plover binary, as these are essentially self-contained distributions of Python with their own isolated environment.
+There is also a batch mode available for analysis purposes. Run it by typing:
 
-Operation
----------
+``spectra_lexer batch IN_DICT OUT_DICT``
+
+where IN_DICT is a path to a JSON file of steno translations, and OUT_DICT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
+
+Details
+-------
 
 This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. If it cannot match every single steno key to letters in the word, it will simply not return a result at all (to avoid guessing wrong). Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
 
