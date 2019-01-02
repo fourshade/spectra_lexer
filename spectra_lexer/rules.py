@@ -1,5 +1,4 @@
-from __future__ import annotations
-from typing import FrozenSet, Iterable, List, NamedTuple, Tuple
+from typing import FrozenSet, Iterable, List, NamedTuple
 
 from spectra_lexer.keys import StenoKeys
 
@@ -22,20 +21,11 @@ class StenoRule(NamedTuple):
     """ A general rule mapping a set of steno keys to a set of letters. All contents are immutable.
         Includes flags, a description, and a submapping of rules that compose it. """
 
-    keys: StenoKeys          # String of steno keys that make up the rule, pre-parsed and sorted.
-    letters: str             # Raw English text of the word.
-    flags: FrozenSet[str]    # Immutable set of strings describing flags that apply to the rule.
-    desc: str                # Textual description of the rule.
-    rulemap: _FrozenRuleMap  # Tuple of tuples mapping child rules to letter positions.
-
-    @staticmethod
-    def separator() -> StenoRule:
-        return _RULE_SEP
-
-    @staticmethod
-    def key_rules(flags:Iterable[str]) -> List[StenoRule]:
-        """ Get key rules from the given flags (only if they are key flags). """
-        return [_KEY_RULES[f] for f in flags if f in _KEY_RULES]
+    keys: StenoKeys        # String of steno keys that make up the rule, pre-parsed and sorted.
+    letters: str           # Raw English text of the word.
+    flags: FrozenSet[str]  # Immutable set of strings describing flags that apply to the rule.
+    desc: str              # Textual description of the rule.
+    rulemap: tuple         # Tuple of tuples mapping child rules to letter positions.
 
     def __str__(self) -> str:
         return "{} → {}".format(self.keys.to_rtfcre(), self.letters)
@@ -64,14 +54,14 @@ class RuleMap(List[RuleMapItem]):
 
     def freeze(self):
         """ Freeze the rule map for inclusion in an immutable rule. """
-        return _FrozenRuleMap(self)
+        return tuple(self)
 
 
-class _FrozenRuleMap(Tuple[RuleMapItem]):
-    """ Immutable tuple-based rulemap for steno rules that require hashability. """
-
-
-# Rule constants governing key flags and the separator.
-_RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", _FrozenRuleMap())
-_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", frozenset(), v, _FrozenRuleMap())
+# Rule constants governing key flags.
+_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", frozenset(), v, ())
               for (k, v) in KEY_FLAGS.items()}
+
+
+def get_key_rules(flags:Iterable[str]) -> List[StenoRule]:
+    """ Get key rules from the given flags (only if they are key flags). """
+    return [_KEY_RULES[f] for f in flags if f in _KEY_RULES]

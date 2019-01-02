@@ -26,7 +26,7 @@ class CommandLine(SpectraComponent):
         # The first text item is the system command; all others are passed as arguments to the engine.
         cmd, *args = cmd_args
         engine_command = _COMMAND_MAP.get(cmd)
-        if engine_command:
+        if engine_command is not None:
             self.engine_call(engine_command, *args)
             return
         # If no system commands match, send the input to the console and output any new generated text.

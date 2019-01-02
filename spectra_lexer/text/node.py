@@ -1,12 +1,9 @@
-from __future__ import annotations
-
-from spectra_lexer.keys import StenoKeys, is_separator
+from spectra_lexer.keys import is_separator, StenoKeys
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import Node
 
 # Acceptable rule flags that indicate special behavior for output formatting.
 OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing."}
-
 
 # Default limit on number of recursion steps to allow for rules that contain other rules.
 RECURSION_LIMIT = 10
@@ -39,7 +36,6 @@ class OutputNode(Node):
         self.raw_keys = keys
         self.is_separator = is_separator(keys)
         self.is_inversion = "INV" in flags
-        self.children = []
         if maxdepth:
             self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])
         formatted_keys = keys.to_rtfcre()

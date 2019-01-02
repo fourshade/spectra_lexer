@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Dict, Iterable, List
 
 from spectra_lexer.keys import first_stroke, StenoKeys
@@ -13,6 +12,21 @@ MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer
                        "to break a word down, so these entries do not adversely affect lexer performance.",
                "STRK": "Only matches an entire stroke, not part of one. Handled by exact stroke match.",
                "RARE": "Rule applies to very few words. The lexer should try these last, after failing with others."}
+
+
+class RulePrefixTree(PrefixTree):
+
+    def add_rule(self, r:StenoRule) -> None:
+        """ Separate the given set of keys into ordered and unordered keys,
+            Index the rule itself and the unordered keys under the ordered keys (which contain any prefix). """
+        k = LexerKeys(r.keys)
+        self.add(k.ordered, (r, k.unordered))
+
+    def prefix_match(self, keys:LexerKeys, letters:str) -> List[StenoRule]:
+        """ For the prefix dictionary, the rule must match a prefix of the given ordered keys,
+            a subset of the given letters, and a subset of the given unordered keys. """
+        return [r for (r, uk) in self.match(keys.ordered)
+                if r.letters in letters and uk <= keys.unordered]
 
 
 class LexerRuleMatcher:
@@ -70,18 +84,3 @@ class LexerRuleMatcher:
         if r and keys.startswith(r.keys):
             return [r]
         return []
-
-
-class RulePrefixTree(PrefixTree):
-
-    def add_rule(self, r:StenoRule) -> None:
-        """ Separate the given set of keys into ordered and unordered keys,
-            Index the rule itself and the unordered keys under the ordered keys (which contain any prefix). """
-        k = LexerKeys(r.keys)
-        self.add(k.ordered, (r, k.unordered))
-
-    def prefix_match(self, keys:LexerKeys, letters:str) -> List[StenoRule]:
-        """ For the prefix dictionary, the rule must match a prefix of the given ordered keys,
-            a subset of the given letters, and a subset of the given unordered keys. """
-        return [r for (r, uk) in self.match(keys.ordered)
-                if r.letters in letters and uk <= keys.unordered]

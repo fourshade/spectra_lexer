@@ -2,11 +2,14 @@ from itertools import product
 from typing import Iterable, List, Optional, Tuple
 
 from spectra_lexer import fork, on, SpectraComponent
-from spectra_lexer.keys import has_separator, is_separator
+from spectra_lexer.keys import has_separator, is_separator, KEY_SEP
 from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.lexer.rules import LexerResult
-from spectra_lexer.rules import StenoRule
+from spectra_lexer.rules import get_key_rules, StenoRule
+
+# Separator rule constant (can be tested by identity).
+_RULE_SEP = StenoRule(LexerKeys(KEY_SEP), "", frozenset(), "Stroke separator", ())
 
 
 class StenoLexer(SpectraComponent):
@@ -16,13 +19,11 @@ class StenoLexer(SpectraComponent):
     """
 
     _matcher: LexerRuleMatcher = None  # The master rule-matching dictionary.
-    _rule_separator: StenoRule = None  # Separator rule constant (can be tested by identity).
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
         """ Take a sequence of rules parsed from a file and sort them into categories for matching. """
         self._matcher = LexerRuleMatcher(rules)
-        self._rule_separator = StenoRule.separator()
 
     @fork("lexer_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:
@@ -40,16 +41,19 @@ class StenoLexer(SpectraComponent):
     def _build_best_rule(self, pairs:List[Tuple[str,str]]) -> StenoRule:
         """ Given an iterable of mappings of key strings to matching translations,
             return the best possible rule relating two of them. Send it to the engine as well. """
-        lkeys, word = pairs[0]
+        last_pair = pairs[0]
         built_maps = []
         for keys, word in pairs:
             # Thoroughly cleanse and parse the key string (user strokes cannot be trusted).
-            lkeys = LexerKeys.cleanse_from_rtfcre(keys)
-            # Collect and return all valid rulemaps (that aren't optimized away) for the given keys and word.
-            built_maps += self._generate_maps(lkeys, word)
+            last_pair = (LexerKeys.cleanse_from_rtfcre(keys), word)
+            # Collect and return all valid rulemaps (that aren't optimized away) for the given pair of keys -> word.
+            built_maps += self._generate_maps(*last_pair)
+        # Return the default rule if no maps were found.
+        if not built_maps:
+            return _default_rule(*last_pair)
         # Find the highest ranked rulemap according to how accurately it (probably) mapped the stroke
-        # to the translation (or an empty map if none). Make a rule out of the result and return it.
-        return LexerResult.best_map_to_rule(built_maps, lkeys, word)
+        # to the translation. Make a rule out of the result and return it.
+        return _best_map_to_rule(built_maps)
 
     def _generate_maps(self, keys:LexerKeys, word:str) -> List[LexerResult]:
         """
@@ -80,7 +84,7 @@ class StenoLexer(SpectraComponent):
             # We assume every rule matched here MUST consume at least one key and one letter.
             if test_keys:
                 # We have a complete stroke if we haven't matched anything or the last match was a stroke separator.
-                is_full_stroke = (not rulemap or rulemap[-1].rule is self._rule_separator)
+                is_full_stroke = (not rulemap or rulemap[-1].rule is _RULE_SEP)
                 # We have a complete word if the word pointer is 0 or sitting on a space.
                 is_full_word = (wordptr == 0 or (test_word and test_word[0] == ' '))
                 # Calculate how many letters we could possibly skip and still be in the running for best map.
@@ -113,10 +117,10 @@ class StenoLexer(SpectraComponent):
         # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
         if test_keys.is_star(0) and (len(test_keys) == 1 or is_separator(test_keys, 1)):
             flag = self._decipher_star(test_keys, rulemap)
-            return StenoRule.key_rules([flag])[0]
+            return get_key_rules([flag])[0]
         # If we end up with a stroke separator at the pointer, consume it and return the rule.
         if is_separator(test_keys, 0):
-            return self._rule_separator
+            return _RULE_SEP
 
     def _decipher_star(self, test_keys:LexerKeys, rulemap:LexerResult) -> str:
         """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
@@ -132,7 +136,7 @@ class StenoLexer(SpectraComponent):
         # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
         # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
-        if has_separator(test_keys) ^ any(m.rule is self._rule_separator for m in rulemap):
+        if has_separator(test_keys) ^ any(m.rule is _RULE_SEP for m in rulemap):
             return "*:PS"
         # If the search component is loaded with the standard dictionaries, we can check if there's an
         # entry with every key *except* the star. If there is, it's probably there because of a conflict.
@@ -140,3 +144,15 @@ class StenoLexer(SpectraComponent):
             return "*:CF"
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" flag.
         return "*:??"
+
+
+def _best_map_to_rule(maps:Iterable[LexerResult]) -> StenoRule:
+    """ Find the best out of a series of rule maps based on the rank value of each and build a rule from it. """
+    best_result = max(maps, key=LexerResult.rank)
+    desc = "Found {:.0%} match.".format(best_result.letters_matched_ratio())
+    return StenoRule(best_result.keys, best_result.letters, frozenset(), desc, best_result.freeze())
+
+
+def _default_rule(default_keys:LexerKeys, default_letters:str) -> StenoRule:
+    """ Return an empty rule with default values if no rule maps were found by the lexer. """
+    return StenoRule(default_keys, default_letters, frozenset(), "No matches found.", ())

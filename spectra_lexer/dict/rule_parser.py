@@ -1,9 +1,8 @@
-from __future__ import annotations
 import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule
+from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule, get_key_rules
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -62,7 +61,7 @@ class StenoRuleParser(Dict[str, StenoRule]):
         # Parse the flag string and add key flags as ending rules.
         flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
         if flags:
-            for r in StenoRule.key_rules(flags):
+            for r in get_key_rules(flags):
                 built_map.add_special(r, len(letters))
         description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.

@@ -1,7 +1,6 @@
-from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
-from typing import Iterable
+from typing import Iterable, TypeVar
 
 from spectra_lexer.keys import KEY_NUMBER, StenoKeys, L_KEYS, C_KEYS, R_KEYS, KEY_SEP, KEY_SPLIT, first_stroke
 from spectra_lexer.utils import nop
@@ -21,6 +20,7 @@ UNORDERED_KEYS = frozenset({KEY_STAR})
 UNORDERED_KEYS_IN = UNORDERED_KEYS.intersection
 
 
+T = TypeVar('LexerKeys')
 class LexerKeys(StenoKeys):
     """ Special subclass of LexerKeys with attributes for rule matching and copy+mutate methods.
         Tracks "ordered" and "unordered" keys independently of the full set in the base string. """
@@ -38,14 +38,14 @@ class LexerKeys(StenoKeys):
             self.unordered = UNORDERED_KEYS_IN(first_stroke(keys))
             self.ordered = _remove_chars(keys, self.unordered)
 
-    def without(self, keys:str) -> LexerKeys:
+    def without(self, keys:str) -> T:
         """ Return a copy of this key sequence object without each of the given keys (taken from the left). """
         if self.startswith(keys):
             return LexerKeys(self[len(keys):])
         s = _remove_chars(self, keys)
         return LexerKeys(s)
 
-    def without_star(self) -> LexerKeys:
+    def without_star(self) -> T:
         """ Return a copy of this key sequence without the first asterisk. """
         return self.without(KEY_STAR)
 
@@ -55,7 +55,7 @@ class LexerKeys(StenoKeys):
         return (self if index is None else self[index]) == KEY_STAR
 
     @classmethod
-    def cleanse_from_rtfcre(cls, s:str) -> LexerKeys:
+    def cleanse_from_rtfcre(cls, s:str) -> T:
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
             Cleanse the string of abnormalities before parsing it as usual. """
         return cls.from_rtfcre(cls.map_strokes(s, _cleanse_stroke))

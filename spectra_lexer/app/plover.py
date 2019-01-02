@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import ClassVar
 
 from PyQt5.QtWidgets import QDialog, QWidget

@@ -10,8 +10,7 @@ To differentiate between these, the first can be typed as StenoKeys and the latt
 Characters from an outside source (JSON files or the Plover engine) are assumed to be RTFCRE.
 """
 
-from __future__ import annotations
-from typing import Callable, List
+from typing import Callable, List, TypeVar
 
 KEY_NUMBER = "#"
 
@@ -60,22 +59,18 @@ def is_number(s) -> bool:
     return KEY_NUMBER in s
 
 
+T = TypeVar('StenoKeys')
 class StenoKeys(str):
     """ Derived string class for a sequence of case-distinct steno keys with
         no hyphens and lowercase characters for every key on the right side. """
 
-    @classmethod
-    def separator(cls) -> StenoKeys:
-        """ Return a class instance of the stroke separator. """
-        return cls(KEY_SEP)
-
     def to_rtfcre(self) -> str:
-        """ Transform a string from LexerKeys format to RTFCRE. Result will be a basic string. """
+        """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
         return self.map_strokes(_stroke_stenokeys_to_rtfcre)
 
     @classmethod
-    def from_rtfcre(cls, s:str) -> StenoKeys:
-        """ Transform a string from to RTFCRE to LexerKeys format. Result will have the StenoKeys derived class. """
+    def from_rtfcre(cls, s:str) -> T:
+        """ Transform a string from RTFCRE. Result will have the StenoKeys derived class. """
         return cls(cls.map_strokes(s, _stroke_rtfcre_to_stenokeys))
 
     def map_strokes(self:str, func:Callable[[str],str]) -> str:

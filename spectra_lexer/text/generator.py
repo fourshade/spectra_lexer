@@ -1,5 +1,4 @@
-from __future__ import annotations
-from typing import List, Tuple
+from typing import List, Tuple, TypeVar
 
 from spectra_lexer.keys import KEY_SEP, KEY_SPLIT
 from spectra_lexer.text.node import OutputNode
@@ -24,13 +23,14 @@ def _text_container(length:int, position:str) -> str:
     return left + middle * (length - 2) + right
 
 
+T = TypeVar('_TextOutputLine')
 class _TextOutputLine(str):
     """ String wrapper for a single line of text along with node metadata for tooltips.
         The entire object must be immutable, so the node map is a tuple that is only assigned on copy. """
 
     _node_map: Tuple[OutputNode] = None  # Sequence of node references to indicate which node "owns" each character.
 
-    def _overwrite_copy(self, s:str, src:OutputNode, start:int) -> _TextOutputLine:
+    def _overwrite_copy(self, s:str, src:OutputNode, start:int) -> T:
         """ Make a copy of this object with the string <s> overwriting characters starting
             at <start>, padding with spaces if necessary and writing to the node map as well. """
         end = start + len(s)
@@ -42,23 +42,23 @@ class _TextOutputLine(str):
             other._node_map = nmap[:start] + (src,) * len(s) + nmap[end:]
         return other
 
-    def with_container(self, src:OutputNode, start:int, length:int, position:str) -> _TextOutputLine:
+    def with_container(self, src:OutputNode, start:int, length:int, position:str) -> T:
         """ Write a "container" ├--┐ at index <start> and return a copy. """
         return self._overwrite_copy(_text_container(length, position), src, start)
 
-    def with_connector(self, src:OutputNode, start:int) -> _TextOutputLine:
+    def with_connector(self, src:OutputNode, start:int) -> T:
         """ Write a vertical line connector at index <start> and return a copy. """
         return self._overwrite_copy(_LINE_SYMBOL, src, start)
 
-    def with_corner(self, src:OutputNode, start:int) -> _TextOutputLine:
+    def with_corner(self, src:OutputNode, start:int) -> T:
         """ Write a corner character at index <start> and return a copy. """
         return self._overwrite_copy(_CORNER_SYMBOL, src, start)
 
-    def with_node_string(self, src:OutputNode, start:int) -> _TextOutputLine:
+    def with_node_string(self, src:OutputNode, start:int) -> T:
         """ Write the node's text starting at <start> and return a copy. """
         return self._overwrite_copy(src.text, src, start)
 
-    def replace(self, *args) -> _TextOutputLine:
+    def replace(self, *args) -> T:
         """ Override the basic string replace function to copy the node map as well. """
         other = _TextOutputLine(super().replace(*args))
         other._node_map = self._node_map

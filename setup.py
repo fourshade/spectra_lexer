@@ -5,11 +5,12 @@
 from glob import glob
 from importlib import import_module
 import os
-import pkg_resources
-import setuptools.command
 import shutil
 import subprocess
 import sys
+
+import pkg_resources
+import setuptools.command
 
 
 CMDCLASS_DICT = {}

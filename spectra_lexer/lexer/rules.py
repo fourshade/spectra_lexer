@@ -1,9 +1,8 @@
-from __future__ import annotations
 from operator import attrgetter
 from typing import Iterable, Sequence
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, StenoRule
+from spectra_lexer.rules import RuleMap
 
 
 class LexerResult(RuleMap):
@@ -51,18 +50,9 @@ class LexerResult(RuleMap):
                 -len(self),
                 self._word_coverage())
 
-    @classmethod
-    def best_map_to_rule(cls, maps:Iterable[LexerResult], keys:StenoKeys, letters:str) -> StenoRule:
-        """ Find the best out of a series of rule maps based on the rank value of each.
-            Build a rule from it, or return the empty map with defaults if the iterable is empty. """
-        best_result = max(maps, key=cls.rank, default=None)
-        if best_result is None:
-            best_result = RuleMap()
-            desc = "No matches found."
-        else:
-            keys = best_result.keys
-            letters = best_result.letters
-            matched = best_result._letters_matched()
-            matchable = sum([c != ' ' for c in letters]) or matched
-            desc = "Found {:.0%} match.".format(matched / matchable)
-        return StenoRule(keys, letters, frozenset(), desc, best_result.freeze())
+    def letters_matched_ratio(self) -> float:
+        """ Find total characters matched divided by total characters possible to match (i.e. not spaces). """
+        matched = self._letters_matched()
+        matchable = sum([c != ' ' for c in self.letters])
+        # All whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
+        return matched / matchable if matchable else 0

@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 from typing import ClassVar, Hashable, List, NamedTuple, Tuple
 
 from spectra_lexer.utils import nop
 
 
-def control_decorator(*dec_fields:str, **dec_kwargs) -> function:
+def control_decorator(*dec_fields:str, **dec_kwargs) -> callable:
     """ Create a new control decorator, with positional field names specified in dec_args
         and additional keyword arguments for the dispatcher in dec_kwargs. """
-    def command_decorator(cmd_key:Hashable, *cmd_args, **cmd_kwargs) -> function:
-        def base_decorator(func:function) -> function:
+    def command_decorator(cmd_key:Hashable, *cmd_args, **cmd_kwargs) -> callable:
+        def base_decorator(func:callable) -> callable:
             args = list(cmd_args)
             kwargs = dict(cmd_kwargs)
             # Every listed field is a positional argument that must be in the command.

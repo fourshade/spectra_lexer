@@ -3,7 +3,6 @@ Module for generic data structures used in the program.
 Each one is usually subclassed for more specific purposes.
 """
 
-from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
 from typing import List, Sequence, TypeVar
@@ -46,22 +45,22 @@ class Node:
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child list is mutable, hashing is by identity only. """
 
-    parent: Node = None   # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: List[Node]  # Direct children of the node. If empty, it is considered a leaf node.
+    parent = None   # Direct parent of the node. If None, it is the root node (or unconnected).
+    children: list  # Direct children of the node. If empty, it is considered a leaf node.
 
     def __init__(self):
         self.children = []
 
-    def add_children(self, nodes:List[Node]) -> None:
+    def add_children(self, nodes:list) -> None:
         """ Add other nodes of the same type from the given list to this node's children. """
         for n in nodes:
             n.parent = self
         self.children += nodes
 
-    def get_ancestors(self) -> List[Node]:
+    def get_ancestors(self) -> list:
         """ Get a list of all ancestors of this node (starting with itself) up to the root. """
         return list(traverse(self, next_attr="parent"))
 
-    def get_descendents(self) -> List[Node]:
+    def get_descendents(self) -> list:
         """ Get a list of all descendents of this node (starting with itself) down to the base. """
         return list(recurse(self, iter_attr="children"))
