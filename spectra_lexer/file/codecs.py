@@ -21,8 +21,9 @@ def _decode_CSON(contents:str) -> dict:
 
 
 # Dictionaries containing each supported file format/extension mapped to transcoding functions.
-# Converting between dicts and pure JSON strings is easy, but stripping comments requires an extra step.
-ENCODERS = {".json": partial(json.dumps, ensure_ascii=False)}
+# Encoding requires Unicode to be explicitly enabled. Indentation allows pretty-printing of results.
+ENCODERS = {".json": partial(json.dumps, indent=4, ensure_ascii=False)}
+# Decoding pure JSON strings is easy, but stripping comments requires an extra step.
 DECODERS = {".json": json.loads, ".cson": _decode_CSON}
 
 
