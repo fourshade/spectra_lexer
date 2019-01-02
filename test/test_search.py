@@ -6,13 +6,18 @@ import re
 
 import pytest
 
-from spectra_lexer.search.key_search import ReverseDict, SimilarKeyDict, StringSearchDict
-from spectra_lexer.search.steno_search import strip_lower_simfn
+from spectra_lexer.dict.search_dict import SimilarKeyDict, StringSearchDict
+from spectra_lexer.dict.steno_dict import ReverseDict, ReverseStringSearchDict
+from test import class_tester
+
+# Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
+class_test = class_tester([SimilarKeyDict, StringSearchDict, ReverseDict, ReverseStringSearchDict])
 
 
-def test_skdict_basic():
+@class_test(SimilarKeyDict)
+def test_skdict_basic(cls):
     """ Basic unit tests for init, getitem, setitem, delitem, len, contains, and eq on SimilarKeyDict. """
-    d = SimilarKeyDict({1: "a", 2: "b", 3: "c"})
+    d = cls({1: "a", 2: "b", 3: "c"})
     assert 1 in d
     assert 2 in d
     assert 5 not in d
@@ -31,9 +36,10 @@ def test_skdict_basic():
         del d["key not here"]
 
 
-def test_skdict_aux():
+@class_test(SimilarKeyDict)
+def test_skdict_aux(cls):
     """ Unit tests for get, setdefault, pop, popitem, copy, and fromkeys on SimilarKeyDict. """
-    d = SimilarKeyDict({1: "a", 2: "b", 3: "c", 4: "d", 5: "e"}, simfn=abs)
+    d = cls({1: "a", 2: "b", 3: "c", 4: "d", 5: "e"}, simfn=abs)
     assert d.get(1) == "a"
     assert d.get(5) == "e"
     assert d.get(10) is None
@@ -64,19 +70,21 @@ def test_skdict_aux():
     assert d.copy().popitem() == (-6, 0)
 
 
-def test_skdict_iter():
+@class_test(SimilarKeyDict)
+def test_skdict_iter(cls):
     """ Unit tests for iter, keys, values, and items in SimilarKeyDict. """
     # Iterators should behave like an ordinary dictionary, independent of the key tracking capabilities.
-    d = SimilarKeyDict({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
+    d = cls({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
     for (k, v, item) in zip(d.keys(), d.values(), d.items()):
         assert any(k_iter == k for k_iter in d)
         assert (k, v) == item
 
 
-def test_skdict_update():
+@class_test(SimilarKeyDict)
+def test_skdict_update(cls):
     """ Unit tests for bool, clear, and update in SimilarKeyDict. Handles args and kwargs from init. """
     # Make a blank dict, add new stuff from (k, v) tuples and keywords, and test it.
-    d = SimilarKeyDict(simfn=bool)
+    d = cls(simfn=bool)
     d.update([("a list", "yes"), ("of tuples", "okay")], but="add", some="keywords")
     assert d
     assert len(d) == 4
@@ -91,9 +99,10 @@ def test_skdict_update():
     assert len(d) == 0
 
 
-def test_skdict_values():
+@class_test(SimilarKeyDict)
+def test_skdict_values(cls):
     """ Exotic values (functions, nested sequences, self-references) shouldn't break anything. """
-    d = SimilarKeyDict({"x" * i: i for i in range(10)}, simfn=str.upper)
+    d = cls({"x" * i: i for i in range(10)}, simfn=str.upper)
     d["func"] = len
     assert d["func"](d) == 11
     d["unwrap me!"] = [([("and get the prize",)],)]
@@ -102,7 +111,8 @@ def test_skdict_values():
     assert d["recurse me!"]["recurse me!"]["recurse me!"] is d
 
 
-def test_skdict_similar():
+@class_test(SimilarKeyDict)
+def test_skdict_similar(cls):
     """
     For these tests, the similarity function will remove everything but a's in the string.
     This means strings with equal numbers of a's will compare as "similar".
@@ -115,7 +125,7 @@ def test_skdict_similar():
     # The values don't matter; just have them be the number of a's for reference.
     data = {"a": 1, "Canada": 3, "a man!?": 2, "^hates^": 1, "lots\nof\nlines": 0,
             "": 0,  "A's don't count, just a's": 1, "AaaAaa, Ʊnićodə!": 4}
-    d = SimilarKeyDict(simfn=just_a, **data)
+    d = cls(simfn=just_a, **data)
 
     # "Similar keys", should be all keys with the same number of a's as the input.
     assert d.get_similar_keys("a") == ["A's don't count, just a's", "^hates^", "a"]
@@ -136,11 +146,12 @@ def test_skdict_similar():
     assert d.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "^hates^", "a"]
 
 
-def test_string_dict():
+@class_test(StringSearchDict)
+def test_string_dict(cls):
     """ Unit tests for the added functionality of the string-based search dict class. """
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
     keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
-    d = StringSearchDict.fromkeys(keys, simfn=strip_lower_simfn(' #{^}'))
+    d = cls.fromkeys(keys, simfn=lambda s: s.strip(' #{^}').lower())
     assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('') == []
@@ -189,10 +200,11 @@ def test_string_dict():
         d.regex_match_keys('beautiful...an open group(', count=1)
 
 
-def test_reverse_dict():
+@class_test(ReverseDict)
+def test_reverse_dict(cls):
     """ Unit tests for the added functionality of the reverse dict class. """
     # A reverse dict must add items to a list rather than overwrite them.
-    rd = ReverseDict()
+    rd = cls()
     rd.append_key('beautiful', ('WAOUFL',))
     rd.append_key('BEAUTIFUL', ('PWAOUT', '-FL'))
     rd.append_key('beautiful', ('PWAOUFL',))
@@ -214,7 +226,7 @@ def test_reverse_dict():
     assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
                   'BEAUTIFUL': [('PWAOUT', '-FL')]}
     # A reverse dict should be able to invert any mapping at the most basic level.
-    fd = SimilarKeyDict({1: "a", 2: "b", 3: "a", 4: "c", 5: "a", 6: "b", 7: "a", 8: "d"}, simfn=id)
+    fd = {1: "a", 2: "b", 3: "a", 4: "c", 5: "a", 6: "b", 7: "a", 8: "d"}
     rd.match_forward(fd)
     assert rd == {"a": [1, 3, 5, 7],
                   "b": [2, 6],

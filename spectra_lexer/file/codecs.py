@@ -1,9 +1,9 @@
 """ Module for encoding/decoding dictionary data types from files and file-like objects. """
 
 import json
-from typing import Callable, Iterable, List
+from typing import Iterable
 
-from spectra_lexer.file.io_path import get_file_extension, read_text_asset, read_text_file
+from spectra_lexer.file.io_path import get_extension, Readable, Writeable
 
 # Allowable prefixes for comments for the CSON decoder. Only full-line comments are currently supported.
 _CSON_COMMENT_PREFIXES: Iterable[str] = ("#", "/")
@@ -25,31 +25,28 @@ ENCODERS = {".json": json.dumps}
 DECODERS = {".json": json.loads, ".cson": _decode_CSON}
 
 
-def _check_and_decode(f_iter:Iterable[str], read_fn:Callable) -> List[dict]:
-    """ Check each of the given files/resources and see if they can be decoded,
-        For each supported object, decode it into a dict and save it to a list to return.
-        Raise a ValueError if there were no objects given or if none of them were decodable. """
-    d_list = []
-    for f in f_iter:
-        fmt = get_file_extension(f)
-        decoder = DECODERS.get(fmt)
-        if decoder is None:
-            continue
-        contents = read_fn(f)
-        d = decoder(contents)
-        if not isinstance(d, dict):
-            raise ValueError("Object decoded from {} is not a dict.".format(f))
-        d_list.append(d)
-    if not d_list:
-        raise ValueError("None of the given files/resources were decodable as dictionaries.")
-    return d_list
+def decode_resource(f:Readable) -> dict:
+    """ Read and decode a string resource into a dict. """
+    decoder = _get_codec(f, DECODERS)
+    if decoder is None:
+        raise ValueError("No decoder found for {}.".format(f))
+    d = decoder(f.read())
+    if not isinstance(d, dict):
+        raise ValueError("Object decoded from {} is not a dict.".format(f))
+    return d
 
 
-def decode_files(filenames:Iterable[str]) -> List[dict]:
-    """ Read and return the contents of each of the given files using standard file I/O operations."""
-    return _check_and_decode(filenames, read_fn=read_text_file)
+def encode_resource(f:Writeable, d:dict) -> None:
+    """ Encode a dict into a string resource and write it. """
+    if not isinstance(d, dict):
+        raise ValueError("Object to be encoded to {} is not a dict.".format(f))
+    encoder = _get_codec(f, ENCODERS)
+    if encoder is None:
+        raise ValueError("No encoder found for {}.".format(f))
+    f.write(encoder(d))
 
 
-def decode_assets(rnames:Iterable[str]) -> List[dict]:
-    """ Read and return the contents of each of the given assets using pkg_resources operations."""
-    return _check_and_decode(rnames, read_fn=read_text_asset)
+def _get_codec(f:str, codec_dict:dict) -> callable:
+    """ Return the codec function for the given file/resource, or None if no codec exists. """
+    fmt = get_extension(f)
+    return codec_dict.get(fmt)

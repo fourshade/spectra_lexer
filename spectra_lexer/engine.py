@@ -1,7 +1,12 @@
-from collections import defaultdict
-from typing import Any, Callable, DefaultDict, List
+from typing import Any, Hashable, Dict
 
 from spectra_lexer import SpectraComponent
+from spectra_lexer.base import control_decorator, SpectraCommand
+
+on = control_decorator()              # Most basic decorator; calls the command with nothing else expected.
+pipe = control_decorator("send_key")  # Decorator to mark a command to pipe its return value to another command.
+respond_to = control_decorator()        # like @on, but can return the value to caller.
+fork = control_decorator("send_key")  # like @pipe, but can also return the value to caller.
 
 
 class SpectraEngine:
@@ -40,34 +45,48 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _command_map: DefaultDict[str, List[Callable]]  # Mapping of every command to a list of callback structures.
+    _command_getters: Dict[SpectraComponent, callable]  # Mapping getter methods for every component's commands.
 
-    def __init__(self, *components:SpectraComponent, **kwargs):
-        """ Construct the engine, add built-in commands, connect the root components to it,
-            and start it with the keyword arguments (sent by command line). """
-        self._command_map = defaultdict(list)
-        self._command_map["new_status"] = [print]
-        for c in components:
-            self.connect(c)
-        self("start", **kwargs)
+    def __init__(self):
+        self._command_getters = {}
 
     def connect(self, component:SpectraComponent) -> None:
-        """ Connect the specified component to the engine, adding its commands to the signal table. """
-        # Add all commands it handles with their callback methods and set the engine callback itself.
-        for (command, meth) in component.commands():
-            self._command_map[command].append(meth)
-        component.set_engine_callback(self)
+        """ Connect the specified component to the engine. """
+        self._command_getters[component] = component.commands().get
+        component.set_engine_callbacks(self.call, self.send)
 
-    def __call__(self, command:str, *args, default:Any=None, **kwargs) -> Any:
-        """ Call <command> on each valid target with the given arguments and return the last value. """
-        # TODO: Find a way to propagate all unhandled exceptions to this level, including ones from Qt.
-        value = default
-        for func in self._command_map[command]:
-            try:
-                value = func(*args, **kwargs)
-            except Exception as e:
-                # Try exception handlers (newest first) until one returns True.
-                # any() will short-circuit when this happens. If it never does, re-raise.
-                if not any(handler(e) for handler in reversed(self._command_map["handle_exception"])):
-                    raise
+    def disconnect(self, component:SpectraComponent) -> None:
+        """ Disconnect the specified component from the engine. """
+        del self._command_getters[component]
+        component.set_engine_callbacks()
+
+    def _lookup_commands(self, cmd_key):
+        return list(filter(None, [m(cmd_key) for m in self._command_getters.values()]))
+
+    def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
+        """ Call <command> on the last valid target with the given arguments and return the value. """
+        commands = self._lookup_commands(cmd_key)
+        if commands:
+            return self.execute(commands[-1], *args, **kwargs)
+
+    def send(self, cmd_key:Hashable, *args, **kwargs) -> None:
+        """ Call <command> on each valid target with the given arguments and return nothing. """
+        for c in self._lookup_commands(cmd_key):
+            self.execute(c, *args, **kwargs)
+
+    def execute(self, command:SpectraCommand, *args, **kwargs) -> Any:
+        try:
+            value = command.func(*args, **kwargs)
+            return self.dispatch(value, **command.kwargs)
+        except Exception as e:
+            # Call exception handler (newest first). If it fails, re-raise.
+            if not self.call("handle_exception", e):
+                raise e
+
+    def dispatch(self, value, send_key=None, unless=None, unpack=False, **cmd_kwargs) -> Any:
+        if send_key is not None and value is not unless:
+            if unpack:
+                self.send(send_key, *value, **cmd_kwargs)
+            else:
+                self.send(send_key, value, **cmd_kwargs)
         return value

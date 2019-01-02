@@ -1,14 +1,12 @@
-from collections import defaultdict
-from functools import reduce
-from itertools import starmap
-from typing import Dict, Iterable, Iterator, List
+from __future__ import annotations
+from typing import Dict, Iterable, List
 
-from spectra_lexer.keys import StenoKeys
+from spectra_lexer.keys import first_stroke, StenoKeys
 from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.rules import StenoRule
+from spectra_lexer.struct import PrefixTree
 
 # TODO: Only attempt RARE matches after failing with the normal set of rules.
-
 # Acceptable rule flags that indicate special behavior for the lexer's matching system.
 MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer should never know about these.",
                "WORD": "Exact word match. The parser only does a simple dict lookup for these before trying"
@@ -18,99 +16,73 @@ MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer
 MATCH_FLAG_SET = set(MATCH_FLAGS.keys())
 
 
-class LexerRule(StenoRule):
-    """ Simple subclass for rules used by the lexer with pre-parsed key orderings. """
-
-    keys: LexerKeys  # Subclassed keys structure with unordered keys parsed out in advance.
-
-    @classmethod
-    def convert(cls, keys:StenoKeys, *other_params) -> __qualname__:
-        """ Convert a rule using the regular key format into one using the lexer key format with orderings. """
-        return cls(LexerKeys(keys), *other_params)
-
-
-def _convert_rules(r_iter:Iterable[StenoRule]) -> Iterator[LexerRule]:
-    """ Iterator to convert all rules to lexer format. """
-    return starmap(LexerRule.convert, r_iter)
-
-
-class PrefixTree(defaultdict):
-    """ A trie-based structure for figuring out steno rules applicable to a certain prefix of keys.
-        It is an associative array structure with string-based keys that has the distinct advantage
-        of quickly returning all values that match a given key or any of its prefixes, in order. It
-        also allows duplicate keys, returning a list of all values that match it. """
-
-    rules: List[LexerRule]  # Value of the node; contains all rules using the exact keys it took to get there.
-
-    def __init__(self):
-        """ Create a new tree node. The entire structure is a dictionary of other nodes and a list of rules. """
-        super().__init__(PrefixTree)
-        self.rules = []
-
-    def add(self, k:str, v:StenoRule) -> None:
-        """ Add a new value to the list under the given key. If it doesn't exist, create nodes until you reach it. """
-        reduce(dict.__getitem__, k, self).rules.append(v)
-
-    def match(self, s:str) -> Iterable[LexerRule]:
-        """ From a given string, return an iterable of all of the values that match
-            any prefix of it in order from most characters matched to least. """
-        node = self
-        lst = node.rules[:]
-        for char in s:
-            if char not in node:
-                break
-            node = node[char]
-            lst += node.rules
-        return reversed(lst)
-
-
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
-    _stroke_dict: Dict[str, LexerRule]  # Rules that match by full stroke only.
-    _word_dict: Dict[str, LexerRule]    # Rules that match by exact word only (whitespace-separated).
-    _prefix_tree: PrefixTree            # Rules that match by starting with a certain number of keys in order.
+    _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
+    _word_dict: Dict[str, StenoRule]          # Rules that match by exact word only (whitespace-separated).
+    _prefix_tree: RulePrefixTree              # Rules that match by starting with a certain number of keys in order.
 
     def __init__(self, rules:Iterable[StenoRule]):
         """ Construct a specially-structured series of dictionaries from an unordered iterable of finished rules. """
         # Convert rules to lexer format and sort into specific dictionaries based on their flags.
         stroke_dict = {}
         word_dict = {}
-        prefix_tree = PrefixTree()
-        for v in _convert_rules(rules):
-            flags = v.flags
+        prefix_tree = RulePrefixTree()
+        for r in rules:
+            flags = r.flags
             # The lexer shouldn't use internal/special rules at all. Skip them.
             if "SPEC" in flags:
                 continue
             # Filter stroke and word rules into their own dicts.
             if "STRK" in flags:
-                stroke_dict[v.keys] = v
+                stroke_dict[r.keys] = r
             elif "WORD" in flags:
-                word_dict[v.letters] = v
+                word_dict[r.letters] = r
             # Everything else gets added to the tree-based prefix dictionary.
             # Only ordered (non-asterisk) keys determine the prefix.
             else:
-                prefix_tree.add(v.keys.ordered, v)
+                prefix_tree.add_rule(r)
         # All internal dictionaries required for active lexer operation go into instance attributes.
         self._stroke_dict = stroke_dict
         self._word_dict = word_dict
         self._prefix_tree = prefix_tree
 
-    def match(self, keys:LexerKeys, letters:str, is_full_stroke:bool=False, is_full_word:bool=False) -> List[LexerRule]:
-        """ Return a list of all rules from each dictionary that match the given keys and letters:
-            from the stroke dictionary - must match the next full stroke and a subset of the given letters.
-            from the word dictionary - must match a prefix of the given keys and the next full word.
-            from the prefix dictionary - must match a prefix of the given ordered keys,
-            a subset of the given letters, and a subset of the given unordered keys. """
+    def match(self, keys:LexerKeys, letters:str, is_full_stroke:bool=False, is_full_word:bool=False) -> List[StenoRule]:
+        """ Return a list of rules that match the given keys and letters in any of the dictionaries. """
         match_list = []
         if is_full_stroke:
-            r = self._stroke_dict.get(keys.split("/", 1)[0])
-            if r and r.letters in letters:
-                match_list.append(r)
+            match_list += self._stroke_match(keys, letters)
         if is_full_word:
-            r = self._word_dict.get(letters.lstrip().split(" ", 1)[0])
-            if r and keys.startswith(r.keys):
-                match_list.append(r)
-        match_list.extend([r for r in self._prefix_tree.match(keys.ordered)
-                           if r.letters in letters and r.keys.unordered <= keys.unordered])
+            match_list += self._word_match(keys, letters)
+        match_list += self._prefix_tree.prefix_match(keys, letters)
         return match_list
+
+    def _stroke_match(self, keys:StenoKeys, letters:str) -> List[StenoRule]:
+        """ For the stroke dictionary, the rule must match the next full stroke and a subset of the given letters. """
+        r = self._stroke_dict.get(first_stroke(keys))
+        if r and r.letters in letters:
+            return [r]
+        return []
+
+    def _word_match(self, keys:StenoKeys, letters:str) -> List[StenoRule]:
+        """ For the word dictionary, the rule must match a prefix of the given keys and the next full word."""
+        r = self._word_dict.get(letters.lstrip().split(" ", 1)[0])
+        if r and keys.startswith(r.keys):
+            return [r]
+        return []
+
+
+class RulePrefixTree(PrefixTree):
+
+    def add_rule(self, r:StenoRule) -> None:
+        """ Separate the given set of keys into ordered and unordered keys,
+            Index the rule itself and the unordered keys under the ordered keys (which contain any prefix). """
+        k = LexerKeys(r.keys)
+        self.add(k.ordered, (r, k.unordered))
+
+    def prefix_match(self, keys:LexerKeys, letters:str) -> List[StenoRule]:
+        """ For the prefix dictionary, the rule must match a prefix of the given ordered keys,
+            a subset of the given letters, and a subset of the given unordered keys. """
+        return [r for (r, uk) in self.match(keys.ordered)
+                if r.letters in letters and uk <= keys.unordered]

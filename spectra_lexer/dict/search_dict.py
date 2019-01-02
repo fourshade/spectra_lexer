@@ -1,11 +1,10 @@
 """ Module for generic key-search and reverse dicts. """
 
 from bisect import bisect_left
-from collections import defaultdict
 from itertools import islice
 from operator import methodcaller
 import re
-from typing import Callable, Dict, Iterable, Mapping, List, Tuple, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Tuple, TypeVar, Union
 
 # Regex to match ASCII characters without special regex behavior when used at the start of a pattern.
 # Will always return at least the empty string (which is a prefix of everything).
@@ -77,10 +76,31 @@ class SimilarKeyDict(Dict[KT, VT]):
         super().__setitem__(k, v)
 
     def __delitem__(self, k:KT) -> None:
-        """ Delete an item from the dict and list. The key must exist. This will not affect sort order. """
-        super().__delitem__(k)
-        idx = self._index_exact(k)
-        del self._list[idx]
+        """ Just call pop() and throw away the return value. This will not affect sort order. """
+        self.pop(k)
+
+    def pop(self, k:KT, *default:VT) -> VT:
+        """ Remove an item from the dict and list and return its value, or <default> if not found. """
+        if k in self:
+            idx = self._index_exact(k)
+            del self._list[idx]
+        if not default:
+            return super().pop(k)
+        return super().pop(k, *default)
+
+    def popitem(self) -> Tuple[KT,VT]:
+        """ Remove the last (key, value) pair as found in the list and return it. The dict must not be empty. """
+        if not self:
+            raise KeyError
+        sk, k = self._list[-1]
+        return k, self.pop(k)
+
+    def setdefault(self, k:KT, default:VT=None) -> VT:
+        """ Get an item from the dictionary. If it isn't there, set it to <default> and return it. """
+        if k in self:
+            return self[k]
+        self[k] = default
+        return default
 
     def update(self, *args, **kwargs) -> None:
         """ Update the dict and list using items from the given arguments. Because this is typically used
@@ -97,29 +117,6 @@ class SimilarKeyDict(Dict[KT, VT]):
         super().update(*args, **kwargs)
         self._list = list(zip(map(self._simfn, self), self))
         self._list.sort()
-
-    def pop(self, k:KT, *default:VT) -> VT:
-        """ Remove an item from the dict and list and return its value, or <default> if not found. """
-        if k in self:
-            idx = self._index_exact(k)
-            del self._list[idx]
-        if not default:
-            return super().pop(k)
-        return super().pop(k, *default)
-
-    def popitem(self) -> Tuple[KT,VT]:
-        """ Remove the last (key, value) pair as found in the list and return it. The dict must not be empty. """
-        if not self:
-            raise KeyError
-        k = self._list.pop()[1]
-        return k, super().pop(k)
-
-    def setdefault(self, k:KT, default:VT=None) -> VT:
-        """ Get an item from the dictionary. If it isn't there, set it to <default> and return it. """
-        if k in self:
-            return self[k]
-        self[k] = default
-        return default
 
     def copy(self) -> __qualname__:
         """ Make a shallow copy of the dict. The list will simply be reconstructed in the new copy. """
@@ -201,48 +198,3 @@ class StringSearchDict(SimilarKeyDict):
             match_op = re.compile(pattern).match
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))
-
-
-class ReverseDict(Dict[VT, List[KT]]):
-    """
-    A reverse dictionary. Inverts a mapping from (key: value) to (value: [keys]).
-
-    Since normal dictionaries can have multiple keys that map to the same value (many-to-one),
-    reverse dictionaries must necessarily be some sort of one-to-many mapping.
-    This means each entry must be a list. This class adds methods that manage those lists.
-
-    Naming conventions are reversed - in a reverse dictionary, we look up a value to get a list
-    of keys that would map to it in the forward dictionary.
-    """
-
-    def __init__(self, *args, **kwargs):
-        """ Use the positional argument (if given, and only one) as a source forward dict. """
-        super().__init__(**kwargs)
-        if args:
-            assert len(args) == 1
-            self.match_forward(args[0])
-
-    def append_key(self, v:VT, k:KT) -> None:
-        """ Append the key <k> to the list located under the value <v>.
-            Create a new list with that key if the value doesn't exist yet. """
-        if v in self:
-            self[v].append(k)
-        else:
-            self[v] = [k]
-
-    def remove_key(self, v:VT, k:KT) -> None:
-        """ Remove the key <k> from the list located under the value <v>. The key must exist.
-            If it was the last key in the list, remove the dictionary entry entirely. """
-        self[v].remove(k)
-        if not self[v]:
-            del self[v]
-
-    def match_forward(self, fdict:Mapping[KT, VT]) -> None:
-        """ Make this dict into the reverse of the given forward dict by rebuilding all of the lists.
-            It is a fast way to populate a reverse dict from scratch after creation. """
-        self.clear()
-        rdict = defaultdict(list)
-        list_append = list.append
-        for (k, v) in fdict.items():
-            list_append(rdict[v], k)
-        self.update(rdict)

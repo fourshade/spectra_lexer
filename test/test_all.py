@@ -4,23 +4,24 @@
 
 import pytest
 
-from spectra_lexer.file import FileHandler
-from spectra_lexer.file.codecs import decode_assets
-from spectra_lexer.file.io_path import assets_in_package
-from spectra_lexer.output import OutputFormatter
-from spectra_lexer.output.node import OUTPUT_FLAG_SET
-from spectra_lexer.output.text.cascaded_text import CascadedTextFormatter
+from spectra_lexer.dict import DictManager
+from spectra_lexer.text import CascadedTextFormatter
+from spectra_lexer.node import NodeTreeGenerator, OUTPUT_FLAG_SET
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAG_SET
 from spectra_lexer.rules import KEY_FLAG_SET
+from spectra_lexer.file import FileHandler
+from spectra_lexer.file.codecs import decode_resource
+from spectra_lexer.file.io_path import assets_in_package
 
 
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in decode_assets(assets_in_package()):
+    for f in assets_in_package():
         # Check for rules that have identical names (keys)
+        d = decode_resource(f)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
         full_dict.update(d)
@@ -28,15 +29,13 @@ def test_dict_files():
 
 # Create the minimum necessary components we need for the tests.
 FILE = FileHandler()
-FILE.set_engine_callback()
-RULES_LIST = FILE.load_rules()
+DICT = DictManager()
 LEXER = StenoLexer()
-LEXER.set_engine_callback()
+RAW_RULES = FILE.load_initial_rules()
+RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.set_rules(RULES_LIST)
-OUTPUT = OutputFormatter()
-OUTPUT.set_engine_callback()
+OUTPUT = NodeTreeGenerator()
 FORMATTER = CascadedTextFormatter()
-FORMATTER.set_engine_callback()
 LEGAL_FLAGS = MATCH_FLAG_SET | OUTPUT_FLAG_SET | KEY_FLAG_SET
 
 
@@ -50,7 +49,7 @@ def test_rules(r):
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     # These tests only work for rules that do not allow the same key to appear in two different strokes.
     if r.rulemap:
-        child_key_sets = [set(cr.keys) for cr in r.rulemap.rules()]
+        child_key_sets = [set(cr.rule.keys) for cr in r.rulemap]
         combined_child_keys = set()
         # Make sure none of the child rules have overlapping keys.
         for s in child_key_sets:
@@ -87,7 +86,7 @@ def test_lexer(trial):
     """ Perform all tests for parsing. It fails if the parser can't match all the keys and at least a specified
         number of letters. If no letter count is given, it must match EVERY non-space character to pass the test."""
     stroke, word, *goals = trial
-    keys = StenoKeys.cleanse(stroke)
+    keys = StenoKeys.from_rtfcre(stroke)
     if not goals:
         letters_goal = len(word.replace(" ", ""))
     else:
@@ -95,7 +94,7 @@ def test_lexer(trial):
     result = LEXER.query(keys, word)
     rulemap = result.rulemap
     assert rulemap, MSG_KEYS_FAIL.format(stroke, word)
-    letters_found = rulemap.letters_matched()
+    letters_found = sum(len(i.rule.letters) for i in rulemap)
     assert letters_found >= letters_goal, MSG_LETTERS_FAIL.format(stroke, word)
 
 
@@ -103,7 +102,7 @@ def test_lexer(trial):
 def test_display(trial):
     """ Produce format for all parsing tests and conduct simple tests. """
     stroke, word, *goal = trial
-    keys = StenoKeys.cleanse(stroke)
+    keys = StenoKeys.from_rtfcre(stroke)
     result = LEXER.query(keys, word)
     tree = OUTPUT.make_tree(result)
     FORMATTER.make_graph(tree)

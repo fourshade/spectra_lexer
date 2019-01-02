@@ -2,7 +2,7 @@ import re
 from typing import Dict, NamedTuple, Tuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import ImmutableRuleMap, MutableRuleMap, StenoRule
+from spectra_lexer.rules import RuleMap, StenoRule
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -23,24 +23,23 @@ class RawRule(NamedTuple):
     example_str: str = ""  # Optional pipe-delimited series of example translations using this rule.
 
 
-class RawRuleDict(Dict[str, RawRule]):
-    """ Class for an unformatted rules dictionary to be saved to/loaded from disk. """
-    def __init__(self, src_dict:dict):
-        super().__init__({k: RawRule(*v) for (k, v) in src_dict.items()})
+def raw_rule_dict(src:dict) -> Dict[str, RawRule]:
+    """ Make a namedtuple-based raw rules dictionary from an unformatted dict loaded directly from disk. """
+    if src is None:
+        return {}
+    return {k: RawRule(*v) for (k, v) in src.items()}
 
 
 class StenoRuleDict(Dict[str, StenoRule]):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    _src_dict: RawRuleDict  # Keep the source dict in the instance to avoid passing it everywhere.
+    _src_dict: Dict[str, RawRule]  # Keep the source dict in the instance to avoid passing it everywhere.
 
-    def __init__(self, src_dict:dict):
+    def __init__(self, src_dict:dict=None):
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
-        if not isinstance(src_dict, RawRuleDict):
-            src_dict = RawRuleDict(src_dict)
-        self._src_dict = src_dict
+        self._src_dict = raw_rule_dict(src_dict)
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         super().__init__()
@@ -52,21 +51,22 @@ class StenoRuleDict(Dict[str, StenoRule]):
         """ Parse a source dictionary rule into a StenoRule object. """
         raw_rule = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
-        letters, rulemap = self._substitute(raw_rule.pattern)
+        letters, built_map = self._substitute(raw_rule.pattern)
         # The keys must be converted from RTFCRE form into lexer form.
-        keys = StenoKeys.parse(raw_rule.keys)
+        keys = StenoKeys.from_rtfcre(raw_rule.keys)
         # Parse the flag string and add key flags as ending rules.
         flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
         if flags:
-            rulemap.add_key_rules(flags, len(letters))
+            for r in StenoRule.key_rules(flags):
+                built_map.add_special(r, len(letters))
         description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.
         if raw_rule.example_str:
             description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
-        # The rulemap must be frozen before final inclusion in a rule.
-        self[k] = StenoRule(keys, letters, flags, description, ImmutableRuleMap(rulemap))
+        # The built rulemap must be frozen before final inclusion in a rule.
+        self[k] = StenoRule(keys, letters, flags, description, built_map.freeze())
 
-    def _substitute(self, pattern:str) -> Tuple[str, MutableRuleMap]:
+    def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:
         """
         From a rule's raw pattern string, find all the child rule references in brackets and make a map
         so the format code can break it down again if needed. For those in () brackets, we must substitute
@@ -76,7 +76,7 @@ class StenoRuleDict(Dict[str, StenoRule]):
         not finished yet will still contain their own child rules in brackets. If we find one of these,
         we have to parse it first in a recursive manner. Circular references will crash the program.
         """
-        rulemap = MutableRuleMap()
+        built_map = RuleMap()
         m = SUBRULE_RX.search(pattern)
         while m:
             # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
@@ -96,7 +96,7 @@ class StenoRuleDict(Dict[str, StenoRule]):
             # Add the rule to the map and substitute in the letters if necessary.
             if not letters:
                 letters = rule.letters
-            rulemap.add_child(rule, m.start(), len(letters))
+            built_map.add(rule, m.start(), len(letters))
             pattern = pattern.replace(rule_str, letters)
             m = SUBRULE_RX.search(pattern)
-        return pattern, rulemap
+        return pattern, built_map

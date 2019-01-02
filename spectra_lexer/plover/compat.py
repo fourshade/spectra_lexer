@@ -1,4 +1,6 @@
-from typing import Callable, Iterable, Iterator, Optional, Sequence
+""" Module to hold all compatibility-related code for Plover, including partial class typedefs and version check. """
+
+from typing import Callable, Iterable, Iterator, Optional, Sequence, Tuple
 
 import pkg_resources
 
@@ -19,7 +21,7 @@ class PloverAction:
     text: Optional[str]
 
 class PloverTranslation:
-    rtfcre: tuple
+    rtfcre: Tuple[str]
     english: Optional[str]
 
 class PloverTranslatorState:

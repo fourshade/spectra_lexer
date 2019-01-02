@@ -1,10 +1,16 @@
 """ Module for generic utility functions that could be useful in many applications. """
 
-from typing import Callable, Generator, Iterable, List
+from typing import Callable, Generator, Iterable
 
 
 def nop(*args, **kwargs) -> None:
     """ ... """
+
+
+def abstract_method(self, *args, **kwargs):
+    """ Assign this directly to class attributes to mark them as abstract methods.
+        Much simpler than using ABCs, but does not allow default implementations. """
+    raise NotImplementedError
 
 
 def compose(*funcs:Callable) -> Callable:
@@ -46,7 +52,7 @@ def recurse(obj, iter_attr:str=None, sentinel:object=None) -> Generator:
         obj = getattr(obj, iter_attr, sentinel)
     if obj is not sentinel:
         for item in obj:
-            yield from recurse(item, iter_attr=iter_attr, sentinel=sentinel)
+            yield from recurse(item, iter_attr, sentinel)
 
 
 def merge(d_iter:Iterable[dict]) -> dict:
@@ -57,29 +63,10 @@ def merge(d_iter:Iterable[dict]) -> dict:
     return merged
 
 
-class Node:
-    """ Generic class for an object that may contain other instances of its own type (i.e. a tree node).
-        Each instance contains a list of zero or more children. Reference cycles are not allowed. """
-
-    parent: __qualname__          # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: List[__qualname__]  # Direct children of the node. If empty, it is considered a leaf node.
-
-    def __init__(self):
-        self.parent = None
-        self.children = []
-
-    def __iter__(self) -> Generator:
-        return recurse(self, iter_attr="children")
-
-    def add_children(self, nodes:Iterable[__qualname__]) -> None:
-        for n in nodes:
-            n.parent = self
-            self.children.append(n)
-
-    def get_ancestors(self) -> List[__qualname__]:
-        """ Get a list of all ancestors of this node (starting with itself) up to the root. """
-        return list(traverse(self, next_attr="parent"))
-
-    def get_descendents(self) -> List[__qualname__]:
-        """ Get a list of all descendents of this node (starting with itself) down to the base. """
-        return list(self)
+def memoize_one_arg(f:callable) -> callable:
+    """ Decorator for the fastest possible method of memoizing a function with one hashable arugment. """
+    class MemoDict(dict):
+        def __missing__(self, key):
+            ret = self[key] = f(key)
+            return ret
+    return MemoDict().__getitem__

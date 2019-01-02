@@ -1,11 +1,12 @@
-from itertools import product, starmap
-from typing import Iterable, List
+from itertools import product
+from typing import Iterable, List, Optional, Tuple
 
-from spectra_lexer import on, SpectraComponent
-from spectra_lexer.keys import KEY_SEP, KEY_STAR
+from spectra_lexer import fork, on, SpectraComponent
+from spectra_lexer.keys import has_separator, is_separator
 from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
-from spectra_lexer.rules import RuleMap, StenoRule, MutableRuleMap
+from spectra_lexer.lexer.rules import LexerResult
+from spectra_lexer.rules import StenoRule
 
 
 class StenoLexer(SpectraComponent):
@@ -14,40 +15,43 @@ class StenoLexer(SpectraComponent):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
-    _rule_matcher: LexerRuleMatcher = None  # The only state the lexer needs is the rule-matching dictionary.
+    _matcher: LexerRuleMatcher = None  # The master rule-matching dictionary.
+    _rule_separator: StenoRule = None  # Separator rule constant (can be tested by identity).
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
-        """ Take a sequence of rules parsed from a file and sort them into categories for the lexer. """
-        self._rule_matcher = LexerRuleMatcher(rules)
+        """ Take a sequence of rules parsed from a file and sort them into categories for matching. """
+        self._matcher = LexerRuleMatcher(rules)
+        self._rule_separator = StenoRule.separator()
 
-    @on("new_query")
+    @fork("new_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:
-        """ Return the best rule that maps the given key string to the given word. Send it to the engine as well. """
-        rule = self._generate_rule(keys, word)
-        self.engine_call("new_lexer_result", rule)
-        return rule
+        """ Return and send out the best rule that maps the given key string to the given word. """
+        pairs = [(keys, word)]
+        return self._build_best_rule(pairs)
 
-    @on("new_query_product")
+    @fork("new_query_product", "new_lexer_result")
     def query_best_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
-            Return the best rule out of all combinations. Send it to the engine as well. """
-        rule = StenoRule.best_rule(starmap(self._generate_rule, product(keys, words)))
-        self.engine_call("new_lexer_result", rule)
-        return rule
+            Return and send out the best rule out of all combinations. """
+        pairs = list(product(keys, words))
+        return self._build_best_rule(pairs)
 
-    def _generate_rule(self, keys:str, word:str) -> StenoRule:
-        """ Given a key string and a matching translation, return the best possible rule relating the two. """
-        # Thoroughly cleanse and parse the key string(s) (user strokes cannot be trusted).
-        keys = LexerKeys.cleanse(keys)
-        # Collect all valid rulemaps (that aren't optimized away) for the given keys and word.
-        maps = self._generate_maps(keys, word)
+    def _build_best_rule(self, pairs:List[Tuple[str,str]]) -> StenoRule:
+        """ Given an iterable of mappings of key strings to matching translations,
+            return the best possible rule relating two of them. Send it to the engine as well. """
+        lkeys, word = pairs[0]
+        built_maps = []
+        for keys, word in pairs:
+            # Thoroughly cleanse and parse the key string (user strokes cannot be trusted).
+            lkeys = LexerKeys.cleanse_from_rtfcre(keys)
+            # Collect and return all valid rulemaps (that aren't optimized away) for the given keys and word.
+            built_maps += self._generate_maps(lkeys, word)
         # Find the highest ranked rulemap according to how accurately it (probably) mapped the stroke
         # to the translation (or an empty map if none). Make a rule out of the result and return it.
-        best_map = RuleMap.best_map(maps)
-        return StenoRule.from_lexer_result(keys, word, best_map)
+        return LexerResult.best_map_to_rule(built_maps, lkeys, word)
 
-    def _generate_maps(self, keys:LexerKeys, word:str) -> List[RuleMap]:
+    def _generate_maps(self, keys:LexerKeys, word:str) -> List[LexerResult]:
         """
         Given a string of parsed steno keys and a matching translation, use steno rules to match keys to printed
         characters in order to generate a list of complete rule maps that could possibly produce the translation.
@@ -59,26 +63,24 @@ class StenoLexer(SpectraComponent):
         """
         maps = []
         best_letters = 0
-        get_rule_matches = self._rule_matcher.match
+        get_rule_matches = self._matcher.match
         # Initialize the stack with the start position ready at the bottom and start processing.
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
-        stack = [(keys, word.lower(), 0, 0, MutableRuleMap())]
+        stack = [(keys, word.lower(), 0, 0, LexerResult(keys, word))]
         while stack:
             # Take the next search path off the stack.
             test_keys, test_word, wordptr, lc, rulemap = stack.pop()
-            # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
-            if test_keys and test_keys[0] == KEY_STAR and (len(test_keys) == 1 or test_keys[1] == KEY_SEP):
-                rulemap.add_key_rules({self._decipher_star(test_keys, keys, word, rulemap)}, wordptr)
-                test_keys = test_keys.without(KEY_STAR)
-            # If we end up with a stroke separator at the pointer, consume it and add the rule.
-            if test_keys and test_keys[0] == KEY_SEP:
-                rulemap.add_separator(wordptr)
-                test_keys = test_keys.without(KEY_SEP)
+            # Check special end-cases.
+            if test_keys:
+                s_rule = self._check_special(test_keys, rulemap)
+                if s_rule is not None:
+                    rulemap.add_special(s_rule, wordptr)
+                    test_keys = test_keys.without(s_rule.keys)
             # If unmatched keys remain, attempt to match them to rules in steno order.
             # We assume every rule matched here MUST consume at least one key and one letter.
             if test_keys:
                 # We have a complete stroke if we haven't matched anything or the last match was a stroke separator.
-                is_full_stroke = (not rulemap or rulemap.ends_with_separator())
+                is_full_stroke = (not rulemap or rulemap[-1].rule is self._rule_separator)
                 # We have a complete word if the word pointer is 0 or sitting on a space.
                 is_full_word = (wordptr == 0 or (test_word and test_word[0] == ' '))
                 # Calculate how many letters we could possibly skip and still be in the running for best map.
@@ -93,8 +95,8 @@ class StenoLexer(SpectraComponent):
                         continue
                     # Make a copy of the current map and add the new rule + its location in the complete word.
                     word_len = len(r.letters)
-                    new_map = MutableRuleMap(rulemap)
-                    new_map.add_child(r, wordptr + i, word_len)
+                    new_map = rulemap.copy()
+                    new_map.add(r, wordptr + i, word_len)
                     # Push a stack item with the new map, and with the matched keys and letters removed.
                     word_inc = word_len + i
                     stack.append((test_keys.without(r.keys), test_word[word_inc:],
@@ -106,23 +108,35 @@ class StenoLexer(SpectraComponent):
                 best_letters = max(best_letters, lc)
         return maps
 
-    def _decipher_star(self, keys_left:LexerKeys, keys:LexerKeys, word:str, rulemap:RuleMap) -> str:
+    def _check_special(self, test_keys:LexerKeys, rulemap) -> Optional[StenoRule]:
+        """ Check special end rule cases before the main matching algorithm. """
+        # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
+        if test_keys.is_star(0) and (len(test_keys) == 1 or is_separator(test_keys, 1)):
+            flag = self._decipher_star(test_keys, rulemap)
+            return StenoRule.key_rules([flag])[0]
+        # If we end up with a stroke separator at the pointer, consume it and return the rule.
+        if is_separator(test_keys, 0):
+            return self._rule_separator
+
+    def _decipher_star(self, test_keys:LexerKeys, rulemap:LexerResult) -> str:
         """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
             the full word, and the current rulemap. Return the flag value for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
-        if "." in word:
+        keys = rulemap.keys
+        letters = rulemap.letters
+        if "." in letters:
             return "*:AB"
         # If the word has uppercase letters in it, it's probably a proper noun.
-        if word != word.lower():
+        if letters != letters.lower():
             return "*:PR"
         # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
-        # If we have recorded separators but none left in the keys, we are at the end of a multi-stroke word.
+        # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
-        if (KEY_SEP in keys_left) ^ any(KEY_SEP in r.keys for r in rulemap.rules()):
+        if has_separator(test_keys) ^ any(m.rule is self._rule_separator for m in rulemap):
             return "*:PS"
         # If the search component is loaded with the standard dictionaries, we can check if there's an
         # entry with every key *except* the star. If there is, it's probably there because of a conflict.
-        if self.engine_call("search_lookup", keys.without(KEY_STAR).inv_parse()):
+        if self.engine_call("search_lookup", keys.without_star().to_rtfcre()):
             return "*:CF"
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" flag.
         return "*:??"

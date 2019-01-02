@@ -357,25 +357,7 @@
      <pointsize>9</pointsize>
     </font>
    </property>
-   <widget class="QMenu" name="m_file">
-    <property name="title">
-     <string>File</string>
-    </property>
-    <addaction name="m_file_load"/>
-    <addaction name="m_file_exit"/>
-   </widget>
-   <addaction name="m_file"/>
   </widget>
-  <action name="m_file_load">
-   <property name="text">
-    <string>Load Dictionary...</string>
-   </property>
-  </action>
-  <action name="m_file_exit">
-   <property name="text">
-    <string>Exit</string>
-   </property>
-  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -386,12 +368,12 @@
   <customwidget>
    <class>TextGraphWidget</class>
    <extends>QTextEdit</extends>
-   <header>spectra_lexer.gui_qt.display.text_graph_widget</header>
+   <header>spectra_lexer.gui_qt.text.text_graph_widget</header>
   </customwidget>
   <customwidget>
    <class>StenoBoardWidget</class>
    <extends>QWidget</extends>
-   <header>spectra_lexer.gui_qt.display.steno_board_widget</header>
+   <header>spectra_lexer.gui_qt.board.steno_board_widget</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

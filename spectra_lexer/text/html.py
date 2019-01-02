@@ -1,7 +1,8 @@
+from collections import defaultdict
 from functools import lru_cache
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Sequence
 
-from spectra_lexer.output.node import OutputNode
+from spectra_lexer.node import OutputNode
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -54,9 +55,18 @@ class HTMLFormatter:
     _lines: List[str]                                         # Lines containing the raw text.
     _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
 
-    def __init__(self, lines:List[str], format_dict:Dict[OutputNode, List[Tuple[int,int,int]]]):
+    def __init__(self, lines:List[str], node_grid:Sequence[Sequence[OutputNode]]):
+        """ From a 2D node grid, compile a dict of nodes with the characters owned by each one. """
         self._lines = lines
-        self._format_dict = format_dict
+        self._format_dict = fd = defaultdict(list)
+        for (row, nmap) in enumerate(node_grid):
+            old_i = -1
+            old_n = None
+            for i, n in enumerate(nmap + (None,)):
+                if n is not old_n:
+                    if old_n is not None:
+                        fd[old_n].append((row, old_i, i))
+                    old_i, old_n = i, n
 
     def make_graph_text(self, node:OutputNode=None) -> str:
         """ Make a full graph text string by joining the list of line strings and setting the preformatted tag.

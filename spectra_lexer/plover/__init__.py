@@ -1,1 +1,1 @@
-from spectra_lexer.plover.window import PloverPlugin
+from .main import PloverPluginApplication, PloverPlugin

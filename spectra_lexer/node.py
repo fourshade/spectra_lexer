@@ -1,27 +1,31 @@
-from typing import Tuple
+from __future__ import annotations
 
+from spectra_lexer import pipe, SpectraComponent
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
-from spectra_lexer.utils import Node
+from spectra_lexer.struct import Node
+
 
 # Acceptable rule flags that indicate special behavior for output formatting.
-OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing.",
+OUTPUT_FLAGS = {"SEP": "Stroke separator.",
+                "INV": "Inversion of steno order. Should appear different on format drawing.",
                 "KEY": "Indicates a rule where a key does not contribute to the letters of the word."}
 OUTPUT_FLAG_SET = set(OUTPUT_FLAGS.keys())
 
 
+# Default limit on number of recursion steps to allow for rules that contain other rules.
+RECURSION_LIMIT = 10
+
+
 class OutputNode(Node):
     """
-    Class representing a node in a tree structure (each node contains data along with a list of child nodes).
-    The complete tree contains the information required to display a graph of an analysis from the lexer.
-
-    Note that nodes do not have entirely immutable contents. Since they must be used as dict keys, hashing
-    is by identity only (the default for class `object`). This is sufficient for any purposes we need.
+    Class representing a node in a tree structure containing the information required to display a complete graph
+    of an analysis from the lexer. Where used as a dict key, hashing is by identity only.
     """
 
     attach_start: int             # Index of character where this node attaches to its parent.
     attach_length: int            # Length of the attachment (may be different than its letters due to substitutions).
-    text: str                     # Display text of the node (either letters or str-keys).
+    text: str                     # Display text of the node (either letters or RTFCRE keys).
     raw_keys: StenoKeys           # Raw/lexer-formatted keys to be drawn on the board diagram.
     description: str              # Rule description for the board diagram.
     is_separator: bool = False    # Directive for drawing the stroke separator rule.
@@ -39,12 +43,13 @@ class OutputNode(Node):
         self.attach_start = start
         self.attach_length = length
         self.raw_keys = keys
-        self.is_separator = rule.is_separator()
+        self.is_separator = "SEP" in flags
         self.is_inversion = "INV" in flags
         self.is_key_rule = "KEY" in flags
+        self.children = []
         if maxdepth:
             self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])
-        formatted_keys = keys.inv_parse()
+        formatted_keys = keys.to_rtfcre()
         if not rulemap or not maxdepth:
             # Base rules (i.e. leaf nodes) and rules at the max depth display their keys instead of their letters.
             # Since the descriptions of these are rather short, they also include the keys to the left.
@@ -55,10 +60,6 @@ class OutputNode(Node):
             # They also include the complete mapping of keys to letters in their description.
             self.text = letters
             self.description = "{} → {}: {}".format(formatted_keys, letters, desc)
-
-    def get_board_info(self) -> Tuple[StenoKeys, str]:
-        """ Get the basic info necessary to display the rule on a steno board diagram. """
-        return self.raw_keys, self.description
 
     def __str__(self):
         return "{} → {}".format(self.text, self.children)
@@ -74,3 +75,13 @@ class OutputTree(OutputNode):
         # The root node always shows letters and does not include anything extra in its description.
         self.text = rule.letters
         self.description = rule.desc
+
+
+class NodeTreeGenerator(SpectraComponent):
+    """ Base class for creating and formatting a finished rule breakdown of steno translations.
+        Output is meant to be used by more specific classes (graphics, text, etc.) """
+
+    @pipe("new_lexer_result", "new_output_tree")
+    def make_tree(self, rule:StenoRule, maxdepth:int=RECURSION_LIMIT) -> OutputTree:
+        """ Make a display tree from the given rule and save it. Must be handled further by subclasses. """
+        return OutputTree(rule, maxdepth)
