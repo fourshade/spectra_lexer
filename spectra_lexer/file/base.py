@@ -9,17 +9,17 @@ from spectra_lexer.utils import merge
 class FileHandler(SpectraComponent):
     """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
 
-    @fork("file_load_builtin_rules", "new_raw_dict")
+    @fork("file_load_builtin_rules", "new_raw_rules")
     def load_initial_rules(self) -> dict:
         """ Load and merge the rules from the built-in asset directories."""
         return decode_and_merge(assets_in_package())
 
-    @fork("file_load_plover_dicts", "new_raw_dict")
+    @fork("file_load_plover_dicts", "new_raw_translations")
     def load_initial_translations(self) -> dict:
         """ Make an attempt to locate Plover's dictionaries and load/merge those. """
         return decode_and_merge(dict_files_from_plover_cfg())
 
-    @fork("file_load", "new_raw_dict")
+    @respond_to("file_load")
     def load_file(self, filename:str) -> dict:
         """ Attempt to decode a dict from a file given by name. """
         return decode_resource(File(filename))

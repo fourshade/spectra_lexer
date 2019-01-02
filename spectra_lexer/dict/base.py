@@ -1,45 +1,50 @@
-from spectra_lexer import on, pipe, SpectraComponent
+from functools import wraps
+from typing import Any, Sequence
+
+from spectra_lexer import pipe, SpectraComponent
 from spectra_lexer.dict.rule_parser import StenoRuleParser
 
-# Data types for (key, value) pairs in a raw dict to determine which kind it is.
-DICT_TYPES = {(str, list): "rules",
-              (str, str):  "translations"}
 
-
-class IdentityParser:
-    """ If a dict is usable straight from JSON with no modifications, use this do-nothing parser. """
-    from_raw = to_raw = staticmethod(lambda d: d)
-
-
-# Parsers for each raw dict type. Each should possess the methods "from_raw" and "to_raw".
-DICT_PARSERS = {"rules":        StenoRuleParser,
-                "translations": IdentityParser}
+def type_check_items(types:Sequence[type]) -> callable:
+    """ Raise an error if the first item in the dict does not match the given types. """
+    def type_check_deco(func:callable) -> callable:
+        @wraps(func)
+        def parse_if_correct(self, raw_dict:dict) -> Any:
+            test_item = next(iter(raw_dict.items()))
+            if not all(map(isinstance, test_item, types)):
+                raise TypeError(f"Invalid input dict format.")
+            return func(self, raw_dict)
+        return parse_if_correct
+    return type_check_deco
 
 
 class DictManager(SpectraComponent):
     """ Handles all conversion required between raw dicts loaded straight from JSON and custom data structures. """
 
-    parsers: dict  # Contains an initialized parser for each dict type.
+    rule_parser: StenoRuleParser  # Rule parser that tracks reference names in case we want to save new rules.
 
     def __init__(self):
-        """ Create each parser, filling in an identity function for each type that does not need parsing. """
         super().__init__()
-        self.parsers = {k: v() for (k, v) in DICT_PARSERS.items()}
+        self.rule_parser = StenoRuleParser()
 
-    @on("new_raw_dict")
-    def parse_dict(self, raw_dict:dict) -> dict:
-        """ Determine the type of the dict from the first item and call the right parser. """
-        if not raw_dict:
-            raise ValueError("Got an empty raw dict. Cannot determine type.")
-        key, value = next(iter(raw_dict.items()))
-        d_type = DICT_TYPES.get((type(key), type(value)))
-        if not d_type:
-            raise TypeError("Got a raw dict with undecodable type.")
-        d = self.parsers[d_type].from_raw(raw_dict)
-        self.engine_call("new_"+d_type, d)
-        return d
+    @pipe("new_raw_rules", "new_rules")
+    @type_check_items([str, list])
+    def parse_rules(self, raw_dict:dict) -> list:
+        """ Parse rules from a JSON dict and return only a list (without the reference names). """
+        return self.rule_parser.from_raw(raw_dict)
 
-    @pipe("dict_save", "file_save", unpack=True)
-    def save_dict(self, d_type:str, filename:str, obj) -> tuple:
-        """ Convert a resource into a JSON dict using the previous parser as reference and save it to disk. """
-        return filename, self.parsers[d_type].to_raw(obj)
+    @pipe("new_raw_translations", "new_translations")
+    @type_check_items([str, str])
+    def parse_translations(self, raw_dict:dict) -> dict:
+        """ Translations from JSON are usable directly as is (as long as the type is correct). """
+        return raw_dict
+
+    @pipe("dict_save_rules", "file_save", unpack=True)
+    def save_rules(self, filename:str, obj:Any) -> tuple:
+        """ Parse rules from an object into raw form using reference data from the parser, then save them. """
+        return filename, self.rule_parser.to_raw(obj)
+
+    @pipe("dict_save_translations", "file_save", unpack=True)
+    def save_translations(self, filename:str, d:dict) -> tuple:
+        """ Save a translations dict directly to JSON. No parsing is necessary. """
+        return filename, d

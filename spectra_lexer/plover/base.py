@@ -37,7 +37,7 @@ class PloverPluginInterface(SpectraComponent):
         """ Connect a Plover engine signal to a Spectra engine command. """
         self._plover_engine.signal_connect(plover_signal, partial(self.engine_call, spectra_cmd))
 
-    @pipe("plover_load_dicts", "new_raw_dict")
+    @pipe("plover_load_dicts", "new_raw_translations")
     def load_dict_collection(self, steno_dc:PloverStenoDictCollection) -> Optional[Dict[str, str]]:
         """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
         if not steno_dc or not steno_dc.dicts:

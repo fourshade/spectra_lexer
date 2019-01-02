@@ -1,6 +1,6 @@
 from __future__ import annotations
 import re
-from typing import Dict, Iterable, NamedTuple, Sequence, Tuple
+from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule
@@ -38,7 +38,7 @@ class StenoRuleParser(Dict[str, StenoRule]):
     _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
     _ref_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def from_raw(self, src_dict:Dict[str, str]=None) -> Iterable[StenoRule]:
+    def from_raw(self, src_dict:Dict[str, str]=None) -> List[StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
         self._src_dict = raw_rule_dict(src_dict)
@@ -48,7 +48,9 @@ class StenoRuleParser(Dict[str, StenoRule]):
         for k in self._src_dict.keys():
             if k not in self:
                 self._parse(k)
-        return self.values()
+        # Return only the rules themselves. Components such as the lexer don't care about the names.
+        # Multiple components may want to use these, so the iterable must be reusable (i.e. a list).
+        return list(self.values())
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """

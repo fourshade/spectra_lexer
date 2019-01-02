@@ -14,7 +14,7 @@ class BatchApplication(SpectraApplication):
         d = self.engine.call("file_load", file_in)
         call_lexer = partial(self.engine.call, "lexer_query")
         results = list(starmap(call_lexer, d.items()))
-        self.engine.call("dict_save", "rules", file_out, results)
+        self.engine.call("dict_save_rules", file_out, results)
 
 
 def main() -> None:

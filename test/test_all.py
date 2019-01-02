@@ -35,7 +35,7 @@ LEXER = StenoLexer()
 FORMATTER = CascadedTextFormatter()
 TEST_TRANSLATIONS = FILE.load_file(os.path.join(__file__, "..", "data/translations.json"))
 RAW_RULES = FILE.load_initial_rules()
-RULES_LIST = DICT.parse_dict(RAW_RULES)
+RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.set_rules(RULES_LIST)
 LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 

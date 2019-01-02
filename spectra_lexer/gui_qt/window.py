@@ -23,16 +23,16 @@ class GUIQtWindow(SpectraComponent):
             self.engine_call("gui_menu_add", "File", "Exit", "sig_window_close")
         self.window.show()
 
-    @pipe("sig_window_dialog_load", "file_dict_load")
+    @pipe("sig_window_dialog_load", "new_raw_translations")
     def dialog_load(self) -> Optional[list]:
         """ Present a dialog for the user to select a dictionary file. Attempt to load it if not empty. """
         file_formats = self.engine_call("file_get_decodable_exts")
-        (fname, _) = QFileDialog.getOpenFileName(self.window, 'Load Dictionary', '.',
+        (fname, _) = QFileDialog.getOpenFileName(self.window, 'Load Search Dictionary', '.',
                                                  "Supported file formats (*" + " *".join(file_formats) + ")")
         if not fname:
             return None
-        self.engine_call("new_status", "Loaded dictionaries from file dialog.")
-        return [fname]
+        self.engine_call("new_status", "Loaded dictionary from file dialog.")
+        return self.engine_call("file_load", fname)
 
     @on("sig_window_close")
     def close(self):
