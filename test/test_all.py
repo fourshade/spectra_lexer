@@ -2,13 +2,14 @@
 
 """ Main test module for the Spectra steno lexer. Currently handles all components except search and the GUI. """
 
+import os
+
 import pytest
 
 from spectra_lexer.dict import DictManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.file.codecs import decode_resource
 from spectra_lexer.file.io_path import assets_in_package
-from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
 from spectra_lexer.rules import KEY_FLAGS
@@ -31,10 +32,11 @@ def test_dict_files():
 FILE = FileHandler()
 DICT = DictManager()
 LEXER = StenoLexer()
-RAW_RULES = FILE.load_initial_rules()
-RULES_LIST = DICT.parse_rules(RAW_RULES)
-LEXER.set_rules(RULES_LIST)
 FORMATTER = CascadedTextFormatter()
+TEST_TRANSLATIONS = FILE.load_file(os.path.join(__file__, "..", "data/translations.json"))
+RAW_RULES = FILE.load_initial_rules()
+RULES_LIST = DICT.parse_dict(RAW_RULES)
+LEXER.set_rules(RULES_LIST)
 LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 
 
@@ -60,48 +62,19 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
-# Test data consisting of a set of steno keys, a word that maps to it, and how many letters that must match.
-# A test will fail if an exception is raised or if fewer letters were matched than the goal (which is all by default).
-TEST_DATA = [("KW*P",         "Q"),
-             ("#T*PBD",       "2nd"),
-             ("HAOET",        "heat"),
-             ("PHO*PBT",      "month"),
-             ("A*BGS",        "action"),
-             ("SAOEUT",       "sight"),
-             ("PHAER",        "marry"),
-             ("SAO*EUT",      "site",        3),
-             ("STRAOEUBG",    "strike",      5),
-             ("ARPLT",        "apartment",   6),
-             ("TPHRABGS",     "interaction", 6),
-             ("HRAPB/SKAEUP", "landscape",   7),
-             ("RAEURBL/SKUGS/TPA/TAOEG/STKROEPL", "Racial Discussion Fatigue Syndrome", 20)]
-
-MSG_KEYS_FAIL = "Lexer failed to match all keys on {} -> {}."
-MSG_LETTERS_FAIL = "Lexer failed to match enough letters on {} -> {}."
-
-
-@pytest.mark.parametrize("trial", TEST_DATA)
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS.items())
 def test_lexer(trial):
-    """ Perform all tests for parsing. It fails if the parser can't match all the keys and at least a specified
-        number of letters. If no letter count is given, it must match EVERY non-space character to pass the test."""
-    stroke, word, *goals = trial
-    keys = StenoKeys.from_rtfcre(stroke)
-    if not goals:
-        letters_goal = len(word.replace(" ", ""))
-    else:
-        letters_goal = goals[0]
+    """ Perform all tests for parsing. It fails if the parser raises an exception or can't match all the keys. """
+    keys, word = trial
     result = LEXER.query(keys, word)
     rulemap = result.rulemap
-    assert rulemap, MSG_KEYS_FAIL.format(stroke, word)
-    letters_found = sum(len(i.rule.letters) for i in rulemap)
-    assert letters_found >= letters_goal, MSG_LETTERS_FAIL.format(stroke, word)
+    assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(keys, word)
 
 
-@pytest.mark.parametrize("trial", TEST_DATA)
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS.items())
 def test_display(trial):
     """ Produce format for all parsing tests and conduct simple tests. """
-    stroke, word, *goal = trial
-    keys = StenoKeys.from_rtfcre(stroke)
+    keys, word = trial
     result = LEXER.query(keys, word)
     FORMATTER.make_graph(result)
     # Hopefully there are some helper objects after this.

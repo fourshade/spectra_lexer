@@ -52,10 +52,8 @@ class GUIQtSearch(SpectraComponent):
 
     @pipe("sig_on_input_submit", "new_text_entry")
     def on_input_submit(self) -> str:
-        """ If the user presses Enter, send the text to whatever wants it, then clear it. """
-        text = self.input_textbox.text()
-        self.input_textbox.clear()
-        return text
+        """ If the user presses Enter, send the text to whatever wants it. """
+        return self.input_textbox.text()
 
     @pipe("sig_on_input_changed", "sig_on_choose_match")
     def on_input_changed(self, pattern:Any=None) -> None:
@@ -95,12 +93,12 @@ class GUIQtSearch(SpectraComponent):
             return m_list[0]
         # If there is more than one mapping (only in word mode), make a lexer query to select the best one.
         assert not self._mode_strokes
-        result = self.engine_call("new_query_product", m_list, [match])
+        result = self.engine_call("lexer_query_product", m_list, [match])
         # Parse the rule's keys back into RTFCRE form and try to select that string in the list.
         keys = result.keys.to_rtfcre()
         self.mapping_list.select(keys)
 
-    @pipe("sig_on_choose_mapping", "new_query", unpack=True)
+    @pipe("sig_on_choose_mapping", "lexer_query", unpack=True)
     def on_choose_mapping(self, mapping:str) -> Optional[Tuple[str, str]]:
         """ Make and send a lexer query based on the last selected match and this mapping (if non-empty). """
         match = self._last_match

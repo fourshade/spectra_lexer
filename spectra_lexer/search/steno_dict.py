@@ -2,7 +2,7 @@ from collections import defaultdict
 import re
 from typing import Callable, Dict, List, Mapping, TypeVar, Union
 
-from spectra_lexer.dict.search_dict import StringSearchDict
+from spectra_lexer.search.search_dict import StringSearchDict
 
 KT = TypeVar("KT")  # Key type.
 VT = TypeVar("VT")  # Value type.

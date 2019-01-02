@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from spectra_lexer.dict.search_dict import SimilarKeyDict, StringSearchDict
-from spectra_lexer.dict.steno_dict import ReverseDict, ReverseStringSearchDict
+from spectra_lexer.search.search_dict import SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.steno_dict import ReverseDict, ReverseStringSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
@@ -232,5 +232,3 @@ def test_reverse_dict(cls):
                   "b": [2, 6],
                   "c": [4],
                   "d": [8]}
-
-# TODO: Add bidirectional search dict tests
