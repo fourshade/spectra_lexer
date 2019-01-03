@@ -42,8 +42,9 @@ class CascadedTextFormatter(SpectraComponent):
         # Create a locator and formatter using these structures and keep them for later reference.
         self._formatter = HTMLFormatter(lines, node_grid)
         self._locator = _NodeLocator(node_grid)
-        # Send the node data for the board diagram.
-        self.engine_call("new_output_info", root.raw_keys, root.description)
+        # Send the title and node data for the board diagram.
+        self.engine_call("new_output_title", str(rule))
+        self._send_board_info(root)
         # Send the new, unformatted text graph to the engine. It will re-scroll to the top by default.
         return self._formatter.make_graph_text()
 
@@ -59,5 +60,9 @@ class CascadedTextFormatter(SpectraComponent):
             # Store the current node so we can avoid repeated lookups.
             self._last_node = node
             # Send the node data and text separate so that board diagrams and text graphs can both update.
-            self.engine_call("new_output_info", node.raw_keys, node.description)
+            self._send_board_info(node)
             return self._formatter.make_graph_text(node)
+
+    def _send_board_info(self, node):
+        """ Generate board diagram elements from steno keys and send them along with the description. """
+        self.engine_call("new_output_info", node.raw_keys.for_display(), node.description)

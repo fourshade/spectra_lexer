@@ -1,6 +1,5 @@
 from typing import List, Tuple, TypeVar
 
-from spectra_lexer.keys import KEY_SEP, KEY_SPLIT
 from spectra_lexer.text.node import OutputNode
 
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
@@ -12,6 +11,10 @@ _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
+# Symbols drawn underneath all others as stroke separators. May be different from the RTFCRE delimiter.
+_SEP_SYMBOL = "/"
+# Symbols that may not be covered by connectors, such as side split hyphens.
+_UNCOVERED_SYMBOLS = {"-"}
 
 
 def _text_container(length:int, position:str) -> str:
@@ -97,16 +100,16 @@ def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholde
         for child in reversed(children):
             if child.is_separator:
                 # If it's a separator, add slashes behind the previous line and do nothing else.
-                out.append(out.pop().replace(' ', KEY_SEP))
+                out.append(out.pop().replace(' ', _SEP_SYMBOL))
             else:
                 start = child.attach_start
                 wp = start + offset
                 # Add child recursively.
                 _draw_node(out, child, wp, placeholders)
                 # Add a line with the bottom connector (using different symbols if the rule uses inversion).
-                # If the text leads with a hyphen, the connector shouldn't cover it.
+                # If the text leads with a hyphen (uncovered symbol), the connector shouldn't cover it.
                 bottom_len = len(child.text)
-                if not child.children and wp > 0 and child.text[0] == KEY_SPLIT:
+                if not child.children and wp > 0 and child.text[0] in _UNCOVERED_SYMBOLS:
                     bottom_len -= 1
                 bottom_container_type = "INV" if child.is_inversion else "BOTTOM"
                 out.append(placeholders.with_container(child, wp, bottom_len, bottom_container_type))
@@ -126,7 +129,7 @@ def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholde
     else:
         # If there are no children, it is a base rule. These cases only apply to base rules.
         # If the text leads with a hyphen (right side keys) and there's room, shift it one space to the left.
-        if text and text[0] == KEY_SPLIT and offset > 0:
+        if text and text[0] in _UNCOVERED_SYMBOLS and offset > 0:
             offset -= 1
         # If it doesn't overlap anything in the line below it, make that the header and write it there.
         if out and out[-1][offset:offset + len(text)].isspace():

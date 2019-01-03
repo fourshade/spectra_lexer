@@ -2,14 +2,13 @@ from itertools import product
 from typing import Iterable, List, Optional, Tuple
 
 from spectra_lexer import fork, on, SpectraComponent
-from spectra_lexer.keys import has_separator, is_separator, KEY_SEP
 from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.lexer.rules import LexerResult
 from spectra_lexer.rules import get_key_rules, StenoRule
 
 # Separator rule constant (can be tested by identity).
-_RULE_SEP = StenoRule(LexerKeys(KEY_SEP), "", frozenset(), "Stroke separator", ())
+_RULE_SEP = StenoRule(LexerKeys.separator(), "", frozenset(), "Stroke separator", ())
 
 
 class StenoLexer(SpectraComponent):
@@ -115,11 +114,11 @@ class StenoLexer(SpectraComponent):
     def _check_special(self, test_keys:LexerKeys, rulemap) -> Optional[StenoRule]:
         """ Check special end rule cases before the main matching algorithm. """
         # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
-        if test_keys.is_star(0) and (len(test_keys) == 1 or is_separator(test_keys, 1)):
+        if test_keys.is_star(0) and (len(test_keys) == 1 or test_keys.is_separator(1)):
             flag = self._decipher_star(test_keys, rulemap)
             return get_key_rules([flag])[0]
         # If we end up with a stroke separator at the pointer, consume it and return the rule.
-        if is_separator(test_keys, 0):
+        if test_keys.is_separator(0):
             return _RULE_SEP
 
     def _decipher_star(self, test_keys:LexerKeys, rulemap:LexerResult) -> str:
@@ -136,7 +135,7 @@ class StenoLexer(SpectraComponent):
         # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
         # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
-        if has_separator(test_keys) ^ any(m.rule is _RULE_SEP for m in rulemap):
+        if test_keys.has_separator() ^ any(m.rule is _RULE_SEP for m in rulemap):
             return "*:PS"
         # If the search component is loaded with the standard dictionaries, we can check if there's an
         # entry with every key *except* the star. If there is, it's probably there because of a conflict.

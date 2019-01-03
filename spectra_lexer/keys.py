@@ -10,53 +10,31 @@ To differentiate between these, the first can be typed as StenoKeys and the latt
 Characters from an outside source (JSON files or the Plover engine) are assumed to be RTFCRE.
 """
 
-from typing import Callable, List, TypeVar
-
-KEY_NUMBER = "#"
+from collections import defaultdict
+from typing import Callable, List, Tuple, TypeVar
 
 # Key constants which aren't physical steno keys but appear in strings.
 KEY_SEP = "/"
 KEY_SPLIT = "-"
-
 # Various ordered strings of keys for testing based on steno order.
 L_KEYS = "#STKPWHR"
 C_KEYS = "AO*EU"
 R_KEYS = "frpblgtsdz"
-
 # Various pre-computed key containers for fast membership testing.
 C_KEYS_SET = set(C_KEYS)
 C_KEYS_IN = C_KEYS_SET.intersection
 IS_C_KEY = C_KEYS_SET.__contains__
+# Number key and RTFCRE steno keys required to produce the numbers 0-9 in order with this key.
+KEY_NUMBER = "#"
+NUMBER_ALIASES = "OSTPHAFPLT"
+NUMBER_LITERALS_IN = set(map(str, range(10))).intersection
+# Translation table for cleansing steno strings of unknown origin.
+VALID_CHAR_SET = set().union(L_KEYS, C_KEYS, R_KEYS, R_KEYS.upper(), KEY_SEP, KEY_SPLIT)
+_TF_DICT = defaultdict(lambda: None, {ord(k): k for k in VALID_CHAR_SET})
+_TF_DICT.update(enumerate(NUMBER_ALIASES, ord("0")))
 
-
-# Public module-level functions that work on any class of stroke.
+# Public module-level function that works on any class of stroke.
 join_strokes:Callable[[str], str] = KEY_SEP.join
-
-
-def split_strokes(self:str) -> List[str]:
-    """ Split a single string into a list by the stroke separator '/'  """
-    return self.split(KEY_SEP)
-
-
-def first_stroke(self) -> str:
-    """ Return only the first stroke (or remnants thereof) as a standard string. """
-    return self.split(KEY_SEP, 1)[0]
-
-
-def has_separator(s:str) -> bool:
-    """ Is there one or more stroke separators in the current key set? """
-    return KEY_SEP in s
-
-
-def is_separator(s, index:int=None) -> bool:
-    """ If no arguments, is the current key set only a stroke separator?
-        With one argument, is the key at the given index a stroke separator? """
-    return (s if index is None else s[index]) == KEY_SEP
-
-
-def is_number(s) -> bool:
-    """ Is the current stroke a number of some form? """
-    return KEY_NUMBER in s
 
 
 T = TypeVar('StenoKeys')
@@ -66,23 +44,46 @@ class StenoKeys(str):
 
     def to_rtfcre(self) -> str:
         """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
-        return self.map_strokes(_stroke_stenokeys_to_rtfcre)
+        return _map_strokes(self, _stroke_stenokeys_to_rtfcre)
 
     @classmethod
     def from_rtfcre(cls, s:str) -> T:
-        """ Transform a string from RTFCRE. Result will have the StenoKeys derived class. """
-        return cls(cls.map_strokes(s, _stroke_rtfcre_to_stenokeys))
+        """ Transform a string from RTFCRE. Result will have the derived class. """
+        return cls(_map_strokes(s, _stroke_rtfcre_to_stenokeys))
 
-    def map_strokes(self:str, func:Callable[[str],str]) -> str:
-        """ Split a steno key string into individual strokes, run a function on each of them,
-            then join the return values back into one string with a stroke separator. """
-        # If there are no stroke separators (i.e. one stroke), just run the function on that string and return it.
-        if not has_separator(self):
-            return func(self)
-        # Otherwise, split on stroke separators, map, and re-join.
-        strokes_iter = split_strokes(self)
-        transformed = map(func, strokes_iter)
-        return join_strokes(transformed)
+    @classmethod
+    def cleanse_from_rtfcre(cls, s:str) -> T:
+        """ Lexer input may come from the user, in which case the formatting cannot be trusted.
+            Cleanse the string of abnormalities before parsing it as usual. """
+        return cls(_map_strokes(s, _cleanse_rtfcre_to_stenokeys))
+
+    @classmethod
+    def separator(cls):
+        """ Return a class instance of the stroke separator. """
+        return cls(KEY_SEP)
+
+    def get_stroke(self, index:int):
+        return self.split(KEY_SEP)[index]
+
+    def for_display(self) -> List[Tuple[str, bool]]:
+        """ Generate a list of strokes along with whether or not they have been shifted with the number key. """
+        return [(s, KEY_NUMBER in s) for s in self.split(KEY_SEP)]
+
+    def has_separator(self) -> bool:
+        """ Is there one or more stroke separators in the current key set? """
+        return KEY_SEP in self
+
+    def is_separator(self, index:int=None) -> bool:
+        """ If no arguments, is the current key set only a stroke separator?
+            With one argument, is the key at the given index a stroke separator? """
+        return (self if index is None else self[index]) == KEY_SEP
+
+
+def _map_strokes(keys:str, map_method:callable) -> str:
+    """ Split a string into strokes, map a function to each one, then re-join and return. """
+    strokes = keys.split(KEY_SEP)
+    strokes = map(map_method, strokes)
+    return join_strokes(strokes)
 
 
 def _stroke_stenokeys_to_rtfcre(s:str) -> str:
@@ -119,3 +120,15 @@ def _stroke_rtfcre_to_stenokeys(s:str) -> str:
 def _lowercase_right_and_join(left:str, right:str) -> str:
     """ Rejoin string with right side lowercase. If there are no right side keys, just return the left. """
     return left + right.lower() if right else left
+
+
+def _cleanse_rtfcre_to_stenokeys(s:str) -> str:
+    """ A vigorous formatting operation for RTFCRE strings close to user operation.
+        Remove all characters that are considered invalid in steno strings for the parser.
+        Translate any literal numbers by replacing them with their key equivalents and adding
+        a number key to the beginning of the stroke if one or more was replaced.
+        End with a normal conversion to StenoKeys format and return. """
+    rep = s.translate(_TF_DICT)
+    if rep != s and NUMBER_LITERALS_IN(s) and KEY_NUMBER not in s:
+        return KEY_NUMBER + rep
+    return _stroke_rtfcre_to_stenokeys(rep)

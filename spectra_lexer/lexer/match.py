@@ -1,6 +1,6 @@
 from typing import Dict, Iterable, List
 
-from spectra_lexer.keys import first_stroke, StenoKeys
+from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.keys import LexerKeys
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import PrefixTree
@@ -73,7 +73,7 @@ class LexerRuleMatcher:
 
     def _stroke_match(self, keys:StenoKeys, letters:str) -> List[StenoRule]:
         """ For the stroke dictionary, the rule must match the next full stroke and a subset of the given letters. """
-        r = self._stroke_dict.get(first_stroke(keys))
+        r = self._stroke_dict.get(keys.get_stroke(0))
         if r and r.letters in letters:
             return [r]
         return []

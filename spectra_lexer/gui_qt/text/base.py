@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import QLineEdit, QWidget
 
 from spectra_lexer import on, pipe, SpectraComponent
 from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
-from spectra_lexer.rules import StenoRule
 
 
 class GUIQtTextDisplay(SpectraComponent):
@@ -28,10 +27,10 @@ class GUIQtTextDisplay(SpectraComponent):
         """ Display engine status messages in the title bar. """
         self.w_title.setText(msg)
 
-    @on("new_lexer_result")
-    def display_title(self, rule:StenoRule) -> None:
-        """ For a new lexer result, set the title from the rule. """
-        self.w_title.setText(str(rule))
+    @on("new_output_title")
+    def display_title(self, title:str) -> None:
+        """ For a new lexer result output, set the title above the graph. """
+        self.w_title.setText(title)
 
     @on("new_output_graph")
     def display_new_graph(self, text:str, **kwargs) -> None:

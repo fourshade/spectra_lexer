@@ -1,4 +1,4 @@
-from spectra_lexer.keys import is_separator, StenoKeys
+from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import Node
 
@@ -34,7 +34,7 @@ class OutputNode(Node):
         self.attach_start = start
         self.attach_length = length
         self.raw_keys = keys
-        self.is_separator = is_separator(keys)
+        self.is_separator = keys.is_separator()
         self.is_inversion = "INV" in flags
         if maxdepth:
             self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])
