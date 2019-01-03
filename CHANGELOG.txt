@@ -1,3 +1,11 @@
+0.5.0
+-----
+* Some components are now user-configurable
+* More rules added (mostly orthographic variations)
+* Lexer can now return incomplete matches at the cost of speed
+* Various optimizations made on lexer and output components
+* Minor output display bugs fixed
+
 0.4.0
 -----
 * Program code is refactored again for better separation of components

@@ -11,7 +11,6 @@ from spectra_lexer.dict.translations import TranslationsManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
-from spectra_lexer.rules import KEY_FLAGS
 from spectra_lexer.text import CascadedTextFormatter
 from spectra_lexer.text.node import OUTPUT_FLAGS
 from test import get_test_filename
@@ -36,18 +35,18 @@ direct_connect(DICT_R, FILE)
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in DICT_R.load_default():
+    for d in DICT_R._load(DICT_R.files):
         # Check for rules that have identical names (keys)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
         full_dict.update(d)
 
 
-RULES_LIST = DICT_R.load()
-LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
+RULES_DICT = DICT_R.load()
+LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS)
 
 
-@pytest.mark.parametrize("r", RULES_LIST)
+@pytest.mark.parametrize("r", RULES_DICT.values())
 def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
     # If the entry has flags, verify that all of them are valid.
@@ -73,7 +72,7 @@ DICT_T = TranslationsManager()
 direct_connect(DICT_T, FILE)
 TEST_TRANSLATIONS = list(DICT_T.load([get_test_filename()]).items())
 LEXER = StenoLexer()
-LEXER.set_rules(RULES_LIST)
+LEXER.set_rules(RULES_DICT)
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)

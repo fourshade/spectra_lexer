@@ -1,0 +1,16 @@
+# Special "key" rules that don't map to letters but are still displayed in rule breakdowns, such as asterisk meanings.
+# These always go at the end of rule patterns (in regular parentheses ()) regardless of steno order.
+
+{
+  "*:??":   ["*",  "", "SPEC", "purpose unknown\nPossibly resolves a conflict"],
+  "*:CF":   ["*",  "", "SPEC", "resolves conflict between words"],
+  "*:PR":   ["*",  "", "SPEC", "indicates a proper noun\n(names, places, etc.)"],
+  "*:AB":   ["*",  "", "SPEC", "indicates an abbreviation"],
+  "*:PS":   ["*",  "", "SPEC", "indicates a prefix or suffix stroke"],
+  "*:OB":   ["*",  "", "SPEC", "indicates an obscenity\n(and make it harder to be the result of a misstroke)"],
+  "*:FS":   ["*",  "", "SPEC", "indicates fingerspelling"],
+  "-P:FS":  ["-P", "", "SPEC", "use to capitalize fingerspelled letters"],
+  "#:NM":   ["#",  "", "SPEC", "use to shift to number mode"],
+  "EU:NM":  ["EU", "", "SPEC", "use to invert the order of two digits"],
+  "-D:NM":  ["-D", "", "SPEC", "use to double a digit"]
+}

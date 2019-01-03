@@ -1,12 +1,12 @@
 from itertools import product
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Dict
 
 from spectra_lexer import fork, on
 from spectra_lexer.config import Configurable, CFGOption
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
 from spectra_lexer.lexer.results import LexerResults
-from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
+from spectra_lexer.rules import RuleMapItem, StenoRule
 
 # Separator rule constant (can be tested by identity).
 _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", ())
@@ -27,9 +27,9 @@ class StenoLexer(Configurable):
     _word: str                         # Current English word, used in default return rule if none others are valid.
 
     @on("new_rules")
-    def set_rules(self, rules:Iterable[StenoRule]) -> None:
-        """ Take a sequence of rules parsed from a file and sort them into categories for matching. """
-        self._matcher = LexerRuleMatcher(rules)
+    def set_rules(self, rules_dict:Dict[str, StenoRule]) -> None:
+        """ Take a dict of rules parsed from a file and sort them into categories for matching. """
+        self._matcher = LexerRuleMatcher(rules_dict)
 
     @fork("lexer_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:
@@ -115,8 +115,10 @@ class StenoLexer(Configurable):
         """ Check special end rule cases before the main matching algorithm. """
         # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
         if test_keys and test_keys[0] == KEY_STAR and (len(test_keys) == 1 or test_keys.is_separator(1)):
-            flag = self._decipher_star(test_keys, rulemap)
-            add_key_rules(rulemap, [flag], wordptr)
+            name = self._decipher_star(test_keys, rulemap)
+            rule = self._matcher.special_match(name)
+            if rule:
+                rulemap.append(RuleMapItem(rule, wordptr, 0))
             test_keys = StenoKeys(test_keys[1:])
         # If we end up with a stroke separator at the pointer, consume it. The next stroke will be a complete one.
         if test_keys and test_keys.is_separator(0):
@@ -126,7 +128,7 @@ class StenoLexer(Configurable):
 
     def _decipher_star(self, test_keys:StenoKeys, rulemap:list) -> str:
         """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
-            the full word, and the current rulemap. Return the flag value for the best-guess rule. """
+            the full word, and the current rulemap. Return the reference name for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
         letters = self._word
         if "." in letters:
@@ -143,5 +145,5 @@ class StenoLexer(Configurable):
         # entry with every key *except* the star. If there is, it's probably there because of a conflict.
         if self.engine_call("search_lookup", self._keys.without(KEY_STAR).to_rtfcre()):
             return "*:CF"
-        # No other possible uses of the star are decidable by the program, so return the "ambiguous" flag.
+        # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
         return "*:??"

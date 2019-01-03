@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.dict.manager import ResourceManager
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
+from spectra_lexer.rules import RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -38,7 +38,7 @@ class RulesManager(ResourceManager):
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one also needs to be kept.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def parse(self, src_dict:Dict[str, str]) -> List[StenoRule]:
+    def parse(self, src_dict:Dict[str, str]) -> Dict[str, StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
         self._src_dict = {k: RawRule(*v) for (k, v) in src_dict.items()}
@@ -50,7 +50,7 @@ class RulesManager(ResourceManager):
                 self._parse(k)
         # Return only the rules themselves. Components such as the lexer don't care about the names.
         # Multiple components may want to use these, so the iterable must be reusable (i.e. a list).
-        return list(self._dst_dict.values())
+        return self._dst_dict
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
@@ -59,10 +59,8 @@ class RulesManager(ResourceManager):
         letters, built_map = self._substitute(raw_rule.pattern)
         # The keys must be converted from RTFCRE form into lexer form.
         keys = StenoKeys.from_rtfcre(raw_rule.keys)
-        # Parse the flag string and add key flags as ending rules.
+        # Parse the flag string into a set and keep the description string directly.
         flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
-        if flags:
-            add_key_rules(built_map, flags, len(letters))
         description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.
         if raw_rule.example_str:

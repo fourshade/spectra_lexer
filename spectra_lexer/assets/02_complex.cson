@@ -11,7 +11,7 @@
   ".sh":  ["-RB",  "sh",         "",     "right side `sh`"],
   ".th":  ["*T",   "th",         "",     "right side `th`"],
 
-  ".v+":  ["*F",   "(.v)",       "*:CF", "used to disambiguate `f` vs. `v`"],
+  ".v+":  ["*F",   "(.v)(*:CF)", "",     "used to disambiguate `f` vs. `v`"],
   ".s.":  ["-F",   "s",          "",     "used as `s` when necessary to preserve steno order"],
   ".C.":  ["-F",   "c",          "",     "used as soft `c` when necessary to preserve steno order"],
   ".st+": ["*S",   "st",         "",     "right side `st`; used in case of conflict with -FT"],
