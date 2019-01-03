@@ -1,15 +1,13 @@
+from functools import partial
 from itertools import product
-from typing import Iterable, Tuple, Dict
+from typing import Dict, Iterable, Tuple
 
 from spectra_lexer import fork, on
 from spectra_lexer.config import Configurable, CFGOption
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
+from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.lexer.results import LexerResults
 from spectra_lexer.rules import RuleMapItem, StenoRule
-
-# Separator rule constant (can be tested by identity).
-_RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", ())
 
 
 class StenoLexer(Configurable):
@@ -19,32 +17,31 @@ class StenoLexer(Configurable):
     """
 
     ROLE = "lexer"
-    need_all_keys = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
+    need_all_keys: bool = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
 
     _matcher: LexerRuleMatcher = None  # Master rule-matching dictionary.
     _results: LexerResults = None      # Container and organizer of valid results for the current query.
-    _keys: StenoKeys                   # Current parsed keys, used in default return rule if none others are valid.
-    _word: str                         # Current English word, used in default return rule if none others are valid.
 
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str, StenoRule]) -> None:
-        """ Take a dict of rules parsed from a file and sort them into categories for matching. """
-        self._matcher = LexerRuleMatcher(rules_dict)
+        """ Set up the rule matcher with a dict of rules and a translation search callback. """
+        search_callback = partial(self.engine_call, "search_lookup")
+        self._matcher = LexerRuleMatcher(rules_dict, search_callback)
 
     @fork("lexer_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
-        pairs = [(keys, word)]
-        return self._build_best_rule(pairs)
+        pair = (keys, word)
+        return self._build_best_rule([pair], pair)
 
     @fork("lexer_query_product", "new_lexer_result")
     def query_best_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
         pairs = list(product(keys, words))
-        return self._build_best_rule(pairs)
+        return self._build_best_rule(pairs, pairs[0])
 
-    def _build_best_rule(self, pairs:Iterable[Tuple[str,str]]) -> StenoRule:
+    def _build_best_rule(self, pairs:Iterable[Tuple[str,str]], default_pair:Tuple[str,str]) -> StenoRule:
         """ Given an iterable of mappings of key strings to matching translations,
             return the best possible rule relating any pair of them. """
         self._results = LexerResults(self.need_all_keys)
@@ -52,8 +49,8 @@ class StenoLexer(Configurable):
         for keys, word in pairs:
             # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
             self._generate_maps(StenoKeys.cleanse_from_rtfcre(keys), word)
-        # Make a rule out of the best result and return it.
-        return self._results.to_rule(self._keys, self._word)
+        # Make a rule out of the best result (if any) and return it.
+        return self._results.to_rule(default_pair)
 
     def _generate_maps(self, keys:StenoKeys, word:str) -> None:
         """
@@ -65,85 +62,37 @@ class StenoLexer(Configurable):
         The lexer state includes: keys unmatched, letters unmatched/skipped, position in the full word,
         number of letters matched, and the current rule map. These completely define the lexer's progress.
         """
-        self._keys = keys
-        self._word = word
         best_letters = 0
+        add_result = self._results.add_result
+        match_rules = self._matcher.match
         # Initialize the stack with the start position ready at the bottom and start processing.
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
         stack = [(keys, word.lower(), 0, 0, [])]
         while stack:
-            # Take the next search path off the stack.
+            # Take the next search path off the stack and add it to the results if it's not empty.
             test_keys, test_word, wordptr, lc, rulemap = stack.pop()
-            if not rulemap:
-                # We have a complete stroke and word if we haven't matched anything yet.
-                is_full_stroke = True
-                is_full_word = True
-            else:
-                # Check special end-cases. None of these can advance the word pointer.
-                # We have a complete stroke next if this match is a stroke separator.
-                test_keys, is_full_stroke = self._check_special(test_keys, rulemap, wordptr)
-                # We have a complete word if the word pointer is sitting on a space.
-                is_full_word = (test_word and test_word[0] == ' ')
-            # If unmatched keys remain, attempt to match them to rules in steno order.
-            # We assume every rule matched here MUST consume at least one key and one letter.
-            if test_keys:
-                # Calculate how many letters we could possibly skip and still be in the running for best map.
-                space_left = len(test_word) - (best_letters - lc)
-                # Get the rules that would work as the next match in order from fewest keys matched to most.
-                # This helps us find dense maps first so we can eliminate later ones quickly on space.
-                for r in self._matcher.match(test_keys, test_word, is_full_stroke, is_full_word):
-                    # Find the first index of each match. This is also how many characters were skipped.
-                    i = test_word.find(r.letters)
-                    # Filter out cases that no longer have enough space left to beat or tie the best map.
-                    if space_left < i:
-                        continue
-                    # Make a copy of the current map and add the new rule + its location in the complete word.
-                    word_len = len(r.letters)
-                    new_map = rulemap + [RuleMapItem(r, wordptr + i, word_len)]
-                    # Push a stack item with the new map, and with the matched keys and letters removed.
-                    word_inc = word_len + i
-                    stack.append((test_keys.without(r.keys), test_word[word_inc:],
-                                  wordptr + word_inc, lc + word_len, new_map))
-            else:
-                # If we got here, we finished a legitimate mapping that could be better than anything we've got.
-                # Save the best letter count so we can reject bad maps early.
+            if rulemap:
+                add_result(rulemap, keys, word, test_keys)
+            if not test_keys:
+                # If no keys are left, we finished a complete mapping that could be better than anything we've got.
+                # Save the best letter count (so we can reject bad maps early) and continue up the stack.
                 best_letters = max(best_letters, lc)
-            # Save the map if all keys were mapped. It may not stick if partial matches are not allowed.
-            self._results.add_result(rulemap, keys, word, test_keys)
-
-    def _check_special(self, test_keys:StenoKeys, rulemap:list, wordptr:int) -> Tuple[StenoKeys, bool]:
-        """ Check special end rule cases before the main matching algorithm. """
-        # If we only have a star left at the end of a stroke, consume it and try to guess its meaning.
-        if test_keys and test_keys[0] == KEY_STAR and (len(test_keys) == 1 or test_keys.is_separator(1)):
-            name = self._decipher_star(test_keys, rulemap)
-            rule = self._matcher.special_match(name)
-            if rule:
-                rulemap.append(RuleMapItem(rule, wordptr, 0))
-            test_keys = StenoKeys(test_keys[1:])
-        # If we end up with a stroke separator at the pointer, consume it. The next stroke will be a complete one.
-        if test_keys and test_keys.is_separator(0):
-            rulemap.append(RuleMapItem(_RULE_SEP, wordptr, 0))
-            return StenoKeys(test_keys[1:]), True
-        return test_keys, False
-
-    def _decipher_star(self, test_keys:StenoKeys, rulemap:list) -> str:
-        """ Try to guess the meaning of an asterisk from the remaining keys, the full set of keys,
-            the full word, and the current rulemap. Return the reference name for the best-guess rule. """
-        # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
-        letters = self._word
-        if "." in letters:
-            return "*:AB"
-        # If the word has uppercase letters in it, it's probably a proper noun.
-        if letters != letters.lower():
-            return "*:PR"
-        # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
-        # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
-        # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
-        if test_keys.has_separator() ^ any(m.rule.keys.has_separator() for m in rulemap):
-            return "*:PS"
-        # If the search component is loaded with the standard dictionaries, we can check if there's an
-        # entry with every key *except* the star. If there is, it's probably there because of a conflict.
-        if self.engine_call("search_lookup", self._keys.without(KEY_STAR).to_rtfcre()):
-            return "*:CF"
-        # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
-        return "*:??"
+                continue
+            # If unmatched keys remain, attempt to match them to rules in steno order.
+            # Calculate how many letters we could possibly skip and still be in the running for best map.
+            space_left = len(test_word) - (best_letters - lc)
+            # Get the rules that would work as the next match in order from fewest keys matched to most.
+            # This helps us find dense maps first so we can eliminate later ones quickly on space.
+            for r in match_rules(test_keys, test_word, keys, word, rulemap):
+                # Find the first index of each match. This is also how many characters were skipped.
+                i = test_word.find(r.letters)
+                # Filter out cases that no longer have enough space left to beat or tie the best map.
+                if space_left < i:
+                    continue
+                # Make a copy of the current map and add the new rule + its location in the complete word.
+                word_len = len(r.letters)
+                new_map = rulemap + [RuleMapItem(r, wordptr + i, word_len)]
+                # Push a stack item with the new map, and with the matched keys and letters removed.
+                word_inc = word_len + i
+                stack.append((test_keys.without(r.keys), test_word[word_inc:],
+                              wordptr + word_inc, lc + word_len, new_map))
