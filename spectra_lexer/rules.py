@@ -11,10 +11,10 @@ KEY_FLAGS = {"*:??":  "purpose unknown\nPossibly resolves a conflict",
              "*:PS":  "indicates a prefix or suffix stroke",
              "*:OB":  "indicates an obscenity\n(and make it harder to be the result of a misstroke)",
              "*:FS":  "indicates fingerspelling",
-             "p:FS":  "use to capitalize fingerspelled letters",
+             "-P:FS":  "use to capitalize fingerspelled letters",
              "#:NM":  "use to shift to number mode",
              "EU:NM": "use to invert the order of two digits",
-             "d:NM":  "use to double a digit"}
+             "-D:NM":  "use to double a digit"}
 
 
 class StenoRule(NamedTuple):
@@ -58,7 +58,7 @@ class RuleMap(List[RuleMapItem]):
 
 
 # Rule constants governing key flags.
-_KEY_RULES = {k: StenoRule(StenoKeys(k.split(":", 1)[0]), "", frozenset(), v, ())
+_KEY_RULES = {k: StenoRule(StenoKeys.from_rtfcre(k.split(":", 1)[0]), "", frozenset(), v, ())
               for (k, v) in KEY_FLAGS.items()}
 
 
