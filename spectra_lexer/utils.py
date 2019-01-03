@@ -1,5 +1,5 @@
 """ Module for generic utility functions that could be useful in many applications. """
-
+from functools import reduce
 from typing import Any, Callable, Generator, Iterable, Mapping, Sequence, Union
 
 
@@ -70,3 +70,13 @@ def memoize_one_arg(f:callable) -> callable:
             ret = self[key] = f(key)
             return ret
     return MemoDict().__getitem__
+
+
+def _remove_char(s:str, c:str, _replace=str.replace) -> str:
+    """ Return a copy of <s> with the character <c> removed starting from the left. """
+    return _replace(s, c, "", 1)
+
+
+def str_without_chars(s:str, chars:str) -> str:
+    """ Return a copy of <s> with each of the characters in <chars> removed, starting from the left. """
+    return reduce(_remove_char, chars, s)

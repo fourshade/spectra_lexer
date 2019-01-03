@@ -14,6 +14,8 @@ from collections import defaultdict
 from typing import Callable, List, Tuple, TypeVar
 
 # Key constants which aren't physical steno keys but appear in strings.
+from spectra_lexer.utils import str_without_chars
+
 KEY_SEP = "/"
 KEY_SPLIT = "-"
 # Various ordered strings of keys for testing based on steno order.
@@ -48,22 +50,25 @@ class StenoKeys(str):
 
     @classmethod
     def from_rtfcre(cls, s:str) -> T:
-        """ Transform a string from RTFCRE. Result will have the derived class. """
-        return cls(_map_strokes(s, _stroke_rtfcre_to_stenokeys))
+        """ Transform a string from RTFCRE. Result will have the derived class.
+            Overwrite the reverse method with one that returns the original string. """
+        self = cls(_map_strokes(s, _stroke_rtfcre_to_stenokeys))
+        self.to_rtfcre = lambda: s
+        return self
 
     @classmethod
     def cleanse_from_rtfcre(cls, s:str) -> T:
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
             Cleanse the string of abnormalities before parsing it as usual. """
-        return cls(_map_strokes(s, _cleanse_rtfcre_to_stenokeys))
+        return cls.from_rtfcre(_cleanse_rtfcre(s))
 
     @classmethod
     def separator(cls):
         """ Return a class instance of the stroke separator. """
         return cls(KEY_SEP)
 
-    def get_stroke(self, index:int):
-        return self.split(KEY_SEP)[index]
+    def first_stroke(self):
+        return self.split(KEY_SEP, 1)[0]
 
     def for_display(self) -> List[Tuple[str, bool]]:
         """ Generate a list of strokes along with whether or not they have been shifted with the number key. """
@@ -77,6 +82,13 @@ class StenoKeys(str):
         """ If no arguments, is the current key set only a stroke separator?
             With one argument, is the key at the given index a stroke separator? """
         return (self if index is None else self[index]) == KEY_SEP
+
+    def without(self, keys:str) -> T:
+        """ Return a copy of this object without each of the given keys (taken from the left). """
+        if self.startswith(keys):
+            return self.__class__(self[len(keys):])
+        s = str_without_chars(self, keys)
+        return self.__class__(s)
 
 
 def _map_strokes(keys:str, map_method:callable) -> str:
@@ -122,13 +134,12 @@ def _lowercase_right_and_join(left:str, right:str) -> str:
     return left + right.lower() if right else left
 
 
-def _cleanse_rtfcre_to_stenokeys(s:str) -> str:
+def _cleanse_rtfcre(s:str) -> str:
     """ A vigorous formatting operation for RTFCRE strings close to user operation.
         Remove all characters that are considered invalid in steno strings for the parser.
         Translate any literal numbers by replacing them with their key equivalents and adding
-        a number key to the beginning of the stroke if one or more was replaced.
-        End with a normal conversion to StenoKeys format and return. """
+        a number key to the beginning of the stroke if one or more was replaced. """
     rep = s.translate(_TF_DICT)
     if rep != s and NUMBER_LITERALS_IN(s) and KEY_NUMBER not in s:
         rep = KEY_NUMBER + rep
-    return _stroke_rtfcre_to_stenokeys(rep)
+    return rep

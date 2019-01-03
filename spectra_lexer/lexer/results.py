@@ -1,20 +1,20 @@
 from operator import attrgetter
 from typing import Iterable, List, Tuple
 
-from spectra_lexer.lexer.keys import LexerKeys
-from spectra_lexer.rules import RuleMapItem
+from spectra_lexer.keys import StenoKeys
+from spectra_lexer.rules import RuleMapItem, StenoRule
 
 
-class LexerResult(List[RuleMapItem]):
+class _Result(List[RuleMapItem]):
     """ List-based rulemap: a sequence meant to hold a series of (rule, start, length) tuples
         indicating the various rules that make up a word and their starting/ending positions.
         Map items should be in sequential order by starting position within the word.
         Must be frozen before inclusion in a rule. """
 
-    keys: LexerKeys  # Full key string
+    keys: StenoKeys  # Full key string
     letters: str     # Full English text of the word.
 
-    def __init__(self, keys:LexerKeys, letters:str, src:Iterable[RuleMapItem]=()):
+    def __init__(self, keys:StenoKeys, letters:str, src:Iterable[RuleMapItem]=()):
         super().__init__(src)
         self.keys = keys
         self.letters = letters
@@ -56,3 +56,19 @@ class LexerResult(List[RuleMapItem]):
         matchable = sum([c != ' ' for c in self.letters])
         # All whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
         return matched / matchable if matchable else 0
+
+
+class LexerResults(list):
+
+    def add(self, keys, word, rulemap):
+        """ Add a valid rulemap to the list of results. Requires the full set of keys and letters for ranking. """
+        self.append(_Result(keys, word, rulemap))
+
+    def best_map_to_rule(self, default_keys, default_word) -> StenoRule:
+        """ Find the best out of a series of rule maps based on the rank value of each and build a rule from it.
+            Return an empty rule with the last used translation if no rule maps were found by the lexer. """
+        if not self:
+            return StenoRule(default_keys, default_word, frozenset(), "No matches found.", ())
+        best_result = max(self, key=_Result.rank)
+        desc = "Found {:.0%} match.".format(best_result.letters_matched_ratio())
+        return StenoRule(best_result.keys, best_result.letters, frozenset(), desc, tuple(best_result))
