@@ -3,7 +3,8 @@ from spectra_lexer.rules import StenoRule
 from spectra_lexer.struct import Node
 
 # Acceptable rule flags that indicate special behavior for output formatting.
-OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing."}
+OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing.",
+                "BAD": "Incomplete lexer result with unmatched StenoKeys attached by colon."}
 
 # Default limit on number of recursion steps to allow for rules that contain other rules.
 RECURSION_LIMIT = 10
@@ -22,6 +23,7 @@ class OutputNode(Node):
     description: str              # Rule description for the board diagram.
     is_separator: bool = False    # Directive for drawing the stroke separator rule.
     is_inversion: bool = False    # Directive for drawing a rule that uses inversion of steno order.
+    unmatched_node = None         # Node containing unmatched steno characters. Not a concern for non-root nodes.
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
@@ -64,3 +66,15 @@ class OutputTree(OutputNode):
         # The root node always shows letters and does not include anything extra in its description.
         self.text = rule.letters
         self.description = rule.desc
+        # The unmatched flag is only worth checking in the root node.
+        for f in rule.flags:
+            if f.startswith("BAD:"):
+                self._set_unmatched_keys(f.split(":", 1)[1])
+
+    def _set_unmatched_keys(self, unmatched_keys:str):
+        """ If unmatched keys are found, make and store an unattached base node with them. """
+        r = StenoRule(StenoKeys(unmatched_keys), "", frozenset(), "unmatched keys", ())
+        self.unmatched_node = OutputNode(r, 0, len(self.text), 0)
+        # Separators at the ends of incomplete matches cause too much trouble. Remove them right here.
+        if self.children and self.children[-1].is_separator:
+            self.children.pop()

@@ -5,9 +5,11 @@ from spectra_lexer.text.node import OutputNode
 # Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
 _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
                       "BOTTOM": "├─┐",
+                      "MIDDLE": "|||",
                       "S_BEND": "└─┐",
                       "Z_BEND": "┌─┘",
-                      "INV":    "◄═►"}
+                      "INV":    "◄═►",
+                      "BAD":    "???"}
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
@@ -74,23 +76,6 @@ class _TextOutputLine(str):
         return self._node_map or ()
 
 
-def generate_text(src:OutputNode) -> Tuple[List[str], List[Tuple[OutputNode]]]:
-    """ Main generator for output text. Builds a list of plaintext strings from a node tree,
-        as well as a grid with additional info about node locations for highlighting support. """
-    if src.children:
-        # Use the helper function to add lines recursively, starting at the left end with no placeholders.
-        output_lines = []
-        _draw_node(output_lines, src, 0, _TextOutputLine())
-        output_lines.reverse()
-    else:
-        # A root node by itself means we didn't find any complete matches with the lexer.
-        output_lines = _incomplete_graph(src)
-    # Return the generated strings, free of the context of any metadata they carry as a subclass.
-    # Compile all saved node info into a 2D grid indexed by position.
-    node_grid = [line.get_node_map() for line in output_lines]
-    return output_lines, node_grid
-
-
 def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholders:_TextOutputLine) -> None:
     """ Add lines of vertical cascaded plaintext to the string list. They are added recursively in reverse order.
         This means that the order must be reversed back by the caller at the top level. """
@@ -103,22 +88,22 @@ def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholde
             if child.is_separator:
                 # If it's a separator, add slashes behind the previous line and do nothing else.
                 out.append(out.pop().replace(' ', _SEP_SYMBOL))
-            else:
-                start = child.attach_start
-                wp = start + offset
-                # Add child recursively.
-                _draw_node(out, child, wp, placeholders)
-                # Add a line with the bottom connector (using different symbols if the rule uses inversion).
-                # If the text leads with a hyphen (uncovered symbol), the connector shouldn't cover it.
-                bottom_len = len(child.text)
-                if not child.children and wp > 0 and child.text[0] in _UNCOVERED_SYMBOLS:
-                    bottom_len -= 1
-                bottom_container_type = "INV" if child.is_inversion else "BOTTOM"
-                out.append(placeholders.with_container(child, wp, bottom_len, bottom_container_type))
-                # Place this child's top connector on the holding container.
-                top = top.with_container(child, wp, child.attach_length, "TOP")
-                # Add a permanent connector line to the placeholders.
-                placeholders = placeholders.with_connector(child, wp)
+                continue
+            start = child.attach_start
+            wp = start + offset
+            # Add child recursively.
+            _draw_node(out, child, wp, placeholders)
+            # Add a line with the bottom connector (using different symbols if the rule uses inversion).
+            # If the text leads with a hyphen (uncovered symbol), the connector shouldn't cover it.
+            bottom_len = len(child.text)
+            if not child.children and wp > 0 and child.text[0] in _UNCOVERED_SYMBOLS:
+                bottom_len -= 1
+            bottom_container_type = "INV" if child.is_inversion else "BOTTOM"
+            out.append(placeholders.with_container(child, wp, bottom_len, bottom_container_type))
+            # Place this child's top connector on the holding container.
+            top = top.with_container(child, wp, child.attach_length, "TOP")
+            # Add a permanent connector line to the placeholders.
+            placeholders = placeholders.with_connector(child, wp)
         # Destroy the last line if the first child had one character (i.e. connection is a line).
         if out[-1][offset] == _LINE_SYMBOL:
             out.pop()
@@ -141,10 +126,35 @@ def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholde
     out.append(placeholders.with_node_string(src, offset))
 
 
-def _incomplete_graph(src:OutputNode) -> List[_TextOutputLine]:
-    """ Draw a graph with the base node along with lines that show the lexer's failure to make a good guess. """
-    word = src.text
-    connectors = "".join([_LINE_SYMBOL if c.isalnum() else " " for c in word])
-    return [_TextOutputLine().with_node_string(src, 0),
-            _TextOutputLine(connectors),
-            _TextOutputLine(connectors.replace(_LINE_SYMBOL, "?"))]
+def _draw_missing_keys(out:List[_TextOutputLine], src:OutputNode) -> None:
+    """ Draw any unmatched keys on the diagram with question marks hanging off. """
+    unmatched = _TextOutputLine().with_node_string(src.unmatched_node, 0)
+    w = len(unmatched)
+    out += [_TextOutputLine(" " * w),
+            unmatched.with_container(src.unmatched_node, 0, w, "BAD"),
+            unmatched.with_container(src.unmatched_node, 0, w, "MIDDLE"),
+            unmatched]
+
+
+def _generate_text(src:OutputNode) -> List[_TextOutputLine]:
+    """ Generate a list of output lines, which are plaintext strings attached
+        to data containing the "ownership" of each character by a node. """
+    output_lines = []
+    # Start from the bottom up adding lines recursively, starting at the left end with no placeholders.
+    _draw_node(output_lines, src, 0, _TextOutputLine())
+    # Reverse the entire graph to get a top-to-bottom view with the root node on top.
+    output_lines.reverse()
+    # Draw any unmatched keys last.
+    if src.unmatched_node:
+        _draw_missing_keys(output_lines, src)
+    return output_lines
+
+
+def generate_text_grid(src:OutputNode) -> Tuple[List[str], List[Tuple[OutputNode]]]:
+    """ Main generator for text-based output. Builds a list of plaintext strings from a node tree,
+        as well as a grid with additional info about node locations for highlighting support. """
+    output_lines = _generate_text(src)
+    # Compile all saved node info into a 2D grid indexed by position.
+    node_grid = [line.get_node_map() for line in output_lines]
+    # Return this with the generated strings, free of the context of any metadata they carry as a subclass.
+    return output_lines, node_grid

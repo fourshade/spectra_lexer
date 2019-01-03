@@ -59,14 +59,14 @@ class HTMLFormatter:
         """ From a 2D node grid, compile a dict of nodes with the characters owned by each one. """
         self._lines = lines
         self._format_dict = fd = defaultdict(list)
-        for (row, nmap) in enumerate(node_grid):
-            old_i = -1
-            old_n = None
-            for i, n in enumerate(nmap + (None,)):
-                if n is not old_n:
-                    if old_n is not None:
-                        fd[old_n].append((row, old_i, i))
-                    old_i, old_n = i, n
+        for (row, node_row) in enumerate(node_grid):
+            last_col = -1
+            last_node = None
+            for (col, node) in enumerate(node_row + (None,)):
+                if node is not last_node:
+                    if last_node is not None:
+                        fd[last_node].append((row, last_col, col))
+                    last_col, last_node = col, node
 
     def make_graph_text(self, node:OutputNode=None) -> str:
         """ Make a full graph text string by joining the list of line strings and setting the preformatted tag.

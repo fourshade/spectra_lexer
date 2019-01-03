@@ -1,10 +1,10 @@
 from itertools import product
-from typing import Iterable, List, Tuple
+from typing import Iterable, Tuple
 
 from spectra_lexer import fork, on, SpectraComponent
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
-from spectra_lexer.lexer.results import LexerResults
+from spectra_lexer.lexer.results import LexerResultManager
 from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
 
 # Separator rule constant (can be tested by identity).
@@ -17,10 +17,15 @@ class StenoLexer(SpectraComponent):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
-    _matcher: LexerRuleMatcher = None  # The master rule-matching dictionary.
-    _results: LexerResults             # Collection of valid rule maps for the current query.
-    _keys: StenoKeys                   # Current parsed keys, used in default return rule if none others are valid.
-    _word: str                         # Current English word, used in default return rule if none others are valid.
+    _matcher: LexerRuleMatcher = None    # Master rule-matching dictionary.
+    _results: LexerResultManager = None  # Container and organizer of valid results for the current query.
+    _keys: StenoKeys                     # Current parsed keys, used in default return rule if none others are valid.
+    _word: str                           # Current English word, used in default return rule if none others are valid.
+
+    @on("configure")
+    def configure(self, need_all_keys=False, **cfg_dict) -> None:
+        """ Set up the lexer with configuration options. Currently, only key coverage is configurable. """
+        self._results = LexerResultManager(need_all_keys)
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
@@ -40,17 +45,16 @@ class StenoLexer(SpectraComponent):
         pairs = list(product(keys, words))
         return self._build_best_rule(pairs)
 
-    def _build_best_rule(self, pairs:List[Tuple[str,str]]) -> StenoRule:
+    def _build_best_rule(self, pairs:Iterable[Tuple[str,str]]) -> StenoRule:
         """ Given an iterable of mappings of key strings to matching translations,
-            return the best possible rule relating two of them. Send it to the engine as well. """
-        self._results = LexerResults()
-        # Collect and return all valid rulemaps (that aren't optimized away) for each pair of keys -> word.
+            return the best possible rule relating any pair of them. """
+        self._results.new_query()
+        # Collect all valid rulemaps (that aren't optimized away) for each pair of keys -> word.
         for keys, word in pairs:
             # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
             self._generate_maps(StenoKeys.cleanse_from_rtfcre(keys), word)
-        # Find the highest ranked rulemap according to how accurately it (probably) mapped the stroke
-        # to the translation. Make a rule out of the result and return it.
-        return self._results.best_map_to_rule(self._keys, self._word)
+        # Make a rule out of the best result and return it.
+        return self._results.to_rule(self._keys, self._word)
 
     def _generate_maps(self, keys:StenoKeys, word:str) -> None:
         """
@@ -104,8 +108,9 @@ class StenoLexer(SpectraComponent):
             else:
                 # If we got here, we finished a legitimate mapping that could be better than anything we've got.
                 # Save the best letter count so we can reject bad maps early.
-                self._results.add(keys, word, rulemap)
                 best_letters = max(best_letters, lc)
+            # Save the map if all keys were mapped. It may not stick if partial matches are not allowed.
+            self._results.add_result(rulemap, keys, word, test_keys)
 
     def _check_special(self, test_keys:StenoKeys, rulemap:list, wordptr:int) -> Tuple[StenoKeys, bool]:
         """ Check special end rule cases before the main matching algorithm. """

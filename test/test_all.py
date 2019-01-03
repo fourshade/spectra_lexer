@@ -35,6 +35,7 @@ FORMATTER = CascadedTextFormatter()
 TEST_TRANSLATIONS = FILE.load_file(get_test_filename())
 RAW_RULES = FILE.load_initial_rules()
 RULES_LIST = DICT.parse_rules(RAW_RULES)
+LEXER.configure()
 LEXER.set_rules(RULES_LIST)
 LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 

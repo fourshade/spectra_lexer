@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 
 from spectra_lexer import pipe, SpectraComponent
 from spectra_lexer.rules import StenoRule
-from spectra_lexer.text.generator import generate_text
+from spectra_lexer.text.generator import generate_text_grid
 from spectra_lexer.text.html import HTMLFormatter
 from spectra_lexer.text.node import OutputNode, OutputTree
 
@@ -37,8 +37,8 @@ class CascadedTextFormatter(SpectraComponent):
     def make_graph(self, rule:StenoRule) -> str:
         """ Generate a display tree, text graph, and info for a steno rule and send it to the GUI. """
         root = OutputTree(rule)
-        # Compile the plaintext output and node reference structures from the current tree using the generator.
-        lines, node_grid = generate_text(root)
+        # Create plaintext output lines and node reference structures from the current tree using the generator.
+        lines, node_grid = generate_text_grid(root)
         # Create a locator and formatter using these structures and keep them for later reference.
         self._formatter = HTMLFormatter(lines, node_grid)
         self._locator = _NodeLocator(node_grid)
