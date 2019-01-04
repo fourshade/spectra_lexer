@@ -28,7 +28,7 @@ class PrefixTree(defaultdict):
 
     def match(self, k: Sequence[ET]) -> List[VT]:
         """ From a given sequence, return an iterable of all of the values that match
-            any prefix of it in order from most elements matched to least. """
+            any prefix of it in order from shortest prefix matched to longest. """
         node = self
         lst = node["val"][:]
         for element in k:
@@ -36,7 +36,6 @@ class PrefixTree(defaultdict):
                 break
             node = node[element]
             lst += node["val"]
-        lst.reverse()
         return lst
 
 

@@ -130,5 +130,5 @@ def _cleanse_rtfcre_to_stenokeys(s:str) -> str:
         End with a normal conversion to StenoKeys format and return. """
     rep = s.translate(_TF_DICT)
     if rep != s and NUMBER_LITERALS_IN(s) and KEY_NUMBER not in s:
-        return KEY_NUMBER + rep
+        rep = KEY_NUMBER + rep
     return _stroke_rtfcre_to_stenokeys(rep)

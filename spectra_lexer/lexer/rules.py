@@ -1,23 +1,23 @@
 from operator import attrgetter
-from typing import Iterable, Sequence
+from typing import Iterable, List, Tuple
 
-from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap
+from spectra_lexer.lexer.keys import LexerKeys
+from spectra_lexer.rules import RuleMapItem
 
 
-class LexerResult(RuleMap):
-    """ List-based rulemap builder used during lexer matching. """
+class LexerResult(List[RuleMapItem]):
+    """ List-based rulemap: a sequence meant to hold a series of (rule, start, length) tuples
+        indicating the various rules that make up a word and their starting/ending positions.
+        Map items should be in sequential order by starting position within the word.
+        Must be frozen before inclusion in a rule. """
 
-    keys: StenoKeys  # Full key string
+    keys: LexerKeys  # Full key string
     letters: str     # Full English text of the word.
 
-    def __init__(self, keys="", letters="", src:Iterable=()):
+    def __init__(self, keys:LexerKeys, letters:str, src:Iterable[RuleMapItem]=()):
         super().__init__(src)
         self.keys = keys
         self.letters = letters
-
-    def copy(self):
-        return LexerResult(self.keys, self.letters, self)
 
     def _keys_unmatched(self, agetter=attrgetter("rule.keys")) -> int:
         """ Get the number of keys *not* matched by mapped rules. """
@@ -35,7 +35,7 @@ class LexerResult(RuleMap):
             return end_item.start + end_item.length - start_item.start
         return 0
 
-    def rank(self) -> Sequence[int]:
+    def rank(self) -> Tuple[int, ...]:
         """
         Determine the "value" of a lexer-generated rulemap.
         A larger value should reflect a more accurate mapping.

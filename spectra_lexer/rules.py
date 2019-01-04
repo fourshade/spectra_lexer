@@ -38,30 +38,11 @@ class RuleMapItem(NamedTuple):
     length: int
 
 
-class RuleMap(List[RuleMapItem]):
-    """ List-based rulemap: a sequence meant to hold a series of (rule, start, length) tuples
-        indicating the various rules that make up a word and their starting/ending positions.
-        Map items should be in sequential order by starting position within the word.
-        Must be frozen before inclusion in a rule. """
-
-    def add(self, rule:StenoRule, start:int, length:int) -> None:
-        """ Add a single rule to the end of the map. """
-        self.append(RuleMapItem(rule, start, length))
-
-    def add_special(self, rule:StenoRule, start:int) -> None:
-        """ Add a single special zero-length rule to the end of the map. """
-        self.append(RuleMapItem(rule, start, 0))
-
-    def freeze(self):
-        """ Freeze the rule map for inclusion in an immutable rule. """
-        return tuple(self)
-
-
 # Rule constants governing key flags.
 _KEY_RULES = {k: StenoRule(StenoKeys.from_rtfcre(k.split(":", 1)[0]), "", frozenset(), v, ())
               for (k, v) in KEY_FLAGS.items()}
 
 
-def get_key_rules(flags:Iterable[str]) -> List[StenoRule]:
-    """ Get key rules from the given flags (only if they are key flags). """
-    return [_KEY_RULES[f] for f in flags if f in _KEY_RULES]
+def add_key_rules(m:List[RuleMapItem], flags:Iterable[str], start:int) -> None:
+    """ Add key rules from the given flags (only if they are key flags). """
+    m.extend([RuleMapItem(_KEY_RULES[f], start, 0) for f in flags if f in _KEY_RULES])

@@ -2,7 +2,7 @@ import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMap, RuleMapItem, StenoRule, get_key_rules
+from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
 LEFT_BRACKETS = r'\(\['
@@ -61,16 +61,15 @@ class StenoRuleParser(Dict[str, StenoRule]):
         # Parse the flag string and add key flags as ending rules.
         flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
         if flags:
-            for r in get_key_rules(flags):
-                built_map.add_special(r, len(letters))
+            add_key_rules(built_map, flags, len(letters))
         description = raw_rule.description
         # For now, just include examples as a line after the description joined with commas.
         if raw_rule.example_str:
             description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
         # The built rulemap must be frozen before final inclusion in a rule.
-        self[k] = StenoRule(keys, letters, flags, description, built_map.freeze())
+        self[k] = StenoRule(keys, letters, flags, description, tuple(built_map))
 
-    def _substitute(self, pattern:str) -> Tuple[str, RuleMap]:
+    def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
         """
         From a rule's raw pattern string, find all the child rule references in brackets and make a map
         so the format code can break it down again if needed. For those in () brackets, we must substitute
@@ -80,7 +79,7 @@ class StenoRuleParser(Dict[str, StenoRule]):
         not finished yet will still contain their own child rules in brackets. If we find one of these,
         we have to parse it first in a recursive manner. Circular references will crash the program.
         """
-        built_map = RuleMap()
+        built_map = []
         m = SUBRULE_RX.search(pattern)
         while m:
             # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
@@ -100,7 +99,7 @@ class StenoRuleParser(Dict[str, StenoRule]):
             # Add the rule to the map and substitute in the letters if necessary.
             if not letters:
                 letters = rule.letters
-            built_map.add(rule, m.start(), len(letters))
+            built_map.append(RuleMapItem(rule, m.start(), len(letters)))
             pattern = pattern.replace(rule_str, letters)
             m = SUBRULE_RX.search(pattern)
         return pattern, built_map

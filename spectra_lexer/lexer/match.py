@@ -63,12 +63,11 @@ class LexerRuleMatcher:
 
     def match(self, keys:LexerKeys, letters:str, is_full_stroke:bool=False, is_full_word:bool=False) -> List[StenoRule]:
         """ Return a list of rules that match the given keys and letters in any of the dictionaries. """
-        match_list = []
+        match_list = self._prefix_tree.prefix_match(keys, letters)
         if is_full_stroke:
             match_list += self._stroke_match(keys, letters)
         if is_full_word:
             match_list += self._word_match(keys, letters)
-        match_list += self._prefix_tree.prefix_match(keys, letters)
         return match_list
 
     def _stroke_match(self, keys:StenoKeys, letters:str) -> List[StenoRule]:
