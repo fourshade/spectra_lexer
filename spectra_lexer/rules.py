@@ -44,5 +44,7 @@ _KEY_RULES = {k: StenoRule(StenoKeys.from_rtfcre(k.split(":", 1)[0]), "", frozen
 
 
 def add_key_rules(m:List[RuleMapItem], flags:Iterable[str], start:int) -> None:
-    """ Add key rules from the given flags (only if they are key flags). """
-    m.extend([RuleMapItem(_KEY_RULES[f], start, 0) for f in flags if f in _KEY_RULES])
+    """ Add key rules from the given flags (only if they are key flags).
+        It is possible that there is more than one; in that case, advance one space each time. """
+    rules = [_KEY_RULES[f] for f in flags if f in _KEY_RULES]
+    m.extend([RuleMapItem(r, start + i, 0) for i, r in enumerate(rules)])

@@ -11,6 +11,7 @@ _CONTAINER_SYMBOLS = {"TOP":    "├─┘",
 # Symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
+_TEE_SYMBOL = "┬"
 # Symbols drawn underneath all others as stroke separators. May be different from the RTFCRE delimiter.
 _SEP_SYMBOL = "/"
 # Symbols that may not be covered by connectors, such as side split hyphens.
@@ -53,9 +54,10 @@ class _TextOutputLine(str):
         """ Write a vertical line connector at index <start> and return a copy. """
         return self._overwrite_copy(_LINE_SYMBOL, src, start)
 
-    def with_corner(self, src:OutputNode, start:int) -> T:
-        """ Write a corner character at index <start> and return a copy. """
-        return self._overwrite_copy(_CORNER_SYMBOL, src, start)
+    def with_endpiece(self, src:OutputNode, start:int, length:int) -> T:
+        """ Write a series of ┬ ending in (or consisting solely of) a ┐ at index <start> and return a copy. """
+        extra = [_TEE_SYMBOL] * (length - 1)
+        return self._overwrite_copy("".join((*extra, _CORNER_SYMBOL)), src, start)
 
     def with_node_string(self, src:OutputNode, start:int) -> T:
         """ Write the node's text starting at <start> and return a copy. """
@@ -122,10 +124,11 @@ def _draw_node(out:List[_TextOutputLine], src:OutputNode, offset:int, placeholde
             out.pop()
         # Add the finished set of top connectors.
         out.append(top)
-        # If the last child is off the right end (key rules do this), add a corner to connect the placeholder.
-        # TODO: handle case with multiple key rules?
-        if children[-1].attach_start == len(text):
-            placeholders = placeholders.with_corner(children[-1], offset + len(text))
+        # If the last child is off the right end (key rules do this), add extensions to connect the placeholder.
+        # Tee extensions will connect other children in the rare case of multiple key rules.
+        off_end = children[-1].attach_start - len(text)
+        if off_end >= 0:
+            placeholders = placeholders.with_endpiece(children[-1], offset + len(text), off_end + 1)
     else:
         # If there are no children, it is a base rule. These cases only apply to base rules.
         # If the text leads with a hyphen (right side keys) and there's room, shift it one space to the left.
