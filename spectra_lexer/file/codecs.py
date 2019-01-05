@@ -1,10 +1,13 @@
 """ Module for encoding/decoding dictionary data types from files and file-like objects. """
 
-import json
+from configparser import ConfigParser
 from functools import partial
-from typing import Iterable
+from io import StringIO
+import json
+import os
+from typing import Any, Iterable
 
-from spectra_lexer.file.io_path import get_extension, Readable, Writeable
+from spectra_lexer.file.resource import Resource
 
 # Allowable prefixes for comments for the CSON decoder. Only full-line comments are currently supported.
 _CSON_COMMENT_PREFIXES: Iterable[str] = ("#", "/")
@@ -20,35 +23,59 @@ def _decode_CSON(contents:str) -> dict:
     return json.loads("\n".join(data_lines))
 
 
+def _decode_CFG(contents:str) -> dict:
+    """ Decode CFG file contents into a dict. Only the first level is actually a dict; others are proxy objects. """
+    cfg = ConfigParser()
+    cfg.read_string(contents)
+    return dict(cfg)
+
+
+def _encode_CFG(d:dict) -> str:
+    """ Encode a dict into a CFG file. Readability may or may not be preserved. """
+    cfg = ConfigParser()
+    cfg.read_dict(d)
+    stream = StringIO()
+    cfg.write(stream)
+    return stream.getvalue()
+
+
 # Dictionaries containing each supported file format/extension mapped to transcoding functions.
-# Encoding requires Unicode to be explicitly enabled. Indentation allows pretty-printing of results.
-ENCODERS = {".json": partial(json.dumps, indent=4, ensure_ascii=False)}
-# Decoding pure JSON strings is easy, but stripping comments requires an extra step.
-DECODERS = {".json": json.loads, ".cson": _decode_CSON}
+DECODERS = {".json": json.loads, ".cson": _decode_CSON, ".cfg": _decode_CFG, ".ini": _decode_CFG}
+# For JSON encoding, indentation allows pretty-printing of results, and Unicode requires an explicit flag to be set.
+ENCODERS = {".json": partial(json.dumps, indent=4, ensure_ascii=False), ".cfg": _encode_CFG, ".ini": _encode_CFG}
 
 
-def decode_resource(f:Readable) -> dict:
-    """ Read and decode a string resource into a dict. """
+def decode_resource(f:Resource) -> Any:
+    """ Read and decode a string resource. Throw an exception if the object is not the right type. """
     decoder = _get_codec(f, DECODERS)
-    if decoder is None:
-        raise ValueError("No decoder found for {}.".format(f))
-    d = decoder(f.read())
-    if not isinstance(d, dict):
-        raise ValueError("Object decoded from {} is not a dict.".format(f))
-    return d
+    obj = decoder(f.read())
+    _check_type(f, obj)
+    return obj
 
 
-def encode_resource(f:Writeable, d:dict) -> None:
-    """ Encode a dict into a string resource and write it. """
-    if not isinstance(d, dict):
-        raise ValueError("Object to be encoded to {} is not a dict.".format(f))
+def encode_resource(f:Resource, obj:Any) -> None:
+    """ Encode a dict into a string resource and write it. Throw an exception if the object is not the right type. """
     encoder = _get_codec(f, ENCODERS)
-    if encoder is None:
-        raise ValueError("No encoder found for {}.".format(f))
-    f.write(encoder(d))
+    _check_type(f, obj)
+    f.write(encoder(obj))
 
 
 def _get_codec(f:str, codec_dict:dict) -> callable:
     """ Return the codec function for the given file/resource, or None if no codec exists. """
-    fmt = get_extension(f)
-    return codec_dict.get(fmt)
+    fmt = _get_extension(f)
+    codec = codec_dict.get(fmt)
+    if codec is None:
+        raise TypeError("No codec found for format {}.".format(fmt))
+    return codec
+
+
+def _check_type(f:str, obj:object, req_type:type=dict) -> None:
+    """ Check that the encoded/decoded object matches the expected type. Throw an exception otherwise. """
+    if not isinstance(obj, req_type):
+        raise TypeError("Unexpected type for file {}: needed {}, got {}".format(f, req_type, type(obj)))
+
+
+def _get_extension(name:str) -> str:
+    """ Return only the extension of the given filename or resource, including the dot.
+        Will return an empty string if there is no extension (such as with a directory). """
+    return os.path.splitext(name)[1]

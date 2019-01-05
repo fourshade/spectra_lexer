@@ -6,9 +6,6 @@ from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 from spectra_lexer import on, pipe, SpectraComponent
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
-# Hard limit on the number of matches returned by a special search.
-_MATCH_LIMIT = 100
-
 
 class GUIQtSearch(SpectraComponent):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
@@ -19,14 +16,16 @@ class GUIQtSearch(SpectraComponent):
     strokes_chkbox: QCheckBox       # Check box to determine whether to use word or stroke search.
     regex_chkbox: QCheckBox         # Check box to determine whether to use prefix or regex search.
 
-    _last_match: str = ""  # Last search match selected by the user in the list.
+    _last_match: str = ""           # Last search match selected by the user in the list.
+
+    CFG = {"match_limit": 100}      # Hard limit on the number of matches returned by a special search.
 
     def __init__(self, *widgets:QWidget):
         super().__init__()
         self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
 
-    @on("configure")
-    def signal_connect(self, **cfg_dict) -> None:
+    @on("start")
+    def signal_connect(self, **opts) -> None:
         signals = {self.input_textbox.returnPressed: "sig_on_input_submit",
                    self.input_textbox.textEdited:    "sig_on_input_changed",
                    self.match_list.itemSelected:     "sig_on_choose_match",
@@ -69,7 +68,8 @@ class GUIQtSearch(SpectraComponent):
             self.match_list.clear()
             return
         # Choose the right type of search based on the mode flags, execute it, and show the list of results.
-        matches = self.engine_call("search_special", pattern, _MATCH_LIMIT, self._search_dict, self._mode_regex)
+        matches = self.engine_call("search_special", pattern, self.CFG["match_limit"],
+                                   self._search_dict, self._mode_regex)
         self.match_list.set_items(matches)
         # If there's only one match and it's new, select it and continue as if the user had done it.
         if len(matches) == 1 and matches[0] != self._last_match:

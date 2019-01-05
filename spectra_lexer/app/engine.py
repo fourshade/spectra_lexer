@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, Hashable
+from typing import Any, Dict, Hashable, Mapping
 
 from spectra_lexer import SpectraComponent
 from spectra_lexer.utils import nop
@@ -72,12 +72,16 @@ class SpectraEngine:
             if self._dispatch(value, **c.kwargs):
                 return value
 
-    def _dispatch(self, value, next_key=None, unpack=False, ret=False, **cmd_kwargs) -> bool:
+    def _dispatch(self, value:Any, next_key:Hashable=None, unpack:bool=False, ret:bool=False, **cmd_kwargs) -> bool:
         """ If a command is marked to pipe its output to another command (and it isn't None), start a new call
-            cycle with that command. Return True if the command must (also) return the output to its caller. """
+            cycle with that command. Return True if the command must (also) return the output to its caller.
+            If the return value is unpacked, the correct star unpacking operator is chosen based on its type. """
         if next_key is not None and value is not None:
             if unpack:
-                self._call(next_key, *value, **cmd_kwargs)
+                if isinstance(value, Mapping):
+                    self._call(next_key, **value, **cmd_kwargs)
+                else:
+                    self._call(next_key, *value, **cmd_kwargs)
             else:
                 self._call(next_key, value, **cmd_kwargs)
         return ret

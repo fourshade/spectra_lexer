@@ -17,8 +17,8 @@ class GUIQtTextDisplay(SpectraComponent):
         super().__init__()
         self.w_title, self.w_text = widgets
 
-    @on("configure")
-    def signal_connect(self, **cfg_dict) -> None:
+    @on("start")
+    def signal_connect(self, **opts) -> None:
         """ Register the mouseover signal. Keyboard input may also be available from this widget in the future. """
         self.w_text.mouseOverCharacter.connect(partial(self.engine_call, "sig_process_mouseover"))
 

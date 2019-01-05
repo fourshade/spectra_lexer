@@ -19,8 +19,8 @@ class PloverPluginInterface(SpectraComponent):
     _plover_engine: PloverEngine = None               # Plover engine. Always referenced with "plover".
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @pipe("configure", "new_status")
-    def setup_engine(self, plover_engine=None, **cfg_dict) -> str:
+    @pipe("start", "new_status")
+    def setup_engine(self, *, plover_engine=None, **opts) -> str:
         """ Perform initial compatibility check and callback/dictionary setup. """
         # If the compatibility check fails or there's no engine, don't try to connect to Plover. Return an error.
         if not compatibility_check() or plover_engine is None:
@@ -37,7 +37,7 @@ class PloverPluginInterface(SpectraComponent):
         """ Connect a Plover engine signal to a Spectra engine command. """
         self._plover_engine.signal_connect(plover_signal, partial(self.engine_call, spectra_cmd))
 
-    @pipe("plover_load_dicts", "new_raw_translations")
+    @pipe("plover_load_dicts", "new_translations")
     def load_dict_collection(self, steno_dc:PloverStenoDictCollection) -> Optional[Dict[str, str]]:
         """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
         if not steno_dc or not steno_dc.dicts:

@@ -36,3 +36,7 @@ class GUIQt(SpectraComponent):
     def set_engine_callback(self, *args) -> None:
         for c in self.children:
             c.set_engine_callback(*args)
+
+    def configure(self, **cfg_dict) -> None:
+        for c in self.children:
+            c.configure(**cfg_dict)

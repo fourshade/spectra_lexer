@@ -14,8 +14,8 @@ class GUIQtWindow(SpectraComponent):
         super().__init__()
         self.window = window
 
-    @on("configure")
-    def show(self, show_menu=True, **cfg_dict) -> None:
+    @on("start")
+    def show(self, show_menu=True, **opts) -> None:
         """ Show the window once the engine is fully initialized and sends the start signal.
             If the menu is used, add the basic window-based commands before displaying the window. """
         if show_menu:
@@ -23,7 +23,7 @@ class GUIQtWindow(SpectraComponent):
             self.engine_call("gui_menu_add", "File", "Exit", "sig_window_close")
         self.window.show()
 
-    @pipe("sig_window_dialog_load", "new_raw_translations")
+    @pipe("sig_window_dialog_load", "new_translations")
     def dialog_load(self) -> Optional[list]:
         """ Present a dialog for the user to select a dictionary file. Attempt to load it if not empty. """
         file_formats = self.engine_call("file_get_decodable_exts")

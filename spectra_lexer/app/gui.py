@@ -14,9 +14,9 @@ class GUIQtApplication(SpectraApplication):
         """ The main window distributes tasks among the Qt widgets in the main window. """
         super().__init__(GUIQt(), *components)
 
-    def start(self, **cfg_dict) -> None:
+    def start(self, *cmd_args:str, **opts) -> None:
         """ In standalone mode, Plover's dictionaries are loaded by default. """
-        super().start(**cfg_dict)
+        super().start(*cmd_args, **opts)
         self.engine.call("file_load_plover_dicts")
 
 
@@ -25,7 +25,7 @@ def main() -> None:
     # For standalone operation, a Qt application object must be created to support the windows.
     qt_app = QApplication(sys.argv)
     app = GUIQtApplication()
-    app.start(cmd_opts=sys.argv[1:])
+    app.start(*sys.argv[1:])
     # This function blocks indefinitely after setup to run the GUI.
     qt_app.exec_()
 

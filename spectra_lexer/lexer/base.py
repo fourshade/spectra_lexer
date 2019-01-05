@@ -22,10 +22,12 @@ class StenoLexer(SpectraComponent):
     _keys: StenoKeys                     # Current parsed keys, used in default return rule if none others are valid.
     _word: str                           # Current English word, used in default return rule if none others are valid.
 
-    @on("configure")
-    def configure(self, need_all_keys=False, **cfg_dict) -> None:
-        """ Set up the lexer with configuration options. Currently, only key coverage is configurable. """
-        self._results = LexerResultManager(need_all_keys)
+    CFG = {"need_all_keys": False}       # Do we only keep maps that have all keys covered?
+
+    @on("start")
+    def start(self, **opts) -> None:
+        """ Set up the lexer results after configuration options have been set. """
+        self._results = LexerResultManager(self.CFG["need_all_keys"])
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:

@@ -7,24 +7,13 @@ import pytest
 from spectra_lexer.dict import DictManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.file.codecs import decode_resource
-from spectra_lexer.file.io_path import assets_in_package
+from spectra_lexer.file.path import rules_from_assets_dir
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
 from spectra_lexer.rules import KEY_FLAGS
 from spectra_lexer.text import CascadedTextFormatter
 from spectra_lexer.text.node import OUTPUT_FLAGS
 from test import get_test_filename
-
-
-def test_dict_files():
-    """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
-    full_dict = {}
-    for f in assets_in_package():
-        # Check for rules that have identical names (keys)
-        d = decode_resource(f)
-        conflicts = set(d).intersection(full_dict)
-        assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
-        full_dict.update(d)
 
 
 # Create the minimum necessary components we need for the tests.
@@ -38,6 +27,18 @@ RULES_LIST = DICT.parse_rules(RAW_RULES)
 LEXER.configure()
 LEXER.set_rules(RULES_LIST)
 LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
+
+
+def test_dict_files():
+    """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
+    full_dict = {}
+    for f in rules_from_assets_dir():
+        # Check for rules that have identical names (keys)
+        d = decode_resource(f)
+        conflicts = set(d).intersection(full_dict)
+        assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
+        full_dict.update(d)
+
 
 
 @pytest.mark.parametrize("r", RULES_LIST)

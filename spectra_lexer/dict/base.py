@@ -34,18 +34,7 @@ class DictManager(SpectraComponent):
         """ Parse rules from a JSON dict and return only a list (without the reference names). """
         return self.rule_parser.from_raw(raw_dict)
 
-    @pipe("new_raw_translations", "new_translations")
-    @type_check_items([str, str])
-    def parse_translations(self, raw_dict:dict) -> dict:
-        """ Translations from JSON are usable directly as is (as long as the type is correct). """
-        return raw_dict
-
     @pipe("dict_save_rules", "file_save", unpack=True)
     def save_rules(self, filename:str, obj:Any) -> tuple:
         """ Parse rules from an object into raw form using reference data from the parser, then save them. """
         return filename, self.rule_parser.to_raw(obj)
-
-    @pipe("dict_save_translations", "file_save", unpack=True)
-    def save_translations(self, filename:str, d:dict) -> tuple:
-        """ Save a translations dict directly to JSON. No parsing is necessary. """
-        return filename, d

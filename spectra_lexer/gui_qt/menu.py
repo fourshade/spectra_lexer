@@ -20,6 +20,11 @@ class GUIQtMenu(SpectraComponent):
         self.menus = {}
         self.actions = {}
 
+    @on("start")
+    def show(self, show_menu=True, **opts) -> None:
+        """ Show or hide the menu bar. Is shown by default. """
+        self.m_menu.setVisible(show_menu)
+
     @on("gui_menu_add")
     def add(self, heading:str, action:str, command:str, *args, **kwargs):
         menu_obj = self.menus.get(heading)
@@ -34,8 +39,3 @@ class GUIQtMenu(SpectraComponent):
         def execute(*trash, **garbage):
             return self.engine_call(command, *args, **kwargs)
         action_obj.triggered.connect(execute)
-
-    @on("configure")
-    def show(self, show_menu=True, **cfg_dict) -> None:
-        """ Show or hide the menu bar. Is shown by default. """
-        self.m_menu.setVisible(show_menu)
