@@ -1,1 +1,2 @@
-from .base import fork, on, pipe, respond_to, SpectraComponent
+from .base import SpectraComponent
+from .control import fork, on, pipe, respond_to

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, Hashable, Mapping
+from typing import Any, Dict, Generator, Hashable
 
 from spectra_lexer import SpectraComponent
 from spectra_lexer.utils import nop
@@ -12,8 +12,8 @@ class SpectraEngine:
 
     The program itself is conceptually divided into parts that form a pipeline:
         File/input - The most basic operation of the lexer requires a set of rules that map steno keys to letters,
-        and these must be loaded from disk. The first step on startup after connecting the components is for the
-        lexer to ask for a dictionary of rules, and this module will load these from the built-in directory.
+        and these must be loaded from disk. The first step on startup after connecting the components is for this
+        module to load the rules from the built-in directory.
 
         Search/input - Translations for the program to parse have to come from somewhere, and usually it's a JSON
         dictionary loaded from outside. The search component handles all search functionality and sends queries
@@ -23,10 +23,10 @@ class SpectraEngine:
         Strokes from Plover are handled independently of search results; the output window will display the last
         translation no matter where it came from.
 
-        Lexer/processing - A translation consists of a series of strokes mapped to an English word, and it is the
-        lexer's job to match pieces of each using a dictionary of rules it has loaded from storage. All rules handling
-        is done by the lexer component, including parsing them from JSON files on disk and converting them back
-        if need be. All results are handed off to the output component, which decides their fate.
+        Lexer/processing - A translation consists of a series of strokes mapped to an English word, and it is
+        the lexer's job to match pieces of each using a dictionary of rules it has loaded from storage. All rules
+        handling is done by the lexer component, including parsing them into categories and matching them to pieces
+        of translations. All results are handed off to the output component, which decides their fate.
 
         Display/output - The lexer provides its output (usually a rule constructed from user input) to this component
         which puts it in its final form for the GUI to display, including the text graph and the steno board layout
@@ -41,47 +41,39 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _commands: Dict[Hashable, list]  # Mapping getter methods for every component's commands.
+    _commands: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
     _exception_callback: callable    # Application-provided callback for exception handling.
 
     def __init__(self, on_exception=nop):
+        """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
         self._commands = defaultdict(list)
         self._exception_callback = on_exception
 
     def connect(self, component:SpectraComponent) -> None:
-        """ Add the specified component's commands to the engine and set its callback. """
+        """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
         for (k, c) in component.commands():
-            self._commands[k].append(c)
+            self._commands[k].insert(0, c)
         component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Top-level method for engine command calls. Used directly by app and components. Contains exception handler.
-            If an uncaught exception occurs anywhere, either let the application callback handle it or re-raise. """
+        """ Top-level method for engine calls. Checks exceptions with a custom handler, re-raising upon failure. """
         try:
-            return self._call(cmd_key, *args, **kwargs)
+            # Load the call stack and run it to exhaustion. Return only the first value yielded (if any).
+            stack = [(cmd_key, args, kwargs)]
+            r_vals = list(self._loop(stack))
+            return r_vals[0] if r_vals else None
         except Exception as e:
             if not self._exception_callback(e):
                 raise e
 
-    def _call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Call a command on each valid component (in reverse order of connection) with the given arguments.
-            Each target may dispatch its result somewhere else and/or return it to the caller.
-            If a target is required to return a value, stop the loop there and return it. """
-        for c in reversed(self._commands[cmd_key]):
-            value = c.func(*args, **kwargs)
-            if self._dispatch(value, **c.kwargs):
-                return value
-
-    def _dispatch(self, value:Any, next_key:Hashable=None, unpack:bool=False, ret:bool=False, **cmd_kwargs) -> bool:
-        """ If a command is marked to pipe its output to another command (and it isn't None), start a new call
-            cycle with that command. Return True if the command must (also) return the output to its caller.
-            If the return value is unpacked, the correct star unpacking operator is chosen based on its type. """
-        if next_key is not None and value is not None:
-            if unpack:
-                if isinstance(value, Mapping):
-                    self._call(next_key, **value, **cmd_kwargs)
-                else:
-                    self._call(next_key, *value, **cmd_kwargs)
-            else:
-                self._call(next_key, value, **cmd_kwargs)
-        return ret
+    def _loop(self, stack:list) -> Generator:
+        """ Call commands on each valid component in order until the stack is empty.
+            Each target may dispatch its result to the stack and/or return it to the caller.
+            If a target is required to return a value, yield it and skip any remaining components. """
+        while stack:
+            cmd_key, args, kwargs = stack.pop()
+            for c in self._commands[cmd_key]:
+                value = c.func(*args, **kwargs)
+                if c.dispatch(stack, value):
+                    yield value
+                    break

@@ -2,8 +2,8 @@ import sys
 import traceback
 
 from spectra_lexer import SpectraComponent
-from spectra_lexer.app.engine import SpectraEngine
 from spectra_lexer.dict import DictManager
+from spectra_lexer.engine import SpectraEngine
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.search import SearchEngine
