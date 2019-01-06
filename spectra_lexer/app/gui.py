@@ -17,7 +17,7 @@ class GUIQtApplication(SpectraApplication):
     def start(self, *cmd_args:str, **opts) -> None:
         """ In standalone mode, Plover's dictionaries are loaded by default. """
         super().start(*cmd_args, **opts)
-        self.engine.call("file_load_plover_dicts")
+        self.engine.call("dict_load_translations")
 
 
 def main() -> None:

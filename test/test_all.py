@@ -4,10 +4,9 @@
 
 import pytest
 
+from spectra_lexer import Component
 from spectra_lexer.dict import DictManager
 from spectra_lexer.file import FileHandler
-from spectra_lexer.file.codecs import decode_resource
-from spectra_lexer.file.path import rules_from_assets_dir
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
 from spectra_lexer.rules import KEY_FLAGS
@@ -16,29 +15,36 @@ from spectra_lexer.text.node import OUTPUT_FLAGS
 from test import get_test_filename
 
 
-# Create the minimum necessary components we need for the tests.
+def direct_connect(cmp:Component, subcmp:Component) -> None:
+    """ Connect one component directly to another without an engine for basic calls. """
+    cmd_dict = {}
+    for (k, c) in subcmp.commands():
+        cmd_dict[k] = c.func
+    def direct_call(cmd:str, *args, **kwargs) -> callable:
+        func = cmd_dict.get(cmd)
+        if func:
+            return func(*args, **kwargs)
+    cmp.set_engine_callback(direct_call)
+
+
+# Create components for the tests in order as we need them.
 FILE = FileHandler()
 DICT = DictManager()
-LEXER = StenoLexer()
-FORMATTER = CascadedTextFormatter()
-TEST_TRANSLATIONS = FILE.load_file(get_test_filename())
-RAW_RULES = FILE.load_initial_rules()
-RULES_LIST = DICT.parse_rules(RAW_RULES)
-LEXER.configure()
-LEXER.set_rules(RULES_LIST)
-LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
+direct_connect(DICT, FILE)
 
 
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for f in rules_from_assets_dir():
+    for d in DICT._decode_builtin_rules():
         # Check for rules that have identical names (keys)
-        d = decode_resource(f)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
         full_dict.update(d)
 
+
+RULES_LIST = DICT.load_rules()
+LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 
 
 @pytest.mark.parametrize("r", RULES_LIST)
@@ -63,7 +69,13 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
-@pytest.mark.parametrize("trial", TEST_TRANSLATIONS.items())
+TEST_TRANSLATIONS = list(FILE.load_file(get_test_filename()).items())
+LEXER = StenoLexer()
+LEXER.start()
+LEXER.set_rules(RULES_LIST)
+
+
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
 def test_lexer(trial):
     """ Perform all tests for parsing. It fails if the parser raises an exception or can't match all the keys. """
     keys, word = trial
@@ -72,7 +84,10 @@ def test_lexer(trial):
     assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(keys, word)
 
 
-@pytest.mark.parametrize("trial", TEST_TRANSLATIONS.items())
+FORMATTER = CascadedTextFormatter()
+
+
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
 def test_display(trial):
     """ Produce format for all parsing tests and conduct simple tests. """
     keys, word = trial

@@ -9,6 +9,13 @@ from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.text import CascadedTextFormatter
 
+# Constituent components of the base application. These should be enough to run the lexer in batch mode.
+BASE_COMPONENTS = [("file",   FileHandler),
+                   ("dict",   DictManager),
+                   ("search", SearchEngine),
+                   ("lexer",  StenoLexer),
+                   ("text",   CascadedTextFormatter)]
+
 
 class SpectraApplication:
     """ Base class for fundamental operations of the Spectra lexer involving keys, rules, and nodes. """
@@ -16,9 +23,10 @@ class SpectraApplication:
     engine: SpectraEngine  # Engine must be accessible to subclasses.
 
     def __init__(self, *components:Component):
-        """ Initialize the engine and connect everything starting from the base components. """
-        all_components = [FileHandler(), DictManager(), StenoLexer(),
-                          SearchEngine(), CascadedTextFormatter(), *components]
+        """ Create all necessary base components and combine them with those from subclasses. """
+        base_components = [tp() for (k, tp) in BASE_COMPONENTS]
+        all_components = (*base_components, *components)
+        # Initialize the engine and connect everything to it. Connections are currently permanent.
         self.engine = SpectraEngine(on_exception=self.handle_exception)
         for c in all_components:
             self.engine.connect(c)
@@ -33,19 +41,17 @@ class SpectraApplication:
         return True
 
     def start(self, *cmd_args:str, **opts) -> None:
-        """ Send the bare command line options to the configuration module, then to all other components.
-            Configure each loaded module, then send the start signal to finish setting up.
-            Load the initial rule set after everything else is configured. """
-        opts.update(_parse_args(*cmd_args))
+        """ Parse the bare command line arguments into a dict of options.
+            Send the start signal, then load the initial rule set after everything else is configured. """
+        # opts.update(_parse_args(*cmd_args))
         self.engine.call("start", **opts)
-        self.engine.call("file_load_builtin_rules")
+        self.engine.call("dict_load_rules")
 
 
-def _parse_args(*cmd_args:str) -> dict:
-    """ Parse command-line arguments into a dict for the config manager and components.
-        If the CFG option is given in the command line, it is the CFG file to load. """
-    opt_dict = {}
-    for arg in cmd_args:
-        if arg.startswith("-cfg="):
-            opt_dict["cfg"] = arg[5:]
-    return opt_dict
+# def parse_args(*cmd_args:str) -> dict:
+#     """ Parse command-line arguments into a dict for the config manager and components. """
+#     opt_dict = {}
+#     for arg in cmd_args:
+#         if arg.startswith("-cfg="):
+#             opt_dict["cfg"] = arg[5:]
+#     return opt_dict

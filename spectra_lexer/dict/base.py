@@ -1,26 +1,16 @@
-from functools import wraps
-from typing import Any, Sequence
+import json
+from typing import Iterable, Mapping, Tuple, List
 
-from spectra_lexer import pipe, Component
+from spectra_lexer import Component, fork, pipe
 from spectra_lexer.dict.rule_parser import StenoRuleParser
+from spectra_lexer.utils import merge
 
-
-def type_check_items(types:Sequence[type]) -> callable:
-    """ Raise an error if the first item in the dict does not match the given types. Empty dicts are given a pass. """
-    def type_check_deco(func:callable) -> callable:
-        @wraps(func)
-        def parse_if_correct(self, raw_dict:dict) -> Any:
-            if raw_dict:
-                test_item = next(iter(raw_dict.items()))
-                if not all(map(isinstance, test_item, types)):
-                    raise TypeError(f"Invalid input dict format.")
-            return func(self, raw_dict)
-        return parse_if_correct
-    return type_check_deco
+# Resource glob pattern for the built-in JSON-based rules files.
+_RULES_ASSET_PATTERN = "*.cson"
 
 
 class DictManager(Component):
-    """ Handles all conversion required between raw dicts loaded straight from JSON and custom data structures. """
+    """ Handles all conversion and merging required for file operations on specific types of dicts. """
 
     rule_parser: StenoRuleParser  # Rule parser that tracks reference names in case we want to save new rules.
 
@@ -28,13 +18,55 @@ class DictManager(Component):
         super().__init__()
         self.rule_parser = StenoRuleParser()
 
-    @pipe("new_raw_rules", "new_rules")
-    @type_check_items([str, list])
-    def parse_rules(self, raw_dict:dict) -> list:
-        """ Parse rules from a JSON dict and return only a list (without the reference names). """
-        return self.rule_parser.from_raw(raw_dict)
+    @fork("dict_load_rules", "new_rules")
+    def load_rules(self, *filenames:str) -> list:
+        """ Load and merge every rules dictionary given. If none are given, use the built-in assets.
+            Parse the rules and return only a list (without the reference names). """
+        if filenames:
+            rules_dicts = [self.engine_call("file_load", f) for f in filenames]
+        else:
+            rules_dicts = self._decode_builtin_rules()
+        return self.rule_parser.from_raw(merge(rules_dicts))
+
+    def _decode_builtin_rules(self) -> List[dict]:
+        """ Decode every JSON rules file from the built-in assets directory. """
+        asset_names = self.engine_call("file_list_assets", _RULES_ASSET_PATTERN)
+        return [self.engine_call("file_load_asset", f) for f in asset_names]
 
     @pipe("dict_save_rules", "file_save", unpack=True)
-    def save_rules(self, filename:str, obj:Any) -> tuple:
+    def save_rules(self, filename:str, rules:Iterable) -> Tuple[str, dict]:
         """ Parse rules from an object into raw form using reference data from the parser, then save them. """
-        return filename, self.rule_parser.to_raw(obj)
+        return filename, self.rule_parser.to_raw(rules)
+
+    @fork("dict_load_translations", "new_translations")
+    def load_translations(self, *filenames:str) -> dict:
+        """ Load and merge every translation dictionary given.
+            If none are given, attempt to find dictionaries belonging to a Plover installation and load those. """
+        if filenames:
+            dicts = [self.engine_call("file_load", f) for f in filenames]
+        else:
+            dicts = self._decode_plover_cfg_translations()
+        return merge(dicts)
+
+    def _decode_plover_cfg_translations(self) -> List[dict]:
+        """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
+            in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
+        try:
+            cfg_dict = self.engine_call("file_load_user", "plover.cfg", appname="plover")
+            dict_section = cfg_dict['System: English Stenotype']['dictionaries']
+            # The section we need is read as a string, but it must be decoded as a dict literal.
+            dict_filenames = [e['path'] for e in reversed(json.loads(dict_section))]
+            return [self.engine_call("file_load_user", f, appname="plover") for f in dict_filenames]
+        except OSError:
+            # Catch-all for file loading errors. Just assume the required files aren't there and move on.
+            pass
+        except KeyError:
+            print("Could not find dictionaries in plover.cfg.")
+        except json.decoder.JSONDecodeError:
+            print("Problem decoding JSON in plover.cfg.")
+        return []
+
+    @pipe("dict_save_translations", "file_save", unpack=True)
+    def save_translations(self, filename:str, translations:Mapping) -> Tuple[str, Mapping]:
+        """ Not strictly necessary; the file handler will work directly for this, but it preserves uniformity. """
+        return filename, translations
