@@ -1,7 +1,8 @@
 from itertools import product
 from typing import Iterable, Tuple
 
-from spectra_lexer import fork, on, SpectraComponent
+from spectra_lexer import fork, on
+from spectra_lexer.config import Configurable
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
 from spectra_lexer.lexer.results import LexerResultManager
@@ -11,7 +12,7 @@ from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
 _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", ())
 
 
-class StenoLexer(SpectraComponent):
+class StenoLexer(Configurable):
     """
     The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.

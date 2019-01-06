@@ -1,13 +1,13 @@
 from typing import Optional
 
-from spectra_lexer import on, pipe, SpectraComponent
+from spectra_lexer import Component, on, pipe
 from spectra_lexer.cmdline.console import InterpreterConsole
 
 # Map of commands that can be sent from text entry.
 _COMMAND_MAP = {"/console": "system_console_start"}
 
 
-class CommandLine(SpectraComponent):
+class CommandLine(Component):
     """ Module for interactive engine and system interpreter operations. """
 
     console: InterpreterConsole = None

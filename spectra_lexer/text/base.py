@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from spectra_lexer import pipe, SpectraComponent
+from spectra_lexer import Component, pipe
 from spectra_lexer.rules import StenoRule
 from spectra_lexer.text.generator import generate_text_grid
 from spectra_lexer.text.html import HTMLFormatter
@@ -24,9 +24,8 @@ class _NodeLocator:
                 return node_row[col]
 
 
-class CascadedTextFormatter(SpectraComponent):
-    """ Base class for creating and formatting a finished rule breakdown of steno translations.
-    Generates cascaded plaintext representation of lexer output.
+class CascadedTextFormatter(Component):
+    """ Base class for creating and formatting a cascaded plaintext breakdown of steno translations.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).

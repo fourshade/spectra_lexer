@@ -1,13 +1,13 @@
 from typing import Any, Iterable
 
-from spectra_lexer import fork, on, respond_to, SpectraComponent
+from spectra_lexer import Component, fork, on, respond_to
 from spectra_lexer.file.codecs import DECODERS, decode_resource, ENCODERS, encode_resource
-from spectra_lexer.file.path import dict_files_from_plover_cfg, rules_from_assets_dir, config_from_user_data
+from spectra_lexer.file.path import config_from_user_data, dict_files_from_plover_cfg, rules_from_assets_dir
 from spectra_lexer.file.resource import File, Resource
 from spectra_lexer.utils import merge
 
 
-class FileHandler(SpectraComponent):
+class FileHandler(Component):
     """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
 
     @fork("file_load_config", "new_config")
@@ -23,7 +23,7 @@ class FileHandler(SpectraComponent):
 
     @fork("file_load_builtin_rules", "new_raw_rules")
     def load_initial_rules(self) -> dict:
-        """ Load and merge the rules from the built-in asset directories."""
+        """ Load and merge the rules from the built-in asset directories. """
         return decode_and_merge(rules_from_assets_dir())
 
     @fork("file_load_plover_dicts", "new_translations")

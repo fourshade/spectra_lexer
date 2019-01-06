@@ -1,1 +1,1 @@
-from .base import ConfigManager
+from .base import ConfigManager, Configurable

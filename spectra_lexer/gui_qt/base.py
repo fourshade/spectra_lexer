@@ -1,8 +1,6 @@
-""" Base module for the GUI Qt package. Includes the main component. """
+""" Base module for the GUI Qt package. """
 
-from typing import List
-
-from spectra_lexer import SpectraComponent
+from spectra_lexer.base import Composite
 from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
 from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.gui_qt.menu import GUIQtMenu
@@ -18,25 +16,13 @@ GUI_COMPONENTS = [("menu",   GUIQtMenu),
                   ("window", GUIQtWindow)]
 
 
-class GUIQt(SpectraComponent):
-    """ Component container for the GUI. It isn't a proper component; all commands and callbacks
-        are routed to/from its child components, but the engine can't tell the difference. """
+class GUIQt(Composite):
+    """ Top-level component of the GUI Qt package. Central constructor/container for all other GUI components. """
 
-    window: MainWindow
-    children: List[SpectraComponent]
+    window: MainWindow  # Main window must be publicly accessible for the Plover plugin.
 
     def __init__(self):
+        """ Assemble child components before the engine starts. """
         self.window = MainWindow()
         cmp_args = self.window.partition()
-        self.children = [tp(*cmp_args[k]) for (k, tp) in GUI_COMPONENTS]
-
-    def commands(self) -> list:
-        return [i for c in self.children for i in c.commands()]
-
-    def set_engine_callback(self, *args) -> None:
-        for c in self.children:
-            c.set_engine_callback(*args)
-
-    def configure(self, **cfg_dict) -> None:
-        for c in self.children:
-            c.configure(**cfg_dict)
+        self.set_children([tp(*cmp_args[k]) for (k, tp) in GUI_COMPONENTS])

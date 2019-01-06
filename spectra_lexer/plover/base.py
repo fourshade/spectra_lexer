@@ -2,7 +2,7 @@ from functools import partial
 from itertools import chain
 from typing import Dict, Iterable, Iterator, Optional, Sequence, Tuple
 
-from spectra_lexer import pipe, SpectraComponent
+from spectra_lexer import Component, pipe
 from spectra_lexer.keys import join_strokes
 from spectra_lexer.plover.compat import PloverAction, PloverEngine, PloverStenoDict, PloverStenoDictCollection, \
     compatibility_check, INCOMPATIBLE_MESSAGE
@@ -12,7 +12,7 @@ from spectra_lexer.plover.compat import PloverAction, PloverEngine, PloverStenoD
 _BLANK_STATE = ((), "")
 
 
-class PloverPluginInterface(SpectraComponent):
+class PloverPluginInterface(Component):
     """ Main component class for Plover plugin. It is the only class that should directly access Plover's objects.
         Receives and processes dictionaries and translations from Plover using callbacks. """
 

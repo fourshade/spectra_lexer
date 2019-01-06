@@ -2,10 +2,10 @@ from typing import Dict
 
 from PyQt5.QtWidgets import QAction, QMenu, QMenuBar, QWidget
 
-from spectra_lexer import on, SpectraComponent
+from spectra_lexer import Component, on
 
 
-class GUIQtMenu(SpectraComponent):
+class GUIQtMenu(Component):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
         It is assumed that the menu items are only available in standalone mode (not as a plugin).
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """

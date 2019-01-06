@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import on, SpectraComponent
+from spectra_lexer import Component, on
 from spectra_lexer.gui_qt.board.steno_board_widget import StenoBoardWidget
 
 # Parameters for creating SVG element IDs from steno characters.
@@ -11,7 +11,7 @@ SVG_ORD_FORMAT = "_x{:X}_"
 SVG_ALT_PREFIX = "Alt"
 
 
-class GUIQtBoardDisplay(SpectraComponent):
+class GUIQtBoardDisplay(Component):
     """ Generates steno board diagram elements for a given node,
         including graphical element IDs and the description. """
 

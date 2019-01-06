@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Any, Dict, Generator, Hashable
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import Component
 from spectra_lexer.utils import nop
 
 
@@ -49,7 +49,7 @@ class SpectraEngine:
         self._commands = defaultdict(list)
         self._exception_callback = on_exception
 
-    def connect(self, component:SpectraComponent) -> None:
+    def connect(self, component:Component) -> None:
         """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
         for (k, c) in component.commands():
             self._commands[k].insert(0, c)

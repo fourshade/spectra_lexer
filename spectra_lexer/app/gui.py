@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import SpectraComponent
+from spectra_lexer import Component
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.gui_qt import GUIQt
 
@@ -10,7 +10,7 @@ from spectra_lexer.gui_qt import GUIQt
 class GUIQtApplication(SpectraApplication):
     """ Class for operation of the Spectra program in a GUI by itself. """
 
-    def __init__(self, *components:SpectraComponent):
+    def __init__(self, *components:Component):
         """ The main window distributes tasks among the Qt widgets in the main window. """
         super().__init__(GUIQt(), *components)
 

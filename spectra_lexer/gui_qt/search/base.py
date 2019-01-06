@@ -3,11 +3,12 @@ from typing import Any, Optional, Tuple
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
-from spectra_lexer import on, pipe, SpectraComponent
+from spectra_lexer import on, pipe
+from spectra_lexer.config import Configurable
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 
-class GUIQtSearch(SpectraComponent):
+class GUIQtSearch(Configurable):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
     input_textbox: QLineEdit        # Input box for the user to enter a search string.

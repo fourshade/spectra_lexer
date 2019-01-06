@@ -1,14 +1,17 @@
-from typing import ClassVar, Hashable, List, NamedTuple, Tuple
+""" Base module of the Spectra lexer package. Contains the most fundamental components. Don't touch anything... """
+
+from typing import ClassVar, Hashable, Iterable, List, NamedTuple, Tuple
 
 from spectra_lexer.utils import nop
 
 
-class SpectraCommand(NamedTuple):
+class CommandActions(NamedTuple):
+    """ Contains actions that constitute a command, including a function call and/or a subsequent command. """
     func: callable      # Function or bound method to call.
     dispatch: callable  # Function with instructions on which command to execute next, if any.
 
 
-class SpectraComponent:
+class Component:
     """
     Base class for any component that sends and receives commands from the Spectra engine.
     It is the root class of the Spectra lexer object hierarchy, being subclassed directly
@@ -29,10 +32,27 @@ class SpectraComponent:
                      if callable(func) and hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list
 
-    def commands(self) -> List[Tuple[Hashable, SpectraCommand]]:
+    def commands(self) -> List[Tuple[Hashable, CommandActions]]:
         """ Bind all class command functions to the instance and return the raw commands. """
-        return [(key, SpectraCommand(getattr(self, attr), dsp)) for attr, key, dsp in self._cmd_attr_list]
+        return [(key, CommandActions(getattr(self, attr), dsp)) for attr, key, dsp in self._cmd_attr_list]
 
     def set_engine_callback(self, cb:callable=nop) -> None:
         """ Set the callback used for engine calls by individual components. """
         self.engine_call = cb
+
+
+class Composite(Component):
+    """ Component container; all commands and callbacks are routed to/from child components,
+        but the engine can't tell the difference. The container object itself cannot run commands. """
+
+    _children: List[Component]
+
+    def set_children(self, children:Iterable[Component]) -> None:
+        self._children = list(children)
+
+    def commands(self) -> list:
+        return [i for c in self._children for i in c.commands()]
+
+    def set_engine_callback(self, *args) -> None:
+        for c in self._children:
+            c.set_engine_callback(*args)

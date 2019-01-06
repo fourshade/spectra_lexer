@@ -1,7 +1,7 @@
-from spectra_lexer import SpectraComponent
+from spectra_lexer import Component
 
 
-class ConfigManager(SpectraComponent):
+class ConfigManager(Component):
     """ Configuration manager for the Spectra program. Must be called with command-line arguments
         before anything else is allowed to run (except the file I/O module). """
 
@@ -9,9 +9,6 @@ class ConfigManager(SpectraComponent):
 
     def __init__(self):
         self._components = []
-
-    def connect(self, component:SpectraComponent) -> None:
-        self._components.append(component)
 
     def load(self, cfg=None, **opts) -> None:
         """ Load the config file given in the command line options, or defaults if none was given.
@@ -23,7 +20,7 @@ class ConfigManager(SpectraComponent):
             c.configure()
 
 
-class Configurable(SpectraComponent):
+class Configurable(Component):
 
     CFG_ROLE = "UNDEFINED"  # Heading for config dictionary
     CFG = {}  # Config dictionary; loaded with defaults on the class, overridden on instances at configure time.

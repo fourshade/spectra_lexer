@@ -2,10 +2,10 @@ from typing import Optional
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow, QWidget
 
-from spectra_lexer import on, pipe, SpectraComponent
+from spectra_lexer import Component, on, pipe
 
 
-class GUIQtWindow(SpectraComponent):
+class GUIQtWindow(Component):
     """ GUI engine component; handles top-level window operations separate from the Qt window object. """
 
     window: QMainWindow  # Main window object. Must be the parent of any new dialogs.

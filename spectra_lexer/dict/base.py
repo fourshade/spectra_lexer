@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Any, Sequence
 
-from spectra_lexer import pipe, SpectraComponent
+from spectra_lexer import pipe, Component
 from spectra_lexer.dict.rule_parser import StenoRuleParser
 
 
@@ -19,7 +19,7 @@ def type_check_items(types:Sequence[type]) -> callable:
     return type_check_deco
 
 
-class DictManager(SpectraComponent):
+class DictManager(Component):
     """ Handles all conversion required between raw dicts loaded straight from JSON and custom data structures. """
 
     rule_parser: StenoRuleParser  # Rule parser that tracks reference names in case we want to save new rules.

@@ -1,10 +1,10 @@
 from typing import Union, List
 
-from spectra_lexer import SpectraComponent, on, respond_to
+from spectra_lexer import Component, on, respond_to
 from spectra_lexer.search.steno_dict import StenoSearchDictionary
 
 
-class SearchEngine(SpectraComponent):
+class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
 
     translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
