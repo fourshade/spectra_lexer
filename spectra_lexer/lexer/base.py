@@ -23,6 +23,7 @@ class StenoLexer(Configurable):
     _keys: StenoKeys                     # Current parsed keys, used in default return rule if none others are valid.
     _word: str                           # Current English word, used in default return rule if none others are valid.
 
+    CFG_ROLE = "lexer"
     CFG = {"need_all_keys": False}       # Do we only keep maps that have all keys covered?
 
     @on("start")

@@ -1,7 +1,7 @@
 from typing import Iterable, List, Tuple, TypeVar
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.utils import str_without_chars
+from spectra_lexer.utils import str_without
 from spectra_lexer.struct import PrefixTree
 
 RT = TypeVar("RT")  # Rule type.
@@ -37,5 +37,5 @@ class OrderedKeyPrefixTree(PrefixTree):
         unordered = self._get_unordered_in(keys.first_stroke())
         if not unordered:
             return keys, _no_unordered
-        ordered = str_without_chars(keys, unordered)
+        ordered = str_without(keys, unordered)
         return ordered, unordered

@@ -1,16 +1,18 @@
 """ Module for encoding/decoding dictionary data types from files and file-like objects. """
 
+import ast
+from collections import defaultdict
 from configparser import ConfigParser
 from functools import partial
 from io import StringIO
 import json
 import os
-from typing import Any, Iterable
+from typing import Any
 
 from spectra_lexer.file.resource import Resource
 
 # Allowable prefixes for comments for the CSON decoder. Only full-line comments are currently supported.
-_CSON_COMMENT_PREFIXES: Iterable[str] = ("#", "/")
+_CSON_COMMENT_PREFIXES = ("#", "/")
 
 
 def _decode_CSON(contents:str) -> dict:
@@ -24,10 +26,17 @@ def _decode_CSON(contents:str) -> dict:
 
 
 def _decode_CFG(contents:str) -> dict:
-    """ Decode CFG file contents into a dict. Only the first level is actually a dict; others are proxy objects. """
+    """ Decode CFG file contents into a nested dict. Evaluate all values two levels down as Python literals. """
     cfg = ConfigParser()
     cfg.read_string(contents)
-    return dict(cfg)
+    d = defaultdict(dict)
+    for (sect, prox) in cfg.items():
+        for (opt, val) in prox.items():
+            try:
+                d[sect][opt] = ast.literal_eval(val)
+            except (SyntaxError, ValueError):
+                d[sect][opt] = val
+    return d
 
 
 def _encode_CFG(d:dict) -> str:

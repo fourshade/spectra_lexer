@@ -14,7 +14,7 @@ from collections import defaultdict
 from typing import Callable, List, Tuple, TypeVar
 
 # Key constants which aren't physical steno keys but appear in strings.
-from spectra_lexer.utils import str_without_chars
+from spectra_lexer.utils import str_map, str_without
 
 KEY_SEP = "/"
 KEY_SPLIT = "-"
@@ -46,13 +46,13 @@ class StenoKeys(str):
 
     def to_rtfcre(self) -> str:
         """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
-        return _map_strokes(self, _stroke_stenokeys_to_rtfcre)
+        return str_map(self, _stroke_stenokeys_to_rtfcre, KEY_SEP)
 
     @classmethod
     def from_rtfcre(cls, s:str) -> T:
         """ Transform a string from RTFCRE. Result will have the derived class.
             Overwrite the reverse method with one that returns the original string. """
-        self = cls(_map_strokes(s, _stroke_rtfcre_to_stenokeys))
+        self = cls(str_map(s, _stroke_rtfcre_to_stenokeys, KEY_SEP))
         self.to_rtfcre = lambda: s
         return self
 
@@ -87,15 +87,8 @@ class StenoKeys(str):
         """ Return a copy of this object without each of the given keys (taken from the left). """
         if self.startswith(keys):
             return self.__class__(self[len(keys):])
-        s = str_without_chars(self, keys)
+        s = str_without(self, keys)
         return self.__class__(s)
-
-
-def _map_strokes(keys:str, map_method:callable) -> str:
-    """ Split a string into strokes, map a function to each one, then re-join and return. """
-    strokes = keys.split(KEY_SEP)
-    strokes = map(map_method, strokes)
-    return join_strokes(strokes)
 
 
 def _stroke_stenokeys_to_rtfcre(s:str) -> str:

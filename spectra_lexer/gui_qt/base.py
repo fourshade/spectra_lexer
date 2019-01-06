@@ -1,6 +1,6 @@
 """ Base module for the GUI Qt package. """
 
-from spectra_lexer.base import Composite
+from spectra_lexer import Composite
 from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
 from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.gui_qt.menu import GUIQtMenu

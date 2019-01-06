@@ -15,7 +15,7 @@ class GUIQtWindow(Component):
         self.window = window
 
     @on("start")
-    def show(self, show_menu=True, **opts) -> None:
+    def start(self, show_menu=True, **opts) -> None:
         """ Show the window once the engine is fully initialized and sends the start signal.
             If the menu is used, add the basic window-based commands before displaying the window. """
         if show_menu:
@@ -23,7 +23,7 @@ class GUIQtWindow(Component):
             self.engine_call("gui_menu_add", "File", "Exit", "sig_window_close")
         self.window.show()
 
-    @pipe("sig_window_dialog_load", "new_translations")
+    @pipe("sig_window_dialog_load", "dict_load_translations")
     def dialog_load(self) -> Optional[list]:
         """ Present a dialog for the user to select a dictionary file. Attempt to load it if not empty. """
         file_formats = self.engine_call("file_get_decodable_exts")
@@ -32,7 +32,7 @@ class GUIQtWindow(Component):
         if not fname:
             return None
         self.engine_call("new_status", "Loaded dictionary from file dialog.")
-        return self.engine_call("file_load", fname)
+        return [fname]
 
     @on("sig_window_close")
     def close(self):

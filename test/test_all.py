@@ -69,7 +69,7 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
-TEST_TRANSLATIONS = list(FILE.load_file(get_test_filename()).items())
+TEST_TRANSLATIONS = list(FILE.load_resource(get_test_filename()).items())
 LEXER = StenoLexer()
 LEXER.start()
 LEXER.set_rules(RULES_LIST)

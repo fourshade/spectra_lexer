@@ -19,6 +19,7 @@ class GUIQtSearch(Configurable):
 
     _last_match: str = ""           # Last search match selected by the user in the list.
 
+    CFG_ROLE = "gui_search"
     CFG = {"match_limit": 100}      # Hard limit on the number of matches returned by a special search.
 
     def __init__(self, *widgets:QWidget):
@@ -26,7 +27,8 @@ class GUIQtSearch(Configurable):
         self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
 
     @on("start")
-    def signal_connect(self, **opts) -> None:
+    def start(self, **opts) -> None:
+        """ Connect all Qt signals on engine start. """
         signals = {self.input_textbox.returnPressed: "sig_on_input_submit",
                    self.input_textbox.textEdited:    "sig_on_input_changed",
                    self.match_list.itemSelected:     "sig_on_choose_match",

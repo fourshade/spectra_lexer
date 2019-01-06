@@ -21,7 +21,7 @@ class GUIQtMenu(Component):
         self.actions = {}
 
     @on("start")
-    def show(self, show_menu=True, **opts) -> None:
+    def start(self, show_menu=True, **opts) -> None:
         """ Show or hide the menu bar. Is shown by default. """
         self.m_menu.setVisible(show_menu)
 

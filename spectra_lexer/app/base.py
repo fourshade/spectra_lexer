@@ -1,3 +1,4 @@
+import argparse
 import sys
 import traceback
 
@@ -18,7 +19,7 @@ BASE_COMPONENTS = [("file",   FileHandler),
 
 
 class SpectraApplication:
-    """ Base class for fundamental operations of the Spectra lexer involving keys, rules, and nodes. """
+    """ Base class for fundamental operations of the Spectra lexer. """
 
     engine: SpectraEngine  # Engine must be accessible to subclasses.
 
@@ -41,17 +42,15 @@ class SpectraApplication:
         return True
 
     def start(self, *cmd_args:str, **opts) -> None:
-        """ Parse the bare command line arguments into a dict of options.
-            Send the start signal, then load the initial rule set after everything else is configured. """
-        # opts.update(_parse_args(*cmd_args))
+        """ Parse the bare command line arguments into a dict of options, combine them with those given directly
+            by main(), and send the start signal. Load the initial rule set after everything else is configured. """
+        opts.update(self.parse_args(*cmd_args))
         self.engine.call("start", **opts)
         self.engine.call("dict_load_rules")
 
-
-# def parse_args(*cmd_args:str) -> dict:
-#     """ Parse command-line arguments into a dict for the config manager and components. """
-#     opt_dict = {}
-#     for arg in cmd_args:
-#         if arg.startswith("-cfg="):
-#             opt_dict["cfg"] = arg[5:]
-#     return opt_dict
+    def parse_args(self, *cmd_args:str) -> dict:
+        """ Parse command-line arguments into a dict for the application and components. """
+        # For the base application, specific config files may be used.
+        parser = argparse.ArgumentParser(description='Run the Spectra Steno Lexer.')
+        parser.add_argument('--cfg')
+        return vars(parser.parse_args(cmd_args))

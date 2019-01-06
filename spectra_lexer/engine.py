@@ -43,6 +43,7 @@ class SpectraEngine:
 
     _commands: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
     _exception_callback: callable    # Application-provided callback for exception handling.
+    _rlevel: int = 0                 # Counts levels of reentrancy for engine calls
 
     def __init__(self, on_exception=nop):
         """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
@@ -56,15 +57,17 @@ class SpectraEngine:
         component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Top-level method for engine calls. Checks exceptions with a custom handler, re-raising upon failure. """
+        """ Top-level method for engine calls. Checks exceptions with a custom handler. """
         try:
             # Load the call stack and run it to exhaustion. Return only the first value yielded (if any).
             stack = [(cmd_key, args, kwargs)]
-            r_vals = list(self._loop(stack))
+            with self:
+                r_vals = list(self._loop(stack))
             return r_vals[0] if r_vals else None
         except Exception as e:
-            if not self._exception_callback(e):
-                raise e
+            # If this is not the top frame or the handler fails, re-raise.
+            if self._rlevel or not self._exception_callback(e):
+                raise
 
     def _loop(self, stack:list) -> Generator:
         """ Call commands on each valid component in order until the stack is empty.
@@ -77,3 +80,10 @@ class SpectraEngine:
                 if c.dispatch(stack, value):
                     yield value
                     break
+
+    # Add/subtract from frame counter every time a new loop is entered/exited
+    def __enter__(self):
+        self._rlevel += 1
+
+    def __exit__(self, *args):
+        self._rlevel -= 1

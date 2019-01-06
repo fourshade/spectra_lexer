@@ -18,7 +18,7 @@ class GUIQtTextDisplay(Component):
         self.w_title, self.w_text = widgets
 
     @on("start")
-    def signal_connect(self, **opts) -> None:
+    def start(self, **opts) -> None:
         """ Register the mouseover signal. Keyboard input may also be available from this widget in the future. """
         self.w_text.mouseOverCharacter.connect(partial(self.engine_call, "sig_process_mouseover"))
 

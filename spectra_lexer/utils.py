@@ -1,19 +1,22 @@
-""" Module for generic utility functions that could be useful in many applications. """
-from functools import reduce
-from typing import Any, Callable, Generator, Iterable, Mapping, Sequence, Union
+"""
+Module for generic utility functions that could be useful in many applications.
+Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments.
+"""
+
+import functools
 
 
 def nop(*args, **kwargs) -> None:
     """ ... """
 
 
-def abstract_method(*args, **kwargs) -> Any:
+def abstract_method(*args, **kwargs):
     """ Assign this directly to class attributes to mark them as abstract methods.
         Much simpler than using ABCs, but does not allow default implementations. """
     raise NotImplementedError
 
 
-def compose(*funcs:Callable) -> Callable:
+def compose(*funcs:callable) -> callable:
     """ Compose a series of n callables to create a single callable that combines
         their effects, calling each one in turn with the result of the previous.
         The order is defined such that the first callable in the sequence receives
@@ -31,7 +34,7 @@ def compose(*funcs:Callable) -> Callable:
     return composed
 
 
-def traverse(obj:object, next_attr:str="next", sentinel:object=None) -> Generator:
+def traverse(obj:object, next_attr:str="next", sentinel:object=None):
     """ Traverse a linked-list type structure, following a chain of attribute references
         and yielding values until either the sentinel is found or the attribute is not.
         Reference loops will cause the generator to yield items forever. """
@@ -40,7 +43,7 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None) -> Generato
         obj = getattr(obj, next_attr, sentinel)
 
 
-def recurse(obj, iter_attr:str=None, sentinel:object=None) -> Generator:
+def recurse(obj:object, iter_attr:str=None, sentinel:object=None):
     """ Starting with a container object that can contain other objects of its own type,
         yield that object, then recursively yield objects from each of its children.
         If iter_attr is None, the object must be an iterable container itself.
@@ -55,11 +58,12 @@ def recurse(obj, iter_attr:str=None, sentinel:object=None) -> Generator:
             yield from recurse(item, iter_attr, sentinel)
 
 
-def merge(d_iter:Iterable[Union[Mapping, Iterable[Sequence]]]) -> dict:
+def merge(d_iter) -> dict:
     """ Merge all items in an iterable of mappings or other (k, v) item containers into a single dict. """
     merged = {}
+    merged_update = merged.update
     for d in d_iter:
-        merged.update(d)
+        merged_update(d)
     return merged
 
 
@@ -72,11 +76,29 @@ def memoize_one_arg(f:callable) -> callable:
     return MemoDict().__getitem__
 
 
+# These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.
+# Even after caching attributes and globals, repeated string creation and function call overhead will eat you alive.
+
 def _remove_char(s:str, c:str, _replace=str.replace) -> str:
     """ Return a copy of <s> with the character <c> removed starting from the left. """
     return _replace(s, c, "", 1)
 
 
-def str_without_chars(s:str, chars:str) -> str:
-    """ Return a copy of <s> with each of the characters in <chars> removed, starting from the left. """
-    return reduce(_remove_char, chars, s)
+def str_without(s:str, chars:str, _reduce=functools.reduce) -> str:
+    """ Return <s> with each of the characters in <chars> removed, starting from the left. """
+    return _reduce(_remove_char, chars, s)
+
+
+def str_prefix(s:str, sep:str=" ", _split=str.split) -> str:
+    """ Return <s> from the start up to the first instance of <sep>. If <sep> is not present, return all of <s>. """
+    return _split(s, sep, 1)[0]
+
+
+def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
+    """ Return <s> from the end up to the last instance of <sep>. If <sep> is not present, return all of <s>. """
+    return _split(s, sep, 1)[-1]
+
+
+def str_map(s:str, fn:callable, sep:str=" ", _split=str.split, _map=map, _join=str.join) -> str:
+    """ Split the string on a delimiter, then map a str->str function to each piece and join it back together. """
+    return _join(sep, _map(fn, _split(s, sep)))

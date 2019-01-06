@@ -25,12 +25,11 @@ class Component:
     def __init_subclass__(cls) -> None:
         """ Make a list of commands this component class handles with methods that handle each one.
             Each engine-callable method (callable class attribute) has its command info saved on attributes.
-            Save each of these to a list, using the parent's command list as a starting point.
-            Combine the lists to cover the full inheritance tree. Child class commands override parents. """
-        cmd_list = cls._cmd_attr_list[:]
-        cmd_list += [(attr, *func.cmd) for attr, func in cls.__dict__.items()
-                     if callable(func) and hasattr(func, "cmd")]
-        cls._cmd_attr_list = cmd_list
+            Save each of these to a list. Combine it with the parent's command list to make a new child list.
+            This new combined list covers the full inheritance tree. Parent commands execute first. """
+        cmd_list = [(attr, *func.cmd) for attr, func in cls.__dict__.items()
+                    if callable(func) and hasattr(func, "cmd")]
+        cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
     def commands(self) -> List[Tuple[Hashable, CommandActions]]:
         """ Bind all class command functions to the instance and return the raw commands. """
@@ -43,16 +42,18 @@ class Component:
 
 class Composite(Component):
     """ Component container; all commands and callbacks are routed to/from child components,
-        but the engine can't tell the difference. The container object itself cannot run commands. """
+        but the engine can't tell the difference. May also contain its own commands. """
 
-    _children: List[Component]
+    _children: Iterable[Component] = ()
 
     def set_children(self, children:Iterable[Component]) -> None:
         self._children = list(children)
 
     def commands(self) -> list:
-        return [i for c in self._children for i in c.commands()]
+        cmds = super().commands()
+        return cmds + [i for c in self._children for i in c.commands()]
 
     def set_engine_callback(self, *args) -> None:
+        super().set_engine_callback(*args)
         for c in self._children:
             c.set_engine_callback(*args)
