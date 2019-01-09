@@ -5,7 +5,7 @@ from spectra_lexer import fork, on
 from spectra_lexer.config import Configurable
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
-from spectra_lexer.lexer.results import LexerResultManager
+from spectra_lexer.lexer.results import LexerResults
 from spectra_lexer.rules import add_key_rules, RuleMapItem, StenoRule
 
 # Separator rule constant (can be tested by identity).
@@ -18,18 +18,13 @@ class StenoLexer(Configurable):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
-    _matcher: LexerRuleMatcher = None    # Master rule-matching dictionary.
-    _results: LexerResultManager = None  # Container and organizer of valid results for the current query.
-    _keys: StenoKeys                     # Current parsed keys, used in default return rule if none others are valid.
-    _word: str                           # Current English word, used in default return rule if none others are valid.
+    _matcher: LexerRuleMatcher = None  # Master rule-matching dictionary.
+    _results: LexerResults = None      # Container and organizer of valid results for the current query.
+    _keys: StenoKeys                   # Current parsed keys, used in default return rule if none others are valid.
+    _word: str                         # Current English word, used in default return rule if none others are valid.
 
     CFG_ROLE = "lexer"
-    CFG = {"need_all_keys": False}       # Do we only keep maps that have all keys covered?
-
-    @on("start")
-    def start(self, **opts) -> None:
-        """ Set up the lexer results after configuration options have been set. """
-        self._results = LexerResultManager(self["need_all_keys"])
+    CFG = {"need_all_keys": False}     # Do we only keep maps that have all keys covered?
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
@@ -52,7 +47,7 @@ class StenoLexer(Configurable):
     def _build_best_rule(self, pairs:Iterable[Tuple[str,str]]) -> StenoRule:
         """ Given an iterable of mappings of key strings to matching translations,
             return the best possible rule relating any pair of them. """
-        self._results.new_query()
+        self._results = LexerResults(self["need_all_keys"])
         # Collect all valid rulemaps (that aren't optimized away) for each pair of keys -> word.
         for keys, word in pairs:
             # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).

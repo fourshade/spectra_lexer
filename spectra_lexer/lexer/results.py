@@ -78,7 +78,7 @@ class _Result(List[RuleMapItem]):
         return StenoRule(self._keys, self._letters, flags, desc, tuple(self))
 
 
-class LexerResultManager:
+class LexerResults:
     """ Controller for finished lexer results. Determines which rulemaps are valid
         and creates a rule out of the best result that passes judgement. """
 
@@ -90,10 +90,6 @@ class LexerResultManager:
             speed at the cost of discarding all partial matches as total failures. """
         self._list = []
         self._need_all_keys = need_all_keys
-
-    def new_query(self) -> None:
-        """ Start a new query by dumping all the old results. """
-        self._list = []
 
     def add_result(self, rulemap, keys, word, keys_left) -> None:
         """ Add a rulemap to the list of results with all required parameters for ranking.
