@@ -17,24 +17,32 @@ class GUIQtWindow(Component):
     @on("start")
     def start(self, show_menu=True, **opts) -> None:
         """ Show the window once the engine is fully initialized and sends the start signal.
-            If the menu is used, add the basic window-based commands before displaying the window. """
+            If the menu is used, add the basic window-based dialog commands before displaying the window. """
         if show_menu:
-            self.engine_call("gui_menu_add", "File", "Load Dictionary...", "sig_window_dialog_load")
-            self.engine_call("gui_menu_add", "File", "Exit", "sig_window_close")
+            self.engine_call("gui_menu_add", "File", "Load Rules...", "sig_menu_load_rules")
+            self.engine_call("gui_menu_add", "File", "Load Translations...", "sig_menu_load_translations")
+            self.engine_call("gui_menu_add", "File", "Exit", "sig_menu_window_close", sep_first=True)
         self.window.show()
 
-    @pipe("sig_window_dialog_load", "dict_load_translations")
-    def dialog_load(self) -> Optional[list]:
-        """ Present a dialog for the user to select a dictionary file. Attempt to load it if not empty. """
-        file_formats = self.engine_call("file_get_decodable_exts")
-        (fname, _) = QFileDialog.getOpenFileName(self.window, 'Load Search Dictionary', '.',
-                                                 "Supported file formats (*" + " *".join(file_formats) + ")")
-        if not fname:
-            return None
-        self.engine_call("new_status", "Loaded dictionary from file dialog.")
-        return [fname]
+    @pipe("sig_menu_load_rules", "dict_load_rules")
+    def dialog_load_rules(self) -> Optional[list]:
+        return self._dialog_load("rules")
 
-    @on("sig_window_close")
+    @pipe("sig_menu_load_translations", "dict_load_translations")
+    def dialog_load_translations(self) -> Optional[list]:
+        return self._dialog_load("translations")
+
+    def _dialog_load(self, d_type:str) -> Optional[list]:
+        """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
+        file_formats = self.engine_call("file_get_decodable_exts")
+        (filenames, _) = QFileDialog.getOpenFileNames(self.window, 'Load {} Dictionaries'.format(d_type.title()), '.',
+                                                      "Supported file formats (*" + " *".join(file_formats) + ")")
+        if not filenames:
+            return None
+        self.engine_call("new_status", "Loaded {} from file dialog.".format(d_type))
+        return filenames
+
+    @on("sig_menu_window_close")
     def close(self):
         """ Closing the window means hiding it if there are persistent references and destroying it otherwise. """
         self.window.close()

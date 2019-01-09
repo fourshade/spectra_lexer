@@ -26,11 +26,15 @@ class GUIQtMenu(Component):
         self.m_menu.setVisible(show_menu)
 
     @on("gui_menu_add")
-    def add(self, heading:str, action:str, command:str, *args, **kwargs):
+    def add(self, heading:str, action:str, command:str, *args, sep_first:bool=False, **kwargs):
+        """ Add a new menu item under <heading> -> <action> to execute <command>. These are currently permanent.
+            Create any required headings/items needed, including a separator if <sep_first> is True."""
         menu_obj = self.menus.get(heading)
         if not menu_obj:
             menu_obj = self.menus[heading] = self.m_menu.addMenu(heading)
             self.actions[heading] = {}
+        if sep_first:
+            menu_obj.addSeparator()
         items = self.actions[heading]
         action_obj = items.get(action)
         if not action_obj:
