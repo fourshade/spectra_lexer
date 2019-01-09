@@ -29,7 +29,7 @@ class StenoLexer(Configurable):
     @on("start")
     def start(self, **opts) -> None:
         """ Set up the lexer results after configuration options have been set. """
-        self._results = LexerResultManager(self.CFG["need_all_keys"])
+        self._results = LexerResultManager(self["need_all_keys"])
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:

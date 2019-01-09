@@ -71,7 +71,7 @@ class GUIQtSearch(Configurable):
             self.match_list.clear()
             return
         # Choose the right type of search based on the mode flags, execute it, and show the list of results.
-        matches = self.engine_call("search_special", pattern, self.CFG["match_limit"],
+        matches = self.engine_call("search_special", pattern, self["match_limit"],
                                    self._search_dict, self._mode_regex)
         self.match_list.set_items(matches)
         # If there's only one match and it's new, select it and continue as if the user had done it.

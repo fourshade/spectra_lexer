@@ -3,6 +3,7 @@ import sys
 import traceback
 
 from spectra_lexer import Component
+from spectra_lexer.config import ConfigManager
 from spectra_lexer.dict import DictManager
 from spectra_lexer.engine import SpectraEngine
 from spectra_lexer.file import FileHandler
@@ -12,6 +13,7 @@ from spectra_lexer.text import CascadedTextFormatter
 
 # Constituent components of the base application. These should be enough to run the lexer in batch mode.
 BASE_COMPONENTS = [("file",   FileHandler),
+                   ("config", ConfigManager),
                    ("dict",   DictManager),
                    ("search", SearchEngine),
                    ("lexer",  StenoLexer),
