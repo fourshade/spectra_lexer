@@ -30,8 +30,8 @@ def _decode_CFG(contents:str) -> dict:
     cfg = ConfigParser()
     cfg.read_string(contents)
     d = defaultdict(dict)
-    for (sect, prox) in cfg.items():
-        for (opt, val) in prox.items():
+    for (sect, opt_dict) in cfg.items():
+        for (opt, val) in opt_dict.items():
             try:
                 d[sect][opt] = ast.literal_eval(val)
             except (SyntaxError, ValueError):

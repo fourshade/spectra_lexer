@@ -2,18 +2,21 @@
 
 from spectra_lexer import Composite
 from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
+from spectra_lexer.gui_qt.config import GUIQtConfig
 from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.gui_qt.menu import GUIQtMenu
 from spectra_lexer.gui_qt.search import GUIQtSearch
 from spectra_lexer.gui_qt.text import GUIQtTextDisplay
 from spectra_lexer.gui_qt.window import GUIQtWindow
 
-# Constituent components of the GUI. The window shouldn't be shown until everything else is set up, so connect it last.
-GUI_COMPONENTS = [("menu",   GUIQtMenu),
-                  ("search", GUIQtSearch),
-                  ("text",   GUIQtTextDisplay),
-                  ("board",  GUIQtBoardDisplay),
-                  ("window", GUIQtWindow)]
+# Constituent components of the GUI and their widget sections. Some components may use the same section.
+# The window shouldn't be shown until everything else is set up, so create the window controller last.
+GUI_COMPONENTS = [(GUIQtMenu,         "menu"),
+                  (GUIQtSearch,       "search"),
+                  (GUIQtTextDisplay,  "text"),
+                  (GUIQtBoardDisplay, "board"),
+                  (GUIQtConfig,       "window"),
+                  (GUIQtWindow,       "window")]
 
 
 class GUIQt(Composite):
@@ -25,4 +28,4 @@ class GUIQt(Composite):
         """ Assemble child components before the engine starts. """
         self.window = MainWindow()
         cmp_args = self.window.partition()
-        self.set_children([tp(*cmp_args[k]) for (k, tp) in GUI_COMPONENTS])
+        self.set_children([tp(*cmp_args[w]) for (tp, w) in GUI_COMPONENTS])
