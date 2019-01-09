@@ -14,7 +14,7 @@ from collections import defaultdict
 from typing import Callable, List, Tuple, TypeVar
 
 # Key constants which aren't physical steno keys but appear in strings.
-from spectra_lexer.utils import str_map, str_without
+from spectra_lexer.utils import str_map, str_without, str_prefix
 
 KEY_SEP = "/"
 KEY_SPLIT = "-"
@@ -67,8 +67,8 @@ class StenoKeys(str):
         """ Return a class instance of the stroke separator. """
         return cls(KEY_SEP)
 
-    def first_stroke(self):
-        return self.split(KEY_SEP, 1)[0]
+    def first_stroke(self) -> str:
+        return str_prefix(self, KEY_SEP)
 
     def for_display(self) -> List[Tuple[str, bool]]:
         """ Generate a list of strokes along with whether or not they have been shifted with the number key. """

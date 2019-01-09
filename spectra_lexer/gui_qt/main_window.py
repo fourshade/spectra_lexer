@@ -15,15 +15,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def partition(self) -> Dict[str, List[QWidget]]:
         """ Partition all GUI elements into sections for the engine. """
         return {
-            # Top-level window handler.
+            # Top-level window.
             "window": [self],
-            # Menu component; only used in standalone mode (top).
+            # Menu bar; only used in standalone mode (top).
             "menu":   [self.m_menu],
-            # Search component; initialized with all search-related GUI elements (left half).
+            # Search-related GUI elements (left half).
             "search": [self.w_search_input, self.w_search_matches, self.w_search_mappings,
                        self.w_search_type, self.w_search_regex],
-            # Text display component; initialized with text output GUI elements (top-right half).
+            # Text output GUI elements (top-right half).
             "text":   [self.w_display_title, self.w_display_text],
-            # Board display component; initialized with board diagram GUI elements (bottom-right half).
+            # Board diagram GUI elements (bottom-right half).
             "board":  [self.w_display_desc, self.w_display_board]
         }

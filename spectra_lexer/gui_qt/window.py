@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PyQt5.QtWidgets import QFileDialog, QMainWindow, QWidget
+from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
 from spectra_lexer import Component, on, pipe
 
@@ -10,7 +10,7 @@ class GUIQtWindow(Component):
 
     window: QMainWindow  # Main window object. Must be the parent of any new dialogs.
 
-    def __init__(self, window:QWidget):
+    def __init__(self, window:QMainWindow):
         super().__init__()
         self.window = window
 

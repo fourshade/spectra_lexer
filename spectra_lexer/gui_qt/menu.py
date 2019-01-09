@@ -1,6 +1,4 @@
-from typing import Dict
-
-from PyQt5.QtWidgets import QAction, QMenu, QMenuBar, QWidget
+from PyQt5.QtWidgets import QMenuBar
 
 from spectra_lexer import Component, on
 
@@ -10,11 +8,11 @@ class GUIQtMenu(Component):
         It is assumed that the menu items are only available in standalone mode (not as a plugin).
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
-    m_menu: QMenuBar                        # Top-level widget for the entire menu bar.
-    menus: Dict[str, QMenu]                 # Menu heading objects (File, Edit, etc.).
-    actions: Dict[str, Dict[str, QAction]]  # The items you click.
+    m_menu: QMenuBar  # Top-level widget for the entire menu bar.
+    menus: dict       # Menu heading objects (File, Edit, etc.).
+    actions: dict     # The items you click.
 
-    def __init__(self, m_menu:QWidget):
+    def __init__(self, m_menu:QMenuBar):
         super().__init__()
         self.m_menu = m_menu
         self.menus = {}

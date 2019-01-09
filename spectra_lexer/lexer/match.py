@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.prefix import OrderedKeyPrefixTree
 from spectra_lexer.rules import StenoRule
+from spectra_lexer.utils import str_prefix
 
 # TODO: Only attempt RARE matches after failing with the normal set of rules.
 # Acceptable rule flags that indicate special behavior for the lexer's matching system.
@@ -67,7 +68,7 @@ class LexerRuleMatcher:
 
     def _word_match(self, keys:StenoKeys, letters:str) -> List[StenoRule]:
         """ For the word dictionary, the rule must match a prefix of the given keys and the next full word."""
-        r = self._word_dict.get(letters.lstrip().split(" ", 1)[0])
+        r = self._word_dict.get(str_prefix(letters.lstrip()))
         if r and keys.startswith(r.keys):
             return [r]
         return []
