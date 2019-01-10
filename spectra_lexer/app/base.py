@@ -3,7 +3,6 @@ import sys
 import traceback
 
 from spectra_lexer import Component
-from spectra_lexer.config import ConfigManager
 from spectra_lexer.dict import DictManager
 from spectra_lexer.engine import SpectraEngine
 from spectra_lexer.file import FileHandler
@@ -13,7 +12,6 @@ from spectra_lexer.text import CascadedTextFormatter
 
 # Constituent components of the base application. These should be enough to run the lexer in batch mode.
 BASE_COMPONENTS = [("file",   FileHandler),
-                   ("config", ConfigManager),
                    ("dict",   DictManager),
                    ("search", SearchEngine),
                    ("lexer",  StenoLexer),
@@ -45,9 +43,10 @@ class SpectraApplication:
 
     def start(self, *cmd_args:str, **opts) -> None:
         """ Parse the bare command line arguments into a dict of options, combine them with those given directly
-            by main(), and send the start signal. Load the initial rule set after everything else is configured. """
+            by main(), and send the start signal. Load the config file and initial rule set last. """
         opts.update(self.parse_args(*cmd_args))
         self.engine.call("start", **opts)
+        self.engine.call("dict_load_config")
         self.engine.call("dict_load_rules")
 
     def parse_args(self, *cmd_args:str) -> dict:

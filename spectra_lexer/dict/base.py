@@ -1,7 +1,8 @@
 import json
 from typing import Iterable, Mapping, Tuple, List
 
-from spectra_lexer import Component, fork, pipe
+from spectra_lexer import Component, fork, pipe, on
+from spectra_lexer.dict.config import ConfigManager
 from spectra_lexer.dict.rule_parser import StenoRuleParser
 from spectra_lexer.utils import merge
 
@@ -13,10 +14,31 @@ class DictManager(Component):
     """ Handles all conversion and merging required for file operations on specific types of dicts. """
 
     rule_parser: StenoRuleParser  # Rule parser that tracks reference names in case we want to save new rules.
+    config_parser: ConfigManager  # Configuration manager that tracks where we want our config saved.
 
-    def __init__(self):
-        super().__init__()
+    @on("start")
+    def from_raw(self, cfg:str=None, **opts):
+        """ Create all parsers and load them with command line arguments. """
         self.rule_parser = StenoRuleParser()
+        self.config_parser = ConfigManager(cfg)
+
+    @fork("dict_load_config", "new_config_data")
+    def load_config(self, filenames:Iterable[str]=None) -> dict:
+        """ Load and merge all config options from disk. Ignore failures and convert strings using AST. """
+        if filenames is None:
+            filenames = [self.config_parser.cfg_file]
+        try:
+            dicts = [self.engine_call("file_load", f) for f in filenames]
+        except OSError:
+            dicts = []
+        return self.config_parser.from_raw(merge(dicts))
+
+    @pipe("dict_save_config", "file_save", unpack=True)
+    def save_config(self, cfg_data:dict, filename:str=None) -> Tuple[str, dict]:
+        """ Save config options to disk. Saving should not fail silently, unlike loading. """
+        if filename is None:
+            filename = self.config_parser.cfg_file
+        return filename, self.config_parser.to_raw(cfg_data)
 
     @fork("dict_load_rules", "new_rules")
     def load_rules(self, filenames:Iterable[str]=None) -> list:
