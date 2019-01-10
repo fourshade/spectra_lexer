@@ -53,6 +53,8 @@ class SpectraApplication:
         """ Parse command-line arguments into a dict for the application and components.
             Suppress defaults for unused options so that components can provide defaults themselves in start(). """
         parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-        # For the base application, specific config files may be used.
+        # For the base application, specific files (one of each) may be loaded at start.
         parser.add_argument('--cfg')
+        parser.add_argument('--rules')
+        parser.add_argument('--search')
         return vars(parser.parse_args(cmd_args))

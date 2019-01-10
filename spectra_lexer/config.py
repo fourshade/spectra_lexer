@@ -33,7 +33,7 @@ class Configurable(Component):
         super().__init_subclass__()
         cls._cfg_dict = {k: v for (k, v) in cls.__dict__.items() if isinstance(v, CFGOption)}
 
-    @pipe("new_config_data", "new_config_info", unpack=True)
+    @pipe("new_config", "new_config_info", unpack=True)
     @classmethod
     def configure(cls, cfg_data:dict):
         """ Overwrite (and convert) config values with data read from disk for this role (if any).

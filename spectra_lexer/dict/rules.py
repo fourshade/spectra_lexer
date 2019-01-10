@@ -1,6 +1,7 @@
 from typing import Iterable, List, Tuple
 
-from spectra_lexer import on, fork, pipe, Component
+from spectra_lexer import on, fork, pipe
+from spectra_lexer.dict.manager import ResourceManager
 from spectra_lexer.dict.rule_parser import StenoRuleParser
 from spectra_lexer.utils import merge
 
@@ -8,7 +9,9 @@ from spectra_lexer.utils import merge
 _RULES_ASSET_PATTERN = "*.cson"
 
 
-class RulesManager(Component):
+class RulesManager(ResourceManager):
+
+    R_TYPE = "rules"
 
     rule_parser: StenoRuleParser  # Rule parser that tracks reference names in case we want to save new rules.
 

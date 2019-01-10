@@ -39,7 +39,7 @@ class GUIQtConfig(Component):
         self.dialog.load_settings(self._cfg_info)
         self.dialog.show()
 
-    @pipe("sig_config_dialog_save", "new_config_data")
+    @pipe("sig_config_dialog_save", "new_config")
     def save(self) -> dict:
         """ Gather the changed settings from the dialog, send them to the components, and save them to disk. """
         d = self.dialog.save_settings()

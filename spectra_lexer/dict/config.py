@@ -3,13 +3,16 @@ from typing import Iterable, Tuple
 
 from spectra_lexer import Component, fork, pipe, on
 from spectra_lexer.utils import merge
+from spectra_lexer.dict.manager import ResourceManager
 
 # File name for the standard user config file (in app data directory).
 _CONFIG_FILE_NAME = "~/config.cfg"
 
 
-class ConfigManager(Component):
+class ConfigManager(ResourceManager):
     """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
+
+    R_TYPE = "config"
 
     cfg_file: str    # Path to config file; default is in the user's app data directory.
     _cfg_data: dict  # Dict with config data values loaded from disk.
@@ -19,7 +22,7 @@ class ConfigManager(Component):
         self.cfg_file = cfg or _CONFIG_FILE_NAME
         self._cfg_data = {}
 
-    @fork("dict_load_config", "new_config_data")
+    @fork("dict_load_config", "new_config")
     def load_config(self, filenames:Iterable[str]=None) -> dict:
         """ Load and merge all config options from disk. Ignore failures and convert strings using AST. """
         if filenames is None:

@@ -1,11 +1,14 @@
 import json
 from typing import Iterable, List, Mapping, Tuple
 
-from spectra_lexer import Component, fork, pipe
+from spectra_lexer import fork, on, pipe
 from spectra_lexer.utils import merge
+from spectra_lexer.dict.manager import ResourceManager
 
 
-class TranslationsManager(Component):
+class TranslationsManager(ResourceManager):
+
+    R_TYPE = "translations"
 
     @fork("dict_load_translations", "new_translations")
     def load_translations(self, filenames:Iterable[str]=None) -> dict:
