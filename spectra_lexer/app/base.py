@@ -51,8 +51,9 @@ class SpectraApplication:
         self.engine.call("dict_load_rules")
 
     def parse_args(self, *cmd_args:str) -> dict:
-        """ Parse command-line arguments into a dict for the application and components. """
+        """ Parse command-line arguments into a dict for the application and components.
+            Suppress defaults for unused options so that components can provide defaults themselves in start(). """
+        parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
         # For the base application, specific config files may be used.
-        parser = argparse.ArgumentParser(description='Run the Spectra Steno Lexer.')
         parser.add_argument('--cfg')
         return vars(parser.parse_args(cmd_args))

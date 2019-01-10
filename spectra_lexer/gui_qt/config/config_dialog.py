@@ -1,8 +1,6 @@
-from PyQt5.QtCore import pyqtSlot, Qt
-from PyQt5.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QLabel, QLineEdit, \
-    QScrollArea, QWidget
-
-from spectra_lexer.gui_qt.config.config_dialog_ui import Ui_ConfigDialog
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QGridLayout, QLabel, QLineEdit, \
+    QTabWidget, QWidget
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 OPT_WIDGETS = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -17,7 +15,7 @@ def option_widget(val:object, opt_type:type) -> QWidget:
     w = w_factory()
     # Options are converted to the widget's native type on load, and back to the option's type on save.
     setter(w, w_type(val))
-    w.save = lambda: opt_type(getter(w))
+    w.save = lambda: getter(w)
     return w
 
 
@@ -46,21 +44,32 @@ class OptionPage(QFrame):
         return {opt: w.save() for (opt, w) in self._widgets.items()}
 
 
-class ConfigDialog(QDialog, Ui_ConfigDialog):
+class ConfigDialog(QDialog):
     """ Outermost Qt config dialog window object. """
 
     _pages: dict = {}  # Tracks each widget container page with config info.
 
     def __init__(self, parent:QWidget=None):
         """ Create UI elements and connect basic signals. Tabs are not created until config info is sent. """
-        super().__init__(parent, Qt.Dialog)
-        self.setupUi(self)
-        self._connect_button("Ok", self.accept)
-        self._connect_button("Apply", self.accept)
-        self._connect_button("Cancel", self.reject)
-
-    def _connect_button(self, button:str, slot:pyqtSlot) -> None:
-        self.w_buttons.button(getattr(QDialogButtonBox, button)).clicked.connect(slot)
+        super().__init__(parent, Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        cancel = QDialogButtonBox.Cancel
+        ok = QDialogButtonBox.Ok
+        self.setObjectName("ConfigDialog")
+        self.setWindowTitle("Spectra Configuration")
+        self.resize(220, 300)
+        self.setSizeGripEnabled(False)
+        self.layout_main = QGridLayout(self)
+        self.layout_main.setObjectName("layout_main")
+        self.w_tabs = QTabWidget(self)
+        self.w_tabs.setObjectName("w_tabs")
+        self.layout_main.addWidget(self.w_tabs, 0, 0, 1, 1)
+        self.w_buttons = QDialogButtonBox(self)
+        self.w_buttons.setObjectName("w_buttons")
+        self.w_buttons.setOrientation(Qt.Horizontal)
+        self.w_buttons.setStandardButtons(cancel | ok)
+        self.w_buttons.button(cancel).clicked.connect(self.reject)
+        self.w_buttons.button(ok).clicked.connect(self.accept)
+        self.layout_main.addWidget(self.w_buttons, 1, 0, 1, 1, Qt.AlignHCenter)
 
     def load_settings(self, cfg_info:dict) -> None:
         """ (Re)create all tabs and widgets using config info from the dict. """
@@ -69,10 +78,7 @@ class ConfigDialog(QDialog, Ui_ConfigDialog):
         for (sect, opt_dict) in cfg_info.items():
             page = OptionPage(opt_dict)
             self._pages[sect] = page
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
-            scroll_area.setWidget(page)
-            self.w_tabs.addTab(scroll_area, sect)
+            self.w_tabs.addTab(page, sect)
 
     def save_settings(self) -> dict:
         """ Gather all config values from each page and widget and save them to a nested dict. """

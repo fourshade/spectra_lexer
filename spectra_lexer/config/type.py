@@ -37,7 +37,7 @@ class Configurable(Component):
     @classmethod
     def configure(cls, cfg_data:dict):
         """ Overwrite (and convert) config values with data read from disk for this role (if any).
-            Send detailed info about this component's configuration for components such as the config editor. """
+            Send detailed info about this component's configuration to components such as the config editor. """
         new_data = cfg_data.get(cls.CFG_ROLE, {})
         for (k, v) in new_data.items():
             option = cls._cfg_dict.get(k)

@@ -11,23 +11,18 @@ class GUIQtConfig(Component):
 
     window: QMainWindow          # Main window object. Must be the parent of any new dialogs.
     dialog: ConfigDialog = None  # Main dialog object. Should persist when closed/hidden.
-    _cfg_data: dict = {}         # Dict with config data values loaded from disk.
-    _cfg_info: dict = {}         # Dict with detailed config info from active components.
+
+    _cfg_info: dict              # Dict with detailed config info from active components.
 
     def __init__(self, window:QMainWindow):
         super().__init__()
         self.window = window
+        self._cfg_info = {}
 
     @on("start")
     def start(self, **opts) -> None:
         """ If the menu is used, add the config dialog command. """
         self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "sig_config_dialog_open")
-
-    @on("new_config_data")
-    def configure(self, cfg_data:dict) -> None:
-        """ Store all data values from disk, if only so that inactive component options won't be lost upon write.
-            This component has no config options itself, so it is safe to override the configure command. """
-        self._cfg_data = cfg_data
 
     @on("new_config_info")
     def new_data(self, role:str, cfg_info:dict):
@@ -46,10 +41,5 @@ class GUIQtConfig(Component):
 
     @pipe("sig_config_dialog_save", "new_config_data")
     def save(self) -> dict:
-        """ Overwrite settings in the current config data from those in the dialog.
-            Send the changed settings to the components and also save them to disk. """
-        new_data = self.dialog.save_settings()
-        for (s, d) in new_data.items():
-            self._cfg_data[s].update(d)
-        self.engine_call("config_save", self._cfg_data)
-        return self._cfg_data
+        """ Gather the changed settings from the dialog and send them to the components. """
+        return self.dialog.save_settings()
