@@ -1,26 +1,46 @@
 """" Module specifically for configurable components, i.e. those that draw one or more values from a config file. """
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component, pipe
+
+
+class CFGOption:
+    """ Descriptor for a configurable setting. Used like an ordinary attribute by the component. """
+
+    val: object  # Externally visible value, initialized to default.
+    tp: type     # Type of the default value, used for conversion.
+    name: str    # Name as shown on config page.
+    desc: str    # Description as shown on config page.
+
+    def __init__(self, default, name, desc):
+        self.val = default
+        self.tp = type(default)
+        self.name = name
+        self.desc = desc
+
+    def __get__(self, instance: Component, owner: type) -> object:
+        """ Config options are accessed through the descriptor by the component itself. """
+        return self.val
 
 
 class Configurable(Component):
     """ Component that uses user-configurable values. Requires ConfigManager to update these values from defaults. """
 
-    CFG_ROLE = "undefined"  # Heading for config dictionary; overridden by subclasses.
-    CFG: dict = {}          # Local config dictionary, loaded with default values by subclasses.
+    CFG_ROLE: str = "undefined"  # Heading for config dictionary; overridden by subclasses.
+    _cfg_dict: dict              # Local dict for this component's config option objects.
 
-    @on("configure")
-    def configure(self, cfg_dict:dict) -> None:
-        """ Override default values from the class CFG dict with those read from disk for this role (if any).
-            Store the class dict back in the config structure so it gets saved with everything else. """
-        self.CFG.update(cfg_dict.get(self.CFG_ROLE, {}))
-        cfg_dict[self.CFG_ROLE] = self.CFG
+    def __init_subclass__(cls) -> None:
+        """ Create the initial config dict from all config options defined in the class body. """
+        super().__init_subclass__()
+        cls._cfg_dict = {k: v for (k, v) in cls.__dict__.items() if isinstance(v, CFGOption)}
 
-    def __getitem__(self, opt:str):
-        """ Config options can be accessed through the component itself as a container. """
-        return self.CFG[opt]
-
-    def __setitem__(self, opt:str, val) -> None:
-        """ Config options set through the container protocol are immediately saved. """
-        self.CFG[opt] = val
-        self.engine_call("config_save")
+    @pipe("new_config_data", "new_config_info", unpack=True)
+    @classmethod
+    def configure(cls, cfg_data:dict):
+        """ Overwrite (and convert) config values with data read from disk for this role (if any).
+            Send detailed info about this component's configuration for components such as the config editor. """
+        new_data = cfg_data.get(cls.CFG_ROLE, {})
+        for (k, v) in new_data.items():
+            option = cls._cfg_dict.get(k)
+            if option is not None:
+                option.val = option.tp(v)
+        return cls.CFG_ROLE, cls._cfg_dict

@@ -24,11 +24,10 @@ class Component:
 
     def __init_subclass__(cls) -> None:
         """ Make a list of commands this component class handles with methods that handle each one.
-            Each engine-callable method (callable class attribute) has its command info saved on attributes.
+            Each engine-callable method (class attribute) has its command info saved on attributes.
             Save each of these to a list. Combine it with the parent's command list to make a new child list.
             This new combined list covers the full inheritance tree. Parent commands execute first. """
-        cmd_list = [(attr, *func.cmd) for attr, func in cls.__dict__.items()
-                    if callable(func) and hasattr(func, "cmd")]
+        cmd_list = [(attr, *func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
     def commands(self) -> List[Tuple[Hashable, CommandActions]]:

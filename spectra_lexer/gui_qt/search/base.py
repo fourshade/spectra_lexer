@@ -4,7 +4,7 @@ from typing import Any, Optional, Tuple
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
 from spectra_lexer import on, pipe
-from spectra_lexer.config import Configurable
+from spectra_lexer.config import Configurable, CFGOption
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 
@@ -20,7 +20,7 @@ class GUIQtSearch(Configurable):
     _last_match: str = ""           # Last search match selected by the user in the list.
 
     CFG_ROLE = "gui_search"
-    CFG = {"match_limit": 100}      # Hard limit on the number of matches returned by a special search.
+    match_limit = CFGOption(100, "Match Limit", "Maximum number of matches returned by a search.")
 
     def __init__(self, *widgets:QWidget):
         super().__init__()
@@ -71,7 +71,7 @@ class GUIQtSearch(Configurable):
             self.match_list.clear()
             return
         # Choose the right type of search based on the mode flags, execute it, and show the list of results.
-        matches = self.engine_call("search_special", pattern, self["match_limit"],
+        matches = self.engine_call("search_special", pattern, self.match_limit,
                                    self._search_dict, self._mode_regex)
         self.match_list.set_items(matches)
         # If there's only one match and it's new, select it and continue as if the user had done it.

@@ -26,17 +26,10 @@ def _decode_CSON(contents:str) -> dict:
 
 
 def _decode_CFG(contents:str) -> dict:
-    """ Decode CFG file contents into a nested dict. Evaluate all values two levels down as Python literals. """
+    """ Decode CFG file contents into a nested dict. A two-level copy must be made to eliminate the proxies. """
     cfg = ConfigParser()
     cfg.read_string(contents)
-    d = defaultdict(dict)
-    for (sect, opt_dict) in cfg.items():
-        for (opt, val) in opt_dict.items():
-            try:
-                d[sect][opt] = ast.literal_eval(val)
-            except (SyntaxError, ValueError):
-                d[sect][opt] = val
-    return d
+    return {sect: dict(prox) for (sect, prox) in cfg.items()}
 
 
 def _encode_CFG(d:dict) -> str:

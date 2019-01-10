@@ -2,7 +2,7 @@ from itertools import product
 from typing import Iterable, Tuple
 
 from spectra_lexer import fork, on
-from spectra_lexer.config import Configurable
+from spectra_lexer.config import Configurable, CFGOption
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import KEY_STAR, LexerRuleMatcher
 from spectra_lexer.lexer.results import LexerResults
@@ -24,7 +24,7 @@ class StenoLexer(Configurable):
     _word: str                         # Current English word, used in default return rule if none others are valid.
 
     CFG_ROLE = "lexer"
-    CFG = {"need_all_keys": False}     # Do we only keep maps that have all keys covered?
+    need_all_keys = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:
@@ -47,7 +47,7 @@ class StenoLexer(Configurable):
     def _build_best_rule(self, pairs:Iterable[Tuple[str,str]]) -> StenoRule:
         """ Given an iterable of mappings of key strings to matching translations,
             return the best possible rule relating any pair of them. """
-        self._results = LexerResults(self["need_all_keys"])
+        self._results = LexerResults(self.need_all_keys)
         # Collect all valid rulemaps (that aren't optimized away) for each pair of keys -> word.
         for keys, word in pairs:
             # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
