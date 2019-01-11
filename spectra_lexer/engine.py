@@ -52,8 +52,8 @@ class SpectraEngine:
 
     def connect(self, component:Component) -> None:
         """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
-        for (k, c) in component.commands():
-            self._commands[k].insert(0, c)
+        for (k, f, d) in component.commands():
+            self._commands[k].insert(0, (f, d))
         component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
@@ -75,9 +75,9 @@ class SpectraEngine:
             If a target is required to return a value, yield it and skip any remaining components. """
         while stack:
             cmd_key, args, kwargs = stack.pop()
-            for c in self._commands[cmd_key]:
-                value = c.func(*args, **kwargs)
-                if c.dispatch(stack, value):
+            for (func, dispatch) in self._commands[cmd_key]:
+                value = func(*args, **kwargs)
+                if dispatch(stack, value):
                     yield value
                     break
 

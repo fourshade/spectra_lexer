@@ -1,42 +1,34 @@
 import ast
-from typing import Iterable, Tuple
+from typing import Iterable, List, Tuple
 
-from spectra_lexer import Component, fork, pipe, on
-from spectra_lexer.utils import merge
 from spectra_lexer.dict.manager import ResourceManager
 
 # File name for the standard user config file (in app data directory).
-_CONFIG_FILE_NAME = "~/config.cfg"
+_CONFIG_FILE_NAME: str = "~/config.cfg"
 
 
 class ConfigManager(ResourceManager):
     """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
 
-    R_TYPE = "config"
+    CMD_SUFFIX = "config"
+    OPT_KEY = "cfg"
 
-    cfg_file: str    # Path to config file; default is in the user's app data directory.
     _cfg_data: dict  # Dict with config data values loaded from disk.
 
-    @on("start")
-    def start(self, cfg:str=None, **opts):
-        self.cfg_file = cfg or _CONFIG_FILE_NAME
-        self._cfg_data = {}
-
-    @fork("dict_load_config", "new_config")
-    def load_config(self, filenames:Iterable[str]=None) -> dict:
+    def load(self, filenames:Iterable[str]=None) -> dict:
         """ Load and merge all config options from disk. Ignore failures and convert strings using AST. """
-        if filenames is None:
-            filenames = [self.cfg_file]
         try:
-            d = merge([self.engine_call("file_load", f) for f in filenames])
+            d = super().load(filenames)
         except OSError:
             d = {}
-        self._ast_convert(d)
-        return self._cfg_data
-
-    def _ast_convert(self, d) -> None:
-        """ Try to convert Python literal strings to objects. This fixes crap like bool('False') = True. """
         self._cfg_data = d
+        return d
+
+    def load_default(self) -> List[dict]:
+        return super()._load([_CONFIG_FILE_NAME])
+
+    def parse(self, d):
+        """ Try to convert Python literal strings to objects. This fixes crap like bool('False') = True. """
         for (sect, page) in d.items():
             for (opt, val) in page.items():
                 if isinstance(val, str):
@@ -44,12 +36,12 @@ class ConfigManager(ResourceManager):
                         d[sect][opt] = ast.literal_eval(val)
                     except (SyntaxError, ValueError):
                         continue
+        return d
 
-    @pipe("dict_save_config", "file_save", unpack=True)
-    def save_config(self, new_data:dict, filename:str=None) -> Tuple[str, dict]:
+    def save(self, filename:str, new_data:dict) -> Tuple[str, dict]:
         """ Update config options to disk and save them to disk. Saving should not fail silently, unlike loading. """
         if filename is None:
-            filename = self.cfg_file
+            filename = _CONFIG_FILE_NAME
         for (s, d) in new_data.items():
             self._cfg_data[s].update(d)
         return filename, self._cfg_data

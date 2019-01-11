@@ -23,13 +23,6 @@ class RawRule(NamedTuple):
     example_str: str = ""  # Optional pipe-delimited series of example translations using this rule.
 
 
-def raw_rule_dict(src:dict) -> Dict[str, RawRule]:
-    """ Make a namedtuple-based raw rules dictionary from an unformatted dict loaded directly from disk. """
-    if src is None:
-        return {}
-    return {k: RawRule(*v) for (k, v) in src.items()}
-
-
 class StenoRuleParser(Dict[str, StenoRule]):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
@@ -37,10 +30,10 @@ class StenoRuleParser(Dict[str, StenoRule]):
     _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
     _ref_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def from_raw(self, src_dict:Dict[str, str]=None) -> List[StenoRule]:
+    def from_raw(self, src_dict:Dict[str, str]) -> List[StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
-        self._src_dict = raw_rule_dict(src_dict)
+        self._src_dict = {k: RawRule(*v) for (k, v) in src_dict.items()}
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         self.clear()

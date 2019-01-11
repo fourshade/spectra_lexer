@@ -43,5 +43,5 @@ class GUIQtConfig(Component):
     def save(self) -> dict:
         """ Gather the changed settings from the dialog, send them to the components, and save them to disk. """
         d = self.dialog.save_settings()
-        self.engine_call("dict_save_config", d)
+        self.engine_call("dict_save_config", None, d)
         return d

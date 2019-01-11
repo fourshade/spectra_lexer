@@ -1,14 +1,8 @@
 """ Base module of the Spectra lexer package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import ClassVar, Hashable, Iterable, List, NamedTuple, Tuple
+from typing import ClassVar, Hashable, Iterable, List, Tuple
 
 from spectra_lexer.utils import nop
-
-
-class CommandActions(NamedTuple):
-    """ Contains actions that constitute a command, including a function call and/or a subsequent command. """
-    func: callable      # Function or bound method to call.
-    dispatch: callable  # Function with instructions on which command to execute next, if any.
 
 
 class Component:
@@ -27,12 +21,13 @@ class Component:
             Each engine-callable method (class attribute) has its command info saved on attributes.
             Save each of these to a list. Combine it with the parent's command list to make a new child list.
             This new combined list covers the full inheritance tree. Parent commands execute first. """
-        cmd_list = [(attr, *func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
+        cmd_list = [(attr, func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
-    def commands(self) -> List[Tuple[Hashable, CommandActions]]:
-        """ Bind all class command functions to the instance and return the raw commands. """
-        return [(key, CommandActions(getattr(self, attr), dsp)) for attr, key, dsp in self._cmd_attr_list]
+    def commands(self) -> List[Tuple[Hashable, callable, callable]]:
+        """ Bind all class command functions to the instance and return the raw (key, func, dispatch) command tuples.
+            Each command has a main callable followed by one with instructions on what to execute next. """
+        return [(key, getattr(self, attr), dispatch) for (attr, (key, dispatch)) in self._cmd_attr_list]
 
     def set_engine_callback(self, cb:callable=nop) -> None:
         """ Set the callback used for engine calls by individual components. """
