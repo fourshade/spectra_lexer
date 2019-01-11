@@ -25,7 +25,6 @@ class CFGOption:
 class Configurable(Component):
     """ Component that uses user-configurable values. Requires ConfigManager to update these values from defaults. """
 
-    CFG_ROLE: str = "undefined"  # Heading for config dictionary; overridden by subclasses.
     _cfg_dict: dict              # Local dict for this component's config option objects.
 
     def __init_subclass__(cls) -> None:
@@ -38,9 +37,9 @@ class Configurable(Component):
     def configure(cls, cfg_data:dict):
         """ Overwrite (and convert) config values with data read from disk for this role (if any).
             Send detailed info about this component's configuration to components such as the config editor. """
-        new_data = cfg_data.get(cls.CFG_ROLE, {})
+        new_data = cfg_data.get(cls.ROLE, {})
         for (k, v) in new_data.items():
             option = cls._cfg_dict.get(k)
             if option is not None:
                 option.val = option.tp(v)
-        return cls.CFG_ROLE, cls._cfg_dict
+        return cls.ROLE, cls._cfg_dict

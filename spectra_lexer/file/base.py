@@ -6,9 +6,11 @@ from spectra_lexer.file.resource import resource_from_string, resources_from_pat
 class FileHandler(Component):
     """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
 
+    ROLE = "file"
+
     @respond_to("file_load")
     def load_resources(self, *patterns:str) -> list:
-        """ Attempt to expand all patterns and decode all files in the iterable argument and return a list. """
+        """ Attempt to expand all patterns and decode all files in the arguments and return a list. """
         return list(map(decode, resources_from_patterns(*patterns)))
 
     @on("file_save")

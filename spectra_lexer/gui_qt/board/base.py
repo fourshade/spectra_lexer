@@ -15,6 +15,8 @@ class GUIQtBoardDisplay(Component):
     """ Generates steno board diagram elements for a given node,
         including graphical element IDs and the description. """
 
+    ROLE = "gui_board"
+
     w_desc: QLineEdit          # Displays rule description.
     w_board: StenoBoardWidget  # Displays steno board diagram.
 

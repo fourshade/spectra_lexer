@@ -9,6 +9,8 @@ from spectra_lexer.gui_qt.config.config_dialog import ConfigDialog
 class GUIQtConfig(Component):
     """ GUI configuration manager dialog; allows editing of config values for any component. """
 
+    ROLE = "gui_config"
+
     window: QMainWindow          # Main window object. Must be the parent of any new dialogs.
     dialog: ConfigDialog = None  # Main dialog object. Should persist when closed/hidden.
 

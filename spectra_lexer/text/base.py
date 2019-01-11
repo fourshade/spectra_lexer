@@ -28,6 +28,8 @@ class CascadedTextFormatter(Component):
     """ Base class for creating and formatting a cascaded plaintext breakdown of steno translations.
         Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
 
+    ROLE = "text"
+
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
     _locator: _NodeLocator = None     # Finds which node the mouse is over during a mouseover event.
     _last_node: OutputNode = None     # Most recent node from a locator event (for identity matching).

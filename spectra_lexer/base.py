@@ -13,6 +13,8 @@ class Component:
     As such, it cannot depend on anything inside the package itself except pure utility functions.
     """
 
+    ROLE: str = "UNDEFINED"  # Standard identifier for a component's function, usable in many ways (i.e. config page).
+
     _cmd_attr_list: ClassVar[List[tuple]] = []  # Default class command parameter list; meant to be copied.
     engine_call: callable = nop  # Default engine callback is a no-op (useful for testing individual components).
 

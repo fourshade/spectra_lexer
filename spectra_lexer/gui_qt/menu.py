@@ -8,6 +8,8 @@ class GUIQtMenu(Component):
         It is assumed that the menu items are only available in standalone mode (not as a plugin).
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
+    ROLE = "gui_menu"
+
     m_menu: QMenuBar  # Top-level widget for the entire menu bar.
     menus: dict       # Menu heading objects (File, Edit, etc.).
     actions: dict     # The items you click.

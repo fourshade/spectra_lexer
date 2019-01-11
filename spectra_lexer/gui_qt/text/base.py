@@ -10,6 +10,8 @@ class GUIQtTextDisplay(Component):
     """ GUI operations class for displaying rules and finding the mouse position over the text graph.
         Also displays engine output such as status messages and exceptions. """
 
+    ROLE = "gui_text"
+
     w_title: QLineEdit         # Displays status messages and mapping of keys to word.
     w_text: TextGraphWidget    # Displays formatted text breakdown graph.
 

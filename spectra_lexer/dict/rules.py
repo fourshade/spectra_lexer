@@ -31,6 +31,7 @@ class RulesManager(ResourceManager):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
+    ROLE = "dict_rules"
     CMD_SUFFIX = "rules"
     OPT_KEY = "rules"
 

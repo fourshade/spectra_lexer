@@ -18,13 +18,13 @@ class StenoLexer(Configurable):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
+    ROLE = "lexer"
+    need_all_keys = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
+
     _matcher: LexerRuleMatcher = None  # Master rule-matching dictionary.
     _results: LexerResults = None      # Container and organizer of valid results for the current query.
     _keys: StenoKeys                   # Current parsed keys, used in default return rule if none others are valid.
     _word: str                         # Current English word, used in default return rule if none others are valid.
-
-    CFG_ROLE = "lexer"
-    need_all_keys = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
 
     @on("new_rules")
     def set_rules(self, rules:Iterable[StenoRule]) -> None:

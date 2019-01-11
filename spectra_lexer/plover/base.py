@@ -16,6 +16,8 @@ class PloverPluginInterface(Component):
     """ Main component class for Plover plugin. It is the only class that should directly access Plover's objects.
         Receives and processes dictionaries and translations from Plover using callbacks. """
 
+    ROLE = "plover"
+
     _plover_engine: PloverEngine = None               # Plover engine. Always referenced with "plover".
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 

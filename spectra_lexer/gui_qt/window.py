@@ -8,6 +8,8 @@ from spectra_lexer import Component, on, pipe
 class GUIQtWindow(Component):
     """ GUI engine component; handles top-level window operations separate from the Qt window object. """
 
+    ROLE = "gui_window"
+
     window: QMainWindow  # Main window object. Must be the parent of any new dialogs.
 
     def __init__(self, window:QMainWindow):

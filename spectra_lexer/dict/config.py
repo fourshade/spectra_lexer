@@ -10,6 +10,7 @@ _CONFIG_FILE_NAME: str = "~/config.cfg"
 class ConfigManager(ResourceManager):
     """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
 
+    ROLE = "dict_config"
     CMD_SUFFIX = "config"
     OPT_KEY = "cfg"
 

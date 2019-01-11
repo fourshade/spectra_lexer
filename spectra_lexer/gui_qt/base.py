@@ -22,6 +22,8 @@ GUI_COMPONENTS = [(GUIQtMenu,         "menu"),
 class GUIQt(Composite):
     """ Top-level component of the GUI Qt package. Central constructor/container for all other GUI components. """
 
+    ROLE = "gui"
+
     window: MainWindow  # Main window must be publicly accessible for the Plover plugin.
 
     def __init__(self):

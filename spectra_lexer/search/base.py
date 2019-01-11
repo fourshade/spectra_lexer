@@ -7,6 +7,8 @@ from spectra_lexer.search.steno_dict import StenoSearchDictionary
 class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
 
+    ROLE = "search"
+
     translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
 
     def __init__(self):

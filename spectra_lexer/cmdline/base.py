@@ -10,6 +10,8 @@ _COMMAND_MAP = {"/console": "system_console_start"}
 class CommandLine(Component):
     """ Module for interactive engine and system interpreter operations. """
 
+    ROLE = "cmdline"
+
     console: InterpreterConsole = None
 
     @on("new_status")

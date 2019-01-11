@@ -10,6 +10,7 @@ _PLOVER_CFG_FILENAME: str = "plover.cfg"
 
 class TranslationsManager(ResourceManager):
 
+    ROLE = "dict_translations"
     CMD_SUFFIX = "translations"
     OPT_KEY = "search"
 

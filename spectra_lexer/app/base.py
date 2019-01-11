@@ -11,11 +11,11 @@ from spectra_lexer.search import SearchEngine
 from spectra_lexer.text import CascadedTextFormatter
 
 # Constituent components of the base application. These should be enough to run the lexer in batch mode.
-BASE_COMPONENTS = [("file",   FileHandler),
-                   ("dict",   DictManager),
-                   ("search", SearchEngine),
-                   ("lexer",  StenoLexer),
-                   ("text",   CascadedTextFormatter)]
+BASE_COMPONENTS = [FileHandler,
+                   DictManager,
+                   SearchEngine,
+                   StenoLexer,
+                   CascadedTextFormatter]
 
 
 class SpectraApplication:
@@ -25,7 +25,7 @@ class SpectraApplication:
 
     def __init__(self, *components:Component):
         """ Create all necessary base components and combine them with those from subclasses. """
-        base_components = [tp() for (k, tp) in BASE_COMPONENTS]
+        base_components = [tp() for tp in BASE_COMPONENTS]
         all_components = (*base_components, *components)
         # Initialize the engine and connect everything to it. Connections are currently permanent.
         self.engine = SpectraEngine(on_exception=self.handle_exception)
@@ -44,17 +44,18 @@ class SpectraApplication:
     def start(self, *cmd_args:str, **opts) -> None:
         """ Parse the bare command line arguments into a dict of options, combine them with those given directly
             by main(), and send the start signal. Load the config file and initial rule set last. """
-        opts.update(self.parse_args(*cmd_args))
+        opts.update(_parse_args(*cmd_args))
         self.engine.call("start", **opts)
         self.engine.call("dict_load_config")
         self.engine.call("dict_load_rules")
 
-    def parse_args(self, *cmd_args:str) -> dict:
-        """ Parse command-line arguments into a dict for the application and components.
-            Suppress defaults for unused options so that components can provide defaults themselves in start(). """
-        parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-        # For the base application, specific files (one of each) may be loaded at start.
-        parser.add_argument('--cfg')
-        parser.add_argument('--rules')
-        parser.add_argument('--search')
-        return vars(parser.parse_args(cmd_args))
+
+def _parse_args(*cmd_args:str) -> dict:
+    """ Parse command-line arguments into a dict for the application and components.
+        Suppress defaults for unused options so that components can provide defaults themselves in start(). """
+    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+    # For the base application, specific files (one of each) may be loaded at start.
+    parser.add_argument('--config')
+    parser.add_argument('--rules')
+    parser.add_argument('--translations')
+    return vars(parser.parse_args(cmd_args))

@@ -11,6 +11,9 @@ from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 class GUIQtSearch(Configurable):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
+    ROLE = "gui_search"
+    match_limit = CFGOption(100, "Match Limit", "Maximum number of matches returned by a search.")
+
     input_textbox: QLineEdit        # Input box for the user to enter a search string.
     match_list: SearchListWidget    # List box to show the direct matches for the user's search.
     mapping_list: SearchListWidget  # List box to show the mappings of a selection in the match list.
@@ -18,9 +21,6 @@ class GUIQtSearch(Configurable):
     regex_chkbox: QCheckBox         # Check box to determine whether to use prefix or regex search.
 
     _last_match: str = ""           # Last search match selected by the user in the list.
-
-    CFG_ROLE = "gui_search"
-    match_limit = CFGOption(100, "Match Limit", "Maximum number of matches returned by a search.")
 
     def __init__(self, *widgets:QWidget):
         super().__init__()
