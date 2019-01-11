@@ -5,13 +5,8 @@ from PyQt5.QtWidgets import QDialog, QWidget
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.gui_qt import GUIQt
 from spectra_lexer.plover import PloverPluginInterface
+from spectra_lexer.struct import Struct
 from spectra_lexer.utils import nop
-
-
-class _FakeSignal:
-    """ To emulate a dialog class, we have to fake a "finished" signal. Since the window is never
-        really destroyed while Plover is running, this signal would never get triggered anyway. """
-    connect = nop
 
 
 class PloverPlugin(QDialog):
@@ -40,6 +35,8 @@ class PloverPlugin(QDialog):
             interface = PloverPluginInterface()
             gui = GUIQt()
             cls.window = gui.window
-            cls.window.finished = _FakeSignal()
+            # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
+            cls.window.finished = Struct()
+            cls.window.finished.connect = nop
             SpectraApplication(interface, gui).start(plover_engine=args[0], show_menu=False)
         return cls.window

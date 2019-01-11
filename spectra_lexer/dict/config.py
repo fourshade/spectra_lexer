@@ -1,5 +1,5 @@
 import ast
-from typing import Iterable, List, Tuple
+from typing import Sequence
 
 from spectra_lexer.dict.manager import ResourceManager
 
@@ -11,12 +11,11 @@ class ConfigManager(ResourceManager):
     """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
 
     ROLE = "dict_config"
-    CMD_SUFFIX = "config"
-    OPT_KEY = "cfg"
+    files = [_CONFIG_FILE_NAME]
 
     _cfg_data: dict  # Dict with config data values loaded from disk.
 
-    def load(self, filenames:Iterable[str]=None) -> dict:
+    def load(self, filenames:Sequence[str]=()) -> dict:
         """ Load and merge all config options from disk. Ignore failures and convert strings using AST. """
         try:
             d = super().load(filenames)
@@ -25,10 +24,7 @@ class ConfigManager(ResourceManager):
         self._cfg_data = d
         return d
 
-    def load_default(self) -> List[dict]:
-        return super()._load([_CONFIG_FILE_NAME])
-
-    def parse(self, d):
+    def parse(self, d:dict) -> dict:
         """ Try to convert Python literal strings to objects. This fixes crap like bool('False') = True. """
         for (sect, page) in d.items():
             for (opt, val) in page.items():
@@ -39,10 +35,8 @@ class ConfigManager(ResourceManager):
                         continue
         return d
 
-    def save(self, filename:str, new_data:dict) -> Tuple[str, dict]:
-        """ Update config options to disk and save them to disk. Saving should not fail silently, unlike loading. """
-        if filename is None:
-            filename = _CONFIG_FILE_NAME
+    def inv_parse(self, new_data:dict) -> dict:
+        """ Update config options to prepare to save to disk. Saving should not fail silently, unlike loading. """
         for (s, d) in new_data.items():
             self._cfg_data[s].update(d)
-        return filename, self._cfg_data
+        return self._cfg_data

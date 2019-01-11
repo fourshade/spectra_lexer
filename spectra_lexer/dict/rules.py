@@ -32,16 +32,11 @@ class RulesManager(ResourceManager):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "dict_rules"
-    CMD_SUFFIX = "rules"
-    OPT_KEY = "rules"
+    files = [_RULES_ASSET_PATTERN]
 
     _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one also needs to be kept.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
-
-    def load_default(self) -> List[dict]:
-        """ Decode every JSON rules file from the built-in assets directory. """
-        return self.engine_call("file_load", _RULES_ASSET_PATTERN)
 
     def parse(self, src_dict:Dict[str, str]) -> List[StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """

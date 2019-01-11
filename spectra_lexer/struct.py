@@ -13,6 +13,11 @@ ET = TypeVar("ET")  # Key element type.
 VT = TypeVar("VT")  # Value type.
 
 
+class Struct:
+    """ A class whose sole purpose is to hold custom attributes. A bare object(), surprisingly, cannot do this.
+        The counterpart to the nop() function in utils; stupidly simple yet occasionally useful. """
+
+
 class PrefixTree(defaultdict):
     """ A trie-based structure with sequence-based keys that has the distinct advantage of
         quickly returning all values that match a given key or any of its prefixes, in order.
