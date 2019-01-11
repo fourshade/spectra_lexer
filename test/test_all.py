@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 """ Main test module for the Spectra steno lexer. Currently handles all components except search and the GUI. """
+from pickle import DICT
 
 import pytest
 
 from spectra_lexer import Component
-from spectra_lexer.dict import DictManager
+from spectra_lexer.dict.rules import RulesManager
+from spectra_lexer.dict.translations import TranslationsManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
@@ -17,33 +19,31 @@ from test import get_test_filename
 
 def direct_connect(cmp:Component, subcmp:Component) -> None:
     """ Connect one component directly to another without an engine for basic calls. """
-    cmd_dict = {}
-    for (k, c) in subcmp.commands():
-        cmd_dict[k] = c.func
+    cmd_dict = dict(subcmp.commands())
     def direct_call(cmd:str, *args, **kwargs) -> callable:
-        func = cmd_dict.get(cmd)
-        if func:
-            return func(*args, **kwargs)
+        c = cmd_dict.get(cmd)
+        if c:
+            return c[0](*args, **kwargs)
     cmp.set_engine_callback(direct_call)
 
 
 # Create components for the tests in order as we need them.
 FILE = FileHandler()
-DICT = DictManager()
-direct_connect(DICT, FILE)
+DICT_R = RulesManager()
+direct_connect(DICT_R, FILE)
 
 
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in DICT._decode_builtin_rules():
+    for d in DICT_R.load_default():
         # Check for rules that have identical names (keys)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
         full_dict.update(d)
 
 
-RULES_LIST = DICT.load_rules()
+RULES_LIST = DICT_R.load()
 LEGAL_FLAG_SET = set().union(MATCH_FLAGS, OUTPUT_FLAGS, KEY_FLAGS)
 
 
@@ -69,9 +69,10 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
-TEST_TRANSLATIONS = list(FILE.load_resource(get_test_filename()).items())
+DICT_T = TranslationsManager()
+direct_connect(DICT_T, FILE)
+TEST_TRANSLATIONS = list(DICT_T.load([get_test_filename()]).items())
 LEXER = StenoLexer()
-LEXER.start()
 LEXER.set_rules(RULES_LIST)
 
 

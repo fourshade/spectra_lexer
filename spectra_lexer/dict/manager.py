@@ -10,7 +10,7 @@ class ResourceManager(Component):
     CMD_SUFFIX: str  # String designator for a subclass's engine commands.
     OPT_KEY: str     # String designator for a subclass's command line option.
 
-    filenames: list = None  # List of input filenames from the command line.
+    filenames: Iterable = None  # Iterable of input filenames from the command line.
 
     def __init_subclass__(cls) -> None:
         """ Create command decorators for each subclass based on its resource type. """

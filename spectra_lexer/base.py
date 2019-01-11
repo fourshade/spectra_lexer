@@ -24,10 +24,10 @@ class Component:
         cmd_list = [(attr, func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
-    def commands(self) -> List[Tuple[Hashable, callable, callable]]:
+    def commands(self) -> List[Tuple[Hashable, Tuple[callable, callable]]]:
         """ Bind all class command functions to the instance and return the raw (key, func, dispatch) command tuples.
             Each command has a main callable followed by one with instructions on what to execute next. """
-        return [(key, getattr(self, attr), dispatch) for (attr, (key, dispatch)) in self._cmd_attr_list]
+        return [(key, (getattr(self, attr), dispatch)) for (attr, (key, dispatch)) in self._cmd_attr_list]
 
     def set_engine_callback(self, cb:callable=nop) -> None:
         """ Set the callback used for engine calls by individual components. """

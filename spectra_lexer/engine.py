@@ -52,8 +52,8 @@ class SpectraEngine:
 
     def connect(self, component:Component) -> None:
         """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
-        for (k, f, d) in component.commands():
-            self._commands[k].insert(0, (f, d))
+        for (k, c) in component.commands():
+            self._commands[k].insert(0, c)
         component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
