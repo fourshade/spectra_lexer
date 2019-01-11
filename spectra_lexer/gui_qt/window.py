@@ -34,7 +34,7 @@ class GUIQtWindow(Component):
 
     def _dialog_load(self, d_type:str) -> Optional[list]:
         """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
-        file_formats = self.engine_call("file_get_decodable_exts")
+        file_formats = self.engine_call("file_get_supported_exts")
         (filenames, _) = QFileDialog.getOpenFileNames(self.window, 'Load {} Dictionaries'.format(d_type.title()), '.',
                                                       "Supported file formats (*" + " *".join(file_formats) + ")")
         if not filenames:

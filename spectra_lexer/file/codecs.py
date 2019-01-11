@@ -1,18 +1,20 @@
 """ Module for encoding/decoding dictionary data types from files and file-like objects. """
 
-import ast
-from collections import defaultdict
 from configparser import ConfigParser
 from functools import partial
 from io import StringIO
 import json
 import os
-from typing import Any
 
 from spectra_lexer.file.resource import Resource
 
 # Allowable prefixes for comments for the CSON decoder. Only full-line comments are currently supported.
 _CSON_COMMENT_PREFIXES = ("#", "/")
+
+# JSON standard library functions with default arguments are the fastest way to load structured data in Python.
+_decode_JSON = json.loads
+# For JSON encoding, indentation allows pretty-printing of results, and Unicode requires an explicit flag to be set.
+_encode_JSON = partial(json.dumps, indent=4, ensure_ascii=False)
 
 
 def _decode_CSON(contents:str) -> dict:
@@ -22,7 +24,7 @@ def _decode_CSON(contents:str) -> dict:
     # Empty lines and lines starting with a comment tag after stripping are removed before parsing.
     data_lines = [line for line in stripped_lines
                   if line and line[0] not in _CSON_COMMENT_PREFIXES]
-    return json.loads("\n".join(data_lines))
+    return _decode_JSON("\n".join(data_lines))
 
 
 def _decode_CFG(contents:str) -> dict:
@@ -41,31 +43,19 @@ def _encode_CFG(d:dict) -> str:
     return stream.getvalue()
 
 
-# Dictionaries containing each supported file format/extension mapped to transcoding functions.
-DECODERS = {".json": json.loads, ".cson": _decode_CSON, ".cfg": _decode_CFG, ".ini": _decode_CFG}
-# For JSON encoding, indentation allows pretty-printing of results, and Unicode requires an explicit flag to be set.
-ENCODERS = {".json": partial(json.dumps, indent=4, ensure_ascii=False), ".cfg": _encode_CFG, ".ini": _encode_CFG}
+# Dictionary containing each supported file format mapped to decoder and encoder functions (and their tuple indices).
+CODECS = {".json": (_decode_JSON, _encode_JSON),
+          ".cson": (_decode_CSON, _encode_JSON),
+          ".cfg":  (_decode_CFG,  _encode_CFG),
+          ".ini":  (_decode_CFG,  _encode_CFG)}
+_DECODER, _ENCODER = (0, 1)
 
 
-def decode_resource(f:Resource) -> Any:
-    """ Read and decode a string resource. Throw an exception if the object is not the right type. """
-    decoder = _get_codec(f, DECODERS)
-    obj = decoder(f.read())
-    _check_type(f, obj)
-    return obj
-
-
-def encode_resource(f:Resource, obj:Any) -> None:
-    """ Encode a dict into a string resource and write it. Throw an exception if the object is not the right type. """
-    encoder = _get_codec(f, ENCODERS)
-    _check_type(f, obj)
-    f.write(encoder(obj))
-
-
-def _get_codec(f:str, codec_dict:dict) -> callable:
-    """ Return the codec function for the given file/resource, or None if no codec exists. """
-    fmt = _get_extension(f)
-    codec = codec_dict.get(fmt)
+def _get_codec(f:str) -> tuple:
+    """ Return the codec tuple for the given resource, or None if no codec exists.
+        It is based only on the extension of the given filename or resource, including the dot. """
+    fmt = os.path.splitext(f)[1]
+    codec = CODECS.get(fmt)
     if codec is None:
         raise TypeError("No codec found for format {}.".format(fmt))
     return codec
@@ -77,7 +67,16 @@ def _check_type(f:str, obj:object, req_type:type=dict) -> None:
         raise TypeError("Unexpected type for file {}: needed {}, got {}".format(f, req_type, type(obj)))
 
 
-def _get_extension(name:str) -> str:
-    """ Return only the extension of the given filename or resource, including the dot.
-        Will return an empty string if there is no extension (such as with a directory). """
-    return os.path.splitext(name)[1]
+def decode(f:Resource) -> object:
+    """ Read and decode a string resource. Throw an exception if the object is not the right type. """
+    decoder = _get_codec(f)[_DECODER]
+    obj = decoder(f.read())
+    _check_type(f, obj)
+    return obj
+
+
+def encode(f:Resource, obj:object) -> None:
+    """ Encode a dict into a string resource and write it. Throw an exception if the object is not the right type. """
+    encoder = _get_codec(f)[_ENCODER]
+    _check_type(f, obj)
+    f.write(encoder(obj))

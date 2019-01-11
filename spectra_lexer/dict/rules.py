@@ -4,7 +4,7 @@ from spectra_lexer.dict.manager import ResourceManager
 from spectra_lexer.dict.rule_parser import StenoRuleParser
 
 # Resource glob pattern for the built-in JSON-based rules files.
-_RULES_ASSET_PATTERN = "*.cson"
+_RULES_ASSET_PATTERN = ":/*.cson"
 
 
 class RulesManager(ResourceManager):
@@ -19,8 +19,7 @@ class RulesManager(ResourceManager):
 
     def load_default(self) -> List[dict]:
         """ Decode every JSON rules file from the built-in assets directory. """
-        asset_names = self.engine_call("file_list_assets", _RULES_ASSET_PATTERN)
-        return super()._load(asset_names)
+        return self.engine_call("file_load", _RULES_ASSET_PATTERN)
 
     def parse(self, d:dict) -> list:
         """ Parse the rules and return only a list (without the reference names). """

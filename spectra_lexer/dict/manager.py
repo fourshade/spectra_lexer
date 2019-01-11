@@ -38,7 +38,8 @@ class ResourceManager(Component):
         return self.parse(merge(dicts))
 
     def _load(self, filenames:Iterable[str]) -> List[dict]:
-        return [self.engine_call("file_load", f) for f in filenames]
+        """ Return a list of all files from the argument. """
+        return self.engine_call("file_load", *filenames)
 
     def load_default(self) -> List[dict]:
         return []

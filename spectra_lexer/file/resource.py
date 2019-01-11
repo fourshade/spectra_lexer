@@ -13,8 +13,9 @@ from spectra_lexer.utils import abstract_method, str_prefix
 # Package and resource paths containing built-in assets.
 _PACKAGE_NAME = str_prefix(__package__, ".")
 _ASSETS_RESOURCE_PATH = "assets"
-# Prefixes and delimiters for specifying special places to look.
-_ASSET_DELIMITER = "/"
+_ASSET_LIST = resource_listdir(_PACKAGE_NAME, _ASSETS_RESOURCE_PATH)
+
+# Prefixes and patterns for specifying special places to look.
 _ASSET_PREFIX = ":/"
 _USER_PATTERN = re.compile(r"~(.*?)/")
 
@@ -23,6 +24,7 @@ class Resource(str):
     """ Marker class for a resource identifier. """
     read = abstract_method
     write = abstract_method
+    glob = abstract_method
 
 
 class File(Resource):
@@ -42,44 +44,51 @@ class File(Resource):
         with open(self, 'wb') as fp:
             fp.write(contents.encode('utf-8'))
 
-    @classmethod
-    def glob(cls, pattern:str) -> list:
-        """ Return a list containing resources matching the pattern from the filesystem. """
-        return [cls(f) for f in glob.glob(pattern)]
+    def glob(self) -> list:
+        """ Return a list containing resources matching the identifier from the filesystem. """
+        return [File(f) for f in glob.glob(self)]
 
 
 class Asset(Resource):
     """ A built-in asset identifier, created by using pkg_resources. """
 
+    def __new__(cls, s:str):
+        """ If the prefix is :/, it is a built-in asset. In any other case it is an ordinary file. """
+        if s.startswith(_ASSET_PREFIX):
+            return super().__new__(cls, s[len(_ASSET_PREFIX):])
+        return None
+
     def read(self) -> str:
         """ Return a string with the UTF-8 text contents of a built-in asset as returned by assets_in_package. """
-        resource_name = _ASSET_DELIMITER.join((_ASSETS_RESOURCE_PATH, self))
+        resource_name = _ASSET_PREFIX[-1].join((_ASSETS_RESOURCE_PATH, self))
         return resource_string(_PACKAGE_NAME, resource_name).decode('utf-8')
 
     def write(self, contents:str) -> None:
         raise TypeError("Writing of built-in assets not supported.")
 
-    @classmethod
-    def glob(cls, pattern:str) -> list:
-        """ Return a list containing resources matching the pattern from the built-in assets directory. """
-        asset_list = resource_listdir(_PACKAGE_NAME, _ASSETS_RESOURCE_PATH)
-        return [cls(_ASSET_PREFIX + f) for f in fnmatch.filter(asset_list, pattern)]
+    def glob(self) -> list:
+        """ Return a list containing resources matching the identifier from the built-in assets directory. """
+        return [Asset(_ASSET_PREFIX + f) for f in fnmatch.filter(_ASSET_LIST, self)]
 
 
-def string_to_resource(filename:str) -> Resource:
-    """ Given a string, determine the type of resource from the prefix and create the appropriate identifier.
-        If the prefix is ~appname/, it is a file from the user's application-specific data directory.
-        If the prefix is ~/, it is specifically a file from THIS application's user data directory.
-        If the prefix is :/, it is a built-in asset. In any other case it is an ordinary file. """
-    if _USER_PATTERN.match(filename):
-        return _get_user_file(filename)
-    if filename.startswith(_ASSET_PREFIX):
-        return Asset(filename[2:])
-    return File(filename)
+class UserFile(File):
+    """ An identifier for a file in the user's app data directory. """
+
+    def __new__(cls, s:str):
+        """ If the prefix is ~appname/, it is a file from the user's application-specific data directory.
+            If the prefix is ~/, it is specifically a file from THIS application's user data directory. """
+        if _USER_PATTERN.match(s):
+            _, appname, filename = _USER_PATTERN.split(s, 1)
+            directory = user_data_dir(appname or _PACKAGE_NAME)
+            return super().__new__(cls, os.path.join(directory, filename))
+        return None
 
 
-def _get_user_file(filename:str) -> File:
-    """ Get an identifier for a file in the user's app data directory. """
-    _, appname, f = _USER_PATTERN.split(filename, 1)
-    directory = user_data_dir(appname or _PACKAGE_NAME)
-    return File(os.path.join(directory, f))
+def resource_from_string(s:str) -> Resource:
+    """ Given a string, determine the type of resource from the prefix and create the appropriate identifier. """
+    return UserFile(s) or Asset(s) or File(s)  # Ordinary file resource creation will always succeed.
+
+
+def resources_from_patterns(*patterns:str) -> list:
+    """ Given strings, determine the resource types from the prefix and expand the patterns into a list. """
+    return [m for p in patterns for m in resource_from_string(p).glob()]
