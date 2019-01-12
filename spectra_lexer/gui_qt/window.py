@@ -21,16 +21,16 @@ class GUIQtWindow(Component):
         """ Show the window once the engine is fully initialized and sends the start signal.
             If the menu is used, add the basic window-based dialog commands before displaying the window. """
         if show_menu:
-            self.engine_call("gui_menu_add", "File", "Load Rules...", "sig_menu_load_rules")
-            self.engine_call("gui_menu_add", "File", "Load Translations...", "sig_menu_load_translations")
-            self.engine_call("gui_menu_add", "File", "Exit", "sig_menu_window_close", sep_first=True)
+            self.engine_call("gui_menu_add", "File", "Load Rules...", "gui_window_load_rules")
+            self.engine_call("gui_menu_add", "File", "Load Translations...", "gui_window_load_translations")
+            self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)
         self.window.show()
 
-    @pipe("sig_menu_load_rules", "dict_load_rules")
+    @pipe("gui_window_load_rules", "dict_load_rules")
     def dialog_load_rules(self) -> Optional[list]:
         return self._dialog_load("rules")
 
-    @pipe("sig_menu_load_translations", "dict_load_translations")
+    @pipe("gui_window_load_translations", "dict_load_translations")
     def dialog_load_translations(self) -> Optional[list]:
         return self._dialog_load("translations")
 
@@ -44,7 +44,7 @@ class GUIQtWindow(Component):
         self.engine_call("new_status", "Loaded {} from file dialog.".format(d_type))
         return filenames
 
-    @on("sig_menu_window_close")
+    @on("gui_window_close")
     def close(self):
         """ Closing the window means hiding it if there are persistent references and destroying it otherwise. """
         self.window.close()
