@@ -1,9 +1,10 @@
-import ast
 from typing import Sequence
 
 from spectra_lexer.dict.manager import ResourceManager
 
 # File name for the standard user config file (in app data directory).
+from spectra_lexer.utils import str_eval
+
 _CONFIG_FILE_NAME: str = "~/config.cfg"
 
 
@@ -29,10 +30,7 @@ class ConfigManager(ResourceManager):
         for (sect, page) in d.items():
             for (opt, val) in page.items():
                 if isinstance(val, str):
-                    try:
-                        d[sect][opt] = ast.literal_eval(val)
-                    except (SyntaxError, ValueError):
-                        continue
+                    d[sect][opt] = str_eval(val)
         return d
 
     def inv_parse(self, new_data:dict) -> dict:

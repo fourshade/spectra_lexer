@@ -54,8 +54,10 @@ class GUIQtSearch(Configurable):
 
     @pipe("sig_on_input_submit", "new_text_entry")
     def on_input_submit(self) -> str:
-        """ If the user presses Enter, send the text to whatever wants it. """
-        return self.input_textbox.text()
+        """ If the user presses Enter, send the text to whatever wants it, then clear it. """
+        text = self.input_textbox.text()
+        self.input_textbox.clear()
+        return text
 
     @pipe("sig_on_input_changed", "sig_on_choose_match")
     def on_input_changed(self, pattern:Any=None) -> None:

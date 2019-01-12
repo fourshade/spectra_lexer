@@ -8,14 +8,12 @@ from spectra_lexer.engine import SpectraEngine
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.search import SearchEngine
-from spectra_lexer.text import CascadedTextFormatter
 
 # Constituent components of the base application. These should be enough to run the lexer in batch mode.
 BASE_COMPONENTS = [FileHandler,
                    DictManager,
                    SearchEngine,
-                   StenoLexer,
-                   CascadedTextFormatter]
+                   StenoLexer]
 
 
 class SpectraApplication:

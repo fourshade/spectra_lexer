@@ -3,6 +3,7 @@ Module for generic utility functions that could be useful in many applications.
 Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments.
 """
 
+import ast
 import functools
 
 
@@ -34,7 +35,7 @@ def compose(*funcs:callable) -> callable:
     return composed
 
 
-def traverse(obj:object, next_attr:str="next", sentinel:object=None):
+def traverse(obj:object, next_attr:str="next", sentinel:object=None) -> object:
     """ Traverse a linked-list type structure, following a chain of attribute references
         and yielding values until either the sentinel is found or the attribute is not.
         Reference loops will cause the generator to yield items forever. """
@@ -43,7 +44,7 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None):
         obj = getattr(obj, next_attr, sentinel)
 
 
-def recurse(obj:object, iter_attr:str=None, sentinel:object=None):
+def recurse(obj:object, iter_attr:str=None, sentinel:object=None) -> object:
     """ Starting with a container object that can contain other objects of its own type,
         yield that object, then recursively yield objects from each of its children.
         If iter_attr is None, the object must be an iterable container itself.
@@ -102,3 +103,12 @@ def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
 def str_map(s:str, fn:callable, sep:str=" ", _split=str.split, _map=map, _join=str.join) -> str:
     """ Split the string on a delimiter, then map a str->str function to each piece and join it back together. """
     return _join(sep, _map(fn, _split(s, sep)))
+
+
+def str_eval(val:str, _eval=ast.literal_eval) -> object:
+    """ Try to convert a Python string to an object using AST. This fixes ambiguities such as bool('False') = True.
+        Strings that are read as names will throw an error, in which case they should be returned as-is. """
+    try:
+        return _eval(val)
+    except (SyntaxError, ValueError):
+        return val
