@@ -1,7 +1,7 @@
 from typing import Optional
 
 from spectra_lexer import Component, on, pipe
-from spectra_lexer.console.console import InterpreterConsole
+from spectra_lexer.console.interpreter import InterpreterConsole
 from spectra_lexer.utils import str_eval
 
 # Prefix for entering commands. They will be mapped to either the shortcuts below or direct engine commands.
@@ -16,7 +16,7 @@ class ConsoleManager(Component):
 
     ROLE = "console"
 
-    console: InterpreterConsole = None
+    console: InterpreterConsole = None  # Main console interpreter, run on a different thread.
 
     @on("start")
     def start(self, **opts) -> None:

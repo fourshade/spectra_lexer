@@ -2,15 +2,16 @@ from typing import List, Tuple, TypeVar
 
 from spectra_lexer.text.node import OutputNode
 
-# Symbols used to represent text "containers" in the graph. The middle of each one is replicated to fill gaps.
-_CONTAINER_SYMBOLS = {"TOP":    "├─┘",
-                      "BOTTOM": "├─┐",
-                      "MIDDLE": "|||",
-                      "S_BEND": "└─┐",
-                      "Z_BEND": "┌─┘",
-                      "INV":    "◄═►",
-                      "BAD":    "???"}
-# Symbols connecting containers together.
+# Symbols used to represent text "containers" in the graph.
+# The "single" symbol is used for length-1 containers, and the "middle" symbol is repeated to fill larger ones.
+_CONTAINER_SYMBOLS = {"TOP":    {"single": "│", "sides": "├┘", "middle":"─"},
+                      "BOTTOM": {"single": "│", "sides": "├┐", "middle":"─"},
+                      "MIDDLE": {"single": "│", "sides": "││", "middle":"│"},
+                      "S_BEND": {"single": "│", "sides": "└┐", "middle":"─"},
+                      "Z_BEND": {"single": "│", "sides": "┌┘", "middle":"─"},
+                      "INV":    {"single": "│", "sides": "◄►","middle":"═"},
+                      "BAD":    {"single": "?", "sides": "??", "middle":"?"},}
+# Singular symbols connecting containers together.
 _LINE_SYMBOL = "│"
 _CORNER_SYMBOL = "┐"
 _TEE_SYMBOL = "┬"
@@ -21,12 +22,19 @@ _UNCOVERED_SYMBOLS = {"-"}
 
 
 def _text_container(length:int, position:str) -> str:
-    """ Make a text "container" ├--┐ string based on a left, middle, and right symbol.
-        If the container is only a single character wide, use a straight line connector instead. """
+    """ Return a variable-length "container" ├----┐ string based on a set of construction symbols. """
+    symbols = _CONTAINER_SYMBOLS[position]
+    # If the container is only a single character wide, use the unique "single" symbol.
     if length < 2:
-        return _LINE_SYMBOL
-    (left, middle, right) = _CONTAINER_SYMBOLS[position]
-    return left + middle * (length - 2) + right
+        return symbols["single"]
+    # If the container is two characters wide, use just the left and right symbols.
+    sides = symbols["sides"]
+    if length == 2:
+        return sides
+    # Otherwise put the left and right symbols at the ends and repeat the middle one inside to cover the rest.
+    (left, right) = sides
+    middle = symbols["middle"] * (length - 2)
+    return left + middle + right
 
 
 T = TypeVar('_TextOutputLine')

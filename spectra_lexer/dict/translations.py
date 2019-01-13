@@ -3,12 +3,14 @@ from typing import List
 
 from spectra_lexer.dict.manager import ResourceManager
 
-# Plover's app user dir and config filename. Dictionaries are located on the same level.
+# Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR: str = "~plover/"
 _PLOVER_CFG_FILENAME: str = "plover.cfg"
 
 
 class TranslationsManager(ResourceManager):
+    """ Translation parser for the Spectra program. The structures are just string dicts
+        that require no extra processing after conversion to/from JSON. """
 
     ROLE = "dict_translations"
 

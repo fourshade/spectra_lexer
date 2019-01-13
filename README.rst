@@ -8,7 +8,7 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 Installation and Operation
 --------------------------
 
-Spectra is primarily designed as a plugin for Plover. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you. When opened from the main toolbar, Spectra will automatically load Plover's dictionaries for manual searching and will also attempt to analyze strokes sent from Plover as you type.
+Spectra is primarily designed as a plugin for Plover. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you. When opened from the main toolbar, Spectra will automatically load Plover's dictionaries for manual searching and will also attempt to analyze strokes sent from Plover as you type. Configuration is possible by typing "/config" into the search text box and hitting Enter, although there are only a few options to change at this point.
 
 If you have built and installed Plover from source, it is not likely to have the plugins manager by default. In this case it is possible to install Spectra through pip like any other Python package. Plover searches through all available Python paths to find plugins; so long as it ends up in the same general place that Plover looks for its other dependencies, it should find it just fine.
 

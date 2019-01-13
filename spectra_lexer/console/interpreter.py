@@ -10,7 +10,7 @@ COMMAND_TIMEOUT = 1.0
 class InterpreterConsole(TextIOBase):
     """ A hacky object meant to run an interactive interpreter inside the main Spectra program.
         It runs on a separate thread with a reference to the engine object.
-        It is unknown as of yet whether or not this object can execute engine commands thread safely. """
+        It is unknown whether or not this object can execute engine commands thread safely. """
 
     _sys_streams: dict      # Dict of the original system standard stream handles.
     _out_stream: StringIO   # Output stream; takes the place of both stdout and stderr.
@@ -39,7 +39,7 @@ class InterpreterConsole(TextIOBase):
 
     def read(self, size:int=-1) -> str:
         """ The interpreter is attempting to read more input, but we don't have any more.
-            Wait for other threads to notify after providing more input. """
+            Go to sleep and wait for other threads to notify after providing more input. """
         self._restore_streams()
         with self._condition:
             self._condition.notify()

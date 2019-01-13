@@ -56,7 +56,7 @@ class HTMLFormatter:
     _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
 
     def __init__(self, lines:List[str], node_grid:Sequence[Sequence[OutputNode]]):
-        """ From a 2D node grid, compile a dict of nodes with the characters owned by each one. """
+        """ From a 2D node grid, compile a dict of nodes with ranges of character positions owned by each one. """
         self._lines = lines
         self._format_dict = fd = defaultdict(list)
         for (row, node_row) in enumerate(node_grid):

@@ -53,7 +53,7 @@ class Asset(Resource):
     """ A built-in asset identifier, created by using pkg_resources. """
 
     def __new__(cls, s:str):
-        """ If the prefix is :/, it is a built-in asset. In any other case it is an ordinary file. """
+        """ If the prefix is :/, it is a built-in asset. Otherwise it is an ordinary file. """
         if s.startswith(_ASSET_PREFIX):
             return super().__new__(cls, s[len(_ASSET_PREFIX):])
         return None

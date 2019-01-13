@@ -21,7 +21,7 @@ class SearchListWidget(QListView):
         """ Programmatically select a specific item by index or first instance.
             Suppress signals to keep from tripping the selectionChanged event. """
         if isinstance(key, str):
-            # The lexer may get queries from sources other than search, so if the item doesn't exist, do nothing.
+            # The item *should* always exist, but if it doesn't, do nothing.
             try:
                 key = self.model().stringList().index(key)
             except ValueError:

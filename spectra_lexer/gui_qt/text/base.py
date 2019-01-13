@@ -8,7 +8,7 @@ from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 class GUIQtTextDisplay(Component):
     """ GUI operations class for displaying rules and finding the mouse position over the text graph.
-        Also displays engine output such as status messages and exceptions. """
+        Also displays engine output such as status messages and provides an output surface for exceptions. """
 
     ROLE = "gui_text"
 

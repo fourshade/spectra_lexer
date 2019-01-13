@@ -25,7 +25,7 @@ class CFGOption:
 class Configurable(Component):
     """ Component that uses user-configurable values. Requires ConfigManager to update these values from defaults. """
 
-    _cfg_dict: dict              # Local dict for this component's config option objects.
+    _cfg_dict: dict  # Local dict for this component's config option objects.
 
     def __init_subclass__(cls) -> None:
         """ Create the initial config dict from all config options defined in the class body. """

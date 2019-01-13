@@ -41,13 +41,13 @@ class SpectraApplication:
         self.engine.call("new_output_text", tb_text)
         return True
 
-    def start(self, *cmd_args:str, **opts) -> None:
+    def start(self, *cmd_args:str, **main_opts) -> None:
         """ Send the start signal with these options in order of precedence:
             - Options parsed from command line arguments.
             - Keyword options given directly by main().
             - Options to load the default config file and rule set.
             Keyword arguments must be combined in a dict in this order to enforce precedence. """
-        all_opts = {"config": (), "rules": (), **opts, **_parse_cmd_args()}
+        all_opts = {"config": (), "rules": (), **main_opts, **_parse_cmd_args()}
         self.engine.call("start", **all_opts)
 
 

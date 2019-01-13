@@ -22,9 +22,10 @@ class GUIQtConfig(Component):
         self._cfg_info = {}
 
     @on("start")
-    def start(self, **opts) -> None:
+    def start(self, show_menu=True, **opts) -> None:
         """ If the menu is used, add the config dialog command. """
-        self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
+        if show_menu:
+            self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
 
     @on("new_config_info")
     def new_data(self, role:str, cfg_info:dict):

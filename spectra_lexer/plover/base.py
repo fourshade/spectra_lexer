@@ -18,7 +18,7 @@ class PloverPluginInterface(Component):
 
     ROLE = "plover"
 
-    _plover_engine: PloverEngine = None               # Plover engine. Always referenced with "plover".
+    _plover_engine: PloverEngine = None               # Plover engine. Assumed not to change during run-time.
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
     @pipe("start", "new_status")

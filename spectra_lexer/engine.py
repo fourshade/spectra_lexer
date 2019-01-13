@@ -13,7 +13,11 @@ class SpectraEngine:
     The program itself is conceptually divided into parts that form a pipeline:
         File/input - The most basic operation of the lexer requires a set of rules that map steno keys to letters,
         and these must be loaded from disk. The first step on startup after connecting the components is for this
-        module to load the rules from the built-in directory.
+        module to load the configuration from user data and rules from the built-in assets directory.
+
+        Dict/input - After decoding each of the file formats from disk, every resource must be post-processed into
+        its final form for use by the lexer and other components. In order to save any results, these structures must
+        be convertable back into a raw disk format. The dict component handles all conversions in both directions.
 
         Search/input - Translations for the program to parse have to come from somewhere, and usually it's a JSON
         dictionary loaded from outside. The search component handles all search functionality and sends queries
@@ -43,7 +47,7 @@ class SpectraEngine:
 
     _commands: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
     _exception_callback: callable    # Application-provided callback for exception handling.
-    _rlevel: int = 0                 # Counts levels of reentrancy for engine calls
+    _rlevel: int = 0                 # Counts levels of re-entrancy for engine calls.
 
     def __init__(self, on_exception=nop):
         """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
@@ -57,7 +61,8 @@ class SpectraEngine:
         component.set_engine_callback(self.call)
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Top-level method for engine calls. Checks exceptions with a custom handler. """
+        """ Top-level method for engine calls. Checks exceptions with a custom handler.
+            This function is re-entrant, so we need to track what level we're on for exception handling. """
         try:
             # Load the call stack and run it to exhaustion. Return only the first value yielded (if any).
             stack = [(cmd_key, args, kwargs)]

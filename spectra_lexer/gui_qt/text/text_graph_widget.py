@@ -7,8 +7,8 @@ _CURSOR_X_OFFSET = 1
 
 
 class TextGraphWidget(QTextEdit):
-    """ Formatted text widget whose sole purpose is to display and respond to interaction
-        with a monospaced text graph of the breakdown of English text by steno rules. """
+    """ Formatted text widget meant to display a monospaced HTML text graph of the breakdown
+        of English text by steno rules as well as basic plaintext interpreter output. """
 
     _last_row: int = -1        # Row number of last detected character under mouse cursor
     _last_col: int = -1        # Column number of last detected character under mouse cursor

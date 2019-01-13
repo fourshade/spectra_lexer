@@ -35,12 +35,12 @@ class RulesManager(ResourceManager):
     files = [_RULES_ASSET_PATTERN]
 
     _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
-    _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one also needs to be kept.
+    _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
     def parse(self, src_dict:Dict[str, str]) -> Dict[str, StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
-        # Unpack rules from source dictionary. If the data isn't in namedtuple form, convert it.
+        # Unpack rules from source dictionary and convert to namedtuple form.
         self._src_dict = {k: RawRule(*v) for (k, v) in src_dict.items()}
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
@@ -48,8 +48,7 @@ class RulesManager(ResourceManager):
         for k in self._src_dict.keys():
             if k not in self._dst_dict:
                 self._parse(k)
-        # Return only the rules themselves. Components such as the lexer don't care about the names.
-        # Multiple components may want to use these, so the iterable must be reusable (i.e. a list).
+        # Return the final rules dict. Components such as the lexer may throw away the names.
         return self._dst_dict
 
     def _parse(self, k:str) -> None:
