@@ -26,15 +26,17 @@ Advanced Operation (from console)
 
 From the console, you can execute the main GUI program on its own by typing:
 
-``spectra_lexer gui [DICT1 DICT2 ... DICTn]``
+``spectra_lexer gui``
 
-where each DICT argument is a path to a JSON file of steno translations (the dictionaries used by Plover are in the correct format). Without arguments, the program will try to find your Plover dictionaries and load those. The standalone mode operates identically to the plugin in all respects except that it cannot decipher strokes in real-time. There is also a menu bar where dictionaries can be loaded manually.
+The standalone mode operates identically to the plugin in all respects except that it cannot decipher strokes in real-time. By default, the program will look for your Plover dictionaries in the default user data directories; it may not find them if you have them somewhere else, or have a strange user configuration. But unlike the plugin, there is a menu bar with experimental tools where dictionaries can be loaded manually.
 
 There is also a batch mode available for analysis purposes. Run it by typing:
 
 ``spectra_lexer batch IN_DICT OUT_DICT``
 
-where IN_DICT is a path to a JSON file of steno translations, and OUT_DICT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
+where IN_DICT is a path to a JSON dictionary of steno translations, and OUT_DICT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
+
+There are other command line arguments available, but they are usually redundant and/or unnecessary. See __main__.py for more details.
 
 Details
 -------
