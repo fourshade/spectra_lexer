@@ -13,27 +13,22 @@ GUI_COMPONENTS = [CascadedTextFormatter, ConsoleManager, GUIQt]
 
 
 class GUIQtApplication(SpectraApplication):
-    """ Class for operation of the Spectra program in a GUI by itself. """
+    """ Class for operation of the Spectra program in a GUI. """
 
     def __init__(self, *components:Component):
         """ The Qt widgets take direct orders from the GUIQt component and its children.
             Other components provide support services for interactive tasks. """
-        gui_components = [tp() for tp in GUI_COMPONENTS]
-        super().__init__(*gui_components, *components)
-
-    def start(self, *cmd_args:str, **opts) -> None:
-        """ In standalone mode, Plover's dictionaries are loaded by default. """
-        super().start(*cmd_args, **opts)
-        self.engine.call("dict_load_translations")
+        super().__init__(*GUI_COMPONENTS, *components)
 
 
 def main() -> None:
-    """ Top-level function for operation of the Spectra program by itself with the standard GUI. """
+    """ Top-level function for operation of the Spectra program *by itself* with the standard GUI. """
     # For standalone operation, a Qt application object must be created to support the windows.
     qt_app = QApplication(sys.argv)
     app = GUIQtApplication()
-    app.start(*sys.argv[1:])
-    # This function blocks indefinitely after setup to run the GUI.
+    # In standalone mode, Plover's dictionaries are loaded by default by providing an empty translations option.
+    app.start(translations=())
+    # This function blocks indefinitely after setup to run the GUI event loop.
     qt_app.exec_()
 
 

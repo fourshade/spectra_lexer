@@ -1,7 +1,7 @@
 from functools import partialmethod
 from typing import List, Sequence
 
-from spectra_lexer import Component, on, fork, pipe
+from spectra_lexer import Component, fork, pipe
 from spectra_lexer.utils import merge
 
 
@@ -12,7 +12,7 @@ class ResourceManager(Component):
     def __init_subclass__(cls) -> None:
         """ Create command decorators for each subclass based on its role/resource type. """
         s = cls._SUBTYPE()
-        cls.start = on("start")(partialmethod(cls.start))
+        cls.start = pipe("start", "dict_load_"+s, unpack=True)(partialmethod(cls.start))
         cls.load = fork("dict_load_"+s, "new_"+s)(partialmethod(cls.load))
         cls.save = pipe("dict_save_"+s, "file_save", unpack=True)(partialmethod(cls.save))
         super().__init_subclass__()
@@ -22,15 +22,18 @@ class ResourceManager(Component):
         """ The last part of the role name is both the command suffix and the command line file option. """
         return cls.ROLE.rsplit("_", 1)[-1]
 
-    def start(self, **opts) -> None:
-        """ Save this component's command line input (if any) over any default. """
+    def start(self, **opts) -> object:
+        """ If there is a command line option for this component, even if empty, attempt to load its resource.
+            If the option is not empty (or otherwise evaluates True), also save it over the default first. """
         file = opts.get(self._SUBTYPE())
-        if file:
-            self.files = [file]
+        if file is not None:
+            if file:
+                self.files = [file]
+            return ()
 
     def load(self, filenames:Sequence[str]=()) -> object:
         """ Load and merge resources from disk. If no filenames are given by the command,
-             load the one from defaults or the command line. """
+            load the one from defaults or the command line. """
         dicts = self._load(filenames or self.files)
         return self.parse(merge(dicts))
 
