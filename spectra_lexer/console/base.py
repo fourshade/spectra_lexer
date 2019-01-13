@@ -2,10 +2,9 @@ from typing import Optional
 
 from spectra_lexer import Component, on, pipe
 from spectra_lexer.console.console import InterpreterConsole
-
-# Prefix for entering commands. They will be mapped to either the shortcuts below or direct engine commands.
 from spectra_lexer.utils import str_eval
 
+# Prefix for entering commands. They will be mapped to either the shortcuts below or direct engine commands.
 _COMMAND_PREFIX = "/"
 # Map of shortcut commands (minus the slash) that can be sent from text entry.
 _COMMAND_MAP = {"console": "console_start",
@@ -31,7 +30,7 @@ class ConsoleManager(Component):
         if not text.startswith(_COMMAND_PREFIX):
             # If there's no system command prefix, send the text to the console if it's started, else do nothing.
             if self.console is not None:
-                return self.console.run_command(text)
+                return self.console.run(text)
             return
         # The first text item is the command; all others are passed as arguments to the engine.
         cmd = text[len(_COMMAND_PREFIX):]
@@ -47,4 +46,4 @@ class ConsoleManager(Component):
         """ Start the interpreter console with the engine state and return the initial generated text. """
         if self.console is None:
             self.console = InterpreterConsole(locals={"engine": self.engine_call.__self__})
-            return self.console.run_command()
+            return self.console.run()
