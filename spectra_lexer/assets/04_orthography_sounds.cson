@@ -7,7 +7,7 @@
   "gi.":    ["SKWRAOEU", "(G.)(I)",    "",    "soft `g` onset is usually followed by `e` or `i`"],
 
   "ph.":    ["TP",       "[ph|f.]",    "",    "`ph`onetic"],
-  "qu.":    ["KW",       "(q.)[u|w.]", "",    "phonetic"],
+  "qu.":    ["KW",       "(q.)(.u~)", "",     "phonetic"],
 
   "exc.":   ["KP",       "[exc|ex.]",  "",    "combined consonant sounds"],
 
@@ -51,17 +51,18 @@
   ".xion+": ["*BGS", "(.xion)(*:CF)",  "",    "used to disambiguate `kshun` vs. `x`"],
 
   # vowels
-  "y+":  ["AOEU","[y|I]",   "",     "`y` as in `fly`"],
-  "aI":  ["AOEU","[ai|I]",  "",     "`ai` as in `haiku`"],
-  "eI":  ["AOEU","[ei|I]",  "",     "`ei` as in `heist`"],
   "Ai":  ["AEU", "[ai|A]",  "",     "`ai` as in `fair`"],
   "Ay":  ["AEU", "[ay|A]",  "",     "`ay` as in `stay`"],
   "ei":  ["AEU", "[ei|A]",  "",     "`ei` as in `their`"],
-  "ea+": ["E",   "[ea|e]",  "",     "`ea` as in `learn`"],
+  "ea":  ["E",   "[ea|e]",  "",     "`ea` as in `learn`"],
   "Ea":  ["AOE", "[ea|E]",  "",     "`ea` as in `deal`"],
   "Ee":  ["AOE", "[ee|E]",  "",     "`ee` as in `feel`"],
   "iE":  ["AOE", "[ie|E]",  "",     "`ie` as in `thief`", "PWHRAOEF → belief"],
   "i+":  ["AOE", "[i|E]",   "RARE", "`i` as in `fatigue`", "SPWRAOEG → intrigue"],
+  "ui":  ["EU",  "[ui|i]",  "",     "`ui` as in `build`"],
+  "y+":  ["AOEU","[y|I]",   "",     "`y` as in `fly`"],
+  "aI":  ["AOEU","[ai|I]",  "",     "`ai` as in `haiku`"],
+  "eI":  ["AOEU","[ei|I]",  "",     "`ei` as in `heist`"],
   "Oa":  ["OE",  "[oa|O]",  "",     "`oa` as in `float`"],
   "Oe":  ["OE",  "[oe|O]",  "",     "`oe` as in `foe`"],
   "Ow":  ["OE",  "[ow|O]",  "",     "`ow` as in `own`"],

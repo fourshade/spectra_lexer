@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-""" Main test module for the Spectra steno lexer. Currently handles all components except search and the GUI. """
-from pickle import DICT
+""" Main test module for the Spectra steno lexer. Currently handles all major components except the GUI. """
+
+import re
 
 import pytest
 
@@ -11,6 +12,7 @@ from spectra_lexer.dict.translations import TranslationsManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
+from spectra_lexer.search import SearchEngine
 from spectra_lexer.text import CascadedTextFormatter
 from spectra_lexer.text.node import OUTPUT_FLAGS
 from test import get_test_filename
@@ -70,9 +72,11 @@ def test_rules(r):
 
 DICT_T = TranslationsManager()
 direct_connect(DICT_T, FILE)
-TEST_TRANSLATIONS = list(DICT_T.load([get_test_filename()]).items())
+TRANSLATIONS_DICT = DICT_T.load([get_test_filename()])
+TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_rules(RULES_DICT)
+LEXER.need_all_keys = True
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
@@ -107,3 +111,20 @@ def test_display(trial):
     assert all(node is root or node.parent in all_nodes_set for node in all_nodes_list)
     # The nodes available for interaction must be a subset of this collection.
     assert all_nodes_set >= set(FORMATTER._formatter._format_dict)
+
+
+SEARCH = SearchEngine()
+SEARCH.new_search_dict(TRANSLATIONS_DICT)
+
+
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
+def test_search(trial):
+    """ Go through each loaded test translation and check the search engine for the mapping in both directions. """
+    keys, word = trial
+    assert SEARCH.get(keys, "forward") == word
+    assert keys in SEARCH.get(word, "reverse")
+    # Search should return at least the item itself in both directions and in either mode. "
+    assert keys in SEARCH.search(keys, None, "forward", False)
+    assert word in SEARCH.search(word, None, "reverse", False)
+    assert keys in SEARCH.search(re.escape(keys), None, "forward", True)
+    assert word in SEARCH.search(re.escape(word), None, "reverse", True)

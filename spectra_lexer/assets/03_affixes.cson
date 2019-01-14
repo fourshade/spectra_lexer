@@ -6,7 +6,8 @@
   "en.":  ["TPH",  "[en|n.]" ,    "",    "included vowel sound", "TPHERPBLG → energy"],
   "ex.":  ["KP",   "[ex|x.]",     "",    "included vowel sound"],
   "ext.": ["KP",   "[ext|ex.]",   "",    "shortening of `ext`; must not conflict with other words using KP"],
-  "exp.": ["SP",   "[ex|s.](p.)", "",    "slurred short form of `exp`"],
+  "ex+":  ["S",    "[ex|s.]",     "",    "slurred short form of `ex`", "SABGT → exact"],
+  "exp.": ["SP",   "(ex+)(p.)",   "",    "slurred short form of `exp`"],
 
   "con.": ["K",    "(c.)on",      "",    "shortening of `con`; must not conflict with other words using K"],
   "cons.":["K",    "(con.)s",     "",    "shortening of `cons`; must not conflict with other words using K"],
@@ -14,12 +15,12 @@
   "com.": ["K",    "(c.)om",      "",    "shortening of `com`; must not conflict with other words using K", "K-FRT → comfort"],
   "comp.":["KP",   "(com.)(p.)",  "",    "usually overrides `ex` in conflicts", "KPABGT → compact"],
 
+  "-y":   ["KWREU","y",           "",    "`y`: standalone suffix stroke"],
   "-ly":  ["HREU", "(l.)(y)",     "",    "standalone suffix stroke"],
   ".ty+": ["TEU",  "(t.)(y)",     "",    "suffix stroke; does NOT work on its own"],
   "-ry":  ["REU",  "(r.)(y)",     "",    "standalone suffix stroke"],
   ".ary+":["REU",  "a(-ry)",      "",    "drop unstressed vowel"],
   ".ery+":["REU",  "e(-ry)",      "",    "drop unstressed vowel"],
-  "-y":   ["KWREU","y",           "",    "`y`: standalone suffix stroke"],
 
   # right bank
   ".ing": ["-G",   "in(.g)",      "",    "common suffix; must not conflict with other words using -G"],
@@ -49,24 +50,42 @@
   ".xt":     ["-GT",  "[x|.g](.t)",       "",    "disambiguation from `kets`"],
 
   # vowels (mainly for disambiguation)
-  "o~":   ["AU",  "o",  "SPEC", "alternative vowel combo for prefix vs. a normal word"],
-  "ou~":  ["OU",  "ou", "SPEC", "alternative vowel combo for suffix vs. a normal word"],
-  "u~":   ["KWRU","u",  "SPEC", "blended `y` → `u` sound"],
+  "o~":    ["AU",     "o",      "SPEC",  "alternative vowel combo for prefix vs. a normal word"],
+  "~ou":   ["OU",     "ou",     "SPEC",  "alternative vowel combo for suffix vs. a normal word"],
 
   # full board
-  "con-": ["KAUPB",  "(c.)(o~)(.n)",    "",     "standalone prefix stroke"],
-  "for-": ["TPAUR",  "(f.)(o~)(.r)",    "",     "standalone prefix stroke"],
-  "-er":  ["*ER",    "(e)(.r)(*:PS)",   "",     "standalone suffix stroke"],
-  "-ia":  ["KWRA",   "[i|y.](a)",       "",     "left side `y` connects strokes"],
-  "-ial": ["KWRAL",  "[i|y.](a)(.l)",   "",     "left side `y` connects strokes"],
-  "-ie":  ["KWRE",   "[i|y.](e)",       "",     "left side `y` connects strokes"],
-  "-ier": ["KWRER",  "[i|y.](e)(.r)",   "",     "left side `y` connects strokes"],
-  ".io":  ["KWROE",  "[i|y.](O)",       "",     "left side `y` connects strokes"],
-  "-io":  ["KWRO*E", "(.io)(*:PS)",     "",     "standalone suffix stroke"],
-  ".ion": ["KWROPB", "[i|y.](o)(.n)",   "",     "left side `y` connects strokes"],
-  "-ious":["KWROUS", "[i|y.](ou~)(.s)", "",     "left side `y` connects strokes"],
-  "-ous": ["OUS",    "(ou~)(.s)",       "",     "standalone suffix stroke"],
-  ".ual": ["KWRAL",  "[u|y.](a)(.l)",   "",     "left side `y` connects strokes"],
-  "-ual": ["WAL",    "[u|w.](a)(.l)",   "",     "left side `w` connects strokes"],
-  ".ure": ["KWRUR",  "(u~)(.r)e",       "",     "left side `y` connects strokes"]
+  "con-":  ["KAUPB",  "(c.)(o~)(.n)",    "",     "standalone prefix stroke"],
+  "for-":  ["TPAUR",  "(f.)(o~)(.r)",    "",     "standalone prefix stroke"],
+  "-er":   ["*ER",    "(e)(.r)(*:PS)",   "",     "standalone suffix stroke"],
+  "-or":   ["O*R",    "(o)(.r)(*:PS)",   "",     "standalone suffix stroke"],
+  "-ous":  ["OUS",    "(~ou)(.s)",       "",     "standalone suffix stroke"],
+
+  ".i~":   ["KWR",    "[i|y.]",          "SPEC", "phonetic `y`"],
+  ".ia":   ["KWRA",   "(.i~)(a)",        "",     "left side `y` connects strokes"],
+  ".iA":   ["KWRAEU", "(.i~)(A)",        "",     "left side `y` connects strokes"],
+  "-ia":   ["KWRA*",  "(.ia)(*:PS)",     "",     "standalone suffix stroke"],
+  "-ial":  ["KWRAL",  "(.ia)(.l)",       "",     "standalone suffix stroke"],
+  "-ian":  ["KWRAPB", "(.ia)(.n)",       "",     "standalone suffix stroke"],
+  ".iary": ["KWRAER", "(.i~)(-ary)",     "",     "standalone suffix stroke"],
+  ".ie":   ["KWRE",   "(.i~)(e)",        "",     "left side `y` connects strokes"],
+  "-ier":  ["KWRER",  "(.ie)(.r)",       "",     "standalone suffix stroke"],
+  ".io":   ["KWRO",   "(.i~)(o)",        "",     "left side `y` connects strokes"],
+  ".iO":   ["KWROE",  "(.i~)(O)",        "",     "left side `y` connects strokes"],
+  "-io":   ["KWRO*E", "(.iO)(*:PS)",     "",     "standalone suffix stroke"],
+  "-ion":  ["KWROPB", "(.io)(.n)",       "",     "standalone suffix stroke"],
+  "-ious": ["KWROUS", "(.i~)(-ous)",     "",     "standalone suffix stroke"],
+  ".iu":   ["KWRU",   "(.i~)(u)",        "",     "left side `y` connects strokes"],
+
+  ".u~":   ["W",      "[u|w.]",          "SPEC", "phonetic `w`"],
+  ".ua":   ["WA",     "(.u~)(a)",        "",     "left side `w` connects strokes"],
+  ".ua+":  ["WAEU",   "(.u~)(A)",        "",     "left side `w` connects strokes"],
+  "-ual":  ["WAL",    "(.ua)(.l)",       "",     "standalone suffix stroke"],
+  "-ually":["WAEL",   "(.u~)(-ally)",    "",     "standalone suffix stroke"],
+  ".uo":   ["WO",     "(.u~)(o)",        "",     "left side `w` connects strokes"],
+  "-uous": ["WOUS",   "(.u~)(-ous)",     "",     "standalone suffix stroke"],
+
+  ".u":    ["KWRU",   "u",               "",     "`u`: blended `y` → `u` sound"],
+  "+ua":   ["KWRA",   "[u|y.](a)",       "",     "left side `y` connects strokes"],
+  ".ur":   ["KWRUR",  "(.u)(.r)",        "",     "left side `y` connects strokes"],
+  "-us":   ["KWRUS",  "(.u)(.s)",        "",     "standalone suffix stroke"]
 }

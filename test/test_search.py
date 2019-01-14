@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" Unit tests for search dictionary package. """
+""" Unit tests for structures in search dictionary package. """
 
 import re
 
