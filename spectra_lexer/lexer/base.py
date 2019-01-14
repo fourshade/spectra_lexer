@@ -35,7 +35,7 @@ class StenoLexer(Configurable):
         return self._build_best_rule([pair], pair)
 
     @fork("lexer_query_product", "new_lexer_result")
-    def query_best_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
+    def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
         pairs = list(product(keys, words))

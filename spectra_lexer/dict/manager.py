@@ -7,6 +7,8 @@ from spectra_lexer.utils import merge
 
 class ResourceManager(Component):
 
+    ROLE = "dict_base"
+
     files: Sequence[str] = ()  # Input filenames overridden by subclass default parameters or the command line.
 
     def __init_subclass__(cls) -> None:

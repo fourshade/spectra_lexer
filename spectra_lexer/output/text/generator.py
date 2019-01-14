@@ -1,6 +1,8 @@
+""" Module for generating a text display graph. No state is required to be maintained. """
+
 from typing import List, Tuple, TypeVar
 
-from spectra_lexer.text.node import OutputNode
+from spectra_lexer.output.node import OutputNode
 
 # Symbols used to represent text "containers" in the graph.
 # The "single" symbol is used for length-1 containers, and the "middle" symbol is repeated to fill larger ones.
@@ -158,7 +160,7 @@ def _generate_text(src:OutputNode) -> List[_TextOutputLine]:
     return output_lines
 
 
-def generate_text_grid(src:OutputNode) -> Tuple[List[str], List[Tuple[OutputNode]]]:
+def new_text_grid(src:OutputNode) -> Tuple[List[str], List[Tuple[OutputNode]]]:
     """ Main generator for text-based output. Builds a list of plaintext strings from a node tree,
         as well as a grid with additional info about node locations for highlighting support. """
     output_lines = _generate_text(src)

@@ -39,7 +39,7 @@ class GUIQtSearch(Configurable):
             signal.connect(partial(self.engine_call, cmd_key))
 
     @on("new_translations")
-    def on_new_dict(self, d:dict) -> None:
+    def set_translations(self, d:dict) -> None:
         """ For a new search dict, enable/disable searching based on whether or not it's empty. """
         enabled = bool(d)
         self.input_textbox.clear()

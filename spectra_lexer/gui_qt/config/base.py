@@ -28,7 +28,7 @@ class GUIQtConfig(Component):
             self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
 
     @on("new_config_info")
-    def new_data(self, role:str, cfg_info:dict):
+    def set_config_info(self, role:str, cfg_info:dict):
         """ Store a single component's full set of config info by role. """
         self._cfg_info[role] = cfg_info
 

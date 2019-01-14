@@ -2,7 +2,7 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import Dict, List, Sequence, Tuple
 
-from spectra_lexer.text.node import OutputNode
+from spectra_lexer.output.node import OutputNode
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)

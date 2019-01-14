@@ -22,7 +22,7 @@ class PloverPluginInterface(Component):
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
     @pipe("start", "new_status")
-    def setup_engine(self, *, plover_engine=None, **opts) -> str:
+    def start(self, *, plover_engine=None, **opts) -> str:
         """ Perform initial compatibility check and callback/dictionary setup. """
         # If the compatibility check fails or there's no engine, don't try to connect to Plover. Return an error.
         if not compatibility_check() or plover_engine is None:
@@ -40,7 +40,7 @@ class PloverPluginInterface(Component):
         self._plover_engine.signal_connect(plover_signal, partial(self.engine_call, spectra_cmd))
 
     @pipe("plover_load_dicts", "new_translations")
-    def load_dict_collection(self, steno_dc:PloverStenoDictCollection) -> Optional[Dict[str, str]]:
+    def load_dicts(self, steno_dc:PloverStenoDictCollection) -> Optional[Dict[str, str]]:
         """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
         if not steno_dc or not steno_dc.dicts:
             return None

@@ -6,10 +6,10 @@ from spectra_lexer import Component
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.console import ConsoleManager
 from spectra_lexer.gui_qt import GUIQt
-from spectra_lexer.text import CascadedTextFormatter
+from spectra_lexer.output import DisplayEngine
 
 # Components specifically used by the GUI. Without the GUI, these components do no good.
-GUI_COMPONENTS = [CascadedTextFormatter, ConsoleManager, GUIQt]
+GUI_COMPONENTS = [DisplayEngine, ConsoleManager, GUIQt]
 
 
 class GUIQtApplication(SpectraApplication):

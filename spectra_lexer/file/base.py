@@ -9,12 +9,12 @@ class FileHandler(Component):
     ROLE = "file"
 
     @respond_to("file_load")
-    def load_resources(self, *patterns:str) -> list:
+    def load(self, *patterns:str) -> list:
         """ Attempt to expand all patterns and decode all files in the arguments and return a list. """
         return list(map(decode, resources_from_patterns(*patterns)))
 
     @on("file_save")
-    def save_resource(self, filename:str, obj:object) -> None:
+    def save(self, filename:str, obj:object) -> None:
         """ Attempt to encode and save a resource to a file given by name. """
         return encode(resource_from_string(filename), obj)
 

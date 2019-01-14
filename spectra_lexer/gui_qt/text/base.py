@@ -44,7 +44,7 @@ class GUIQtTextDisplay(Component):
         """ Display non-interactive plaintext in the main text widget. """
         self.w_text.set_text_display(text, html=False, interactive=False,  **kwargs)
 
-    @pipe("sig_process_mouseover", "output_format_node_at", unpack=True)
+    @pipe("sig_process_mouseover", "output_select_node_at", unpack=True)
     def process_mouseover(self, row:int, col:int) -> tuple:
-        """ Pass a mouseover event to the cascaded text formatter. """
+        """ Pass a mouseover event to the display formatter. """
         return row, col

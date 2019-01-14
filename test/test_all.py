@@ -13,8 +13,8 @@ from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MATCH_FLAGS
 from spectra_lexer.search import SearchEngine
-from spectra_lexer.text import CascadedTextFormatter
-from spectra_lexer.text.node import OUTPUT_FLAGS
+from spectra_lexer.output import DisplayEngine
+from spectra_lexer.output.node import OUTPUT_FLAGS
 from test import get_test_filename
 
 
@@ -88,7 +88,7 @@ def test_lexer(trial):
     assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(keys, word)
 
 
-FORMATTER = CascadedTextFormatter()
+DISPLAY = DisplayEngine()
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
@@ -96,12 +96,11 @@ def test_display(trial):
     """ Produce format for all parsing tests and conduct simple tests. """
     keys, word = trial
     result = LEXER.query(keys, word)
-    FORMATTER.make_graph(result)
-    # Hopefully there are some helper objects after this.
-    assert FORMATTER._formatter
-    assert FORMATTER._locator
+    root = DISPLAY.make_tree(result)
+    formatter = DISPLAY._graph
+    formatter.generate(root)
     # The root node starts in the upper left and has no parent.
-    root = FORMATTER._locator.get_node_at(0, 0)
+    assert formatter.get_node_at(0, 0) is root
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -110,7 +109,7 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all(node is root or node.parent in all_nodes_set for node in all_nodes_list)
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(FORMATTER._formatter._format_dict)
+    assert all_nodes_set >= set(formatter._formatter._format_dict)
 
 
 SEARCH = SearchEngine()

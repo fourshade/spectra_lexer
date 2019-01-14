@@ -27,11 +27,11 @@ class GUIQtWindow(Component):
         self.window.show()
 
     @pipe("gui_window_load_rules", "dict_load_rules")
-    def dialog_load_rules(self) -> Optional[list]:
+    def load_rules(self) -> Optional[list]:
         return self._dialog_load("rules")
 
     @pipe("gui_window_load_translations", "dict_load_translations")
-    def dialog_load_translations(self) -> Optional[list]:
+    def load_translations(self) -> Optional[list]:
         return self._dialog_load("translations")
 
     def _dialog_load(self, d_type:str) -> Optional[list]:
