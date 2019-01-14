@@ -35,5 +35,5 @@ class ConfigManager(ResourceManager):
     def inv_parse(self, new_data:dict) -> dict:
         """ Update config options to prepare to save to disk. Saving should not fail silently, unlike loading. """
         for (s, d) in new_data.items():
-            self._cfg_data[s].update(d)
+            self._cfg_data.setdefault(s, {}).update(d)
         return self._cfg_data

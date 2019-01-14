@@ -70,7 +70,7 @@ class LexerRuleMatcher:
         yield from self._prefix_tree.prefix_match(keys, letters)
         # We have a complete stroke next if we just started or a stroke separator was just matched.
         is_start = not rulemap
-        if is_start or rulemap[-1] is self._RULE_SEP:
+        if is_start or rulemap[-1].rule is self._RULE_SEP:
             stroke_rule = self._stroke_match(keys, letters)
             if stroke_rule:
                 yield stroke_rule

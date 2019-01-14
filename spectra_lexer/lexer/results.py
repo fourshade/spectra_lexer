@@ -66,7 +66,7 @@ class _Result(NamedTuple):
             # If there are any unmatched keys, add a flag telling the output to watch for them.
             flags = frozenset({_BAD_FLAG_PREFIX + self.leftover_keys})
             # If nothing was matched at all, make the description different from a partial failure.
-            if not self:
+            if not self.rulemap:
                 desc = "No matches found."
             else:
                 desc = "Incomplete match. Not reliable."

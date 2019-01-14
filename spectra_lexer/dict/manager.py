@@ -31,7 +31,7 @@ class ResourceManager(Component):
                 self.files = [file]
             return ()
 
-    def load(self, filenames:Sequence[str]=()) -> object:
+    def load(self, filenames:Sequence[str]=()) -> dict:
         """ Load and merge resources from disk. If no filenames are given by the command,
             load the one from defaults or the command line. """
         dicts = self._load(filenames or self.files)
@@ -41,7 +41,7 @@ class ResourceManager(Component):
         """ Decode all files from the argument. If there's no files, just return that empty sequence. """
         return filenames and self.engine_call("file_load", *filenames)
 
-    def parse(self, d:dict) -> object:
+    def parse(self, d:dict) -> dict:
         """ Optional parse function to convert from raw disk format. May simply return the argument unchanged. """
         return d
 
