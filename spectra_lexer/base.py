@@ -1,6 +1,6 @@
 """ Base module of the Spectra lexer package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import ClassVar, Hashable, Iterable, List, Tuple
+from typing import ClassVar, Iterable, List
 
 from spectra_lexer.utils import nop
 
@@ -13,7 +13,8 @@ class Component:
     As such, it cannot depend on anything inside the package itself except pure utility functions.
     """
 
-    ROLE: str = "UNDEFINED"  # Standard identifier for a component's function, usable in many ways (i.e. config page).
+    # Standard identifier for a component's function, usable in many ways (i.e. # config page).
+    ROLE: ClassVar[str] = "UNDEFINED"
 
     _cmd_attr_list: ClassVar[List[tuple]] = []  # Default class command parameter list; meant to be copied.
     engine_call: callable = nop  # Default engine callback is a no-op (useful for testing individual components).
@@ -26,7 +27,7 @@ class Component:
         cmd_list = [(attr, func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
-    def commands(self) -> List[Tuple[Hashable, Tuple[callable, callable]]]:
+    def commands(self) -> list:
         """ Bind all class command functions to the instance and return the raw (key, func, dispatch) command tuples.
             Each command has a main callable followed by one with instructions on what to execute next. """
         return [(key, (getattr(self, attr), dispatch)) for (attr, (key, dispatch)) in self._cmd_attr_list]
@@ -40,10 +41,14 @@ class Composite(Component):
     """ Component container; all commands and callbacks are routed to/from child components,
         but the engine can't tell the difference. May also contain its own commands. """
 
-    _children: Iterable[Component] = ()
+    _children: List[Component]            # Finished child components.
+    COMPONENTS: ClassVar[Iterable[type]]  # Constructors for each child component.
 
-    def set_children(self, children:Iterable[Component]) -> None:
-        self._children = list(children)
+    def __init__(self, args_iter:Iterable=iter(tuple, ...)):
+        """ Assemble all listed child components before the engine starts.
+            <args_iter> contains positional arguments for each constructor in order, defaulting to empty. """
+        super().__init__()
+        self._children = [tp(*args) for (tp, args) in zip(self.COMPONENTS, args_iter)]
 
     def commands(self) -> list:
         cmds = super().commands()

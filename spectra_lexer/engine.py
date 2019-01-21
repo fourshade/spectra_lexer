@@ -49,7 +49,7 @@ class SpectraEngine:
     _exception_callback: callable    # Application-provided callback for exception handling.
     _rlevel: int = 0                 # Counts levels of re-entrancy for engine calls.
 
-    def __init__(self, on_exception=nop):
+    def __init__(self, on_exception:callable=nop):
         """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
         self._commands = defaultdict(list)
         self._exception_callback = on_exception
@@ -62,7 +62,7 @@ class SpectraEngine:
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
         """ Top-level method for engine calls. Checks exceptions with a custom handler.
-            This function is re-entrant, so we need to track what level we're on for exception handling. """
+            This method is re-entrant, so we need to track what level we're on for exception handling. """
         try:
             # Load the call stack and run it to exhaustion. Return only the first value yielded (if any).
             stack = [(cmd_key, args, kwargs)]
@@ -87,8 +87,8 @@ class SpectraEngine:
                     break
 
     # Add/subtract from frame counter every time a new loop is entered/exited
-    def __enter__(self):
+    def __enter__(self) -> None:
         self._rlevel += 1
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self._rlevel -= 1
