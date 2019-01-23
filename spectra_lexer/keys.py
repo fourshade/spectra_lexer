@@ -89,6 +89,9 @@ class StenoKeys(str):
         s = str_without(self, keys)
         return self.__class__(s)
 
+    def __repr__(self):
+        return repr(self.to_rtfcre())
+
 
 def _stroke_stenokeys_to_rtfcre(s:str) -> str:
     """ Find the first right-side key (if there is one).

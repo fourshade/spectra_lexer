@@ -23,16 +23,15 @@ respond_to = control_decorator(lambda *args, **kwargs: True)  # Call the command
 def _dispatch(next_key:Hashable, stack:list, value:Any, ret:bool=False, unpack:bool=False, **cmd_kwargs) -> bool:
     """ If a command is marked to pipe its output <value> to another command (and it isn't None), add the new
         command to the <stack>. Return True only if the original command must <ret>urn the value to its caller.
-        If the return value is <unpack>ed, the correct star unpacking operator is chosen based on its type. """
+        If the return value is <unpack>ed, the correct form of unpacking is applied based on its type. """
     if value is not None:
-        if unpack:
-            if isinstance(value, Mapping):
-                arg_tuple = (next_key, (), {**value, **cmd_kwargs})
-            else:
-                arg_tuple = (next_key, value, cmd_kwargs)
+        if not unpack:
+            value = (value,)
         else:
-            arg_tuple = (next_key, (value,), cmd_kwargs)
-        stack.append(arg_tuple)
+            if isinstance(value, Mapping):
+                cmd_kwargs.update(value)
+                value = ()
+        stack.append((next_key, value, cmd_kwargs))
     return ret
 
 

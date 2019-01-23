@@ -17,18 +17,21 @@ class ConsoleManager(Component):
     ROLE = "console"
 
     console: InterpreterConsole = None  # Main console interpreter, run on a different thread.
+    console_vars: dict = None           # Variables to load on interpreter startup.
 
     @on("start")
-    def start(self, show_menu=True, **opts) -> None:
+    def start(self, show_menu=True, console_vars:dict=None, **opts) -> None:
         """ If the menu is used, add the console dialog command. """
         if show_menu:
             self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
+        # Use the vars dict on interpreter start if given, otherwise just use an engine reference.
+        self.console_vars = console_vars or {}
 
     @pipe("console_open", "new_text_output", scroll_to="bottom")
     def open(self) -> str:
-        """ Start the interpreter console with the engine state and return the initial generated text. """
+        """ Start the interpreter console with the current vars dict and return the initial generated text. """
         if self.console is None:
-            self.console = InterpreterConsole(locals={"engine": self.engine_call.__self__})
+            self.console = InterpreterConsole(self.console_vars)
             return self.console.run()
 
     @pipe("new_text_input", "new_text_output", scroll_to="bottom")

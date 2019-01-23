@@ -17,16 +17,19 @@ class InterpreterConsole(TextIOBase):
     _input_line: str = ""   # Holds the last input line sent by the main program.
     _condition: Condition   # Wakes the interpreter thread only when new input is available.
 
-    def __init__(self, **kwargs):
+    def __init__(self, cvars:dict):
         """ Save the standard stream handles so they can be overridden during interpreter activity.
             This object itself overrides stdin, blocking until other threads provide input. """
         self._sys_streams = {a: getattr(sys, a) for a in ("stdin", "stdout", "stderr")}
         self._out_stream = StringIO()
         self._condition = Condition()
         self._override_streams()
-        # Create the interpreter shell and start it in a separate thread.
-        console = InteractiveConsole(**kwargs)
-        Thread(target=console.interact, daemon=True).start()
+        # Add extra utilities to the vars dict and show these along with the components in the banner.
+        cvars.update()
+        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}"
+        # Create the interpreter shell with the vars dict and start it in a separate thread.
+        console = InteractiveConsole(cvars)
+        Thread(target=console.interact, args=(banner,), daemon=True).start()
 
     def _override_streams(self) -> None:
         """ Temporarily replace standard stream handles with our objects. """

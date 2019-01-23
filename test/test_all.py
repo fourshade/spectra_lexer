@@ -19,12 +19,12 @@ from test import get_test_filename
 
 def direct_connect(cmp:Component, subcmp:Component) -> None:
     """ Connect one component directly to another without an engine for basic calls. """
-    cmd_dict = dict(subcmp.commands())
+    cmd_dict = dict(subcmp.engine_connect())
     def direct_call(cmd:str, *args, **kwargs) -> callable:
         c = cmd_dict.get(cmd)
         if c:
             return c[0](*args, **kwargs)
-    cmp.set_engine_callback(direct_call)
+    cmp.engine_connect(direct_call)
 
 
 # Create components for the tests in order as we need them.
@@ -97,7 +97,7 @@ def test_display(trial):
     result = LEXER.query(keys, word)
     GRAPH.generate(result)
     # The root node starts in the upper left and has no parent.
-    root = GRAPH._locator.select(0, 0)
+    root = GRAPH._graph._locator.select(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -106,10 +106,10 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(GRAPH._formatter._range_dict)
+    assert all_nodes_set >= set(GRAPH._graph._formatter._range_dict)
     # Every non-ASCII character must be owned by a node.
-    lines = GRAPH._formatter._lines
-    grid = GRAPH._locator._grid
+    lines = GRAPH._graph._formatter._lines
+    grid = GRAPH._graph._locator._grid
     assert all([ord(c) < 0xFF or grid[row][col] for row, line in enumerate(lines) for col, c in enumerate(line)])
 
 

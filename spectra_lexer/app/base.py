@@ -19,17 +19,16 @@ BASE_COMPONENTS = [FileHandler,
 class SpectraApplication:
     """ Base class for fundamental operations of the Spectra lexer. """
 
-    components: dict       # Dictionary of all currently connected components by role, mainly for introspection.
+    components: list       # List of all currently connected components, mainly for introspection.
     engine: SpectraEngine  # Engine must be accessible to subclasses.
 
     def __init__(self, *components:Component):
-        """ Create all necessary components in order, starting from base components and moving to subclasses.
-            For components with identical roles, only the one from the most derived subclass is used. """
+        """ Create all necessary components in order, starting from base components and moving to subclasses. """
         all_components = [*BASE_COMPONENTS, *components]
-        self.components = {cls.ROLE: cls() for cls in all_components}
+        self.components = [cls() for cls in all_components]
         # Initialize the engine and connect everything to it. Connections are currently permanent.
         self.engine = SpectraEngine(on_exception=self.handle_exception)
-        for c in self.components.values():
+        for c in self.components:
             self.engine.connect(c)
 
     def handle_exception(self, e:Exception) -> bool:

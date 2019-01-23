@@ -27,22 +27,21 @@ class Component:
         cmd_list = [(attr, func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
-    def commands(self) -> list:
-        """ Bind all class command functions to the instance and return the raw (key, func, dispatch) command tuples.
+    def engine_connect(self, cb:callable=nop) -> List[tuple]:
+        """ Set the callback used for engine calls by this component.
+            Bind all class command functions to the instance and return the raw (key, func, dispatch) command tuples.
             Each command has a main callable followed by one with instructions on what to execute next. """
-        return [(key, (getattr(self, attr), dispatch)) for (attr, (key, dispatch)) in self._cmd_attr_list]
-
-    def set_engine_callback(self, cb:callable=nop) -> None:
-        """ Set the callback used for engine calls by individual components. """
         self.engine_call = cb
+        return [(key, (getattr(self, attr), dispatch)) for (attr, (key, dispatch)) in self._cmd_attr_list]
 
 
 class Composite(Component):
     """ Component container; all commands and callbacks are routed to/from child components,
         but the engine can't tell the difference. May also contain its own commands. """
 
-    _children: List[Component]            # Finished child components.
-    COMPONENTS: ClassVar[Iterable[type]]  # Constructors for each child component.
+    COMPONENTS: ClassVar[Iterable[type]] = ()  # Constructors for each child component.
+
+    _children: List[Component]  # Finished child components.
 
     def __init__(self, args_iter:Iterable=iter(tuple, ...)):
         """ Assemble all listed child components before the engine starts.
@@ -50,11 +49,6 @@ class Composite(Component):
         super().__init__()
         self._children = [tp(*args) for (tp, args) in zip(self.COMPONENTS, args_iter)]
 
-    def commands(self) -> list:
-        cmds = super().commands()
-        return cmds + [i for c in self._children for i in c.commands()]
-
-    def set_engine_callback(self, *args) -> None:
-        super().set_engine_callback(*args)
-        for c in self._children:
-            c.set_engine_callback(*args)
+    def engine_connect(self, *args) -> list:
+        cmds = super().engine_connect(*args)
+        return cmds + [i for c in self._children for i in c.engine_connect(*args)]
