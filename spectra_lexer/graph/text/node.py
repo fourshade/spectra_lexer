@@ -40,11 +40,12 @@ class TextNode(GraphNode):
             self.appearance = next(iter(self.flags))
 
     @classmethod
-    def for_display(cls, rule:StenoRule):
+    def for_display(cls, rule:StenoRule, recursive:bool=False, *args):
         """ Special method to generate a full output tree starting with the given rule as root.
             The root node has no parent; its "attach interval" is arbitrarily defined as starting
             at 0 and being the length of its letters. Its text always shows letters no matter what. """
-        self = cls(rule, 0, len(rule.letters))
+        maxdepth = 1 if not recursive else cls.RECURSION_LIMIT
+        self = cls(rule, 0, len(rule.letters), maxdepth, *args)
         self.text = rule.letters
         self.appearance = TextFlags.ROOT
         return self

@@ -1,8 +1,6 @@
 """ Module controlling the general appearance of text graph patterns and character sets. """
 
-from functools import partial
-
-from spectra_lexer.graph.text.layout.primitive import Primitive
+from spectra_lexer.graph.text.generator.primitive import Primitive
 from spectra_lexer.utils import memoize_one_arg
 
 
@@ -40,6 +38,11 @@ class Symbols:
 
 
 class Pattern:
+    """ An empty pattern; no primitives are created at all. Useful as a base class. """
+    TEXT = BOTTOM = TOP = CONNECTOR = ENDPIECE = CUSTOM = None
+
+
+class PatternNode(Pattern):
     """ A default node. Uses text patterns consisting of a repeated character terminated by endpieces. """
     TEXT = Primitive.Row                        # Primitive constructor for the text itself.
     BOTTOM = Symbols.Row("│", "├┐", "─")        # Primitive constructor for the section above the text.
@@ -48,27 +51,31 @@ class Pattern:
     ENDPIECE = Symbols.Row("┐", "┬┐", "┬")      # Primitive constructor for extension connectors.
 
 
-class PatternSeparators(Pattern):
-    """ A row of stroke separators. These are not connected to anything and have no owner. """
-    TEXT = partial(Primitive.RowReplace, "/")
-    BOTTOM = TOP = CONNECTOR = ENDPIECE = None
-
-
-class PatternUnmatched(Pattern):
-    """ A set of unmatched keys. These have broken connectors ending in question marks on both sides. """
-    TOP = Symbols.Row("|", "||", "|")
-    ENDPIECE = Symbols.Row("?", "??", "?")
-    BOTTOM = CONNECTOR = None
-
-
-class PatternInversion(Pattern):
-    """ A node whose rule describes an inversion of steno order. These show arrows to indicate reversal. """
-    BOTTOM = Symbols.Row("│", "◄►", "═")
-
-
-class PatternBranch(Pattern):
+class PatternBranch(PatternNode):
     """ An important node with thicker connecting lines. """
     BOTTOM = Symbols.Row("║", "╠╗", "═")
     TOP = Symbols.Row("║", "╠╝", "═")
     CONNECTOR = Symbols.Column("║", "║║", "║")
     ENDPIECE = Symbols.Row("╗", "╦╗", "╦")
+
+
+class PatternInversion(PatternNode):
+    """ A node whose rule describes an inversion of steno order. These show arrows to indicate reversal. """
+    BOTTOM = Symbols.Row("│", "◄►", "═")
+
+
+class PatternUnmatched(PatternNode):
+    """ A set of unmatched keys. These have broken connectors ending in question marks on both sides. """
+    TOP = Symbols.Row("|", "||", "|")
+    CUSTOM = Symbols.Row("?", "??", "?")
+    BOTTOM = CONNECTOR = None
+
+
+class PatternSeparators(Pattern):
+    """ A row of stroke separators. These are not connected to anything and have no owner. """
+    TEXT = Primitive.RowReplace
+
+
+class PatternSeparatorSingle(Pattern):
+    """ A single stroke separator, not connected to anything. """
+    TEXT = Primitive.Row

@@ -6,9 +6,6 @@ from spectra_lexer.constants import Constants
 from spectra_lexer.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse, traverse
 
-# Default limit on number of recursion steps to allow for rules that contain other rules.
-_RECURSION_LIMIT = 10
-
 
 class GraphFlags(Constants):
     """ Acceptable rule flags that indicate special behavior for output graph formatting. """
@@ -22,6 +19,8 @@ class GraphNode:
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
 
+    RECURSION_LIMIT = 10     # Default limit on number of recursion steps to allow for rules that contain other rules.
+
     rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
     attach_start: int = 0    # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
@@ -29,7 +28,7 @@ class GraphNode:
     parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
     children: Sequence = ()  # Direct children of the node. If empty, it is considered a leaf node.
 
-    def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int=_RECURSION_LIMIT):
+    def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int=RECURSION_LIMIT):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
             maxdepth is the maximum recursion depth to draw nodes out to.
             maxdepth = 0 only displays the root node.

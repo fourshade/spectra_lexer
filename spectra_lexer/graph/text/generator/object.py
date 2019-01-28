@@ -2,9 +2,9 @@
 
 from typing import List, Tuple
 
-from spectra_lexer.graph.text.layout.canvas import Canvas
-from spectra_lexer.graph.text.layout.pattern import Pattern
-from spectra_lexer.graph.text.layout.primitive import Primitive
+from spectra_lexer.graph.text.generator.canvas import Canvas
+from spectra_lexer.graph.text.generator.pattern import Pattern
+from spectra_lexer.graph.text.generator.primitive import Primitive
 
 
 class Object(Primitive, List[Tuple[int, int, Primitive]]):
@@ -47,13 +47,14 @@ class ObjectNode(Object):
     """ Grid of text lines that form a node and its attachments one character in each direction.
         Sections of text belonging to a single node are added with positions depending on the node attributes. """
 
-    pattern: Pattern
+    pattern: Pattern  # Structure with symbol pattern templates for connectors and containers.
 
     def __init__(self, s:str, tag:object, pattern:Pattern) -> None:
         """ Add the first primitive: a new line with the node's text starting at the origin. """
         self.tag = tag
         self.pattern = pattern
-        self.add(pattern.TEXT(s, tag))
+        if pattern.TEXT is not None:
+            self.add(pattern.TEXT(s, tag))
 
     def attach(self, parent:Object, row:int, col:int) -> None:
         """ Attach <self> to its parent object at offset (row, col). """
@@ -90,13 +91,14 @@ class ObjectNodeUnmatched(ObjectNode):
         """ Add the body with an extra row offset to ensure that empty matches have enough space. """
         self.tag = tag
         self.pattern = pattern
-        self.add(pattern.TEXT(s, tag), 3)
+        if pattern.TEXT is not None:
+            self.add(pattern.TEXT(s, tag), 3)
 
     def draw_connectors(self, parent:Object, p_col:int, p_len:int, c_row:int, c_col:int, c_len:int) -> None:
         """ Draw top connectors downward and end in question marks just before reaching the bottom. """
         super().draw_connectors(parent, p_col, p_len, c_row, c_col, c_len)
         for r in range(2, c_row - 1):
             self.add_symbols_to(parent, self.pattern.TOP, p_len, r, c_col)
-        self.add_symbols_to(parent, self.pattern.ENDPIECE, p_len, c_row - 1, c_col)
-        self.add_symbols_to(parent, self.pattern.ENDPIECE, c_len, c_row + 1, c_col)
+        self.add_symbols_to(parent, self.pattern.CUSTOM, p_len, c_row - 1, c_col)
+        self.add_symbols_to(parent, self.pattern.CUSTOM, c_len, c_row + 1, c_col)
         self.add_symbols_to(parent, self.pattern.TOP, c_len, c_row + 2, c_col)

@@ -1,9 +1,9 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
 from spectra_lexer.graph.text.formatter import HTMLFormatter
+from spectra_lexer.graph.text.generator import CascadedTextGenerator, CompressedTextGenerator
 from spectra_lexer.graph.text.locator import GridLocator
 from spectra_lexer.graph.text.node import TextNode
-from spectra_lexer.graph.text.layout import CompressedTextLayout, CascadedTextLayout
 from spectra_lexer.rules import StenoRule
 
 
@@ -13,11 +13,12 @@ class TextGraph:
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
 
-    def __init__(self, rule:StenoRule, compressed=False):
+    def __init__(self, rule:StenoRule, recursive:bool=False, compressed:bool=False):
         """ Make a node tree layout out of the given rule to display. """
-        layout_type = CompressedTextLayout if compressed else CascadedTextLayout
-        # Render all text objects into standard strings and node grids indexed by position.
-        lines, nodes = layout_type.for_display(rule).render()
+        root = TextNode.for_display(rule, recursive)
+        # Generate and render all text objects into standard strings and node grids indexed by position.
+        gen_type = CompressedTextGenerator if compressed else CascadedTextGenerator
+        lines, nodes = gen_type(root).render()
         # Create a locator and formatter using these structures and keep them for later reference.
         self._locator = GridLocator(nodes)
         range_dict = self._locator.range_dict()

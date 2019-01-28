@@ -12,6 +12,7 @@ class GraphRenderer(Configurable):
         The graph object itself does most of the work; this one just exists to pass messages. """
 
     ROLE = "graph"
+    recursive: bool = CFGOption(False,  "Recursive Graph",    "Include rules that make up other rules.")
     compressed: bool = CFGOption(False, "Compressed Display", "Compress the graph vertically to save space.")
 
     _graph: TextGraph = None      # Generates text graphs and processes selections.
@@ -23,7 +24,7 @@ class GraphRenderer(Configurable):
         # Send the rule string as a status message (this doubles as the title in the GUI).
         self.engine_call("new_status", str(rule))
         # Create the graph object based on config settings.
-        self._graph = TextGraph(rule, compressed=self.compressed)
+        self._graph = TextGraph(rule, recursive=self.recursive, compressed=self.compressed)
         # The graph is new, so render it without no node selected. It should should scroll to the top by default.
         return self._graph.render()
 
