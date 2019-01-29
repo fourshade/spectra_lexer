@@ -29,10 +29,11 @@ class ConsoleManager(Component):
 
     @pipe("console_open", "new_text_output", scroll_to="bottom")
     def open(self) -> str:
-        """ Start the interpreter console with the current vars dict and return the initial generated text. """
+        """ Start the interpreter console with the current vars dict and return the initial generated text.
+            If it already is started, just show the current text contents again. """
         if self.console is None:
             self.console = InterpreterConsole(self.console_vars)
-            return self.console.run()
+        return self.console.run()
 
     @pipe("new_text_input", "new_text_output", scroll_to="bottom")
     def system_command(self, text:str) -> Optional[str]:

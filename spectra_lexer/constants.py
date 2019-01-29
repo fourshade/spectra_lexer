@@ -1,3 +1,8 @@
+""" This module is a sin against Python. Boredom is quite sufficient to write an entire page of WTF that consists of:
+    - a hideous abomination that behaves like a class, a dict, a set, and a list, somehow all at the same time.
+    - a clusterfuck of methods from built-in types that makes introspection utilities cough up blood.
+    - a stupid example of how to make nobody want to touch your code with a 10-foot pole. """
+
 # Subtypes to draw method attributes from. Later subtypes override methods of earlier ones with the same name.
 _SUBTYPES = [list, set, dict]
 # Method attribute names for each subtype. Method names used in type() can cause problems - exclude them.

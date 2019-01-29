@@ -18,7 +18,7 @@
     <normaloff>:/spectra_lexer/icon.svg</normaloff>:/spectra_lexer/icon.svg</iconset>
   </property>
   <widget class="QWidget" name="w_main">
-   <layout class="QGridLayout" name="layout_main" columnstretch="2,5" columnminimumwidth="150,375">
+   <layout class="QGridLayout" name="layout_main" rowminimumheight="22,210,180" columnminimumwidth="150,375">
     <item row="0" column="0">
      <widget class="QLineEdit" name="w_search_input">
       <property name="enabled">
@@ -32,13 +32,13 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>0</width>
+        <width>150</width>
         <height>22</height>
        </size>
       </property>
       <property name="maximumSize">
        <size>
-        <width>16777215</width>
+        <width>150</width>
         <height>22</height>
        </size>
       </property>
@@ -97,8 +97,14 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>0</width>
-        <height>180</height>
+        <width>150</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>150</width>
+        <height>16777215</height>
        </size>
       </property>
       <property name="autoScroll">
@@ -123,7 +129,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>180</height>
+        <height>0</height>
        </size>
       </property>
       <property name="font">
@@ -159,13 +165,13 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>0</width>
+        <width>150</width>
         <height>180</height>
        </size>
       </property>
       <property name="maximumSize">
        <size>
-        <width>16777215</width>
+        <width>150</width>
         <height>180</height>
        </size>
       </property>

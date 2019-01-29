@@ -17,10 +17,10 @@ class GUIQtWindow(Component):
         self.window = window
 
     @on("start")
-    def start(self, show_menu=True, **opts) -> None:
+    def start(self, show_file_menu=True, **opts) -> None:
         """ Show the window once the engine is fully initialized and sends the start signal.
-            If the menu is used, add the basic window-based dialog commands before displaying the window. """
-        if show_menu:
+            If the file menu is used, add the basic window-based dialog commands first. """
+        if show_file_menu:
             self.engine_call("gui_menu_add", "File", "Load Rules...", "gui_window_load_rules")
             self.engine_call("gui_menu_add", "File", "Load Translations...", "gui_window_load_translations")
             self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)

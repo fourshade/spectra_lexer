@@ -22,7 +22,7 @@ class SpectraApplication:
     components: list       # List of all currently connected components, mainly for introspection.
     engine: SpectraEngine  # Engine must be accessible to subclasses.
 
-    def __init__(self, *components:Component):
+    def __init__(self, *components:type):
         """ Create all necessary components in order, starting from base components and moving to subclasses. """
         all_components = [*BASE_COMPONENTS, *components]
         self.components = [cls() for cls in all_components]

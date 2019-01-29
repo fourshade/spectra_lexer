@@ -26,7 +26,8 @@ class InterpreterConsole(TextIOBase):
         self._override_streams()
         # Add extra utilities to the vars dict and show these along with the components in the banner.
         cvars.update()
-        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}"
+        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}\n"\
+                 f"Type Python statements in the search box and hit ENTER to execute them."
         # Create the interpreter shell with the vars dict and start it in a separate thread.
         console = InteractiveConsole(cvars)
         Thread(target=console.interact, args=(banner,), daemon=True).start()

@@ -1,3 +1,13 @@
+0.6.0
+-----
+* Text graphing code is now vastly improved
+* More customization options for text graphing
+* Tools menu with Python interpreter console is now available in plugin mode
+
+0.5.1
+-----
+* Even more rules added, mostly related to vowels
+
 0.5.0
 -----
 * Some components are now user-configurable

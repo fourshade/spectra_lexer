@@ -17,8 +17,8 @@ class TextGraph:
         """ Make a node tree layout out of the given rule to display. """
         root = TextNode.for_display(rule, recursive)
         # Generate and render all text objects into standard strings and node grids indexed by position.
-        gen_type = CompressedTextGenerator if compressed else CascadedTextGenerator
-        lines, nodes = gen_type(root).render()
+        generator_type = CompressedTextGenerator if compressed else CascadedTextGenerator
+        lines, nodes = generator_type(root).render()
         # Create a locator and formatter using these structures and keep them for later reference.
         self._locator = GridLocator(nodes)
         range_dict = self._locator.range_dict()

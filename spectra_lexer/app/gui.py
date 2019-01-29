@@ -2,7 +2,6 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import Component
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.board import BoardRenderer
 from spectra_lexer.console import ConsoleManager
@@ -19,10 +18,15 @@ GUI_COMPONENTS = [BoardRenderer,
 class GUIQtApplication(SpectraApplication):
     """ Class for operation of the Spectra program in a GUI. """
 
-    def __init__(self, *components:Component):
+    def __init__(self, *components:type):
         """ The Qt widgets take direct orders from the GUIQt component and its children.
             Other components provide support services for interactive tasks. """
         super().__init__(*GUI_COMPONENTS, *components)
+
+    def start(self, *cmd_args:str, **opts) -> None:
+        """ Adding the app's components to the console will help debugging greatly. """
+        opts["console_vars"] = {c.ROLE: c for c in self.components}
+        super().start(*cmd_args, **opts)
 
 
 def main() -> None:
@@ -30,10 +34,8 @@ def main() -> None:
     # For standalone operation, a Qt application object must be created to support the windows.
     qt_app = QApplication(sys.argv)
     app = GUIQtApplication()
-    # Adding a global component dict to the console will help debugging greatly.
-    component_dict = {c.ROLE: c for c in app.components}
     # In standalone mode, Plover's dictionaries are loaded by default by providing an empty translations option.
-    app.start(translations=(), console_vars=component_dict)
+    app.start(translations=())
     # This function blocks indefinitely after setup to run the GUI event loop.
     qt_app.exec_()
 
