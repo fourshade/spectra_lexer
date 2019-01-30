@@ -2,10 +2,7 @@ from operator import attrgetter
 from typing import List, Generator, NamedTuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMapItem, StenoRule
-
-# TODO: Somehow combine with output flags listing?
-_BAD_FLAG_PREFIX = "BAD:"
+from spectra_lexer.rules import OutputFlags, RuleMapItem, StenoRule
 
 
 class _Result(NamedTuple):
@@ -60,17 +57,20 @@ class _Result(NamedTuple):
     def to_rule(self) -> StenoRule:
         """ Make a rule out of this map, with a description and possibly a final rule depending on unmatched keys. """
         if not self.leftover_keys:
-            flags = frozenset()
             desc = "Found {:.0%} match.".format(self.letters_matched_ratio())
         else:
-            # If there are any unmatched keys, add a flag telling the output to watch for them.
-            flags = frozenset({_BAD_FLAG_PREFIX + self.leftover_keys})
             # If nothing was matched at all, make the description different from a partial failure.
             if not self.rulemap:
                 desc = "No matches found."
+                last_match_end = 0
             else:
                 desc = "Incomplete match. Not reliable."
-        return StenoRule(self.keys, self.letters, flags, desc, tuple(self.rulemap))
+                last_match = self.rulemap[-1]
+                last_match_end = last_match.start + last_match.length
+            # Make a special rule with the unmatched keys to cover everything after the last match.
+            bad_rule = StenoRule(self.leftover_keys, "", frozenset({OutputFlags.UNMATCHED}), "unmatched keys", ())
+            self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters)))
+        return StenoRule(self.keys, self.letters, frozenset(), desc, tuple(self.rulemap))
 
 
 class LexerResults(list):

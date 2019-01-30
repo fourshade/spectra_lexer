@@ -1,60 +1,42 @@
-from typing import List, Optional
+from spectra_lexer import pipe
+from spectra_lexer.config import Configurable, CFGOption
+from typing import Optional
 
-from spectra_lexer.output.text.cascaded import CascadedTextGraph
-from spectra_lexer.output.text.compressed import CompressedTextGraph
-from spectra_lexer.output.text.html import HTMLFormatter
+from spectra_lexer.output.locator import NodeLocator
 from spectra_lexer.output.node import OutputNode, OutputTree
+from spectra_lexer.output.text.render import CascadedTextRenderer, CompressedTextRenderer
+from spectra_lexer.output.text.html import HTMLFormatter
 
 
-class _TextNodeLocator:
-    """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths.
-        Works well for text graphs (which have a relatively small number of rows and columns compared to pixels). """
-
-    _node_grid: List[List[OutputNode]]  # List of tuples of node references in [row][col] format.
-
-    def __init__(self, node_grid:List[List[OutputNode]]):
-        self._node_grid = node_grid
-
-    def get_node_at(self, row:int, col:int) -> OutputNode:
-        """ Return the node that was responsible for the text character at (row, col).
-            Return None if no node owns that character or the index is out of range. """
-        if 0 <= row < len(self._node_grid):
-            node_row = self._node_grid[row]
-            if 0 <= col < len(node_row):
-                return node_row[col]
-
-
-class TextGenerator:
+class TextGraph(Configurable):
     """ Base class for creating and formatting a monospaced text grid. """
 
-    _formatter: HTMLFormatter      # Formats the output text based on which node is selected (if any).
-    _locator: _TextNodeLocator     # Finds which node the mouse is over during a mouseover event.
-    _last_node: OutputNode = None  # Most recent node from a select event (for identity matching).
+    ROLE = "output_text"
+    compressed: bool = CFGOption(False, "Compressed Display", "Compress the graph vertically to save space.")
 
-    def __init__(self, tree:OutputTree, compressed=False):
+    _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
+    _locator: NodeLocator = None      # Finds which node the mouse is over during a mouseover event.
+
+    @pipe("new_output_tree", "new_output_graph")
+    def generate(self, tree:OutputTree) -> str:
         """ Generate text graph data (of either type) from a node tree. """
-        graph_type = CompressedTextGraph if compressed else CascadedTextGraph
-        # Create plaintext output lines and node reference structures from the tree.
-        graph = graph_type(tree)
-        lines, nodes = graph.compile_data()
+        renderer_type = CompressedTextRenderer if self.compressed else CascadedTextRenderer
+        # Render plaintext output lines and create node reference structures from the tree.
+        lines, nodes = renderer_type(tree).render()
         # Create a locator and formatter using these structures and keep them for later reference.
         self._formatter = HTMLFormatter(lines, nodes)
-        self._locator = _TextNodeLocator(nodes)
+        self._locator = NodeLocator(nodes)
+        # The graph is new, so format it in plaintext. It should should scroll to the top by default.
+        return self._formatter.make_graph_text()
 
-    def get_node_at(self, row:int, col:int) -> Optional[OutputNode]:
-        """ Find the character at (row, col) of the text graph. If it belongs to a new node, return the reference. """
-        node = self._locator.get_node_at(row, col)
-        if node is None or node is self._last_node:
-            return None
-        # Store the current node so we can avoid repeated lookups.
-        self._last_node = node
-        return node
+    @pipe("output_text_select", "new_output_selection")
+    def select(self, row:int, col:int) -> Optional[OutputNode]:
+        """ Find the node owning the character at (row, col) of the text graph.
+            Switch the arguments to put it in (x, y) order. If it belongs to a new node, return the reference. """
+        if self._locator is not None:
+            return self._locator.select_node_at(col, row)
 
-    def graph(self, node:OutputNode=None) -> dict:
-        """ Format and return the text graph with the selected node using HTML. Don't allow the graph to scroll.
-            If <node> is None, the graph is new. In this case, plaintext is fine and it should scroll to the top.
-            A full dict of parameters describing how to format the text should be provided as output. """
-        d = {"text": self._formatter.make_graph_text(node)}
-        if node is not None:
-            d["scroll_to"] = None
-        return d
+    @pipe("new_output_selection", "new_output_graph", scroll_to=None)
+    def format(self, node:OutputNode=None) -> str:
+        """ Format and return the text graph with the selected node using HTML. Don't allow the graph to scroll. """
+        return self._formatter.make_graph_text(node)

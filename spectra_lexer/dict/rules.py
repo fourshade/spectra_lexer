@@ -53,17 +53,16 @@ class RulesManager(ResourceManager):
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
-        raw_rule = self._src_dict[k]
+        keys, pattern, flag_str, description, example_str = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
-        letters, built_map = self._substitute(raw_rule.pattern)
+        letters, built_map = self._substitute(pattern)
         # The keys must be converted from RTFCRE form into lexer form.
-        keys = StenoKeys.from_rtfcre(raw_rule.keys)
-        # Parse the flag string into a set and keep the description string directly.
-        flags = frozenset(filter(None, raw_rule.flag_str.split("|")))
-        description = raw_rule.description
+        keys = StenoKeys.from_rtfcre(keys)
+        # Parse the flag string into a set if not empty.
+        flags = frozenset(filter(None, flag_str.split("|"))) if flag_str else frozenset()
         # For now, just include examples as a line after the description joined with commas.
-        if raw_rule.example_str:
-            description = "{}\n({})".format(description, raw_rule.example_str.replace("|", ", "))
+        if example_str:
+            description = "{}\n({})".format(description, example_str.replace("|", ", "))
         # The built rulemap must be frozen before final inclusion in a rule.
         self._dst_dict[k] = StenoRule(keys, letters, flags, description, tuple(built_map))
 

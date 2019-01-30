@@ -37,7 +37,6 @@ class PloverPlugin(QDialog):
             app = GUIQtApplication(*PLOVER_COMPONENTS)
             cls.window = app.components["gui"].window
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
-            cls.window.finished = Struct()
-            cls.window.finished.connect = nop
+            cls.window.finished = Struct(connect=nop)
             app.start(plover_engine=args[0], show_menu=False)
         return cls.window

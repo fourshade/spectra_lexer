@@ -1,10 +1,6 @@
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import StenoRule
+from spectra_lexer.rules import OutputFlags, StenoRule
 from spectra_lexer.struct import Node
-
-# Acceptable rule flags that indicate special behavior for output formatting.
-OUTPUT_FLAGS = {"INV": "Inversion of steno order. Should appear different on format drawing.",
-                "BAD": "Incomplete lexer result with unmatched StenoKeys attached by colon."}
 
 # Default limit on number of recursion steps to allow for rules that contain other rules.
 _RECURSION_LIMIT = 10
@@ -27,6 +23,9 @@ class OutputNode(Node):
     description: str              # Rule description for the board diagram.
     is_separator: bool = False    # Directive for drawing the stroke separator rule.
     is_inversion: bool = False    # Directive for drawing a rule that uses inversion of steno order.
+    is_unmatched: bool = False    # Directive for drawing a rule that holds the parent's unmatched keys
+
+    _OUT_FLAGS = [OutputFlags.SEPARATOR, OutputFlags.UNMATCHED, OutputFlags.INVERSION]
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
@@ -39,8 +38,7 @@ class OutputNode(Node):
         self.attach_start = start
         self.attach_length = length
         self.raw_keys = keys
-        self.is_separator = keys.is_separator()
-        self.is_inversion = "INV" in flags
+        self.is_separator, self.is_unmatched, self.is_inversion = [f in flags for f in self._OUT_FLAGS]
         if maxdepth:
             self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])
         formatted_keys = keys.to_rtfcre()
@@ -66,8 +64,6 @@ class OutputNode(Node):
 class OutputTree(OutputNode):
     """ Special subclass for the root node of an output tree, which contains everything else. """
 
-    unmatched_node = None  # Node containing unmatched steno characters.
-
     def __init__(self, rule:StenoRule, maxdepth:int=_RECURSION_LIMIT):
         """ The root node has no parent, its "attach interval" is arbitrarily
             defined as starting at 0 and being the length of its letters. """
@@ -75,15 +71,3 @@ class OutputTree(OutputNode):
         # The root node always shows letters and does not include anything extra in its description.
         self.text = rule.letters
         self.description = rule.desc
-        # Check for the unmatched flag and add a special node if one is found.
-        for f in rule.flags:
-            if f.startswith("BAD:"):
-                self._set_unmatched_keys(f.split(":", 1)[1])
-
-    def _set_unmatched_keys(self, unmatched_keys:str):
-        """ If unmatched keys are found, make and store an unattached base node with them. """
-        r = StenoRule(StenoKeys(unmatched_keys), "", frozenset(), "unmatched keys", ())
-        self.unmatched_node = OutputNode(r, 0, len(self.text), 0)
-        # Separators at the ends of incomplete matches cause too much trouble. Remove them right here.
-        if self.children and self.children[-1].is_separator:
-            self.children.pop()

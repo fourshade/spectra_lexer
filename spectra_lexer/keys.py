@@ -14,7 +14,7 @@ from collections import defaultdict
 from typing import Callable, List, Tuple, TypeVar
 
 # Key constants which aren't physical steno keys but appear in strings.
-from spectra_lexer.utils import str_map, str_without, str_prefix
+from spectra_lexer.utils import str_map, str_prefix, str_without
 
 KEY_SEP = "/"
 KEY_SPLIT = "-"

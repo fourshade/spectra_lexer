@@ -2,16 +2,8 @@ from typing import Dict, Generator
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.prefix import OrderedKeyPrefixTree
-from spectra_lexer.rules import StenoRule
+from spectra_lexer.rules import OutputFlags, StenoRule
 from spectra_lexer.utils import str_prefix
-
-# TODO: Only attempt RARE matches after failing with the normal set of rules.
-# Acceptable rule flags that indicate special behavior for the lexer's matching system.
-MATCH_FLAGS = {"SPEC": "Special rule used internally (in other rules). The lexer should not match these at all.",
-               "WORD": "Exact word match. The parser only does a simple dict lookup for these before trying"
-                       "to break a word down, so these entries do not adversely affect lexer performance.",
-               "STRK": "Only matches an entire stroke, not part of one. Handled by exact stroke match.",
-               "RARE": "Rule applies to very few words. The lexer should try these last, after failing with others."}
 
 # Steno order is not enforced for any keys in this set. This has a large performance and accuracy cost.
 # Only the asterisk is used in such a way that this treatment is worth it.
@@ -19,20 +11,28 @@ KEY_STAR = "*"
 _UNORDERED_KEYS = [KEY_STAR]
 
 
+class MatchFlags:
+    """ Acceptable rule flags that indicate special behavior for the lexer's matching system. """
+    SPECIAL = "SPEC"  # Special rule used internally (in other rules). The lexer should not match these at all.
+    STROKE = "STRK"   # Only matches an entire stroke, not part of one. Handled by exact dict lookup.
+    WORD = "WORD"     # Exact word match. These entries do not adversely affect lexer performance.
+    RARE = "RARE"     # Rule applies to very few words. The lexer should try these last, after failing with others.
+
+
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
     # Separator rule constant (can be tested by identity).
-    _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset(), "Stroke separator", ())
+    _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({OutputFlags.SEPARATOR}), "Stroke separator", ())
 
     _special_dict: Dict[str, StenoRule]       # Rules that match by reference name.
     _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
     _word_dict: Dict[str, StenoRule]          # Rules that match by exact word only (whitespace-separated).
     _prefix_tree: OrderedKeyPrefixTree        # Rules that match by starting with a certain number of keys in order.
 
-    _search_callback: callable
+    _search_callback: callable                # Callback to standard search engine command for strokes.
 
-    def __init__(self, rules_dict:Dict[str, StenoRule], search_callback):
+    def __init__(self, rules_dict:Dict[str, StenoRule], search_callback:callable):
         """ Construct a specially-structured series of dictionaries from a dict of finished rules. """
         special_dict = {}
         stroke_dict = {}
@@ -43,14 +43,15 @@ class LexerRuleMatcher:
         for (n, r) in rules_dict.items():
             flags = r.flags
             # Internal rules are only used in special cases, by name.
-            if "SPEC" in flags:
+            if MatchFlags.SPECIAL in flags:
                 special_dict[n] = r
             # Filter stroke and word rules into their own dicts.
-            elif "STRK" in flags:
+            elif MatchFlags.STROKE in flags:
                 stroke_dict[r.keys] = r
-            elif "WORD" in flags:
+            elif MatchFlags.WORD in flags:
                 word_dict[r.letters] = r
             # Everything else gets added to the tree-based prefix dictionary.
+            # TODO: Only attempt RARE matches after failing with the normal set of rules.
             else:
                 prefix_tree.add_entry(r.keys, r.letters, r)
         # All internal dictionaries required for active lexer operation go into instance attributes.
@@ -59,7 +60,7 @@ class LexerRuleMatcher:
         self._word_dict = word_dict
         self._prefix_tree = prefix_tree
 
-    def match(self, keys, letters, all_keys, all_letters, rulemap) -> Generator:
+    def match(self, keys:StenoKeys, letters:str, all_keys:StenoKeys, all_letters:str, rulemap:list) -> Generator:
         """ Yield rules that match the given keys and letters in any of the dictionaries. """
         # Check special single-key end-cases. There are no better matches, so return immediately if one is found.
         special_rule = self._sep_match(keys) or self._star_match(keys, all_keys, all_letters, rulemap)

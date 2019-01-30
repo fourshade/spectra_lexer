@@ -41,7 +41,7 @@ class ReverseDict(Dict[VT, List[KT]]):
         if not self[v]:
             del self[v]
 
-    def match_forward(self, fdict:Mapping[KT, VT]) -> None:
+    def match_forward(self, fdict:Mapping[KT,VT]) -> None:
         """ Make this dict into the reverse of the given forward dict by rebuilding all of the lists.
             It is a fast way to populate a reverse dict from scratch after creation. """
         self.clear()
@@ -56,33 +56,31 @@ class ReverseStringSearchDict(ReverseDict, StringSearchDict):
     """ Simple inheritance composition of a string-search dict that inverts some other mapping. """
 
 
+def _strip_lower_simfn(strip_chars:str=' ') -> Callable[[str],str]:
+    """ Create a similarity function that removes case and strips a user-defined set of symbols.
+        This should work well for search with either ordering of strokes <-> translation. """
+    # Define string methods and strip characters as default argument locals for speed.
+    def simfn(s:str, strip_chars=strip_chars, _strip=str.strip, _lower=str.lower) -> str:
+        return _lower(_strip(s, strip_chars))
+    return simfn
+
+
 class StenoSearchDictionary:
     """ Composite class for steno translation lookups in both directions, including special searches. """
 
     forward: StringSearchDict         # Forward search dict (strokes -> translations)
     reverse: ReverseStringSearchDict  # Reverse search dict (translations -> strokes)
 
-    @staticmethod
-    def strip_lower_simfn(strip_chars:str=' ') -> Callable[[str],str]:
-        """ Create a similarity function that removes case and strips a user-defined set of symbols.
-            This should work well for search with either ordering of strokes <-> translation. """
-        # Define string methods as function closure locals for speed.
-        strip = str.strip
-        lower = str.lower
-        def simfn(s:str) -> str:
-            return lower(strip(s, strip_chars))
-        return simfn
-
     def __init__(self, raw_dict:Dict[str,str]=None):
         """ Create both forward and reverse search dictionaries with specific characters stripped. """
         if raw_dict is None:
             raw_dict = {}
         # For stroke searches, hyphens should be stripped off the front (as well as spaces).
-        self.forward = StringSearchDict(raw_dict, simfn=self.strip_lower_simfn(' -'))
+        self.forward = StringSearchDict(raw_dict, simfn=_strip_lower_simfn(' -'))
         # For translation searches, just stripping spaces works well enough.
-        self.reverse = ReverseStringSearchDict(match=raw_dict, simfn=self.strip_lower_simfn(' '))
+        self.reverse = ReverseStringSearchDict(match=raw_dict, simfn=_strip_lower_simfn(' '))
 
-    def get(self, match:str, from_dict:str="forward") -> Union[str, List[str]]:
+    def get(self, match:str, from_dict:str="forward") -> Union[str,List[str]]:
         """ Perform a simple lookup as with dict.get. """
         return getattr(self, from_dict).get(match)
 

@@ -1,8 +1,8 @@
 from typing import Iterable, List, Tuple, TypeVar
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.utils import str_without
 from spectra_lexer.struct import PrefixTree
+from spectra_lexer.utils import str_without
 
 RT = TypeVar("RT")  # Rule type.
 
