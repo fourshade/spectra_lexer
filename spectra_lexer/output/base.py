@@ -1,7 +1,7 @@
 from spectra_lexer import pipe, Composite
 from spectra_lexer.output.board import BoardDiagram
 from spectra_lexer.output.node import OutputTree
-from spectra_lexer.output.text import TextGraph
+from spectra_lexer.output.text import TextRenderer
 from spectra_lexer.rules import StenoRule
 
 
@@ -9,7 +9,7 @@ class DisplayEngine(Composite):
     """ Main component of the display package. Contains the board diagram generator and the text graph generator. """
 
     ROLE = "output"
-    COMPONENTS = [BoardDiagram, TextGraph]
+    COMPONENTS = [BoardDiagram, TextRenderer]
 
     @pipe("new_lexer_result", "new_output_tree")
     def make_tree(self, rule:StenoRule) -> OutputTree:

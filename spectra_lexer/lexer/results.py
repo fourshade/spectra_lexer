@@ -69,7 +69,7 @@ class _Result(NamedTuple):
                 last_match_end = last_match.start + last_match.length
             # Make a special rule with the unmatched keys to cover everything after the last match.
             bad_rule = StenoRule(self.leftover_keys, "", frozenset({OutputFlags.UNMATCHED}), "unmatched keys", ())
-            self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters)))
+            self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters) - last_match_end))
         return StenoRule(self.keys, self.letters, frozenset(), desc, tuple(self.rulemap))
 
 

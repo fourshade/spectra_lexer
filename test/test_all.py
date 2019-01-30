@@ -13,7 +13,7 @@ from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.lexer.match import MatchFlags
 from spectra_lexer.output.node import OutputTree
-from spectra_lexer.output.text import TextGraph
+from spectra_lexer.output.text import TextRenderer
 from spectra_lexer.rules import OutputFlags
 from spectra_lexer.search import SearchEngine
 from test import get_test_filename
@@ -89,7 +89,7 @@ def test_lexer(trial):
     assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(keys, word)
 
 
-DISPLAY_TEXT = TextGraph()
+DISPLAY_TEXT = TextRenderer()
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)

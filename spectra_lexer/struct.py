@@ -50,19 +50,17 @@ class PrefixTree(defaultdict):
 class Node:
     """ Class representing a node in a tree structure with linear indexing.
         Each node may have zero or more children and zero or one parent of the same type.
-        Since the child list is mutable, hashing is by identity only. """
+        Since the child sequence may be mutable, hashing is by identity only. """
 
-    parent = None   # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: list  # Direct children of the node. If empty, it is considered a leaf node.
+    parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
+    children: Sequence = ()  # Direct children of the node. If empty, it is considered a leaf node.
 
-    def __init__(self):
-        self.children = []
-
-    def add_children(self, nodes:list) -> None:
-        """ Add other nodes of the same type from the given list to this node's children. """
-        for n in nodes:
-            n.parent = self
-        self.children += nodes
+    def __init__(self, nodes:Sequence=()):
+        """ Set an optional sequence of nodes to be this node's children. """
+        if nodes:
+            for n in nodes:
+                n.parent = self
+            self.children = nodes
 
     def get_ancestors(self) -> list:
         """ Get a list of all ancestors of this node (starting with itself) up to the root. """

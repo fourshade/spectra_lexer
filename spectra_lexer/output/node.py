@@ -6,6 +6,8 @@ from spectra_lexer.struct import Node
 _RECURSION_LIMIT = 10
 # Text symbols at the start that may not be covered by connectors, such as side split hyphens.
 _UNCOVERED_PREFIXES = {"-"}
+# Set of all flags defined as display-altering. Currently, only one at a time can be active.
+OUTPUT_FLAG_SET = set(vars(OutputFlags).values())
 
 
 class OutputNode(Node):
@@ -21,11 +23,7 @@ class OutputNode(Node):
     text: str                     # Display text of the node (either letters or RTFCRE keys).
     raw_keys: StenoKeys           # Raw/lexer-formatted keys to be drawn on the board diagram.
     description: str              # Rule description for the board diagram.
-    is_separator: bool = False    # Directive for drawing the stroke separator rule.
-    is_inversion: bool = False    # Directive for drawing a rule that uses inversion of steno order.
-    is_unmatched: bool = False    # Directive for drawing a rule that holds the parent's unmatched keys
-
-    _OUT_FLAGS = [OutputFlags.SEPARATOR, OutputFlags.UNMATCHED, OutputFlags.INVERSION]
+    appearance: str = None        # Special rule display flag. Only one is allowed; is used as a dict key.
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
@@ -33,14 +31,15 @@ class OutputNode(Node):
                 maxdepth = 0 only displays the root node.
                 maxdepth = 1 displays the root node and all of the rules that make it up.
                 maxdepth = 2 also displays the rules that make up each of those, and so on. """
-        super().__init__()
         keys, letters, flags, desc, rulemap = rule
+        super().__init__([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap] if maxdepth else ())
         self.attach_start = start
         self.attach_length = length
         self.raw_keys = keys
-        self.is_separator, self.is_unmatched, self.is_inversion = [f in flags for f in self._OUT_FLAGS]
-        if maxdepth:
-            self.add_children([OutputNode(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap])
+        # If there are any flags at all, look for an output flag specifically. There should only be one (if any).
+        if flags:
+            for f in flags.intersection(OUTPUT_FLAG_SET):
+                self.appearance = f
         formatted_keys = keys.to_rtfcre()
         if not rulemap or not maxdepth:
             # Base rules (i.e. leaf nodes) and rules at the max depth display their keys instead of their letters.

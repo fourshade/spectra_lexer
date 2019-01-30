@@ -1,1 +1,1 @@
-from .base import TextGraph
+from .base import TextRenderer
