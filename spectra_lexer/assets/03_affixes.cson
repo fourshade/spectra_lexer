@@ -50,12 +50,16 @@
   ".xt":     ["-GT",  "[x|.g](.t)",       "",    "disambiguation from `kets`"],
 
   # vowels (mainly for disambiguation)
-  "o~":    ["AU",     "o",      "SPEC",  "alternative vowel combo for prefix vs. a normal word"],
-  "~ou":   ["OU",     "ou",     "SPEC",  "alternative vowel combo for suffix vs. a normal word"],
+  "o~":    ["AU",     "o",      "SPEC",  "alternative vowel combo for `o` when used in prefix"],
+  "~ou":   ["OU",     "ou",     "SPEC",  "alternative vowel combo for `ou` when used in suffix"],
 
   # full board
   "con-":  ["KAUPB",  "(c.)(o~)(.n)",    "",     "standalone prefix stroke"],
   "for-":  ["TPAUR",  "(f.)(o~)(.r)",    "",     "standalone prefix stroke"],
+  "of.":   ["AUF",    "(o~)(.f)",        "",     "prefix with alternate vowels"],
+  "off-":  ["AUF",    "(o~)(.ff)",       "",     "standalone prefix stroke"],
+  "over-": ["AUFR",   "(o~)(.v)e(.r)",   "",     "standalone prefix stroke"],
+  "under-":["UPBD",   "(u)(.n)(.d)er",   "",     "standalone prefix stroke"],
   "-er":   ["*ER",    "(e)(.r)(*:PS)",   "",     "standalone suffix stroke"],
   "-or":   ["O*R",    "(o)(.r)(*:PS)",   "",     "standalone suffix stroke"],
   "-ous":  ["OUS",    "(~ou)(.s)",       "",     "standalone suffix stroke"],

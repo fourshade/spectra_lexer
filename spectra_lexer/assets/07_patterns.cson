@@ -10,12 +10,12 @@
 
   # connecting strokes
   "b/b":    ["-B/PW",      "b",   "RARE", "consonant `b` split between strokes"],
-  "c/c":    ["-BG/K",      "c",   "RARE", "consonant `c` split between strokes"],
-  "C/C":    ["-S/S",       "c",   "RARE", "consonant `c` split between strokes"],
+  "c/c":    ["-BG/K",      "c",   "RARE", "hard `c` split between strokes"],
+  "C/C":    ["-S/S",       "c",   "RARE", "soft `c` split between strokes"],
   "d/d":    ["-D/TK",      "d",   "RARE", "consonant `d` split between strokes"],
   "f/f":    ["-F/TP",      "f",   "RARE", "consonant `f` split between strokes"],
-  "g/g":    ["-G/TKPW",    "g",   "RARE", "consonant `g` split between strokes"],
-  "G/G":    ["-PBLG/SKWR", "g",   "RARE", "consonant `g` split between strokes"],
+  "g/g":    ["-G/TKPW",    "g",   "RARE", "hard `g` split between strokes"],
+  "G/G":    ["-PBLG/SKWR", "g",   "RARE", "soft `g` split between strokes"],
   "j/j":    ["-PBLG/SKWR", "j",   "RARE", "consonant `j` split between strokes"],
   "k/k":    ["-BG/K",      "k",   "RARE", "consonant `k` split between strokes"],
   "l/l":    ["-L/HR",      "l",   "RARE", "consonant `l` split between strokes"],
@@ -26,6 +26,10 @@
   "r/r":    ["-R/R",       "r",   "RARE", "consonant `r` split between strokes"],
   "s/s":    ["-S/S",       "s",   "RARE", "consonant `s` split between strokes"],
   "t/t":    ["-T/T",       "t",   "RARE", "consonant `t` split between strokes"],
+  "v/v":    ["-F/SR",      "v",   "RARE", "consonant `v` split between strokes"],
+  "x/x":    ["-BGS/S",     "x",   "RARE", "consonant `x` split between strokes"],
+  "z/z":    ["-Z/S*",      "z",   "RARE", "consonant `z` split between strokes"],
+  "zz+":    ["-T/S",       "zz",  "RARE", "Italian `zz` split between strokes"],
 
   # large eliminations
   "rep.":   ["R",   "(r.)ep",     "", "drop `e` and consonant for common `re` words"],
