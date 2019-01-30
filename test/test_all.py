@@ -44,7 +44,6 @@ def test_dict_files():
 
 
 RULES_DICT = DICT_R.load()
-LEGAL_FLAG_SET = set(vars(RuleFlags).values())
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -52,7 +51,7 @@ def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
     # If the entry has flags, verify that all of them are valid.
     if r.flags:
-        bad_flags = r.flags - LEGAL_FLAG_SET
+        bad_flags = r.flags - RuleFlags
         assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r, bad_flags)
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     # These tests only work for rules that do not allow the same key to appear in two different strokes.

@@ -16,7 +16,7 @@ class Canvas(List[list]):
         for r, line in _zip(self[row:], grid):
             r[col:col+_len(line)] = line
 
-    def write_grid(self, grid:List[str], tag:object=None, row:int=0, col:int=0, _zip=zip) -> None:
+    def write_grid(self, grid:List[str], tag:object=None, row:int=0, col:int=0) -> None:
         """ Copy a grid of characters (list of strings) with a single tag to this one at the given offset. """
         for r, s in enumerate(grid, row):
             self.write_row(s, tag, r, col)
@@ -36,12 +36,12 @@ class Canvas(List[list]):
         r[col:end] = [tag] * length
         r[col:end:2] = s
 
-    def write_column(self, s:str, tag:object=None, row:int=0, col:int=0, _zip=zip) -> None:
+    def write_column(self, s:str, tag:object=None, row:int=0, col:int=0) -> None:
         """ Like write(), but writes the string down a column instead of across a row.
             This is much slower because a different list must be accessed and written for every character. """
         col *= 2
         tag_col = col + 1
-        for r, c in _zip(self[row:], s):
+        for r, c in zip(self[row:], s):
             r[col] = c
             r[tag_col] = tag
 
@@ -52,8 +52,16 @@ class Canvas(List[list]):
         return cls(map(list, [line] * rows))
 
     def row_str_op(self, row:int, op:callable, *args, _join="".join) -> None:
-        """ Do an in-place string operation on a row without altering any tags. """
+        """ Simulate a string operation on an entire row without altering any tags. The length must not change. """
         self[row][::2] = op(_join(self[row][::2]), *args)
+
+    def col_str_op(self, col:int, op:callable, *args, _join="".join) -> None:
+        """ Simulate a string operation on an entire column without altering any tags. The length must not change. """
+        col *= 2
+        s = _join(map(itemgetter(col), self))
+        s = op(s, *args)
+        for r, c in zip(self, s):
+            r[col] = c
 
     def compile_strings(self, _chars=itemgetter(slice(0, None, 2)), _join="".join) -> List[str]:
         """ De-interleave the string data from each tagged string to form a list of strings. """

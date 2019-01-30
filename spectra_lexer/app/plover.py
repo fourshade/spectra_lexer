@@ -4,6 +4,7 @@ from typing import ClassVar
 from PyQt5.QtWidgets import QDialog, QWidget
 
 from spectra_lexer.app.gui import GUIQtApplication
+from spectra_lexer.gui_qt import GUIQt
 from spectra_lexer.plover import PloverPluginInterface
 from spectra_lexer.utils import nop
 
@@ -35,7 +36,7 @@ class PloverPlugin(QDialog):
             The engine is always the first argument passed by Plover. Others are irrelevant. """
         if cls.window is None:
             app = GUIQtApplication(*PLOVER_COMPONENTS)
-            cls.window = app.components["gui"].window
+            cls.window = next(c.window for c in app.components if isinstance(c, GUIQt))
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
             app.start(plover_engine=args[0], show_menu=False)

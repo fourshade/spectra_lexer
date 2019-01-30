@@ -1,5 +1,6 @@
 from typing import Dict, Generator
 
+from spectra_lexer.constants import Constants
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.prefix import OrderedKeyPrefixTree
 from spectra_lexer.rules import RuleFlags, StenoRule
@@ -7,8 +8,17 @@ from spectra_lexer.utils import str_prefix
 
 # Steno order is not enforced for any keys in this set. This has a large performance and accuracy cost.
 # Only the asterisk is used in such a way that this treatment is worth it.
-KEY_STAR = "*"
+KEY_STAR = StenoKeys("*")
 _UNORDERED_KEYS = [KEY_STAR]
+
+
+class StarRules(Constants):
+    """ Star rules give meanings to an unmatched asterisk. The actual rule structures must be loaded from JSON. """
+    UNKNOWN = "*:??"       # purpose unknown - possibly resolves a conflict.
+    CONFLICT = "*:CF"      # resolves conflict between words.
+    PROPER = "*:PR"        # indicates a proper noun (names, places, etc.).
+    ABBREVIATION = "*:AB"  # indicates an abbreviation.
+    AFFIX = "*:PS"         # indicates a prefix or suffix stroke.
 
 
 class LexerRuleMatcher:
@@ -77,10 +87,11 @@ class LexerRuleMatcher:
                 yield word_rule
 
     def _star_match(self, keys:StenoKeys, all_keys:StenoKeys, all_letters:str, rulemap:list) -> StenoRule:
-        """ If we only have a star left at the end of a stroke, try to match a star rule explicitly by name. """
+        """ If we only have a star left at the end of a stroke, try to match a star rule explicitly by name.
+            The rules with these names are externally loaded, so just return None if one isn't found. """
         if keys and keys[0] == KEY_STAR and (len(keys) == 1 or keys.is_separator(1)):
             name = self._analyze_star(keys, all_keys, all_letters, rulemap)
-            return self._special_dict[name]
+            return self._special_dict.get(name)
 
     def _sep_match(self, keys:StenoKeys) -> StenoRule:
         """ If we end up with a stroke separator next, return its rule. """
@@ -104,18 +115,18 @@ class LexerRuleMatcher:
             the full word, and the current rulemap. Return the reference name for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
         if "." in all_letters:
-            return "*:AB"
+            return StarRules.ABBREVIATION
         # If the word has uppercase letters in it, it's probably a proper noun.
         if all_letters != all_letters.lower():
-            return "*:PR"
+            return StarRules.PROPER
         # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
         # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
         if keys.has_separator() ^ any(m.rule.keys.has_separator() for m in rulemap):
-            return "*:PS"
+            return StarRules.AFFIX
         # If the search component is loaded with the standard dictionaries, we can check if there's an
         # entry with every key *except* the star. If there is, it's probably there because of a conflict.
         if self._search_callback(all_keys.without(KEY_STAR).to_rtfcre()):
-            return "*:CF"
+            return StarRules.CONFLICT
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
-        return "*:??"
+        return StarRules.UNKNOWN

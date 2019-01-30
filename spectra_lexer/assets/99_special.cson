@@ -1,16 +1,17 @@
 # Special "key" rules that don't map to letters but are still displayed in rule breakdowns, such as asterisk meanings.
 # These always go at the end of rule patterns (in regular parentheses ()) regardless of steno order.
 # Asterisk rules in particular are marked "special" because otherwise they would match everything.
+# The first few have hard-coded behavior in the lexer. If they are removed or changed, asterisk analysis will not work.
 
 {
-  # internal key rules - not used by lexer, too many false positives would result
+  # common modifiers - not matched directly by lexer, too many false positives would result.
   "*:??":   ["*",   "", "SPEC", "purpose unknown\nPossibly resolves a conflict"],
   "*:CF":   ["*",   "", "SPEC", "resolves conflict between words"],
   "*:PR":   ["*",   "", "SPEC", "indicates a proper noun\n(names, places, etc.)"],
   "*:AB":   ["*",   "", "SPEC", "indicates an abbreviation"],
   "*:PS":   ["*",   "", "SPEC", "indicates a prefix or suffix stroke"],
-  "*:OB":   ["*",   "", "SPEC", "indicates an obscenity\n(and make it harder to be the result of a misstroke)"],
   "*:FS":   ["*",   "", "SPEC", "indicates fingerspelling"],
+  "*:OB":   ["*",   "", "SPEC", "indicates an obscenity\n(and make it harder to be the result of a misstroke)"],
   "-P:FS":  ["-P",  "", "SPEC", "use to capitalize fingerspelled letters"],
   "#:NM":   ["#",   "", "SPEC", "use to shift to number mode"],
   "EU:NM":  ["EU",  "", "SPEC", "use to invert the order of two digits"],

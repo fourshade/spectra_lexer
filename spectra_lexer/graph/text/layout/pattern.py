@@ -1,47 +1,74 @@
 """ Module controlling the general appearance of text graph patterns and character sets. """
 
-from typing import NamedTuple
+from functools import partial
 
+from spectra_lexer.graph.text.layout.primitive import Primitive
 from spectra_lexer.utils import memoize_one_arg
 
 
-class _Symbols(NamedTuple):
-    """ String constructor class for variable-length lines of standard text graph symbols. """
+class Symbols:
+    """ Creates primitives to write symbol patterns with a given length to a canvas. """
 
-    single: str  # A single character used when (and only when) the pattern is length 1.
-    sides: str   # A pair of characters used at either end of patterns longer than 1 character.
-    middle: str  # A character repeated to fill the rest of the space in patterns longer than 2 characters.
+    _primitive: type
+    _constructor: callable
+
+    def __init__(self, primitive:type, single:str, sides:str, middle:str):
+        """ Return a memoized version of a symbol generator for a specific symbol set and primitive type.  """
+        @memoize_one_arg
+        def constructor(length:int) -> str:
+            """ Return a variable-length pattern string with unique ends based on a set of construction symbols.
+                single - A single character used when (and only when) the pattern is length 1.
+                sides -  A pair of characters used at either end of patterns longer than 1 character.
+                middle - A character repeated to fill the rest of the space in patterns longer than 2 characters. """
+            if length < 2:
+                return single
+            (left, right) = sides
+            return left + middle * (length - 2) + right
+        self._primitive = primitive
+        self._constructor = constructor
+
+    def __call__(self, length:int, *args):
+        return self._primitive(self._constructor(length), *args)
 
     @classmethod
-    def cached(cls, *symbols:str) -> callable:
-        """ Return a memoized version of a symbol generator for a specific symbol set. """
-        self = cls(*symbols)
-        return memoize_one_arg(self.__call__)
+    def Row(cls, *args):
+        return cls(Primitive.Row, *args)
 
-    def __call__(self, length:int) -> str:
-        """ Return a variable-length pattern string with unique ends based on a set of construction symbols. """
-        # If the pattern is only a single character wide, use the unique "single" symbol.
-        if length < 2:
-            return self.single
-        # If the pattern is two characters wide, use just the left and right symbols.
-        sides = self.sides
-        if length == 2:
-            return sides
-        # Otherwise put the left and right symbols at the ends and repeat the middle one inside to cover the rest.
-        (left, right) = sides
-        middle = self.middle * (length - 2)
-        return left + middle + right
+    @classmethod
+    def Column(cls, *args):
+        return cls(Primitive.Column, *args)
 
 
 class Pattern:
-    """ Symbols used to represent text patterns consisting of a repeated character terminated by endpieces. """
-    TOP = _Symbols.cached("│", "├┘", "─")
-    BOTTOM = _Symbols.cached("│", "├┐", "─")
-    INV = _Symbols.cached("│", "◄►", "═")
-    END = _Symbols.cached("┐", "┬┐", "┬")
-    BAD_MIDDLE = _Symbols.cached("|", "||", "|")
-    BAD_END = _Symbols.cached("?", "??", "?")
-    CONNECTORS = _Symbols.cached("│", "││", "│")
-    SEPARATORS = _Symbols.cached("/", "//", "/")
-    # S_BEND = _Symbols.cached("│", "└┐", "─")
-    # Z_BEND = _Symbols.cached("│", "┌┘", "─")
+    """ A default node. Uses text patterns consisting of a repeated character terminated by endpieces. """
+    TEXT = Primitive.Row                        # Primitive constructor for the text itself.
+    BOTTOM = Symbols.Row("│", "├┐", "─")        # Primitive constructor for the section above the text.
+    TOP = Symbols.Row("│", "├┘", "─")           # Primitive constructor for the section below the text.
+    CONNECTOR = Symbols.Column("│", "││", "│")  # Primitive constructor for vertical connectors.
+    ENDPIECE = Symbols.Row("┐", "┬┐", "┬")      # Primitive constructor for extension connectors.
+
+
+class PatternSeparators(Pattern):
+    """ A row of stroke separators. These are not connected to anything and have no owner. """
+    TEXT = partial(Primitive.RowReplace, "/")
+    BOTTOM = TOP = CONNECTOR = ENDPIECE = None
+
+
+class PatternUnmatched(Pattern):
+    """ A set of unmatched keys. These have broken connectors ending in question marks on both sides. """
+    TOP = Symbols.Row("|", "||", "|")
+    ENDPIECE = Symbols.Row("?", "??", "?")
+    BOTTOM = CONNECTOR = None
+
+
+class PatternInversion(Pattern):
+    """ A node whose rule describes an inversion of steno order. These show arrows to indicate reversal. """
+    BOTTOM = Symbols.Row("│", "◄►", "═")
+
+
+class PatternBranch(Pattern):
+    """ An important node with thicker connecting lines. """
+    BOTTOM = Symbols.Row("║", "╠╗", "═")
+    TOP = Symbols.Row("║", "╠╝", "═")
+    CONNECTOR = Symbols.Column("║", "║║", "║")
+    ENDPIECE = Symbols.Row("╗", "╦╗", "╦")

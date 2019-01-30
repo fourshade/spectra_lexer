@@ -11,12 +11,6 @@ def nop(*args, **kwargs) -> None:
     """ ... """
 
 
-def abstract_method(*args, **kwargs):
-    """ Assign this directly to class attributes to mark them as abstract methods.
-        Much simpler than using ABCs, but does not allow default implementations. """
-    raise NotImplementedError
-
-
 def compose(*funcs:callable) -> callable:
     """ Compose a series of n callables to create a single callable that combines
         their effects, calling each one in turn with the result of the previous.

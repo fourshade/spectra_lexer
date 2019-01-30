@@ -8,7 +8,7 @@ import re
 from appdirs import user_data_dir
 from pkg_resources import resource_listdir, resource_string
 
-from spectra_lexer.utils import abstract_method, str_prefix
+from spectra_lexer.utils import str_prefix
 
 # Package and resource paths containing built-in assets.
 _PACKAGE_NAME = str_prefix(__package__, ".")
@@ -21,10 +21,16 @@ _USER_PATTERN = re.compile(r"~(.*?)/")
 
 
 class Resource(str):
-    """ Marker class for a resource identifier. """
-    read = abstract_method
-    write = abstract_method
-    glob = abstract_method
+    """ Abstract class for a resource identifier. """
+
+    def read(self) -> str:
+        raise NotImplementedError
+
+    def write(self, contents:str) -> None:
+        raise NotImplementedError
+
+    def glob(self) -> list:
+        raise NotImplementedError
 
 
 class File(Resource):

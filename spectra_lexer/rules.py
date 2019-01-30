@@ -1,9 +1,10 @@
 from typing import FrozenSet, NamedTuple
 
+from spectra_lexer.constants import Constants
 from spectra_lexer.keys import StenoKeys
 
 
-class RuleFlags:
+class RuleFlags(Constants):
     """ Acceptable string values for flags, as read from JSON, that indicate some property of a rule. """
     SPECIAL = "SPEC"   # Special rule used internally (in other rules). Only referenced by name.
     STROKE = "STRK"    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
