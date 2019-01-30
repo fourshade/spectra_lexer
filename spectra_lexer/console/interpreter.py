@@ -3,19 +3,20 @@ from io import StringIO, TextIOBase
 import sys
 from threading import Condition, Thread
 
-# How long to wait on the interpreter (in seconds) before giving up.
+# How long to wait on the interpreter thread (in seconds) before giving up.
 COMMAND_TIMEOUT = 1.0
 
 
 class InterpreterConsole(TextIOBase):
-    """ A hacky object meant to run an interactive interpreter inside the main Spectra program.
-        It runs on a separate thread with a reference to the engine object.
-        It is unknown whether or not this object can execute engine commands thread safely. """
+    """ A hacky object meant to run an interactive interpreter console inside the main Spectra program.
+        It runs on a separate thread with a reference to every component loaded in the system.
+        It is unknown whether or not this object can execute engine commands thread-safely. """
 
     _sys_streams: dict      # Dict of the original system standard stream handles.
     _out_stream: StringIO   # Output stream; takes the place of both stdout and stderr.
     _input_line: str = ""   # Holds the last input line sent by the main program.
     _condition: Condition   # Wakes the interpreter thread only when new input is available.
+    _thread: Thread         # Main interpreter thread; runs indefinitely unless passed an empty input.
 
     def __init__(self, cvars:dict):
         """ Save the standard stream handles so they can be overridden during interpreter activity.
@@ -26,11 +27,10 @@ class InterpreterConsole(TextIOBase):
         self._override_streams()
         # Add extra utilities to the vars dict and show these along with the components in the banner.
         cvars.update()
-        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}\n"\
-                 f"Type Python statements in the search box and hit ENTER to execute them."
+        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}"
         # Create the interpreter shell with the vars dict and start it in a separate thread.
         console = InteractiveConsole(cvars)
-        Thread(target=console.interact, args=(banner,), daemon=True).start()
+        self._thread = Thread(target=console.interact, args=(banner,), daemon=True).start()
 
     def _override_streams(self) -> None:
         """ Temporarily replace standard stream handles with our objects. """
@@ -65,10 +65,17 @@ class InterpreterConsole(TextIOBase):
             with self._condition:
                 self._condition.notify()
                 if not self._condition.wait(timeout=COMMAND_TIMEOUT):
-                    return "Now you've done it...\n" \
-                           "We've lost the interpreter thread.\n\n" \
-                           "How could you trust a Python\n" \
-                           "running loose inside your system???"
+                    # The thread could be alive running an intense operation, but most likely it has crashed.
+                    if self._thread.is_alive():
+                        return "Now you've done it...\n" \
+                               "We've lost the interpreter thread.\n\n" \
+                               "How could you trust a Python\n" \
+                               "running loose inside your system???"
+                    else:
+                        return "Now you've done it...\n" \
+                               "The interpreter thread has crashed.\n\n" \
+                               "What the heck did you\n" \
+                               "paste into the text window?"
         # Read the entire output buffer, containing every line of output since starting.
         self._out_stream.seek(0)
         return self._out_stream.read()

@@ -16,7 +16,7 @@ class ConsoleManager(Component):
 
     ROLE = "console"
 
-    console: InterpreterConsole = None  # Main console interpreter, run on a different thread.
+    console: InterpreterConsole = None  # Main interpreter console, run on a different thread.
     console_vars: dict = None           # Variables to load on interpreter startup.
 
     @on("start")
@@ -24,18 +24,19 @@ class ConsoleManager(Component):
         """ If the menu is used, add the console dialog command. """
         if show_menu:
             self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
-        # Use the vars dict on interpreter start if given, otherwise just use an engine reference.
+        # Use the vars dict on interpreter start if given, otherwise just use the defaults.
         self.console_vars = console_vars or {}
 
-    @pipe("console_open", "new_text_output", scroll_to="bottom")
+    @pipe("console_open", "new_console_text", scroll_to="bottom")
     def open(self) -> str:
         """ Start the interpreter console with the current vars dict and return the initial generated text.
             If it already is started, just show the current text contents again. """
         if self.console is None:
             self.console = InterpreterConsole(self.console_vars)
+        self.engine_call("new_status", "Python Console")
         return self.console.run()
 
-    @pipe("new_text_input", "new_text_output", scroll_to="bottom")
+    @pipe("console_input", "new_console_text", scroll_to="bottom")
     def system_command(self, text:str) -> Optional[str]:
         """ Send direct engine commands on text entry. Pure whitespace is ignored. """
         text = text.strip()

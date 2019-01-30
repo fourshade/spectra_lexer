@@ -18,7 +18,7 @@ class GraphRenderer(Configurable):
     _graph: TextGraph = None      # Generates text graphs and processes selections.
     _last_node: GraphNode = None  # Most recent node from a select event (for identity matching).
 
-    @pipe("new_lexer_result", "new_graph")
+    @pipe("new_lexer_result", "new_graph_text")
     def generate(self, rule:StenoRule) -> str:
         """ Generate text graph data (of either type) from a rule. """
         # Send the rule string as a status message (this doubles as the title in the GUI).
@@ -29,7 +29,7 @@ class GraphRenderer(Configurable):
         return self._graph.render()
 
     @pipe("graph_select", "new_graph_selection")
-    def select(self, x:int, y:int) -> Optional[StenoRule]:
+    def select(self, x:int, y:int, clicked:bool=False) -> Optional[StenoRule]:
         """ Find the node owning the element at (x, y) of the graph. If it belongs to a new node, send out its rule. """
         if self._graph is None:
             return None
@@ -40,5 +40,5 @@ class GraphRenderer(Configurable):
         self._last_node = node
         # Also render and send the graph with the selected node. Don't allow the graph to scroll.
         text = self._graph.render(node)
-        self.engine_call("new_graph", text, scroll_to=None)
+        self.engine_call("new_graph_text", text, scroll_to=None)
         return node.rule

@@ -2,7 +2,6 @@ import argparse
 import sys
 import traceback
 
-from spectra_lexer import Component
 from spectra_lexer.dict import DictManager
 from spectra_lexer.engine import SpectraEngine
 from spectra_lexer.file import FileHandler
@@ -37,7 +36,7 @@ class SpectraApplication:
         tb_lines = traceback.TracebackException.from_exception(e).format()
         tb_text = "".join(tb_lines)
         sys.stderr.write(tb_text)
-        self.engine.call("new_text_output", tb_text)
+        self.engine.call("new_exception_text", tb_text)
         return True
 
     def start(self, *cmd_args:str, **main_opts) -> None:
