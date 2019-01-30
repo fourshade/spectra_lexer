@@ -19,7 +19,7 @@ class GUIQtBoardDisplay(Component):
         super().__init__()
         self.w_desc, self.w_board = widgets
 
-    @on("new_output_board")
+    @on("new_board_info")
     def display_board(self, elements:List[List[str]], description:str) -> None:
         """ Generate steno board diagram elements and display them along with the rule description. """
         self.w_board.set_elements(elements)

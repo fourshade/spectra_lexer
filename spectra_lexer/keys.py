@@ -11,11 +11,11 @@ Characters from an outside source (JSON files or the Plover engine) are assumed 
 """
 
 from collections import defaultdict
-from typing import Callable, List, Tuple, TypeVar
+from typing import Callable, List, Tuple
 
-# Key constants which aren't physical steno keys but appear in strings.
 from spectra_lexer.utils import str_map, str_prefix, str_without
 
+# Key constants which aren't physical steno keys but appear in strings.
 KEY_SEP = "/"
 KEY_SPLIT = "-"
 # Various ordered strings of keys for testing based on steno order.
@@ -39,7 +39,6 @@ _TF_DICT.update(enumerate(NUMBER_ALIASES, ord("0")))
 join_strokes:Callable[[str], str] = KEY_SEP.join
 
 
-T = TypeVar('StenoKeys')
 class StenoKeys(str):
     """ Derived string class for a sequence of case-distinct steno keys with
         no hyphens and lowercase characters for every key on the right side. """
@@ -49,7 +48,7 @@ class StenoKeys(str):
         return str_map(self, _stroke_stenokeys_to_rtfcre, KEY_SEP)
 
     @classmethod
-    def from_rtfcre(cls, s:str) -> T:
+    def from_rtfcre(cls, s:str):
         """ Transform a string from RTFCRE. Result will have the derived class.
             Overwrite the reverse method with one that returns the original string. """
         self = cls(str_map(s, _stroke_rtfcre_to_stenokeys, KEY_SEP))
@@ -57,7 +56,7 @@ class StenoKeys(str):
         return self
 
     @classmethod
-    def cleanse_from_rtfcre(cls, s:str) -> T:
+    def cleanse_from_rtfcre(cls, s:str):
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
             Cleanse the string of abnormalities before parsing it as usual. """
         return cls.from_rtfcre(_cleanse_rtfcre(s))
@@ -83,7 +82,7 @@ class StenoKeys(str):
             With one argument, is the key at the given index a stroke separator? """
         return (self if index is None else self[index]) == KEY_SEP
 
-    def without(self, keys:str) -> T:
+    def without(self, keys:str):
         """ Return a copy of this object without each of the given keys (taken from the left). """
         if self.startswith(keys):
             return self.__class__(self[len(keys):])

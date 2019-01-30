@@ -3,11 +3,16 @@ from typing import FrozenSet, NamedTuple
 from spectra_lexer.keys import StenoKeys
 
 
-class OutputFlags:
-    """ Acceptable rule flags that indicate special behavior for output formatting. """
-    SEPARATOR = "SEP"  # Stroke separator. Unconnected; does not appear as direct text.
-    UNMATCHED = "BAD"  # Incomplete lexer result. Unmatched keys connect to question marks.
-    INVERSION = "INV"  # Inversion of steno order. Appears different on format drawing.
+class RuleFlags:
+    """ Acceptable string values for flags, as read from JSON, that indicate some property of a rule. """
+    SPECIAL = "SPEC"   # Special rule used internally (in other rules). Only referenced by name.
+    STROKE = "STRK"    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
+    WORD = "WORD"      # Exact match for a single word. These rules do not adversely affect lexer performance.
+    RARE = "RARE"      # Rule applies to very few words and could specifically cause false positives.
+    GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
+    INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to the parent.
+    UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
+    SEPARATOR = "SEP"  # Stroke separator. This one might not be truly considered a rule at all.
 
 
 class StenoRule(NamedTuple):

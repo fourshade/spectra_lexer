@@ -52,7 +52,7 @@ class GUIQtSearch(Configurable):
                   self.strokes_chkbox, self.regex_chkbox):
             w.setEnabled(enabled)
 
-    @pipe("sig_on_input_submit", "new_text_entry")
+    @pipe("sig_on_input_submit", "new_text_input")
     def on_input_submit(self) -> str:
         """ If the user presses Enter, send the text to whatever wants it, then clear it. """
         text = self.input_textbox.text()

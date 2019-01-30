@@ -24,14 +24,14 @@ class ConsoleManager(Component):
         if show_menu:
             self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
 
-    @pipe("console_open", "new_output_text", scroll_to="bottom")
+    @pipe("console_open", "new_text_output", scroll_to="bottom")
     def open(self) -> str:
         """ Start the interpreter console with the engine state and return the initial generated text. """
         if self.console is None:
             self.console = InterpreterConsole(locals={"engine": self.engine_call.__self__})
             return self.console.run()
 
-    @pipe("new_text_entry", "new_output_text", scroll_to="bottom")
+    @pipe("new_text_input", "new_text_output", scroll_to="bottom")
     def system_command(self, text:str) -> Optional[str]:
         """ Send direct engine commands on text entry. Pure whitespace is ignored. """
         text = text.strip()

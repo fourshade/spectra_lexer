@@ -6,19 +6,19 @@ from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
-LEFT_BRACKETS = r'\(\['
-RIGHT_BRACKETS = r'\)\]'
+_LEFT_BRACKETS = r'\(\['
+_RIGHT_BRACKETS = r'\)\]'
 
 # Rule substitutions must match a left bracket, one or more non-brackets, and a right bracket.
-SUBRULE_RX = re.compile(r'[{}]'.format(LEFT_BRACKETS) +
-                        r'[^{0}{1}]+?'.format(LEFT_BRACKETS, RIGHT_BRACKETS) +
-                        r'[{}]'.format(RIGHT_BRACKETS))
+_SUBRULE_RX = re.compile(r'[{}]'.format(_LEFT_BRACKETS) +
+                        r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
+                        r'[{}]'.format(_RIGHT_BRACKETS))
 
 # Resource glob pattern for the built-in JSON-based rules files.
 _RULES_ASSET_PATTERN = ":/*.cson"
 
 
-class RawRule(NamedTuple):
+class _RawRule(NamedTuple):
     """ Data structure for raw string fields read from each line in a JSON rules file. """
     keys: str              # RTFCRE formatted series of steno strokes.
     pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
@@ -34,14 +34,14 @@ class RulesManager(ResourceManager):
     ROLE = "dict_rules"
     files = [_RULES_ASSET_PATTERN]
 
-    _src_dict: Dict[str, RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
+    _src_dict: Dict[str, _RawRule]    # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
     def parse(self, src_dict:Dict[str, str]) -> Dict[str, StenoRule]:
         """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
         # Unpack rules from source dictionary and convert to namedtuple form.
-        self._src_dict = {k: RawRule(*v) for (k, v) in src_dict.items()}
+        self._src_dict = {k: _RawRule(*v) for (k, v) in src_dict.items()}
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         self._dst_dict = {}
@@ -77,7 +77,7 @@ class RulesManager(ResourceManager):
         we have to parse it first in a recursive manner. Circular references will crash the program.
         """
         built_map = []
-        m = SUBRULE_RX.search(pattern)
+        m = _SUBRULE_RX.search(pattern)
         while m:
             # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
             rule_str = m.group()
@@ -98,17 +98,17 @@ class RulesManager(ResourceManager):
                 letters = rule.letters
             built_map.append(RuleMapItem(rule, m.start(), len(letters)))
             pattern = pattern.replace(rule_str, letters)
-            m = SUBRULE_RX.search(pattern)
+            m = _SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    def inv_parse(self, rules:Iterable[StenoRule]) -> Dict[str, RawRule]:
+    def inv_parse(self, rules:Iterable[StenoRule]) -> Dict[str, _RawRule]:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict using auto-generated
             reference names and substituting rules in each rulemap for their letters. """
         # The previous dict must be reversed one-to-one to look up names given rules.
         self._rev_dict = {v: k for (k, v) in self._dst_dict.items()}
         return {str(r): self._inv_parse(r) for r in rules}
 
-    def _inv_parse(self, r:StenoRule) -> RawRule:
+    def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """
         # The keys must be converted to RTFCRE form.
         keys = r.keys.to_rtfcre()
@@ -119,7 +119,7 @@ class RulesManager(ResourceManager):
         description = r.desc
         # There are no examples in a generated rule.
         example_str = ""
-        return RawRule(keys, pattern, flag_str, description, example_str)
+        return _RawRule(keys, pattern, flag_str, description, example_str)
 
     def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
         """ For each mapped rule with a name reference, replace the mapped letters with the reference. """

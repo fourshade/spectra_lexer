@@ -11,10 +11,8 @@ from spectra_lexer.dict.rules import RulesManager
 from spectra_lexer.dict.translations import TranslationsManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.lexer.match import MatchFlags
-from spectra_lexer.output.node import OutputTree
-from spectra_lexer.output.text import TextRenderer
-from spectra_lexer.rules import OutputFlags
+from spectra_lexer.graph import GraphRenderer
+from spectra_lexer.rules import RuleFlags
 from spectra_lexer.search import SearchEngine
 from test import get_test_filename
 
@@ -46,7 +44,7 @@ def test_dict_files():
 
 
 RULES_DICT = DICT_R.load()
-LEGAL_FLAG_SET = set().union(vars(MatchFlags).values(), vars(OutputFlags).values())
+LEGAL_FLAG_SET = set(vars(RuleFlags).values())
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -89,7 +87,7 @@ def test_lexer(trial):
     assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(keys, word)
 
 
-DISPLAY_TEXT = TextRenderer()
+GRAPH = GraphRenderer()
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
@@ -97,10 +95,9 @@ def test_display(trial):
     """ Perform all tests for text output. Mainly limited to examining the node tree for consistency. """
     keys, word = trial
     result = LEXER.query(keys, word)
-    root = OutputTree(result)
-    DISPLAY_TEXT.generate(root)
+    GRAPH.generate(result)
     # The root node starts in the upper left and has no parent.
-    assert DISPLAY_TEXT.select(0, 0) is root
+    root = GRAPH._locator.select(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -109,10 +106,10 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(DISPLAY_TEXT._formatter._format_dict)
+    assert all_nodes_set >= set(GRAPH._formatter._range_dict)
     # Every non-ASCII character must be owned by a node.
-    lines = DISPLAY_TEXT._formatter._lines
-    grid = DISPLAY_TEXT._locator._node_grid
+    lines = GRAPH._formatter._lines
+    grid = GRAPH._locator._grid
     assert all([ord(c) < 0xFF or grid[row][col] for row, line in enumerate(lines) for col, c in enumerate(line)])
 
 

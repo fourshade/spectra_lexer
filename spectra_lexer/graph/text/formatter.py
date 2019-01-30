@@ -1,8 +1,7 @@
-from collections import defaultdict
 from functools import lru_cache
 from typing import Dict, List, Sequence, Tuple
 
-from spectra_lexer.output.node import OutputNode
+from spectra_lexer.graph.text.node import TextNode
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -24,7 +23,7 @@ def _rgb_to_html(r:int, g:int, b:int) -> str:
     return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=None)
 def _html_color(level:int, row:int) -> str:
     """ Return an HTML color string for a given text position and cache it. """
     return _rgb_to_html(*_rgb_color(level, row))
@@ -52,33 +51,25 @@ class HTMLFormatter:
     """ Receives a list of text lines and instructions on formatting to apply in various places when any given
         node is highlighted. Creates structured text with explicit HTML formatting to be used by the GUI. """
 
-    _lines: List[str]                                         # Lines containing the raw text.
-    _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
+    _lines: List[str]                                        # Lines containing the raw text.
+    _range_dict: Dict[TextNode, List[Tuple[int, int, int]]]  # Dict of character ranges for each node.
 
-    def __init__(self, lines:Sequence[str], node_grid:Sequence[Sequence[OutputNode]]):
+    def __init__(self, lines:Sequence[str], ref_dict:Dict[TextNode, List[Tuple[int, int, int]]]):
         """ From a 2D node grid, compile a dict of nodes with ranges of character positions owned by each one. """
         self._lines = list(lines)
-        self._format_dict = fd = defaultdict(list)
-        for (row, node_row) in enumerate(node_grid):
-            last_col = -1
-            last_node = None
-            for (col, node) in enumerate(node_row + [None]):
-                if node is not last_node:
-                    if last_node is not None:
-                        fd[last_node].append((row, last_col, col))
-                    last_col, last_node = col, node
+        self._range_dict = ref_dict
 
-    def make_graph_text(self, node:OutputNode=None) -> str:
+    def make_graph_text(self, node:TextNode=None) -> str:
         """ Make a full graph text string by joining the list of line strings and setting the preformatted tag.
             If a node is specified, format the lines with data corresponding to that node first. """
         if node is None:
             lines = self._lines
         else:
-            lines = self._make_formatted_text(node)
+            lines = self._format_lines(node)
         return "<pre>"+"\n".join(lines)+"</pre>"
 
-    def _make_formatted_text(self, node:OutputNode) -> List[str]:
-        """ Format the current set of text lines with highlighted and/or bolded ranges of text for a given node. """
+    def _format_lines(self, node:TextNode) -> List[str]:
+        """ Format a copy of the current text lines with highlighted and/or bolded ranges of text for a given node. """
         lines = self._lines[:]
         # Color the full ancestry line of the selected node, starting with that node and going up.
         # This ensures that formatting happens right-to-left on rows with more than one operation.
@@ -87,7 +78,7 @@ class HTMLFormatter:
         derived_end = derived_start + node.attach_length
         level = len(nodes) - 1
         for n in nodes:
-            rng_tuples = self._format_dict[n]
+            rng_tuples = self._range_dict[n]
             # All of the node's characters above the text will be box-drawing characters.
             # These mess up when bolded, so only bold the last row (first in the reversed iterator).
             bold = True

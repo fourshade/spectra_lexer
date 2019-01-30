@@ -2,7 +2,7 @@ from operator import attrgetter
 from typing import List, Generator, NamedTuple
 
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import OutputFlags, RuleMapItem, StenoRule
+from spectra_lexer.rules import RuleFlags, RuleMapItem, StenoRule
 
 
 class _Result(NamedTuple):
@@ -68,9 +68,10 @@ class _Result(NamedTuple):
                 last_match = self.rulemap[-1]
                 last_match_end = last_match.start + last_match.length
             # Make a special rule with the unmatched keys to cover everything after the last match.
-            bad_rule = StenoRule(self.leftover_keys, "", frozenset({OutputFlags.UNMATCHED}), "unmatched keys", ())
+            bad_rule = StenoRule(self.leftover_keys, "", frozenset({RuleFlags.UNMATCHED}), "unmatched keys", ())
             self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters) - last_match_end))
-        return StenoRule(self.keys, self.letters, frozenset(), desc, tuple(self.rulemap))
+        # Freeze the rulemap and mark this rule as lexer-generated.
+        return StenoRule(self.keys, self.letters, frozenset({RuleFlags.GENERATED}), desc, tuple(self.rulemap))
 
 
 class LexerResults(list):

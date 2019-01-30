@@ -7,7 +7,7 @@ from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 
 class GUIQtTextDisplay(Component):
-    """ GUI operations class for displaying rules and finding the mouse position over the text graph.
+    """ GUI operations class for displaying text graphs and finding the mouse position by character.
         Also displays engine output such as status messages and provides an output surface for exceptions. """
 
     ROLE = "gui_text"
@@ -26,25 +26,20 @@ class GUIQtTextDisplay(Component):
 
     @on("new_status")
     def display_status(self, msg:str) -> None:
-        """ Display engine status messages in the title bar. """
+        """ Display engine status and general output messages in the title bar. """
         self.w_title.setText(msg)
 
-    @on("new_output_title")
-    def display_title(self, title:str) -> None:
-        """ For a new lexer result output, set the title above the graph. """
-        self.w_title.setText(title)
-
-    @on("new_output_graph")
+    @on("new_graph")
     def display_new_graph(self, text:str, **kwargs) -> None:
         """ Display a finished interactive HTML text graph in the main text widget. """
         self.w_text.set_text_display(text, html=True, interactive=True, **kwargs)
 
-    @on("new_output_text")
+    @on("new_text_output")
     def display_new_text(self, text:str, **kwargs) -> None:
-        """ Display non-interactive plaintext in the main text widget. """
+        """ Display non-interactive plaintext in the main text widget. Use if text is too long for the title bar. """
         self.w_text.set_text_display(text, html=False, interactive=False,  **kwargs)
 
-    @pipe("sig_process_mouseover", "output_text_select", unpack=True)
+    @pipe("sig_process_mouseover", "graph_select", unpack=True)
     def process_mouseover(self, row:int, col:int) -> tuple:
-        """ Pass a mouseover event to the graph formatter. """
-        return row, col
+        """ Pass a mouseover event to the graph formatter. Switch the arguments to put it in (x, y) order. """
+        return col, row

@@ -4,13 +4,11 @@ from operator import itemgetter
 from typing import List
 
 
-class TaggedGrid(List[list]):
+class Canvas(List[list]):
     """ A mutable 2D grid-like structure that has metadata tag objects associated with characters.
         For performance, the implementation is low-level: each row is a list with alternating characters and tags.
         list.__init__ should not be overridden; this will facilitate fast list copying. No bounds checking is done.
         Operations on the document as a whole may span multiple rows, and should be optimized for map(). """
-
-    _BLANKS_CACHE: dict = {}  # Cache of blank lines of various sizes for fast copying.
 
     def memcpy(self, grid:List[list], row:int=0, col:int=0, _zip=zip, _len=len) -> None:
         """ Copy the contents of one grid directly to this one at the given offset. """
@@ -18,8 +16,8 @@ class TaggedGrid(List[list]):
         for r, line in _zip(self[row:], grid):
             r[col:col+_len(line)] = line
 
-    def write(self, grid:List[str], tag:object=None, row:int=0, col:int=0, _zip=zip) -> None:
-        """ Copy a list of strings with a single tag to this one at the given offset. """
+    def write_grid(self, grid:List[str], tag:object=None, row:int=0, col:int=0, _zip=zip) -> None:
+        """ Copy a grid of characters (list of strings) with a single tag to this one at the given offset. """
         for r, s in enumerate(grid, row):
             self.write_row(s, tag, r, col)
 
@@ -29,9 +27,6 @@ class TaggedGrid(List[list]):
             Avoid method call overhead by inlining everything and using slice assignment over list methods. """
         r = self[row]
         col *= 2
-        under = col - _len(r)
-        if under > 0:  # if shorter than start position, pad with spaces and None tags.
-            r.extend([" ", None] * (under // 2))
         length = _len(s)
         if length == 1:  # fast path: <s> is a one character string.
             r[col:col+2] = [s, tag]
@@ -45,23 +40,16 @@ class TaggedGrid(List[list]):
         """ Like write(), but writes the string down a column instead of across a row.
             This is much slower because a different list must be accessed and written for every character. """
         col *= 2
-        end_col = col + 2
+        tag_col = col + 1
         for r, c in _zip(self[row:], s):
-            r[col:end_col] = [c, tag]
+            r[col] = c
+            r[tag_col] = tag
 
     @classmethod
-    def blanks(cls, rows:int, cols:int, _cache_get=_BLANKS_CACHE.get) -> List[list]:
-        """ Make a new, blank grid consisting of spaces and None references. Rows can be cached for speed. """
-        line = _cache_get(cols)
-        if line is None:
-            line = [" ", None] * cols
-            cls._BLANKS_CACHE[cols] = line
+    def blanks(cls, rows:int, cols:int):
+        """ Make a new, blank grid of spaces and None references by copying a single line repeatedly with list(). """
+        line = [" ", None] * cols
         return cls(map(list, [line] * rows))
-
-    @property
-    def size(self, _len=len) -> tuple:
-        """ Return the size of the grid in (rows, cols). Overall column size is determined by the longest one. """
-        return _len(self), max(map(_len, self)) // 2
 
     def row_str_op(self, row:int, op:callable, *args, _join="".join) -> None:
         """ Do an in-place string operation on a row without altering any tags. """

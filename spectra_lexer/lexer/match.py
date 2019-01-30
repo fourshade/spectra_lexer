@@ -2,7 +2,7 @@ from typing import Dict, Generator
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.prefix import OrderedKeyPrefixTree
-from spectra_lexer.rules import OutputFlags, StenoRule
+from spectra_lexer.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import str_prefix
 
 # Steno order is not enforced for any keys in this set. This has a large performance and accuracy cost.
@@ -11,19 +11,11 @@ KEY_STAR = "*"
 _UNORDERED_KEYS = [KEY_STAR]
 
 
-class MatchFlags:
-    """ Acceptable rule flags that indicate special behavior for the lexer's matching system. """
-    SPECIAL = "SPEC"  # Special rule used internally (in other rules). The lexer should not match these at all.
-    STROKE = "STRK"   # Only matches an entire stroke, not part of one. Handled by exact dict lookup.
-    WORD = "WORD"     # Exact word match. These entries do not adversely affect lexer performance.
-    RARE = "RARE"     # Rule applies to very few words. The lexer should try these last, after failing with others.
-
-
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component maps strings to steno rules in some way. """
 
-    # Separator rule constant (can be tested by identity).
-    _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({OutputFlags.SEPARATOR}), "Stroke separator", ())
+    # Separator rule constant (can be tested by identity). This rule is unique in that it is not loaded from JSON.
+    _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({RuleFlags.SEPARATOR}), "Stroke separator", ())
 
     _special_dict: Dict[str, StenoRule]       # Rules that match by reference name.
     _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
@@ -39,16 +31,19 @@ class LexerRuleMatcher:
         word_dict = {}
         prefix_tree = OrderedKeyPrefixTree(_UNORDERED_KEYS)
         self._search_callback = search_callback
-        # Sort rules into specific dictionaries based on their flags.
+        # Sort rules into specific dictionaries based on specific flags for the lexer matching system.
+        match_name = RuleFlags.SPECIAL
+        match_stroke = RuleFlags.STROKE
+        match_word = RuleFlags.WORD
         for (n, r) in rules_dict.items():
             flags = r.flags
             # Internal rules are only used in special cases, by name.
-            if MatchFlags.SPECIAL in flags:
+            if match_name in flags:
                 special_dict[n] = r
             # Filter stroke and word rules into their own dicts.
-            elif MatchFlags.STROKE in flags:
+            elif match_stroke in flags:
                 stroke_dict[r.keys] = r
-            elif MatchFlags.WORD in flags:
+            elif match_word in flags:
                 word_dict[r.letters] = r
             # Everything else gets added to the tree-based prefix dictionary.
             # TODO: Only attempt RARE matches after failing with the normal set of rules.

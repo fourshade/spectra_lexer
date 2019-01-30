@@ -1,10 +1,10 @@
+from collections import namedtuple
 from typing import ClassVar
 
 from PyQt5.QtWidgets import QDialog, QWidget
 
 from spectra_lexer.app.gui import GUIQtApplication
 from spectra_lexer.plover import PloverPluginInterface
-from spectra_lexer.struct import Struct
 from spectra_lexer.utils import nop
 
 # Components used only by the Plover plugin. The interface to the Plover engine is all that's needed.
@@ -37,6 +37,6 @@ class PloverPlugin(QDialog):
             app = GUIQtApplication(*PLOVER_COMPONENTS)
             cls.window = app.components["gui"].window
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
-            cls.window.finished = Struct(connect=nop)
+            cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
             app.start(plover_engine=args[0], show_menu=False)
         return cls.window

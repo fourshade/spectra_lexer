@@ -38,7 +38,7 @@ class SpectraApplication:
         tb_lines = traceback.TracebackException.from_exception(e).format()
         tb_text = "".join(tb_lines)
         sys.stderr.write(tb_text)
-        self.engine.call("new_output_text", tb_text)
+        self.engine.call("new_text_output", tb_text)
         return True
 
     def start(self, *cmd_args:str, **main_opts) -> None:
