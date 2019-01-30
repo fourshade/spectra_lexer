@@ -66,5 +66,5 @@ class Node:
         return list(traverse(self, next_attr="parent"))
 
     def get_descendents(self) -> list:
-        """ Get a list of all descendents of this node (starting with itself) down to the base. """
+        """ Get a list of all descendents of this node (starting with itself) searching depth-first. """
         return list(recurse(self, iter_attr="children"))

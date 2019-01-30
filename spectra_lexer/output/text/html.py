@@ -55,14 +55,14 @@ class HTMLFormatter:
     _lines: List[str]                                         # Lines containing the raw text.
     _format_dict: Dict[OutputNode, List[Tuple[int,int,int]]]  # Dict of special display info for each node.
 
-    def __init__(self, lines:List[str], node_grid:Sequence[Sequence[OutputNode]]):
+    def __init__(self, lines:Sequence[str], node_grid:Sequence[Sequence[OutputNode]]):
         """ From a 2D node grid, compile a dict of nodes with ranges of character positions owned by each one. """
-        self._lines = lines
+        self._lines = list(lines)
         self._format_dict = fd = defaultdict(list)
         for (row, node_row) in enumerate(node_grid):
             last_col = -1
             last_node = None
-            for (col, node) in enumerate(node_row + (None,)):
+            for (col, node) in enumerate(node_row + [None]):
                 if node is not last_node:
                     if last_node is not None:
                         fd[last_node].append((row, last_col, col))

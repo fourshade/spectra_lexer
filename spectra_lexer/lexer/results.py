@@ -9,7 +9,7 @@ _BAD_FLAG_PREFIX = "BAD:"
 
 
 class _Result(NamedTuple):
-    """ Container to hold a list-based rulemap from the lexer, with ranking methods.
+    """ Container to hold a list-based rulemap from the lexer, with optimized ranking methods.
         The list must be frozen before inclusion in a rule. """
 
     rulemap: List[RuleMapItem]  # Rulemap from the lexer
@@ -40,22 +40,22 @@ class _Result(NamedTuple):
         end_item = self.rulemap[-1]
         return end_item.start + end_item.length - start_item.start
 
-    def __gt__(self, other) -> bool:
-        """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """
-        for diff in self.rank_diff(other):
-            if diff:
-                return diff > 0
-        return False
-
     def rank_diff(self, other) -> Generator:
         """ Generator to find the difference in "rank value" between two lexer-generated rulemaps.
             Used as a lazy sequence-based comparison, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate maps have smaller values. """
         yield -len(self.leftover_keys) + len(other.leftover_keys)  # Fewest keys unmatched
         yield self.letters_matched()   - other.letters_matched()   # Most letters matched
+        yield -len(self.keys)          + len(other.keys)           # Fewest total keys
         yield -len(self.rulemap)       + len(other.rulemap)        # Fewest child rules
         yield self.word_coverage()     - other.word_coverage()     # End-to-end word coverage
-        yield -len(self.keys)          + len(other.keys)           # Fewest total keys
+
+    def __gt__(self, other) -> bool:
+        """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """
+        for diff in self.rank_diff(other):
+            if diff:
+                return diff > 0
+        return False
 
     def to_rule(self) -> StenoRule:
         """ Make a rule out of this map, with a description and possibly a final rule depending on unmatched keys. """

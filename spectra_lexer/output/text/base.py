@@ -1,16 +1,18 @@
-from typing import List, Tuple
+from typing import List, Optional
 
-from spectra_lexer.output.text import generator
+from spectra_lexer.output.text.cascaded import CascadedTextGraph
+from spectra_lexer.output.text.compressed import CompressedTextGraph
 from spectra_lexer.output.text.html import HTMLFormatter
-from spectra_lexer.output.node import OutputNode
+from spectra_lexer.output.node import OutputNode, OutputTree
 
 
-class _NodeLocator:
-    """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths. """
+class _TextNodeLocator:
+    """ Simple implementation of an indexer with bounds checking for a list of lists with non-uniform lengths.
+        Works well for text graphs (which have a relatively small number of rows and columns compared to pixels). """
 
-    _node_grid: List[Tuple[OutputNode]]  # List of tuples of node references in [row][col] format.
+    _node_grid: List[List[OutputNode]]  # List of tuples of node references in [row][col] format.
 
-    def __init__(self, node_grid:List[Tuple[OutputNode]]):
+    def __init__(self, node_grid:List[List[OutputNode]]):
         self._node_grid = node_grid
 
     def get_node_at(self, row:int, col:int) -> OutputNode:
@@ -22,27 +24,33 @@ class _NodeLocator:
                 return node_row[col]
 
 
-class CascadedTextFormatter:
-    """ Base class for creating and formatting a cascaded plaintext breakdown of steno translations.
-        Output must be displayed with a monospaced font that supports Unicode box-drawing characters. """
+class TextGenerator:
+    """ Base class for creating and formatting a monospaced text grid. """
 
-    _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
-    _locator: _NodeLocator = None     # Finds which node the mouse is over during a mouseover event.
+    _formatter: HTMLFormatter      # Formats the output text based on which node is selected (if any).
+    _locator: _TextNodeLocator     # Finds which node the mouse is over during a mouseover event.
+    _last_node: OutputNode = None  # Most recent node from a select event (for identity matching).
 
-    def generate(self, root:OutputNode) -> None:
-        """ Generate a text graph for a node tree. """
-        # Create plaintext output lines and node reference structures from the tree using the generator.
-        lines, node_grid = generator.new_text_grid(root)
+    def __init__(self, tree:OutputTree, compressed=False):
+        """ Generate text graph data (of either type) from a node tree. """
+        graph_type = CompressedTextGraph if compressed else CascadedTextGraph
+        # Create plaintext output lines and node reference structures from the tree.
+        graph = graph_type(tree)
+        lines, nodes = graph.compile_data()
         # Create a locator and formatter using these structures and keep them for later reference.
-        self._formatter = HTMLFormatter(lines, node_grid)
-        self._locator = _NodeLocator(node_grid)
+        self._formatter = HTMLFormatter(lines, nodes)
+        self._locator = _TextNodeLocator(nodes)
 
-    def get_node_at(self, row:int, col:int) -> OutputNode:
+    def get_node_at(self, row:int, col:int) -> Optional[OutputNode]:
         """ Find the character at (row, col) of the text graph. If it belongs to a new node, return the reference. """
-        if self._locator is not None:
-            return self._locator.get_node_at(row, col)
+        node = self._locator.get_node_at(row, col)
+        if node is None or node is self._last_node:
+            return None
+        # Store the current node so we can avoid repeated lookups.
+        self._last_node = node
+        return node
 
-    def get_text_output(self, node:OutputNode=None) -> dict:
+    def graph(self, node:OutputNode=None) -> dict:
         """ Format and return the text graph with the selected node using HTML. Don't allow the graph to scroll.
             If <node> is None, the graph is new. In this case, plaintext is fine and it should scroll to the top.
             A full dict of parameters describing how to format the text should be provided as output. """

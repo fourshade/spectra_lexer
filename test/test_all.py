@@ -97,10 +97,9 @@ def test_display(trial):
     keys, word = trial
     result = LEXER.query(keys, word)
     root = DISPLAY.make_tree(result)
-    formatter = DISPLAY._graph
-    formatter.generate(root)
+    grapher = DISPLAY._grapher
     # The root node starts in the upper left and has no parent.
-    assert formatter.get_node_at(0, 0) is root
+    assert grapher.get_node_at(0, 0) is root
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -109,7 +108,7 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all(node is root or node.parent in all_nodes_set for node in all_nodes_list)
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(formatter._formatter._format_dict)
+    assert all_nodes_set >= set(grapher._formatter._format_dict)
 
 
 SEARCH = SearchEngine()

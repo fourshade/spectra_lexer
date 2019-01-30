@@ -35,7 +35,7 @@ def compose(*funcs:callable) -> callable:
     return composed
 
 
-def traverse(obj:object, next_attr:str="next", sentinel:object=None) -> object:
+def traverse(obj:object, next_attr:str="next", sentinel:object=None):
     """ Traverse a linked-list type structure, following a chain of attribute references
         and yielding values until either the sentinel is found or the attribute is not.
         Reference loops will cause the generator to yield items forever. """
@@ -44,9 +44,9 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None) -> object:
         obj = getattr(obj, next_attr, sentinel)
 
 
-def recurse(obj:object, iter_attr:str=None, sentinel:object=None) -> object:
-    """ Starting with a container object that can contain other objects of its own type,
-        yield that object, then recursively yield objects from each of its children.
+def recurse(obj:object, iter_attr:str=None, sentinel:object=None):
+    """ Starting with a container object that can contain other similar container objects,
+        yield that object, then recursively yield objects from its contents, depth-first.
         If iter_attr is None, the object must be an iterable container itself.
         If iter_attr is defined, it is the name of an iterable attribute.
         Recursion stops if the sentinel is encountered or the attribute is not found.

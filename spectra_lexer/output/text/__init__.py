@@ -1,1 +1,1 @@
-from .base import CascadedTextFormatter
+from .base import TextGenerator
