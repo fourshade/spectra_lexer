@@ -77,10 +77,11 @@ class TextGraphWidget(QTextEdit):
         local_pos -= QPoint(_CURSOR_X_OFFSET, 0)
         location_cursor = self.cursorForPosition(local_pos)
         # Get the row and column of the mouse's position within the text and see if there's a rule
-        # displayed within that range. Don't waste time if the row and column are the same as before.
+        # that owns that character. Don't waste time if the row and column are the same as before.
         row, col = location_cursor.blockNumber(), location_cursor.columnNumber()
         if self._last_row != row or self._last_col != col:
-            self.mouseInteraction.emit(row, col, False)
+            # Switch the arguments to put it in (x, y) order.
+            self.mouseInteraction.emit(col, row, False)
             self._last_row = row
             self._last_col = col
 

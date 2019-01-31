@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Any, Dict, Generator, Hashable
+from threading import Lock, RLock
+from typing import Any, Dict, Hashable
 
 from spectra_lexer import Component
 from spectra_lexer.utils import nop
@@ -47,12 +48,13 @@ class SpectraEngine:
 
     _commands: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
     _exception_callback: callable    # Application-provided callback for exception handling.
-    _rlevel: int = 0                 # Counts levels of re-entrancy for engine calls.
+    _lock: Lock                      # Counts levels of re-entrancy for engine calls.
 
     def __init__(self, on_exception:callable=nop):
         """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
         self._commands = defaultdict(list)
         self._exception_callback = on_exception
+        self._lock = RLock()
 
     def connect(self, component:Component) -> None:
         """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
@@ -61,33 +63,32 @@ class SpectraEngine:
 
     def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
         """ Top-level method for engine calls. Checks exceptions with a custom handler.
-            This method is re-entrant, so we need to track what level we're on for exception handling. """
+            This method is re-entrant, so we need to track the re-entrancy level for exception handling. """
         try:
-            # Load the call stack and run it to exhaustion. Return only the first value yielded (if any).
-            stack = [(cmd_key, args, kwargs)]
-            with self:
-                r_vals = list(self._loop(stack))
-            return r_vals[0] if r_vals else None
+            # Add all commands to the stack. If there is at least one, run the first one and store the value.
+            # If there is more than one, run them until the stack is exhausted, but still return the first value.
+            stack = self._get_commands(cmd_key, args, kwargs)
+            if stack:
+                with self._lock:
+                    value = self._run_next(stack)
+                    while stack:
+                        self._run_next(stack)
+                    return value
         except Exception as e:
-            # If this is not the top frame or the handler fails, re-raise.
-            if self._rlevel or not self._exception_callback(e):
+            # The caller may want to catch this exception, so don't catch it here unless this is the top level.
+            # If this isn't the top level or the handler fails, re-raise.
+            if self._lock.locked or not self._exception_callback(e):
                 raise
 
-    def _loop(self, stack:list) -> Generator:
-        """ Call commands on each valid component in order until the stack is empty.
-            Each target may dispatch its result to the stack and/or return it to the caller.
-            If a target is required to return a value, yield it and skip any remaining components. """
-        while stack:
-            cmd_key, args, kwargs = stack.pop()
-            for (func, dispatch) in self._commands[cmd_key]:
-                value = func(*args, **kwargs)
-                if dispatch(stack, value):
-                    yield value
-                    break
+    def _run_next(self, stack:list) -> Any:
+        """ Call the next valid command in order. The target may dispatch its result to another command.
+            Each command added this way goes on the stack without returning. """
+        func, dispatch, args, kwargs = stack.pop()
+        value = func(*args, **kwargs)
+        if value is not None and dispatch is not None:
+            stack += self._get_commands(*dispatch(value))
+        return value
 
-    # Add/subtract from frame counter every time a new loop is entered/exited
-    def __enter__(self) -> None:
-        self._rlevel += 1
-
-    def __exit__(self, *args) -> None:
-        self._rlevel -= 1
+    def _get_commands(self, cmd_key:Hashable, args:tuple, kwargs:dict) -> list:
+        """ Make a list of commands from valid components in order under the given key with the arguments added. """
+        return [(func, dispatch, args, kwargs) for (func, dispatch) in self._commands[cmd_key]]

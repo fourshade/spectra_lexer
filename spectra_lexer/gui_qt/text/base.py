@@ -2,7 +2,7 @@ from functools import partial
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component, on
 from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 
@@ -21,9 +21,9 @@ class GUIQtTextDisplay(Component):
 
     @on("start")
     def start(self, **opts) -> None:
-        """ Register the keyboard and mouse input signals. """
-        self.w_text.textInputComplete.connect(partial(self.engine_call, "sig_process_keyboard"))
-        self.w_text.mouseInteraction.connect(partial(self.engine_call, "sig_process_mouse"))
+        """ Connect the keyboard and mouse signals to the console and graph respectively. """
+        self.w_text.textInputComplete.connect(partial(self.engine_call, "console_input"))
+        self.w_text.mouseInteraction.connect(partial(self.engine_call, "graph_select"))
 
     @on("new_status")
     def display_status(self, msg:str) -> None:
@@ -44,13 +44,3 @@ class GUIQtTextDisplay(Component):
     def display_console(self, text:str, **kwargs) -> None:
         """ Display a new window of console output plaintext in the main text widget and start accepting input. """
         self.w_text.set_interactive_text(text, keyboard=True, **kwargs)
-
-    @pipe("sig_process_keyboard", "console_input")
-    def process_keyboard(self, text:str) -> str:
-        """ Pass a keyboard input event to the console. """
-        return text
-
-    @pipe("sig_process_mouse", "graph_select", unpack=True)
-    def process_mouse(self, row:int, col:int, clicked:bool) -> tuple:
-        """ Pass a mouseover/click event to the graph formatter. Switch the arguments to put it in (x, y) order. """
-        return col, row, clicked
