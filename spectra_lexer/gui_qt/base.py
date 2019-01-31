@@ -20,8 +20,8 @@ class GUIQt(Composite):
                   GUIQtSearch:       "search",
                   GUIQtTextDisplay:  "text",
                   GUIQtBoardDisplay: "board",
-                  GUIQtConfig:       "window",
-                  GUIQtWindow:       "window"}
+                  GUIQtWindow:       "window",
+                  GUIQtConfig:       "window"}
 
     window: MainWindow  # Main window must be publicly accessible for the Plover plugin.
 

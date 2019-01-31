@@ -9,10 +9,10 @@ from spectra_lexer.graph import GraphRenderer
 from spectra_lexer.gui_qt import GUIQt
 
 # Components specifically used by the GUI. Without the GUI, these components do no good.
-GUI_COMPONENTS = [BoardRenderer,
+GUI_COMPONENTS = [GUIQt,
+                  BoardRenderer,
                   GraphRenderer,
-                  ConsoleManager,
-                  GUIQt]
+                  ConsoleManager]
 
 
 class GUIQtApplication(SpectraApplication):

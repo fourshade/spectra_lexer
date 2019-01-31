@@ -49,6 +49,6 @@ class Composite(Component):
         super().__init__()
         self._children = [tp(*args) for (tp, args) in zip(self.COMPONENTS, args_iter)]
 
-    def engine_connect(self, *args) -> list:
+    def engine_connect(self, *args) -> List[tuple]:
         cmds = super().engine_connect(*args)
         return cmds + [i for c in self._children for i in c.engine_connect(*args)]

@@ -77,7 +77,7 @@ class SpectraEngine:
         except Exception as e:
             # The caller may want to catch this exception, so don't catch it here unless this is the top level.
             # If this isn't the top level or the handler fails, re-raise.
-            if self._lock.locked or not self._exception_callback(e):
+            if self._lock._is_owned() or not self._exception_callback(e):
                 raise
 
     def _run_next(self, stack:list) -> Any:
