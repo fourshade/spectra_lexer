@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import List, Optional
 
 
@@ -23,16 +22,3 @@ class GridLocator:
             row = self._grid[row]
             if 0 <= col < len(row):
                 return row[col]
-
-    def range_dict(self) -> dict:
-        """ From the grid, compile a dict of references with ranges of graph positions occupied by each one. """
-        range_dict = defaultdict(list)
-        for (row, node_row) in enumerate(self._grid):
-            last_col = -1
-            last_node = None
-            for (col, node) in enumerate(node_row + [None]):
-                if node is not last_node:
-                    if last_node is not None:
-                        range_dict[last_node].append((row, last_col, col))
-                    last_col, last_node = col, node
-        return range_dict

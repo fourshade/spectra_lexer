@@ -30,7 +30,8 @@ class TextGenerator:
     NODE_DEFAULT = (ObjectNode, PatternNode)
     NODE_APPEARANCE = {TextFlags.SEPARATOR: (ObjectNode,          PatternSeparators),
                        TextFlags.UNMATCHED: (ObjectNodeUnmatched, PatternUnmatched),
-                       TextFlags.INVERSION: (ObjectNode,          PatternInversion)}
+                       TextFlags.INVERSION: (ObjectNode,          PatternInversion),
+                       TextFlags.BRANCH:    (ObjectNode,          PatternBranch)}
 
     _root_object: ObjectNode  # Main container for drawable text objects.
 

@@ -105,11 +105,7 @@ def test_display(trial):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(GRAPH._graph._formatter._range_dict)
-    # Every non-ASCII character must be owned by a node.
-    lines = GRAPH._graph._formatter._lines
-    grid = GRAPH._graph._locator._grid
-    assert all([ord(c) < 0xFF or grid[row][col] for row, line in enumerate(lines) for col, c in enumerate(line)])
+    assert all_nodes_set >= set(GRAPH._graph._formatter)
 
 
 SEARCH = SearchEngine()

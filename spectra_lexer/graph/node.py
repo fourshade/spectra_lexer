@@ -22,7 +22,7 @@ class GraphNode:
     RECURSION_LIMIT = 10     # Default limit on number of recursion steps to allow for rules that contain other rules.
 
     rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
-    attach_start: int = 0    # Index of the letter in the parent node where this node begins its attachment.
+    attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
     flags: set               # Specific output modifier flags.
     parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).

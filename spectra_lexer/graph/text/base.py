@@ -21,8 +21,7 @@ class TextGraph:
         lines, nodes = generator_type(root).render()
         # Create a locator and formatter using these structures and keep them for later reference.
         self._locator = GridLocator(nodes)
-        range_dict = self._locator.range_dict()
-        self._formatter = HTMLFormatter(lines, range_dict)
+        self._formatter = HTMLFormatter(lines, nodes)
 
     def select_node(self, col:int, row:int) -> TextNode:
         """ Return the node reference (if any) at position (row, col) of the graph. """
