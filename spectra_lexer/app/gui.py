@@ -24,8 +24,8 @@ class GUIQtApplication(SpectraApplication):
         super().__init__(*GUI_COMPONENTS, *components)
 
     def start(self, *cmd_args:str, **opts) -> None:
-        """ Adding the app's components to the console will help debugging greatly. """
-        opts["console_vars"] = {c.ROLE: c for c in self.components}
+        """ Adding the app's engine and components to the console will help debugging greatly. """
+        opts["console_vars"] = {"engine": self.engine, **{c.ROLE: c for c in self.components}}
         super().start(*cmd_args, **opts)
 
 

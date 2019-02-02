@@ -21,8 +21,7 @@ class GUIQtTextDisplay(Component):
 
     @on("start")
     def start(self, **opts) -> None:
-        """ Connect the keyboard and mouse signals to the console and graph respectively. """
-        self.w_text.textInputComplete.connect(partial(self.engine_call, "console_input"))
+        """ Connect the mouse signal to the graph. """
         self.w_text.mouseInteraction.connect(partial(self.engine_call, "graph_select"))
 
     @on("new_status")
@@ -37,10 +36,5 @@ class GUIQtTextDisplay(Component):
 
     @on("new_graph_text")
     def display_graph(self, text:str, **kwargs) -> None:
-        """ Display a finished interactive HTML text graph in the main text widget and enabled mouse events. """
+        """ Display a finished interactive HTML text graph in the main text widget and enable mouse events. """
         self.w_text.set_interactive_text(text, html=True, mouse=True, **kwargs)
-
-    @on("new_console_text")
-    def display_console(self, text:str, **kwargs) -> None:
-        """ Display a new window of console output plaintext in the main text widget and start accepting input. """
-        self.w_text.set_interactive_text(text, keyboard=True, **kwargs)

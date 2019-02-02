@@ -3,6 +3,7 @@
 from spectra_lexer import Composite
 from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
 from spectra_lexer.gui_qt.config import GUIQtConfig
+from spectra_lexer.gui_qt.console import GUIQtConsoleDisplay
 from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.gui_qt.menu import GUIQtMenu
 from spectra_lexer.gui_qt.search import GUIQtSearch
@@ -15,13 +16,13 @@ class GUIQt(Composite):
 
     ROLE = "gui"
     # Subcomponents of the GUI with their widget sections. Some components may use the same section.
-    # The window shouldn't be shown until everything else is set up, so create the window controller last.
-    COMPONENTS = {GUIQtMenu:         "menu",
-                  GUIQtSearch:       "search",
-                  GUIQtTextDisplay:  "text",
-                  GUIQtBoardDisplay: "board",
-                  GUIQtWindow:       "window",
-                  GUIQtConfig:       "window"}
+    COMPONENTS = {GUIQtMenu:           "menu",
+                  GUIQtSearch:         "search",
+                  GUIQtWindow:         "window",
+                  GUIQtConfig:         "window",
+                  GUIQtBoardDisplay:   "board",
+                  GUIQtTextDisplay:    "text",
+                  GUIQtConsoleDisplay: "text"}
 
     window: MainWindow  # Main window must be publicly accessible for the Plover plugin.
 
