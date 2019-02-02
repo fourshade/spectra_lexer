@@ -1,6 +1,7 @@
 from collections import defaultdict
 import re
-from typing import Callable, Dict, List, Mapping, TypeVar, Union
+from itertools import repeat
+from typing import Callable, Dict, Iterable, List, Mapping, Tuple, TypeVar, Union
 
 from spectra_lexer.search.search_dict import StringSearchDict
 
@@ -46,9 +47,7 @@ class ReverseDict(Dict[VT, List[KT]]):
             It is a fast way to populate a reverse dict from scratch after creation. """
         self.clear()
         rdict = defaultdict(list)
-        list_append = list.append
-        for (k, v) in fdict.items():
-            list_append(rdict[v], k)
+        list(map(list.append, [rdict[v] for v in fdict.values()], fdict))
         self.update(rdict)
 
 
@@ -56,13 +55,17 @@ class ReverseStringSearchDict(ReverseDict, StringSearchDict):
     """ Simple inheritance composition of a string-search dict that inverts some other mapping. """
 
 
-def _strip_lower_simfn(strip_chars:str=' ') -> Callable[[str],str]:
+def _strip_lower_simfns(strip_chars:str=' ') -> Tuple[Callable[[str],str], Callable[[Iterable[str]],map]]:
     """ Create a similarity function that removes case and strips a user-defined set of symbols.
         This should work well for search with either ordering of strokes <-> translation. """
     # Define string methods and strip characters as default argument locals for speed.
     def simfn(s:str, strip_chars=strip_chars, _strip=str.strip, _lower=str.lower) -> str:
         return _lower(_strip(s, strip_chars))
-    return simfn
+    # Also define a mapped version for use across a large number of keys.
+    # Mapping the built-in string methods separately provides a large speed boost.
+    def mapfn(s:str, rp_chars=repeat(strip_chars)) -> map:
+        return map(str.lower, map(str.strip, s, rp_chars))
+    return simfn, mapfn
 
 
 class StenoSearchDictionary:
@@ -76,9 +79,11 @@ class StenoSearchDictionary:
         if raw_dict is None:
             raw_dict = {}
         # For stroke searches, hyphens should be stripped off the front (as well as spaces).
-        self.forward = StringSearchDict(raw_dict, simfn=_strip_lower_simfn(' -'))
+        simfn, mapfn = _strip_lower_simfns(' -')
+        self.forward = StringSearchDict(raw_dict, simfn=simfn, mapfn=mapfn)
         # For translation searches, just stripping spaces works well enough.
-        self.reverse = ReverseStringSearchDict(match=raw_dict, simfn=_strip_lower_simfn(' '))
+        simfn, mapfn = _strip_lower_simfns()
+        self.reverse = ReverseStringSearchDict(match=raw_dict, simfn=simfn, mapfn=mapfn)
 
     def get(self, match:str, from_dict:str="forward") -> Union[str,List[str]]:
         """ Perform a simple lookup as with dict.get. """

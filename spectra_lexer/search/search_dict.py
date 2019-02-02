@@ -54,13 +54,17 @@ class SimilarKeyDict(Dict[KT, VT]):
 
     _list: List[Tuple[SKT, KT]]  # Sorted list of tuples: the similarity function output paired with the original key.
     _simfn: Callable[[KT], SKT]  # Similarity function, mapping raw keys that share some property to the same "simkey".
+    _mapfn: Callable[[Iterable[KT]], map]  # Optional implementation of the similarity function mapped across many keys.
 
-    def __init__(self, *args, simfn:Callable[[KT],SKT]=lambda x: x, **kwargs):
+    def __init__(self, *args, simfn:Callable[[KT],SKT]=lambda x: x, mapfn:Callable[[Iterable[KT]],map]=None, **kwargs):
         """ Initialize the dict and list to empty and set up the similarity function (identity if not provided).
             If other arguments were given, treat them as containing initial items to add as with dict.update(). """
         super().__init__()
         self._list = []
         self._simfn = simfn
+        if mapfn is None:
+            mapfn = (lambda keys: map(simfn, keys))
+        self._mapfn = mapfn
         if args or kwargs:
             self._update_empty(*args, **kwargs)
 
@@ -115,12 +119,12 @@ class SimilarKeyDict(Dict[KT, VT]):
         """ Fill the dict from empty and remake the list using items from the given arguments. """
         assert not self
         super().update(*args, **kwargs)
-        self._list = list(zip(map(self._simfn, self), self))
+        self._list = list(zip(self._mapfn(self), self))
         self._list.sort()
 
     def copy(self) -> __qualname__:
         """ Make a shallow copy of the dict. The list will simply be reconstructed in the new copy. """
-        return SimilarKeyDict(self, simfn=self._simfn)
+        return SimilarKeyDict(self, simfn=self._simfn, mapfn=self._mapfn)
 
     @classmethod
     def fromkeys(cls, seq:Iterable[KT], value:VT=None, **kwargs) -> __qualname__:

@@ -24,8 +24,7 @@ C_KEYS = "AO*EU"
 R_KEYS = "frpblgtsdz"
 # Various pre-computed key containers for fast membership testing.
 C_KEYS_SET = set(C_KEYS)
-C_KEYS_IN = C_KEYS_SET.intersection
-IS_C_KEY = C_KEYS_SET.__contains__
+R_KEYS_SET = set(R_KEYS)
 # Number key and RTFCRE steno keys required to produce the numbers 0-9 in order with this key.
 KEY_NUMBER = "#"
 NUMBER_ALIASES = "OSTPHAFPLT"
@@ -77,29 +76,31 @@ class StenoKeys(str):
         """ Is there one or more stroke separators in the current key set? """
         return KEY_SEP in self
 
-    def is_separator(self, index:int=None) -> bool:
-        """ If no arguments, is the current key set only a stroke separator?
-            With one argument, is the key at the given index a stroke separator? """
-        return (self if index is None else self[index]) == KEY_SEP
+    def has_separator_at(self, index:int) -> bool:
+        """ Is the key at the given index a stroke separator? """
+        return self[index] == KEY_SEP
 
     def without(self, keys:str):
         """ Return a copy of this object without each of the given keys (taken from the left). """
-        if self.startswith(keys):
-            return self.__class__(self[len(keys):])
+        # Fast path: if the keys are a direct prefix, just cut it off.
+        prefix_length = len(keys)
+        if self[:prefix_length] == keys:
+            return self.__class__(self[prefix_length:])
+        # Otherwise, each key must be removed individually.
         s = str_without(self, keys)
         return self.__class__(s)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self.to_rtfcre())
 
 
 def _stroke_stenokeys_to_rtfcre(s:str) -> str:
     """ Find the first right-side key (if there is one).
         If it doesn't follow a center key, insert a hyphen before it.
-        Only uppercase the string if right-side keys exist."""
+        Only uppercase the string if right-side keys exist. """
     for i, c in enumerate(s):
-        if c in R_KEYS:
-            if not i or s[i - 1] not in C_KEYS:
+        if c in R_KEYS_SET:
+            if not i or s[i - 1] not in C_KEYS_SET:
                 s = s[:i] + KEY_SPLIT + s[i:]
             return s.upper()
     return s
@@ -113,15 +114,14 @@ def _stroke_rtfcre_to_stenokeys(s:str) -> str:
         return _lowercase_right_and_join(left, right)
     # If there's no hyphen, we must search for the split point between C and R.
     # First find out what center keys we have. Allowable combinations up to here are L, LC, LCR, CR.
-    # If there are no center keys, it is narrowed to L (left side only). No further modifications are necessary.
-    if not C_KEYS_IN(s):
-        return s
-    # We are down to LC, LCR, CR as possible combinations.
-    # The last center key in the string is the place to split, so start looking from the right end.
-    c = next(filter(IS_C_KEY, reversed(s)))
-    # Partition string to separate left/center keys from right keys.
-    left, c, right = s.partition(c)
-    return _lowercase_right_and_join(left + c, right)
+    # The last center key in the string (if any) is the place to split, so start looking from the right end.
+    for c in reversed(s):
+        if c in C_KEYS_SET:
+            # Partition string to separate left/center keys from right keys.
+            left, c, right = s.partition(c)
+            return _lowercase_right_and_join(left + c, right)
+    # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
+    return s
 
 
 def _lowercase_right_and_join(left:str, right:str) -> str:
@@ -132,8 +132,8 @@ def _lowercase_right_and_join(left:str, right:str) -> str:
 def _cleanse_rtfcre(s:str) -> str:
     """ A vigorous formatting operation for RTFCRE strings close to user operation.
         Remove all characters that are considered invalid in steno strings for the parser.
-        Translate any literal numbers by replacing them with their key equivalents and adding
-        a number key to the beginning of the stroke if one or more was replaced. """
+        Translate any literal numbers by replacing them with their key equivalents and
+        adding a number key to the beginning of the stroke if one or more was replaced. """
     rep = s.translate(_TF_DICT)
     if rep != s and NUMBER_LITERALS_IN(s) and KEY_NUMBER not in s:
         rep = KEY_NUMBER + rep

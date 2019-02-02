@@ -89,13 +89,13 @@ class LexerRuleMatcher:
     def _star_match(self, keys:StenoKeys, all_keys:StenoKeys, all_letters:str, rulemap:list) -> StenoRule:
         """ If we only have a star left at the end of a stroke, try to match a star rule explicitly by name.
             The rules with these names are externally loaded, so just return None if one isn't found. """
-        if keys and keys[0] == KEY_STAR and (len(keys) == 1 or keys.is_separator(1)):
+        if keys and keys[0] == KEY_STAR and (len(keys) == 1 or keys.has_separator_at(1)):
             name = self._analyze_star(keys, all_keys, all_letters, rulemap)
             return self._special_dict.get(name)
 
     def _sep_match(self, keys:StenoKeys) -> StenoRule:
         """ If we end up with a stroke separator next, return its rule. """
-        if keys and keys.is_separator(0):
+        if keys and keys.has_separator_at(0):
             return self._RULE_SEP
 
     def _stroke_match(self, keys:StenoKeys, letters:str) -> StenoRule:
