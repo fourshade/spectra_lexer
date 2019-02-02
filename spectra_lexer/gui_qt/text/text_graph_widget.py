@@ -101,7 +101,6 @@ class TextGraphWidget(QTextEdit):
         self._last_text_good = text
         if event.key() in (Qt.Key_Return, Qt.Key_Enter) and text.endswith("\n"):
             self._set_content(original)
-            user_str = text[len(original):-1]
-            if user_str:
-                self.textInputComplete.emit(user_str)
+            user_str = text[len(original):]
+            self.textInputComplete.emit(user_str)
             self._reset_cursor()

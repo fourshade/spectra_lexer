@@ -3,79 +3,105 @@ from io import StringIO, TextIOBase
 import sys
 from threading import Condition, Thread
 
-# How long to wait on the interpreter thread (in seconds) before giving up.
-COMMAND_TIMEOUT = 1.0
+# Banner containing the Python version after formatting once, and the locals dict after formatting twice.
+_BANNER_FORMAT = "Python {}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{{}}".format(sys.version)
 
 
-class InterpreterConsole(TextIOBase):
-    """ A hacky object meant to run an interactive interpreter console inside the main Spectra program.
-        It runs on a separate thread with a reference to every component loaded in the system.
-        It is unknown whether or not this object can execute engine commands thread-safely. """
+class ConsoleIO(TextIOBase):
+    """ Controls all input/output streams necessary for interpreter operation. """
 
-    _sys_streams: dict      # Dict of the original system standard stream handles.
-    _out_stream: StringIO   # Output stream; takes the place of both stdout and stderr.
-    _input_line: str = ""   # Holds the last input line sent by the main program.
-    _condition: Condition   # Wakes the interpreter thread only when new input is available.
-    _thread: Thread         # Main interpreter thread; runs indefinitely unless passed an empty input.
+    _return_fn: callable  # Callback to return control on read.
+    _sys_streams: dict    # Dict of the original system standard stream handles.
+    _out: StringIO        # Output stream; takes the place of both stdout and stderr.
 
-    def __init__(self, cvars:dict):
+    def __init__(self, return_fn:callable):
         """ Save the standard stream handles so they can be overridden during interpreter activity.
             This object itself overrides stdin, blocking until other threads provide input. """
+        self._return_fn = return_fn
         self._sys_streams = {a: getattr(sys, a) for a in ("stdin", "stdout", "stderr")}
-        self._out_stream = StringIO()
-        self._condition = Condition()
+        self._out = StringIO()
         self._override_streams()
-        # Add extra utilities to the vars dict and show these along with the components in the banner.
-        cvars.update()
-        banner = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{list(cvars)}"
-        # Create the interpreter shell with the vars dict and start it in a separate thread.
-        console = InteractiveConsole(cvars)
-        self._thread = Thread(target=console.interact, args=(banner,), daemon=True).start()
 
     def _override_streams(self) -> None:
         """ Temporarily replace standard stream handles with our objects. """
         sys.stdin = self
-        sys.stdout = sys.stderr = self._out_stream
+        sys.stdout = sys.stderr = self._out
 
     def _restore_streams(self) -> None:
         """ Restore standard streams to their original handles. """
         sys.__dict__.update(self._sys_streams)
 
     def read(self, size:int=-1) -> str:
-        """ The interpreter is attempting to read more input, but we don't have any more.
-            Go to sleep and wait for other threads to notify after providing more input. """
+        """ Put the streams back to normal, send the output, and wait until more input is given. """
         self._restore_streams()
+        self._out.seek(0)
+        output = self._out.read()
+        line = self._return_fn(output)
+        # Echo the input text to output for a little sanity.
+        self._out.write(line)
+        self._override_streams()
+        return line
+
+    # We only provide one full line at a time, so both read operations are the same.
+    readline = read
+
+
+class InterpreterThread(Thread):
+
+    _condition: Condition  # Switches between the main thread and the interpreter thread.
+
+    def __init__(self, *args, **kwargs):
+        """ Create the mutex and initialize the thread as a daemon (so it dies when the main program does). """
+        self._condition = Condition()
+        super().__init__(*args, daemon=True, **kwargs)
+
+    def switch(self):
+        """ Using the mutex, switch between the active and inactive thread. """
         with self._condition:
             self._condition.notify()
             self._condition.wait()
-        self._override_streams()
-        return self._input_line
 
-    # We only provide one full line at a time, so all read operations are the same.
-    readline = read
 
-    def run(self, line:str=None) -> str:
+class InterpreterConsole(InteractiveConsole):
+    """ A hacky object meant to run an interactive interpreter console inside the main Spectra program. """
+
+    _io: ConsoleIO              # Handles all standard stream functionality.
+    _thread: InterpreterThread  # A separate thread to run the console indefinitely.
+    _input: str = ""            # Holds the last input lines sent by the main program.
+    _output: str = ""           # Holds the last output buffer contents.
+    _code = None                # Holds the next code object ready to execute.
+
+    def __init__(self, cvars:dict):
+        """ Create the stream handler and vars dict and start the interpreter in a separate thread. """
+        super().__init__(cvars)
+        self._io = ConsoleIO(self.complete)
+        banner = _BANNER_FORMAT.format(list(cvars))
+        self._thread = InterpreterThread(target=self.interact, args=(banner,))
+        self._thread.start()
+
+    def send(self, lines_in:str=None) -> str:
         """ Provide a new line of input, notify the interpreter to continue, wait for the output, and return it.
             If <line> is None, attempt to read the current output without waking the interpreter thread. """
-        if line is not None:
-            # Save the input text and echo it to output for a little sanity.
-            self._input_line = line
-            self._out_stream.write(line + '\n')
-            # Wait for the interpreter thread to process the text, with a timeout to avoid hanging.
-            with self._condition:
-                self._condition.notify()
-                if not self._condition.wait(timeout=COMMAND_TIMEOUT):
-                    # The thread could be alive running an intense operation, but most likely it has crashed.
-                    if self._thread.is_alive():
-                        return "Now you've done it...\n" \
-                               "We've lost the interpreter thread.\n\n" \
-                               "How could you trust a Python\n" \
-                               "running loose inside your system???"
-                    else:
-                        return "Now you've done it...\n" \
-                               "The interpreter thread has crashed.\n\n" \
-                               "What the heck did you\n" \
-                               "paste into the text window?"
-        # Read the entire output buffer, containing every line of output since starting.
-        self._out_stream.seek(0)
-        return self._out_stream.read()
+        if lines_in is not None:
+            # Save the input text and wait for the interpreter thread to process it.
+            self._input = lines_in
+            self._thread.switch()
+            # Execute the code object (if any) on the main thread.
+            if self._code is not None:
+                super().runcode(self._code)
+                self._code = None
+                self._thread.switch()
+        # The output buffer contains every line of output since starting.
+        return self._output
+
+    def complete(self, lines_out:str) -> str:
+        """ The interpreter is done and asking for more input, but we don't have any more.
+            Switch to the main thread for more input. """
+        self._output = lines_out
+        self._thread.switch()
+        return self._input
+
+    def runcode(self, code):
+        """ Run the current code object on the main thread (so that Qt objects are accessible). """
+        self._code = code
+        self._thread.switch()
