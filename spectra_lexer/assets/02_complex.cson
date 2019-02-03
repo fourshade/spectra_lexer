@@ -44,12 +44,5 @@
   "oo":  ["AO",  "oo", "", "spelling of `oo` is always AO"],
   "au":  ["AU",  "au", "", "the `au` sound"],
   "ou":  ["OU",  "ou", "", "the `ou` sound"],
-  "oi":  ["OEU", "oi", "", "the `oi` sound"],
-
-  # full board
-  ".av": ["AF", "(a)(.v)", "", "use short vowel sound for v ending"],
-  ".ev": ["EF", "(e)(.v)", "", "use short vowel sound for v ending"],
-  ".iv": ["EUF","(i)(.v)", "", "use short vowel sound for v ending"],
-  ".ov": ["OF", "(o)(.v)", "", "use short vowel sound for v ending"],
-  ".uv": ["UF", "(u)(.v)", "", "use short vowel sound for v ending"]
+  "oi":  ["OEU", "oi", "", "the `oi` sound"]
 }

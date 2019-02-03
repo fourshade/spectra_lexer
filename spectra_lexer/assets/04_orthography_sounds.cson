@@ -11,6 +11,20 @@
 
   "exc.":   ["KP",       "[exc|ex.]",  "",     "combined consonant sounds"],
 
+  ".bb":    ["PW",       "[bb|b.]",    "",     "doubled consonant"],
+  ".cc":    ["BG",       "[cc|c.]",    "",     "doubled consonant"],
+  ".dd":    ["TK",       "[dd|d.]",    "",     "doubled consonant"],
+  ".ff":    ["TP",       "[ff|f.]",    "",     "doubled consonant"],
+  ".gg":    ["TKPW",     "[gg|g.]",    "",     "doubled consonant"],
+  ".ll":    ["HR",       "[ll|l.]",    "",     "doubled consonant"],
+  ".mm":    ["PH",       "[mm|m.]",    "",     "doubled consonant"],
+  ".nn":    ["TPH",      "[nn|n.]",    "",     "doubled consonant"],
+  ".pp":    ["P",        "[pp|p.]",    "",     "doubled consonant"],
+  ".rr":    ["R",        "[rr|r.]",    "",     "doubled consonant"],
+  ".ss":    ["S",        "[ss|s.]",    "",     "doubled consonant"],
+  ".tt":    ["T",        "[tt|t.]",    "",     "doubled consonant"],
+  ".zz":    ["S*",       "[zz|z.]",    "",     "doubled consonant"],
+
   # right bank
   ".bb":    ["-B",   "[bb|.b]",        "",     "doubled consonant"],
   ".cc":    ["-BG",  "[cc|.c]",        "",     "doubled consonant"],
@@ -36,13 +50,11 @@
   ".ph":    ["-F",   "[ph|.f]",        "",     "`ph`onetic"],
   ".tz":    ["-TS",  "(.t)[z|.s]",     "",     "phonetic"],
 
-
   ".ck":    ["-BG",  "[ck|.k]",        "",     "combined consonant sounds"],
   ".dj":    ["-PBLG","[dj|.G]",        "",     "combined consonant sounds"],
   ".dg":    ["-PBLG","[dg|.G]",        "",     "combined consonant sounds"],
   ".sch":   ["-RB",  "[sch|.sh]",      "",     "combined consonant sounds"],
   ".tch":   ["-FP",  "[tch|.ch]",      "",     "combined consonant sounds"],
-
 
   ".cian":  ["-GS",  "[cian|~shun]",   "",     "phonetic"],
   ".cion":  ["-GS",  "[cion|~shun]",   "",     "phonetic"],
@@ -57,6 +69,7 @@
   # vowels
   "Ai":  ["AEU", "[ai|A]",  "",     "`ai` as in `fair`"],
   "Ay":  ["AEU", "[ay|A]",  "",     "`ay` as in `stay`"],
+  "e+":  ["AEU", "[e|A]",   "RARE", "`e` as in `ballet`"],
   "ei":  ["AEU", "[ei|A]",  "",     "`ei` as in `their`"],
   "ea":  ["E",   "[ea|e]",  "",     "`ea` as in `learn`"],
   "Ea":  ["AOE", "[ea|E]",  "",     "`ea` as in `deal`"],

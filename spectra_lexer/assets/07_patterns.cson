@@ -25,6 +25,7 @@
   "q/qu":   ["-BG/KW",     "qu",  "RARE", "consonant `q` split between strokes"],
   "r/r":    ["-R/R",       "r",   "RARE", "consonant `r` split between strokes"],
   "s/s":    ["-S/S",       "s",   "RARE", "consonant `s` split between strokes"],
+  "s/s+":   ["-Z/S",       "s",   "RARE", "consonant `s` split between strokes"],
   "t/t":    ["-T/T",       "t",   "RARE", "consonant `t` split between strokes"],
   "v/v":    ["-F/SR",      "v",   "RARE", "consonant `v` split between strokes"],
   "x/x":    ["-BGS/S",     "x",   "RARE", "consonant `x` split between strokes"],

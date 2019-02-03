@@ -45,7 +45,7 @@ class _Result(NamedTuple):
         yield self.letters_matched()   - other.letters_matched()   # Most letters matched
         yield -len(self.keys)          + len(other.keys)           # Fewest total keys
         yield -len(self.rulemap)       + len(other.rulemap)        # Fewest child rules
-        yield self.word_coverage()     - other.word_coverage()     # End-to-end word coverage
+        yield -self.word_coverage()    + other.word_coverage()    # End-to-end word coverage
 
     def __gt__(self, other) -> bool:
         """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """
