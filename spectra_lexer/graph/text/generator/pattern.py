@@ -51,7 +51,7 @@ class PatternNode(Pattern):
     ENDPIECE = Symbols.Row("┐", "┬┐", "┬")      # Primitive constructor for extension connectors.
 
 
-class PatternBranch(PatternNode):
+class PatternThick(PatternNode):
     """ An important node with thicker connecting lines. """
     BOTTOM = Symbols.Row("║", "╠╗", "═")
     TOP = Symbols.Row("║", "╠╝", "═")
@@ -59,14 +59,30 @@ class PatternBranch(PatternNode):
     ENDPIECE = Symbols.Row("╗", "╦╗", "╦")
 
 
-class PatternInversion(PatternNode):
+class PatternThickVert(PatternNode):
+    """ A node with thicker vertical connecting lines. """
+    BOTTOM = Symbols.Row("║", "╟╖", "─")
+    TOP = Symbols.Row("║", "╟╜", "─")
+    CONNECTOR = Symbols.Column("║", "║║", "║")
+    ENDPIECE = Symbols.Row("╖", "╥╖", "╥")
+
+
+class PatternThickHoriz(PatternNode):
+    """ A node with thicker horizontal connecting lines. """
+    BOTTOM = Symbols.Row("│", "╞╕", "═")
+    TOP = Symbols.Row("│", "╞╛", "═")
+    CONNECTOR = Symbols.Column("│", "││", "│")
+    ENDPIECE = Symbols.Row("╕", "╤╕", "╤")
+
+
+class PatternInversion(PatternThick):
     """ A node whose rule describes an inversion of steno order. These show arrows to indicate reversal. """
-    BOTTOM = Symbols.Row("│", "◄►", "═")
+    BOTTOM = Symbols.Row("║", "◄►", "═")
 
 
 class PatternUnmatched(PatternNode):
     """ A set of unmatched keys. These have broken connectors ending in question marks on both sides. """
-    TOP = Symbols.Row("|", "||", "|")
+    TOP = Symbols.Row("¦", "¦¦", "¦")
     CUSTOM = Symbols.Row("?", "??", "?")
     BOTTOM = CONNECTOR = None
 
