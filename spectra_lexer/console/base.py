@@ -4,7 +4,7 @@ from spectra_lexer import Component, on, pipe
 from spectra_lexer.console.interpreter import InterpreterConsole
 
 
-class ConsoleManager(Component):
+class SpectraConsole(Component):
     """ Component for interactive engine and system interpreter operations. """
 
     ROLE = "console"

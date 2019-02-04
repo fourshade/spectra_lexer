@@ -56,7 +56,7 @@ class ConfigDialog(QDialog):
         ok = QDialogButtonBox.Ok
         self.setObjectName("ConfigDialog")
         self.setWindowTitle("Spectra Configuration")
-        self.resize(220, 300)
+        self.resize(250, 300)
         self.setSizeGripEnabled(False)
         self.layout_main = QGridLayout(self)
         self.layout_main.setObjectName("layout_main")
@@ -75,7 +75,7 @@ class ConfigDialog(QDialog):
         """ (Re)create all tabs and widgets using config info from the dict. """
         self._pages = {}
         self.w_tabs.clear()
-        for (sect, opt_dict) in cfg_info.items():
+        for (sect, opt_dict) in sorted(cfg_info.items()):
             page = OptionPage(opt_dict)
             self._pages[sect] = page
             self.w_tabs.addTab(page, sect)

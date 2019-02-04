@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.dict.manager import ResourceManager
+from spectra_lexer.dict import ResourceManager
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleMapItem, StenoRule
 

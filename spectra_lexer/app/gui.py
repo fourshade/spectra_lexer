@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QApplication
 
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.board import BoardRenderer
-from spectra_lexer.console import ConsoleManager
+from spectra_lexer.console import SpectraConsole
 from spectra_lexer.graph import GraphRenderer
 from spectra_lexer.gui_qt import GUIQt
 
@@ -12,7 +12,7 @@ from spectra_lexer.gui_qt import GUIQt
 GUI_COMPONENTS = [GUIQt,
                   BoardRenderer,
                   GraphRenderer,
-                  ConsoleManager]
+                  SpectraConsole]
 
 
 class GUIQtApplication(SpectraApplication):

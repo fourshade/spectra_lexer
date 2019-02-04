@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from spectra_lexer.dict.manager import ResourceManager
+from spectra_lexer.dict import ResourceManager
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR: str = "~plover/"

@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from spectra_lexer.dict.manager import ResourceManager
+from spectra_lexer.dict import ResourceManager
 from spectra_lexer.utils import str_eval
 
 # File name for the standard user config file (in app data directory).
