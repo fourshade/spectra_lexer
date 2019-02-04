@@ -1,64 +1,36 @@
-from math import ceil, sqrt
-from typing import List
+from typing import Dict, List, Tuple
 
-from PyQt5.QtCore import QXmlStreamReader, QPointF
+from PyQt5.QtCore import QXmlStreamReader, QRectF
 from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
 
 
-# (x, y) offset of viewport from absolute top-left corner of drawing.
-_OFFSET = QPointF(5, 25)
-
-
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _gfx_board: QSvgRenderer  # Painter of base steno board graphic.
-    _draw_list: List[tuple]   # Current list of graphical elements with bounds.
+    _gfx_board: QSvgRenderer      # Painter of base steno board graphic.
+    _draw_list: List[tuple]       # (el, x, y, w, h) graphical elements with bounds.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._gfx_board = QSvgRenderer()
         self._draw_list = []
 
-    def load(self, xml:str) -> None:
-        """ Load the board graphics from an SVG XML string. """
-        self._gfx_board.load(QXmlStreamReader(xml))
+    def load(self, xml:str, ids:List[str]) -> Tuple[Dict[str, tuple], tuple]:
+        """ Load the board graphics from an SVG XML string. Return a dict of bounds for all relevant elements. """
+        g = self._gfx_board
+        g.load(QXmlStreamReader(xml))
+        return {k: g.boundsOnElement(k).getRect() for k in ids}, g.viewBox().getRect()
 
-    def set_elements(self, elements:List[List[str]]) -> None:
-        """ Compute the drawing bounds for the keys of each stroke, then
-            display them on the board diagram by requesting a repaint. """
-        assert elements
-        self.make_draw_list(elements)
+    def set_elements(self, gfx:List[tuple]) -> None:
+        """ Set the current list of element ids and bounds and draw the new elements. """
+        self._draw_list = gfx
         self.update()
-
-    def make_draw_list(self, elements:List[List[str]]) -> None:
-        """ Calculate the bounds of each key on the board diagram.
-            With one stroke only, the diagram fills the entire bounds box.
-            With multiple strokes, each diagram is tiled in a grid layout. """
-        self._draw_list = []
-        get_bounds = self._gfx_board.boundsOnElement
-        n = ceil(sqrt(len(elements)))
-        if n == 1:
-            # Skip the divisions for a single stroke (looks cleaner).
-            self._draw_list = [(k, get_bounds(k).translated(_OFFSET)) for k in elements[0]]
-            return
-        offset_step_x = self.width() / n
-        offset_step_y = self.height() / n
-        for i, stroke in enumerate(elements):
-            steps_y, steps_x = divmod(i, n)
-            for k in stroke:
-                bounds = get_bounds(k).translated(_OFFSET)
-                x, y, width, height = [c / n for c in bounds.getRect()]
-                x += offset_step_x * steps_x
-                y += offset_step_y * steps_y
-                bounds.setCoords(x, y, x + width, y + height)
-                self._draw_list.append((k, bounds))
 
     def paintEvent(self, event:QPaintEvent) -> None:
         """ Display the current steno key set on the board diagram when GUI repaint occurs. """
         p = QPainter(self)
-        g = self._gfx_board
-        for (el, bounds) in self._draw_list:
-            g.render(p, el, bounds)
+        render = self._gfx_board.render
+        for (el, x, y, w, h) in self._draw_list:
+            render(p, el, QRectF(x, y, w, h))

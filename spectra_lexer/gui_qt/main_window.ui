@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>550</width>
+    <width>580</width>
     <height>470</height>
    </rect>
   </property>
@@ -18,7 +18,7 @@
     <normaloff>:/spectra_lexer/icon.svg</normaloff>:/spectra_lexer/icon.svg</iconset>
   </property>
   <widget class="QWidget" name="w_main">
-   <layout class="QGridLayout" name="layout_main" rowminimumheight="22,210,180" columnminimumwidth="150,375">
+   <layout class="QGridLayout" name="layout_main" rowminimumheight="22,210,180" columnminimumwidth="150,275">
     <item row="0" column="0">
      <widget class="QLineEdit" name="w_search_input">
       <property name="enabled">
@@ -270,7 +270,7 @@
       </property>
       <layout class="QVBoxLayout" name="layout_info">
        <property name="spacing">
-        <number>0</number>
+        <number>2</number>
        </property>
        <property name="leftMargin">
         <number>6</number>
@@ -287,15 +287,21 @@
        <item>
         <widget class="QLabel" name="w_display_desc">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
            <horstretch>0</horstretch>
-           <verstretch>1</verstretch>
+           <verstretch>0</verstretch>
           </sizepolicy>
          </property>
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>40</height>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>64</height>
           </size>
          </property>
          <property name="font">
@@ -303,15 +309,6 @@
            <family>Courier New</family>
            <pointsize>10</pointsize>
           </font>
-         </property>
-         <property name="lineWidth">
-          <number>1</number>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="textFormat">
-          <enum>Qt::AutoText</enum>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -321,24 +318,18 @@
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignHCenter">
+       <item>
         <widget class="StenoBoardWidget" name="w_display_board" native="true">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
-           <verstretch>3</verstretch>
+           <verstretch>0</verstretch>
           </sizepolicy>
          </property>
          <property name="minimumSize">
           <size>
-           <width>310</width>
-           <height>120</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>310</width>
-           <height>120</height>
+           <width>0</width>
+           <height>100</height>
           </size>
          </property>
         </widget>
@@ -353,7 +344,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>550</width>
+     <width>580</width>
      <height>21</height>
     </rect>
    </property>

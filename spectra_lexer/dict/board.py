@@ -12,15 +12,18 @@ class BoardManager(ResourceManager):
     ROLE = "dict_board"
     files = [_BOARD_ASSET_NAME]
 
-    def parse(self, d:dict) -> dict:
+    def parse(self, xml_dict:dict) -> dict:
         """ Parse element ID names out of the raw XML string data. """
-        p = ParserCreate()
+        d = {}
         def start_element(name, attrs):
-            if name == "g" and "id" in attrs:
+            if "id" in attrs:
+                attrs["name"] = name
                 d[attrs["id"]] = attrs
+        p = ParserCreate()
         p.StartElementHandler = start_element
-        p.Parse(d["raw"])
-        return d
+        p.Parse(xml_dict["raw"])
+        xml_dict["ids"] = d
+        return xml_dict
 
     def save(self, filename:str, obj:object) -> tuple:
         """ Board graphics data may not be saved back to disk. """
