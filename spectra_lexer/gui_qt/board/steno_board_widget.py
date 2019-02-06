@@ -1,10 +1,14 @@
 from math import ceil, sqrt
 from typing import List
 
-from PyQt5.QtCore import QXmlStreamReader
+from PyQt5.QtCore import QXmlStreamReader, QPointF
 from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
+
+
+# (x, y) offset of viewport from absolute top-left corner of drawing.
+_OFFSET = QPointF(5, 25)
 
 
 class StenoBoardWidget(QWidget):
@@ -38,14 +42,14 @@ class StenoBoardWidget(QWidget):
         n = ceil(sqrt(len(elements)))
         if n == 1:
             # Skip the divisions for a single stroke (looks cleaner).
-            self._draw_list = [(k, get_bounds(k)) for k in elements[0]]
+            self._draw_list = [(k, get_bounds(k).translated(_OFFSET)) for k in elements[0]]
             return
         offset_step_x = self.width() / n
         offset_step_y = self.height() / n
         for i, stroke in enumerate(elements):
             steps_y, steps_x = divmod(i, n)
             for k in stroke:
-                bounds = get_bounds(k)
+                bounds = get_bounds(k).translated(_OFFSET)
                 x, y, width, height = [c / n for c in bounds.getRect()]
                 x += offset_step_x * steps_x
                 y += offset_step_y * steps_y

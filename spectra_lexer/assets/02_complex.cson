@@ -33,7 +33,7 @@
 
   "~shun":  ["-GS",  "shun",     "SPEC", "the SHUN sound"],
   "~kshun": ["-BGS", "kshun",    "SPEC", "the KSHUN sound; overlap of `k` and `shun`"],
-  ".gion":  ["-GS",  "gion",     "RARE", "the JEN sound"],
+  ".gion":  ["-GS",  "gion",     "RARE", "the GEN sound"],
 
   # vowels
   "y":   ["EU",  "y",  "",     "used as `y` at the end of words"],
