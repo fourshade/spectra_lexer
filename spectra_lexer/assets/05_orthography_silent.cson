@@ -14,6 +14,7 @@
   "sch.+":["SK",    "(s.)(ch.+)", "", "hard `sch` prefix"],
 
   # right bank
+  ".ch+": ["-BG",   "(.c)h",      "", "hard `c`, `h` is silent"],
   ".gn":  ["-PB",   "g(.n)",      "", "`g` is silent"],
   ".ght": ["-T",    "gh(.t)",     "", "`gh` is silent"],
   ".rve": ["-FRB",  "(.rv)e",     "", "`rv` coda must end with silent `e`"],

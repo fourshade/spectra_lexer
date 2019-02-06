@@ -36,13 +36,13 @@
   ".gion":  ["-GS",  "gion",     "RARE", "the JEN sound"],
 
   # vowels
-  "y":   ["EU",  "y",  "", "used as `y` at the end of words"],
-  "a_e": ["AE",  "a",  "", "spelling of `a_e` is AE for vowel sound conflicts with `ai`"],
-  "ei+": ["AE",  "ei", "", "spelling of `ei` is AE for vowel sound conflicts with `ai`", "WAET → weight"],
-  "ea+": ["AE",  "ea", "", "spelling of `ea` is AE for vowel sound conflicts"],
-  "oa":  ["AO",  "oa", "", "spelling of `oa` is AO for vowel sound conflicts"],
-  "oo":  ["AO",  "oo", "", "spelling of `oo` is always AO"],
-  "au":  ["AU",  "au", "", "the `au` sound"],
-  "ou":  ["OU",  "ou", "", "the `ou` sound"],
-  "oi":  ["OEU", "oi", "", "the `oi` sound"]
+  "y":   ["EU",  "y",  "",     "used as `y` at the end of words"],
+  "a_e": ["AE",  "a",  "",     "spelling of `a_e` is AE for vowel sound conflicts with `ai`"],
+  "ei+": ["AE",  "ei", "",     "spelling of `ei` is AE for vowel sound conflicts with `ai`", "WAET → weight"],
+  "ea+": ["AE",  "ea", "",     "spelling of `ea` is AE for vowel sound conflicts"],
+  "oa":  ["AO",  "oa", "",     "spelling of `oa` is AO for vowel sound conflicts"],
+  "oo":  ["AO",  "oo", "",     "spelling of `oo` is always AO"],
+  "au":  ["AU",  "au", "",     "the `au` sound"],
+  "ou":  ["OU",  "ou", "",     "the `ou` sound"],
+  "oi":  ["OEU", "oi", "",     "the `oi` sound"]
 }

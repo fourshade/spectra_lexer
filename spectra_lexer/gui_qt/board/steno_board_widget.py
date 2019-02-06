@@ -1,12 +1,10 @@
 from math import ceil, sqrt
 from typing import List
 
+from PyQt5.QtCore import QXmlStreamReader
 from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
-
-# Qt resource identifier for the main SVG graphic (containing every element needed).
-BOARD_GFX:str = ':/spectra_lexer/board.svg'
 
 
 class StenoBoardWidget(QWidget):
@@ -17,8 +15,12 @@ class StenoBoardWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._gfx_board = QSvgRenderer(BOARD_GFX)
+        self._gfx_board = QSvgRenderer()
         self._draw_list = []
+
+    def load(self, xml:str) -> None:
+        """ Load the board graphics from an SVG XML string. """
+        self._gfx_board.load(QXmlStreamReader(xml))
 
     def set_elements(self, elements:List[List[str]]) -> None:
         """ Compute the drawing bounds for the keys of each stroke, then

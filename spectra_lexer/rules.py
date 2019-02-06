@@ -10,10 +10,10 @@ class RuleFlags(Constants):
     STROKE = "STRK"    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
     WORD = "WORD"      # Exact match for a single word. These rules do not adversely affect lexer performance.
     RARE = "RARE"      # Rule applies to very few words and could specifically cause false positives.
-    GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
     INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to the parent.
     UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
     SEPARATOR = "SEP"  # Stroke separator. This one might not be truly considered a rule at all.
+    GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
 
 
 class StenoRule(NamedTuple):

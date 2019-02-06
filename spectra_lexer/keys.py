@@ -68,10 +68,6 @@ class StenoKeys(str):
     def first_stroke(self) -> str:
         return str_prefix(self, KEY_SEP)
 
-    def for_display(self) -> List[Tuple[str, bool]]:
-        """ Generate a list of strokes along with whether or not they have been shifted with the number key. """
-        return [(s, KEY_NUMBER in s) for s in self.split(KEY_SEP)]
-
     def has_separator(self) -> bool:
         """ Is there one or more stroke separators in the current key set? """
         return KEY_SEP in self

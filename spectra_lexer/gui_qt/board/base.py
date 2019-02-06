@@ -19,6 +19,11 @@ class GUIQtBoardDisplay(Component):
         super().__init__()
         self.w_desc, self.w_board = widgets
 
+    @on("new_board")
+    def set_gfx(self, xml_dict:dict) -> None:
+        """ Load the board graphics from the raw characters of an SVG XML file. """
+        self.w_board.load(xml_dict["raw"])
+
     @on("new_board_info")
     def display_board(self, elements:List[List[str]], description:str) -> None:
         """ Generate steno board diagram elements and display them along with the rule description. """

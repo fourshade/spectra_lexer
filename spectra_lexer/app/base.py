@@ -16,6 +16,7 @@ BASE_COMPONENTS = [FileHandler,
                    SearchEngine,
                    StenoLexer]
 
+
 class SpectraApplication:
     """ Base class for fundamental operations of the Spectra lexer. """
 

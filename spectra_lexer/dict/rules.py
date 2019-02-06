@@ -11,8 +11,8 @@ _RIGHT_BRACKETS = r'\)\]'
 
 # Rule substitutions must match a left bracket, one or more non-brackets, and a right bracket.
 _SUBRULE_RX = re.compile(r'[{}]'.format(_LEFT_BRACKETS) +
-                        r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
-                        r'[{}]'.format(_RIGHT_BRACKETS))
+                         r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
+                         r'[{}]'.format(_RIGHT_BRACKETS))
 
 # Resource glob pattern for the built-in JSON-based rules files.
 _RULES_ASSET_PATTERN = ":/*.cson"
