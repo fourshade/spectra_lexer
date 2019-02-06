@@ -20,16 +20,16 @@ GUI_COMPONENTS = [GUIQt,
 class GUIQtApplication(SpectraApplication):
     """ Class for operation of the Spectra program in a GUI. """
 
-    def __init__(self, *components:type):
+    def __init__(self, *cls_iter:type):
         """ The Qt widgets take direct orders from the GUIQt component and its children.
             Other components provide support services for interactive tasks. """
-        super().__init__(*GUI_COMPONENTS, *components)
+        super().__init__(*GUI_COMPONENTS, *cls_iter)
 
-    def start(self, *cmd_args:str, **opts) -> None:
+    def start(self, **opts) -> None:
         """ Load the board SVG asset and add the app's engine and components to the console on startup. """
-        opts["board"] = ()
-        opts["console_vars"] = {"engine": self.engine, **{c.ROLE: c for c in self.components}}
-        super().start(*cmd_args, **opts)
+        cvars = {"engine": self.engine, **{c.ROLE: c for c in self.root.components}}
+        all_opts = {"board": (), "console_vars": cvars, **opts}
+        super().start(**all_opts)
 
 
 def main() -> None:

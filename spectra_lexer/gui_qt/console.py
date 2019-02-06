@@ -1,3 +1,5 @@
+import sys
+import traceback
 from functools import partial
 
 from PyQt5.QtWidgets import QWidget
@@ -7,11 +9,12 @@ from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 
 class GUIQtConsoleDisplay(Component):
-    """ GUI operations class for displaying console output and receiving text input from the keyboard. """
+    """ GUI operations class for displaying console output and receiving text input from the keyboard.
+        Also displays exceptions. May allow the console to examine them further in the future. """
 
     ROLE = "gui_console"
 
-    w_text: TextGraphWidget    # Displays console prompts, input, and output.
+    w_text: TextGraphWidget  # Displays console prompts, input, and output.
 
     def __init__(self, *widgets:QWidget):
         super().__init__()
@@ -28,3 +31,13 @@ class GUIQtConsoleDisplay(Component):
     def display_console(self, text:str, **kwargs) -> None:
         """ Display a new window of console output plaintext in the main text widget and start accepting input. """
         self.w_text.set_interactive_text(text, keyboard=True, **kwargs)
+
+    @on("new_exception")
+    def handle_exception(self, e:Exception) -> bool:
+        """ The stack trace for unhandled exceptions is displayed in plaintext with no interaction flags.
+            To avoid crashing Plover, exceptions are suppressed (by returning True) after display. """
+        tb_lines = traceback.TracebackException.from_exception(e).format()
+        tb_text = "".join(tb_lines)
+        sys.stderr.write(tb_text)
+        self.w_text.set_interactive_text(tb_text)
+        return True

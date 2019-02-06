@@ -28,7 +28,7 @@ def main() -> None:
         app.start(file_in, file_out)
         print("Processing done.")
     except ValueError:
-        print("Not enough arguments. Need a translation input file and a rule output file.")
+        print("Wrong number of arguments. Need a translation input file and a rule output file.")
 
 
 if __name__ == '__main__':

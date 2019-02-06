@@ -7,13 +7,12 @@ from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 
 class GUIQtTextDisplay(Component):
-    """ GUI operations class for displaying text graphs and finding the mouse position by character.
-        Also displays engine output such as status messages and provides an output surface for exceptions. """
+    """ GUI operations class for displaying status and text graphs, and finding the mouse position by character. """
 
     ROLE = "gui_text"
 
-    w_title: QLineEdit         # Displays status messages and mapping of keys to word.
-    w_text: TextGraphWidget    # Displays formatted text breakdown graph.
+    w_title: QLineEdit       # Displays status messages and mapping of keys to word.
+    w_text: TextGraphWidget  # Displays formatted text breakdown graph.
 
     def __init__(self, *widgets:QWidget):
         super().__init__()
@@ -28,11 +27,6 @@ class GUIQtTextDisplay(Component):
     def display_status(self, msg:str) -> None:
         """ Display engine status and general output messages in the title bar. """
         self.w_title.setText(msg)
-
-    @on("new_exception_text")
-    def display_exception(self, text:str) -> None:
-        """ Display an exception traceback in plaintext with no interaction flags. """
-        self.w_text.set_text(text)
 
     @on("new_graph_text")
     def display_graph(self, text:str, **kwargs) -> None:

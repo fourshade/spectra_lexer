@@ -1,9 +1,5 @@
 from collections import defaultdict
-from threading import Lock, RLock
 from typing import Any, Dict, Hashable
-
-from spectra_lexer import Component
-from spectra_lexer.utils import nop
 
 
 class SpectraEngine:
@@ -46,49 +42,26 @@ class SpectraEngine:
     any actual software functionality should be implemented in one of the component classes.
     """
 
-    _commands: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
-    _exception_callback: callable    # Application-provided callback for exception handling.
-    _lock: Lock                      # Counts levels of re-entrancy for engine calls.
+    _cmd_dict: Dict[Hashable, list]  # Mappings for every command to a list of registered functions/dispatchers.
 
-    def __init__(self, on_exception:callable=nop):
-        """ Initialize the engine's structures and exception handler (defaulting to none/re-raising automatically). """
-        self._commands = defaultdict(list)
-        self._exception_callback = on_exception
-        self._lock = RLock()
+    def __init__(self, commands:list):
+        """ Initialize the engine with (key, (func, dispatch)) command tuples. """
+        d = self._cmd_dict = defaultdict(list)
+        for (k, cmd) in commands:
+            d[k].append(cmd)
 
-    def connect(self, component:Component) -> None:
-        """ Add the component's commands to the engine and set its callback. Commands execute in reverse order. """
-        for (k, c) in component.engine_connect(self.call):
-            self._commands[k].insert(0, c)
-
-    def call(self, cmd_key:Hashable, *args, **kwargs) -> Any:
-        """ Top-level method for engine calls. Checks exceptions with a custom handler.
-            This method is re-entrant, so we need to track the re-entrancy level for exception handling. """
+    def call(self, cmd_key:Hashable, *args, is_top:bool=True, **kwargs) -> Any:
+        """ Re-entrant method for engine calls. Checks exceptions with a custom handler. """
         try:
-            # Add all commands to the stack. If there is at least one, run the first one and store the value.
-            # If there is more than one, run them until the stack is exhausted, but still return the first value.
-            stack = self._get_commands(cmd_key, args, kwargs)
-            if stack:
-                with self._lock:
-                    value = self._run_next(stack)
-                    while stack:
-                        self._run_next(stack)
-                    return value
+            value = None
+            # Run all commands under this key and return the last value.
+            for func, dispatch in self._cmd_dict[cmd_key]:
+                value = func(*args, **kwargs)
+                if value is not None and dispatch is not None:
+                    cmd_key, c_args, c_kwargs = dispatch(value)
+                    self.call(cmd_key, *c_args, is_top=False, **c_kwargs)
+            return value
         except Exception as e:
             # The caller may want to catch this exception, so don't catch it here unless this is the top level.
-            # If this isn't the top level or the handler fails, re-raise.
-            if self._lock._is_owned() or not self._exception_callback(e):
+            if not is_top or not self.call("new_exception", e):
                 raise
-
-    def _run_next(self, stack:list) -> Any:
-        """ Call the next valid command in order. The target may dispatch its result to another command.
-            Each command added this way goes on the stack without returning. """
-        func, dispatch, args, kwargs = stack.pop()
-        value = func(*args, **kwargs)
-        if value is not None and dispatch is not None:
-            stack += self._get_commands(*dispatch(value))
-        return value
-
-    def _get_commands(self, cmd_key:Hashable, args:tuple, kwargs:dict) -> list:
-        """ Make a list of commands from valid components in order under the given key with the arguments added. """
-        return [(func, dispatch, args, kwargs) for (func, dispatch) in self._commands[cmd_key]]

@@ -10,19 +10,20 @@ from spectra_lexer.gui_qt.search import GUIQtSearch
 from spectra_lexer.gui_qt.text import GUIQtTextDisplay
 from spectra_lexer.gui_qt.window import GUIQtWindow
 
+# Subcomponents of the GUI with their widget sections. Some components may use the same section.
+COMPONENTS = {GUIQtMenu:           "menu",
+              GUIQtSearch:         "search",
+              GUIQtWindow:         "window",
+              GUIQtConfig:         "window",
+              GUIQtBoardDisplay:   "board",
+              GUIQtTextDisplay:    "text",
+              GUIQtConsoleDisplay: "text"}
+
 
 class GUIQt(Composite):
     """ Top-level component of the GUI Qt package. Central constructor/container for all other Qt-based components. """
 
     ROLE = "gui"
-    # Subcomponents of the GUI with their widget sections. Some components may use the same section.
-    COMPONENTS = {GUIQtMenu:           "menu",
-                  GUIQtSearch:         "search",
-                  GUIQtWindow:         "window",
-                  GUIQtConfig:         "window",
-                  GUIQtBoardDisplay:   "board",
-                  GUIQtTextDisplay:    "text",
-                  GUIQtConsoleDisplay: "text"}
 
     window: MainWindow  # Main window must be publicly accessible for the Plover plugin.
 
@@ -30,4 +31,4 @@ class GUIQt(Composite):
         """ Create the main window and assemble all child components with their required widgets. """
         self.window = MainWindow()
         cmp_args = self.window.partition()
-        super().__init__([cmp_args[w] for w in self.COMPONENTS.values()])
+        super().__init__(*COMPONENTS, args_iter=[cmp_args[w] for w in COMPONENTS.values()])
