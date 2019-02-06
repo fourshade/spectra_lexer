@@ -1,9 +1,13 @@
-""" Base module of the Spectra lexer package. Contains the most fundamental components. Don't touch anything... """
+""" Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
 from typing import ClassVar, Iterable, List
 
-from spectra_lexer.engine import SpectraEngine
+from spectra_lexer.core.control import control_decorator, dispatch
+from spectra_lexer.core.engine import SpectraEngine
 from spectra_lexer.utils import nop
+
+on = respond_to = control_decorator(None)  # Call the command and do nothing else.
+pipe = fork = control_decorator(dispatch)  # Call the command and pipe its return value to another command.
 
 
 class Component:
@@ -11,7 +15,7 @@ class Component:
     Base class for any component that sends and receives commands from the Spectra engine.
     It is the root class of the Spectra lexer object hierarchy, being subclassed directly
     or indirectly by nearly every important (externally-visible) piece of the program.
-    As such, it cannot depend on anything inside the package itself except pure utility functions.
+    As such, it cannot depend on anything except core helpers and pure utility functions.
     """
 
     # Standard identifier for a component's function, usable in many ways (i.e. # config page).
