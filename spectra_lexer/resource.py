@@ -6,29 +6,22 @@ from spectra_lexer.utils import merge
 
 
 class ResourceManager(Component):
-    """ Handles conversion and parsing required for file operations on specific resource types. """
-
-    ROLE = "dict"
+    """ Base class for conversion, parsing, and other file operations on specific resource types. """
 
     files: Sequence[str] = ()  # Input filenames overridden by subclass default parameters or the command line.
 
     def __init_subclass__(cls) -> None:
         """ Create command decorators for each subclass based on its role/resource type. """
-        s = cls._SUBTYPE()
-        cls.start = pipe("start", "dict_load_"+s, unpack=True)(partialmethod(cls.start))
-        cls.load = fork("dict_load_"+s, "new_"+s)(partialmethod(cls.load))
-        cls.save = pipe("dict_save_"+s, "file_save", unpack=True)(partialmethod(cls.save))
+        s = cls.ROLE
+        cls.start = pipe("start", s + "_load", unpack=True)(partialmethod(cls.start))
+        cls.load = fork(s + "_load", "new_" + s)(partialmethod(cls.load))
+        cls.save = pipe(s + "_save", "file_save", unpack=True)(partialmethod(cls.save))
         super().__init_subclass__()
-
-    @classmethod
-    def _SUBTYPE(cls) -> str:
-        """ The last part of the role name is both the command suffix and the command line file option. """
-        return cls.ROLE.rsplit("_", 1)[-1]
 
     def start(self, **opts) -> object:
         """ If there is a command line option for this component, even if empty, attempt to load its resource.
             If the option is not empty (or otherwise evaluates True), also save it over the default first. """
-        file = opts.get(self._SUBTYPE())
+        file = opts.get(self.ROLE)
         if file is not None:
             if file:
                 self.files = [file]

@@ -1,8 +1,10 @@
+from collections import defaultdict
 from functools import partial
 
 from PyQt5.QtWidgets import QMainWindow
 
 from spectra_lexer import Component, on, pipe
+from spectra_lexer.config import CFGOption
 from spectra_lexer.gui_qt.config.config_dialog import ConfigDialog
 
 
@@ -14,12 +16,12 @@ class GUIQtConfig(Component):
     window: QMainWindow          # Main window object. Must be the parent of any new dialogs.
     dialog: ConfigDialog = None  # Main dialog object. Should persist when closed/hidden.
 
-    _cfg_info: dict              # Dict with detailed config info from active components.
+    _cfg_info: defaultdict       # Dict with detailed config info from active components.
 
     def __init__(self, window:QMainWindow):
         super().__init__()
         self.window = window
-        self._cfg_info = {}
+        self._cfg_info = defaultdict(dict)
 
     @on("start")
     def start(self, show_menu=True, **opts) -> None:
@@ -28,9 +30,9 @@ class GUIQtConfig(Component):
             self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
 
     @on("new_config_info")
-    def set_config_info(self, role:str, cfg_info:dict):
-        """ Store a single component's full set of config info by role. """
-        self._cfg_info[role] = cfg_info
+    def set_config_info(self, role:str, key:str, option:CFGOption):
+        """ Store a single config option by owner role and option key. """
+        self._cfg_info[role][key] = option
 
     @on("gui_config_open")
     def open(self) -> None:
@@ -46,5 +48,5 @@ class GUIQtConfig(Component):
     def save(self) -> dict:
         """ Gather the changed settings from the dialog, send them to the components, and save them to disk. """
         d = self.dialog.save_settings()
-        self.engine_call("dict_save_config", None, d)
+        self.engine_call("config_save", None, d)
         return d

@@ -4,11 +4,12 @@ from typing import Dict, List, Tuple
 
 from spectra_lexer import on, pipe
 from spectra_lexer.board.matcher import ElementMatcher
-from spectra_lexer.config import Configurable, CFGOption
+from spectra_lexer.board.svg import SVGManager
+from spectra_lexer.config import CFGOption
 from spectra_lexer.rules import RuleFlags, StenoRule
 
 
-class BoardRenderer(Configurable):
+class BoardRenderer(SVGManager):
     """ Creates graphics and description strings for the board diagram. """
 
     ROLE = "board"

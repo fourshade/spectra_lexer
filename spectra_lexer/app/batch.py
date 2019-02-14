@@ -11,10 +11,10 @@ class BatchApplication(SpectraApplication):
     def start(self, file_in:str, file_out:str, **opts) -> None:
         """ Load translations from a file, run each one through the lexer, and save the results to a rules file. """
         super().start(**opts)
-        d = self.engine.call("dict_load_translations", [file_in])
+        d = self.engine.call("translations_load", [file_in])
         call_lexer = partial(self.engine.call, "lexer_query")
         results = list(starmap(call_lexer, d.items()))
-        self.engine.call("dict_save_rules", file_out, results)
+        self.engine.call("rules_save", file_out, results)
 
 
 def main() -> None:

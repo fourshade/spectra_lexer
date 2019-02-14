@@ -2,15 +2,15 @@ from functools import partial
 from itertools import product
 from typing import Dict, Iterable, Tuple
 
-from spectra_lexer import fork, on
-from spectra_lexer.config import Configurable, CFGOption
+from spectra_lexer import Component, fork, on
+from spectra_lexer.config import CFGOption
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.lexer.match import LexerRuleMatcher
 from spectra_lexer.lexer.results import LexerResults
 from spectra_lexer.rules import RuleMapItem, StenoRule
 
 
-class StenoLexer(Configurable):
+class StenoLexer(Component):
     """
     The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.

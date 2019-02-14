@@ -5,7 +5,7 @@ from functools import partial
 from PyQt5.QtWidgets import QWidget
 
 from spectra_lexer import Component, on
-from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
+from spectra_lexer.gui_qt.graph.text_graph_widget import TextGraphWidget
 
 
 class GUIQtConsoleDisplay(Component):

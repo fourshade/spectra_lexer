@@ -1,15 +1,14 @@
 from xml.parsers.expat import ParserCreate
 
-from spectra_lexer.dict import ResourceManager
+from spectra_lexer.resource import ResourceManager
 
 # Resource identifier for the main SVG graphic (containing every element needed).
 _BOARD_ASSET_NAME: str = ':/board.svg'
 
 
-class BoardManager(ResourceManager):
+class SVGManager(ResourceManager):
     """ SVG board diagram parser for the Spectra program. Saving is not allowed. """
 
-    ROLE = "dict_board"
     files = [_BOARD_ASSET_NAME]
 
     def parse(self, xml_dict:dict) -> dict:

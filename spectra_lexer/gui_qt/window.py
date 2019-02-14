@@ -26,11 +26,11 @@ class GUIQtWindow(Component):
             self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)
         self.window.show()
 
-    @pipe("gui_window_load_rules", "dict_load_rules")
+    @pipe("gui_window_load_rules", "rules_load")
     def load_rules(self) -> Optional[list]:
         return self._dialog_load("rules")
 
-    @pipe("gui_window_load_translations", "dict_load_translations")
+    @pipe("gui_window_load_translations", "translations_load")
     def load_translations(self) -> Optional[list]:
         return self._dialog_load("translations")
 

@@ -9,14 +9,12 @@ import pytest
 
 from spectra_lexer import Component
 from spectra_lexer.board import BoardRenderer
-from spectra_lexer.dict import BoardManager
-from spectra_lexer.dict.rules import RulesManager
-from spectra_lexer.dict.translations import TranslationsManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.graph import GraphRenderer
-from spectra_lexer.rules import RuleFlags
+from spectra_lexer.rules import RuleFlags, RulesManager
 from spectra_lexer.search import SearchEngine
+from spectra_lexer.translations import TranslationsManager
 from test import get_test_filename
 
 
@@ -32,21 +30,21 @@ def direct_connect(cmp:Component, subcmp:Component) -> None:
 
 # Create components for the tests in order as we need them.
 FILE = FileHandler()
-DICT_R = RulesManager()
-direct_connect(DICT_R, FILE)
+RULES = RulesManager()
+direct_connect(RULES, FILE)
 
 
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in DICT_R._load(DICT_R.files):
+    for d in RULES._load(RULES.files):
         # Check for rules that have identical names (keys)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
         full_dict.update(d)
 
 
-RULES_DICT = DICT_R.load()
+RULES_DICT = RULES.load()
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -71,9 +69,9 @@ def test_rules(r):
         assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
 
 
-DICT_T = TranslationsManager()
-direct_connect(DICT_T, FILE)
-TRANSLATIONS_DICT = DICT_T.load([get_test_filename()])
+TRANSLATIONS = TranslationsManager()
+direct_connect(TRANSLATIONS, FILE)
+TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename()])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_rules(RULES_DICT)
@@ -105,10 +103,9 @@ def test_search(trial):
     assert word in SEARCH.search(re.escape(word), None, "reverse", True)
 
 
-DICT_B = BoardManager()
-direct_connect(DICT_B, FILE)
-BOARD_DICT = DICT_B.load()
 BOARD = BoardRenderer()
+direct_connect(BOARD, FILE)
+BOARD_DICT = BOARD.load()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_elements(BOARD_DICT)
 

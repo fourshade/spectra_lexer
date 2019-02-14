@@ -7,7 +7,7 @@ from spectra_lexer.gui_qt.console import GUIQtConsoleDisplay
 from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.gui_qt.menu import GUIQtMenu
 from spectra_lexer.gui_qt.search import GUIQtSearch
-from spectra_lexer.gui_qt.text import GUIQtTextDisplay
+from spectra_lexer.gui_qt.graph import GUIQtTextDisplay
 from spectra_lexer.gui_qt.window import GUIQtWindow
 
 # Subcomponents of the GUI with their widget sections. Some components may use the same section.

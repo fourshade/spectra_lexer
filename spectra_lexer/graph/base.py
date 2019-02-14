@@ -1,13 +1,13 @@
 from typing import Optional
 
-from spectra_lexer import pipe
-from spectra_lexer.config import Configurable, CFGOption
+from spectra_lexer import Component, pipe
+from spectra_lexer.config import CFGOption
 from spectra_lexer.graph.node import GraphNode
 from spectra_lexer.graph.text import TextGraph
 from spectra_lexer.rules import StenoRule
 
 
-class GraphRenderer(Configurable):
+class GraphRenderer(Component):
     """ Main component class for creating and formatting a monospaced text graph.
         The graph object itself does most of the work; this one just exists to pass messages. """
 

@@ -5,13 +5,11 @@ from PyQt5.QtWidgets import QApplication
 from spectra_lexer.app import SpectraApplication
 from spectra_lexer.board import BoardRenderer
 from spectra_lexer.console import SpectraConsole
-from spectra_lexer.dict import BoardManager
 from spectra_lexer.graph import GraphRenderer
 from spectra_lexer.gui_qt import GUIQt
 
 # Components specifically used by the GUI. Without the GUI, these components do no good.
 GUI_COMPONENTS = [GUIQt,
-                  BoardManager,
                   BoardRenderer,
                   GraphRenderer,
                   SpectraConsole]
