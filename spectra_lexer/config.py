@@ -11,35 +11,37 @@ class CFGOption:
     name: str    # Name as shown on config page.
     desc: str    # Description as shown on config page.
 
-    def __init__(self, default, name, desc):
+    def __init__(self, default:object, name:str, desc:str):
         self.val = default
         self.tp = type(default)
         self.name = name
         self.desc = desc
 
-    def __get__(self, instance: Component, owner: type) -> object:
+    def __get__(self, instance:Component, owner:type) -> object:
         """ Config options are accessed through the descriptor by the component itself. """
         return self.val
+
+    def __set__(self, instance:Component, value:object) -> None:
+        """ Config values typically come from strings, so they must be converted to the type of the default. """
+        self.val = self.tp(value)
+
+    def __set_name__(self, owner:type, name:str) -> None:
+        """ Add the option to the class config dict under its name. """
+        if not hasattr(owner, "cfg_dict"):
+            owner.cfg_dict = {}
+        owner.cfg_dict[name] = self
 
 
 class Configurable(Component):
     """ Component that uses user-configurable values. Requires ConfigManager to update these values from defaults. """
 
-    _cfg_dict: dict  # Local dict for this component's config option objects.
-
-    def __init_subclass__(cls) -> None:
-        """ Create the initial config dict from all config options defined in the class body. """
-        super().__init_subclass__()
-        cls._cfg_dict = {k: v for (k, v) in cls.__dict__.items() if isinstance(v, CFGOption)}
+    cfg_dict: dict  # Local dict for this component's config option objects.
 
     @pipe("new_config", "new_config_info", unpack=True)
-    @classmethod
-    def configure(cls, cfg_data:dict):
+    def configure(self, cfg_data:dict) -> tuple:
         """ Overwrite (and convert) config values with data read from disk for this role (if any).
             Send detailed info about this component's configuration to components such as the config editor. """
-        new_data = cfg_data.get(cls.ROLE, {})
-        for (k, v) in new_data.items():
-            option = cls._cfg_dict.get(k)
-            if option is not None:
-                option.val = option.tp(v)
-        return cls.ROLE, cls._cfg_dict
+        d = cfg_data.get(self.ROLE, {})
+        for k, v in d.items():
+            setattr(self, k, v)
+        return self.ROLE, self.cfg_dict

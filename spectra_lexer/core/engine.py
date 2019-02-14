@@ -55,11 +55,12 @@ class SpectraEngine:
         try:
             value = None
             # Run all commands under this key and return the last value.
-            for func, dispatch in self._cmd_dict[cmd_key]:
+            for func, next_key, unpack, cmd_kwargs in self._cmd_dict[cmd_key]:
                 value = func(*args, **kwargs)
-                if value is not None and dispatch is not None:
-                    cmd_key, c_args, c_kwargs = dispatch(value)
-                    self.call(cmd_key, *c_args, is_top=False, **c_kwargs)
+                # If there's a follow-up command to run and the output value wasn't None, run it with that value.
+                if value is not None and next_key is not None:
+                    next_args = value if unpack else (value,)
+                    self.call(next_key, *next_args, is_top=False, **cmd_kwargs)
             return value
         except Exception as e:
             # The caller may want to catch this exception, so don't catch it here unless this is the top level.

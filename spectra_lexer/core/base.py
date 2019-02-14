@@ -1,13 +1,21 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import ClassVar, Iterable, List
+from typing import ClassVar, Hashable, Iterable, List
 
-from spectra_lexer.core.control import control_decorator, dispatch
 from spectra_lexer.core.engine import SpectraEngine
 from spectra_lexer.utils import nop
 
-on = respond_to = control_decorator(None)  # Call the command and do nothing else.
-pipe = fork = control_decorator(dispatch)  # Call the command and pipe its return value to another command.
+
+def pipe(cmd_key:Hashable, next_key:Hashable=None, unpack:bool=False, **cmd_kwargs) -> callable:
+    """ Decorator for component engine command flow. """
+    def base_decorator(func:callable) -> callable:
+        """ Call the command and unpack/pipe its return value to another command. """
+        func.cmd = (cmd_key, next_key, unpack, cmd_kwargs)
+        return func
+    return base_decorator
+
+
+on = respond_to = fork = pipe
 
 
 class Component:
@@ -29,7 +37,7 @@ class Component:
             Each engine-callable method (class attribute) has its command info saved on attributes.
             Save each of these to a list. Combine it with the parent's command list to make a new child list.
             This new combined list covers the full inheritance tree. Parent commands execute first. """
-        cmd_list = [(attr, func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
+        cmd_list = [(attr, *func.cmd) for attr, func in cls.__dict__.items() if hasattr(func, "cmd")]
         cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
 
     def engine_connect(self, cb:callable) -> None:
@@ -37,9 +45,9 @@ class Component:
         self.engine_call = cb
 
     def engine_commands(self) -> List[tuple]:
-        """ Bind all class command functions to the instance and return the raw (key, (func, dispatch)) command tuples.
-            Each command has a main callable followed by one with instructions on what to execute next. """
-        return [(key, (getattr(self, attr), dispatch)) for (attr, (key, dispatch)) in self._cmd_attr_list]
+        """ Bind all class command functions to the instance and return the raw (key, (func, ...)) command tuples.
+            Each command has a main callable followed by optional instructions on what to execute next. """
+        return [(key, (getattr(self, attr), *args)) for (attr, key, *args) in self._cmd_attr_list]
 
 
 class Composite(Component):
