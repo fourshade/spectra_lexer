@@ -12,8 +12,8 @@ class GraphRenderer(Configurable):
         The graph object itself does most of the work; this one just exists to pass messages. """
 
     ROLE = "graph"
-    recursive: bool = CFGOption(False,  "Recursive Graph",    "Include rules that make up other rules.")
-    compressed: bool = CFGOption(False, "Compressed Display", "Compress the graph vertically to save space.")
+    recursive: bool = CFGOption(True,  "Recursive Graph",    "Include rules that make up other rules.")
+    compressed: bool = CFGOption(True, "Compressed Display", "Compress the graph vertically to save space.")
 
     _graph: TextGraph = None      # Generates text graphs and processes selections.
     _last_node: GraphNode = None  # Most recent node from a select event (for identity matching).

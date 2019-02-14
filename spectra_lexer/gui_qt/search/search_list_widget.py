@@ -1,6 +1,7 @@
 from typing import List, Union
 
 from PyQt5.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel, QStringListModel, Qt
+from PyQt5.QtGui import QWheelEvent
 from PyQt5.QtWidgets import QListView
 
 
@@ -42,3 +43,16 @@ class SearchListWidget(QListView):
         if idxs:
             item = self.model().data(idxs[0], Qt.DisplayRole)
             self.itemSelected.emit(item)
+
+    def wheelEvent(self, event:QWheelEvent) -> None:
+        """ Change the font size if Ctrl is held down, otherwise scroll the list as usual. """
+        if not event.modifiers() & Qt.ControlModifier:
+            return super().wheelEvent(event)
+        delta = event.angleDelta().y()
+        sign = delta // abs(delta)
+        font = self.font()
+        new_size = font.pointSize() + sign
+        if 5 < new_size < 100:
+            font.setPointSize(new_size)
+            self.setFont(font)
+        event.accept()

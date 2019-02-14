@@ -39,7 +39,7 @@ class GUIQtSearch(Configurable):
 
     @on("new_translations")
     def set_translations(self, d:dict) -> None:
-        """ For a new search dict, enable/disable searching based on whether or not it's empty. """
+        """ For a new search dict, set up widgets and enable/disable searching based on whether or not it's empty. """
         enabled = bool(d)
         self.input_textbox.clear()
         self.input_textbox.setPlaceholderText("Search..." if enabled else "No dictionaries.")
