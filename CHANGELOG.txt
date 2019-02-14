@@ -1,3 +1,10 @@
+0.6.1
+-----
+* Added most major steno rules to the board diagram
+* Improved board diagram scaling
+* Improved text graph appearance and layout
+* Console now accepts input from main text window
+
 0.6.0
 -----
 * Text graphing code is now vastly improved
