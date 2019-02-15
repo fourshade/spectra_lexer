@@ -1,4 +1,3 @@
-from functools import partial
 from itertools import product
 from typing import Dict, Iterable, Tuple
 
@@ -19,14 +18,23 @@ class StenoLexer(Component):
     ROLE = "lexer"
     need_all_keys: bool = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
 
-    _matcher: LexerRuleMatcher = None  # Master rule-matching dictionary.
-    _results: LexerResults = None      # Container and organizer of valid results for the current query.
+    _matcher: LexerRuleMatcher     # Master rule-matching dictionary.
+    _results: LexerResults = None  # Container and organizer of valid results for the current query.
+
+    def __init__(self) -> None:
+        """ Set up the matcher with an empty rule dictionary. """
+        super().__init__()
+        self._matcher = LexerRuleMatcher()
 
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str, StenoRule]) -> None:
-        """ Set up the rule matcher with a dict of rules and a translation search callback. """
-        search_callback = partial(self.engine_call, "search_lookup")
-        self._matcher = LexerRuleMatcher(rules_dict, search_callback)
+        """ Set up the rule matcher with a dict of rules. """
+        self._matcher.set_rules(rules_dict)
+
+    @on("new_translations")
+    def set_translations(self, d:dict) -> None:
+        """ Set up the rule matcher with an optional translations dict for asterisks. """
+        self._matcher.set_translations(d)
 
     @fork("lexer_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:

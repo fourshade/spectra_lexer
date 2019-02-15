@@ -27,20 +27,18 @@ class LexerRuleMatcher:
     # Separator rule constant (can be tested by identity). This rule is unique in that it is not loaded from JSON.
     _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({RuleFlags.SEPARATOR}), "Stroke separator", ())
 
-    _special_dict: Dict[str, StenoRule]       # Rules that match by reference name.
-    _stroke_dict: Dict[StenoKeys, StenoRule]  # Rules that match by full stroke only.
-    _word_dict: Dict[str, StenoRule]          # Rules that match by exact word only (whitespace-separated).
-    _prefix_tree: OrderedKeyPrefixTree        # Rules that match by starting with a certain number of keys in order.
+    _special_dict: Dict[str, StenoRule] = None       # Rules that match by reference name.
+    _stroke_dict: Dict[StenoKeys, StenoRule] = None  # Rules that match by full stroke only.
+    _word_dict: Dict[str, StenoRule] = None          # Rules that match by exact word only (whitespace-separated).
+    _prefix_tree: OrderedKeyPrefixTree = None        # Rules that match by starting with certain keys in order.
+    _translations: Dict[str, str] = {}               # Optional translation search dict for stroke conflicts.
 
-    _search_callback: callable                # Callback to standard search engine command for strokes.
-
-    def __init__(self, rules_dict:Dict[str, StenoRule], search_callback:callable):
+    def set_rules(self, rules_dict:Dict[str, StenoRule]):
         """ Construct a specially-structured series of dictionaries from a dict of finished rules. """
-        special_dict = {}
-        stroke_dict = {}
-        word_dict = {}
-        prefix_tree = OrderedKeyPrefixTree(_UNORDERED_KEYS)
-        self._search_callback = search_callback
+        special_dict = self._special_dict = {}
+        stroke_dict = self._stroke_dict = {}
+        word_dict = self._word_dict = {}
+        prefix_tree = self._prefix_tree = OrderedKeyPrefixTree(_UNORDERED_KEYS)
         # Sort rules into specific dictionaries based on specific flags for the lexer matching system.
         match_name = RuleFlags.SPECIAL
         match_stroke = RuleFlags.STROKE
@@ -59,11 +57,10 @@ class LexerRuleMatcher:
             # TODO: Only attempt RARE matches after failing with the normal set of rules.
             else:
                 prefix_tree.add_entry(r.keys, r.letters, r)
-        # All internal dictionaries required for active lexer operation go into instance attributes.
-        self._special_dict = special_dict
-        self._stroke_dict = stroke_dict
-        self._word_dict = word_dict
-        self._prefix_tree = prefix_tree
+
+    def set_translations(self, d:dict) -> None:
+        """ Set up an optional translations dict for finding asterisk conflicts. """
+        self._translations = d
 
     def match(self, keys:StenoKeys, letters:str, all_keys:StenoKeys, all_letters:str, rulemap:list) -> Generator:
         """ Yield rules that match the given keys and letters in any of the dictionaries. """
@@ -124,9 +121,9 @@ class LexerRuleMatcher:
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
         if keys.has_separator() ^ any(m.rule.keys.has_separator() for m in rulemap):
             return StarRules.AFFIX
-        # If the search component is loaded with the standard dictionaries, we can check if there's an
-        # entry with every key *except* the star. If there is, it's probably there because of a conflict.
-        if self._search_callback(all_keys.without(KEY_STAR).to_rtfcre()):
+        # If the search component loaded a translations dict, we can check if there's an entry with every key
+        # *except* the star. If there is, it's probably there because of a conflict.
+        if self._translations.get(all_keys.without(KEY_STAR).to_rtfcre()):
             return StarRules.CONFLICT
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
         return StarRules.UNKNOWN

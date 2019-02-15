@@ -15,11 +15,11 @@ class ElementMatcher:
     """ Generates lists of element IDs for stroke diagrams, each of which contains a basic background
         and a number of discrete graphical elements matched to raw keys and/or simple rules. """
 
-    _rules_dict: Dict[str, StenoRule]     # Saved copy of the rules dict for finding element IDs.
-    _rule_elements: Dict[StenoRule, str]  # Dict matching steno rule namedtuples to element ID strings.
-    _sep: str = StenoKeys.separator()     # Pre-made stroke separator.
+    _rules_dict: Dict[str, StenoRule] = {}     # Saved copy of the rules dict for finding element IDs.
+    _rule_elements: Dict[StenoRule, str] = {}  # Dict matching steno rule namedtuples to element ID strings.
+    _sep: str = StenoKeys.separator()          # Pre-made stroke separator.
 
-    def __init__(self, rules_dict:Dict[str, StenoRule]):
+    def set_rules(self, rules_dict:Dict[str, StenoRule]):
         self._rules_dict = rules_dict
 
     def set_rule_elements(self, id_dict:dict) -> None:

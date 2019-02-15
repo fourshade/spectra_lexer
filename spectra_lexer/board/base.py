@@ -15,12 +15,17 @@ class BoardRenderer(SVGManager):
     ROLE = "board"
     show_compound: bool = CFGOption(True, "Compound Key Labels", "Show special labels for compound keys and numbers")
 
-    _matcher: ElementMatcher = None  # Generates the list of element IDs for each stroke of a rule.
+    _matcher: ElementMatcher  # Generates the list of element IDs for each stroke of a rule.
+
+    def __init__(self) -> None:
+        """ Set up the matcher with an empty rule dictionary. """
+        super().__init__()
+        self._matcher = ElementMatcher()
 
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str,StenoRule]) -> None:
         """ Set up the generator with the rule dictionary. """
-        self._matcher = ElementMatcher(rules_dict)
+        self._matcher.set_rules(rules_dict)
 
     @pipe("new_board", "new_board_setup", unpack=True)
     def set_elements(self, xml_dict:dict) -> Tuple[str, List[str]]:
