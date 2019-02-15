@@ -87,20 +87,22 @@ def test_lexer(result):
 
 
 SEARCH = SearchEngine()
-SEARCH.new_search_dict(TRANSLATIONS_DICT)
+SEARCH.set_translations(TRANSLATIONS_DICT)
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
 def test_search(trial):
-    """ Go through each loaded test translation and check the search engine for the mapping in both directions. """
+    """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
-    assert SEARCH.get(keys, "forward") == word
-    assert keys in SEARCH.get(word, "reverse")
-    # Search should return at least the item itself in both directions and in either mode. "
-    assert keys in SEARCH.search(keys, None, "forward", False)
-    assert word in SEARCH.search(word, None, "reverse", False)
-    assert keys in SEARCH.search(re.escape(keys), None, "forward", True)
-    assert word in SEARCH.search(re.escape(word), None, "reverse", True)
+    # Search should return a list containing the item and the item itself in both directions and in either mode.
+    SEARCH.reset()
+    assert SEARCH.on_input(word) == ([word], word)
+    SEARCH.set_mode_strokes(True)
+    assert SEARCH.on_input(keys) == ([keys], keys)
+    SEARCH.set_mode_regex(True)
+    assert SEARCH.on_input(re.escape(keys)) == ([keys], keys)
+    SEARCH.set_mode_strokes(False)
+    assert SEARCH.on_input(re.escape(word)) == ([word], word)
 
 
 BOARD = BoardRenderer()

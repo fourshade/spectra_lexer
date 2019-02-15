@@ -85,13 +85,13 @@ class StenoSearchDictionary:
         simfn, mapfn = _strip_lower_simfns()
         self.reverse = ReverseStringSearchDict(match=raw_dict, simfn=simfn, mapfn=mapfn)
 
-    def get(self, match:str, from_dict:str="forward") -> Union[str,List[str]]:
+    def get(self, match:str, strokes:bool=True) -> Union[str,List[str]]:
         """ Perform a simple lookup as with dict.get. """
-        return getattr(self, from_dict).get(match)
+        return self._get_dict(strokes).get(match)
 
-    def search(self, pattern:str, count:int=None, from_dict:str="forward", regex:bool=False) -> List[str]:
+    def search(self, pattern:str, count:int=None, strokes:bool=True, regex:bool=False) -> List[str]:
         """ Perform a special search for <pattern> with the given dict and mode. Return up to <count> matches. """
-        d = getattr(self, from_dict)
+        d = self._get_dict(strokes)
         if regex:
             try:
                 return d.regex_match_keys(pattern, count)
@@ -99,3 +99,7 @@ class StenoSearchDictionary:
                 return ["REGEX ERROR"]
         else:
             return d.prefix_match_keys(pattern, count)
+
+    def _get_dict(self, strokes:bool) -> StringSearchDict:
+        """ Get the forward dict for stroke lookup or the reverse dict for translations lookup. """
+        return getattr(self, "forward" if strokes else "reverse")

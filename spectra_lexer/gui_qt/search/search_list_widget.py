@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 
 from PyQt5.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel, QStringListModel, Qt
 from PyQt5.QtGui import QWheelEvent
@@ -18,15 +18,13 @@ class SearchListWidget(QListView):
     def set_items(self, s_list:List[str]) -> None:
         self.model().setStringList(s_list)
 
-    def select(self, key:Union[int, str]) -> None:
-        """ Programmatically select a specific item by index or first instance.
+    def select(self, key:str) -> None:
+        """ Programmatically select a specific item by first instance (if it exists).
             Suppress signals to keep from tripping the selectionChanged event. """
-        if isinstance(key, str):
-            # The item *should* always exist, but if it doesn't, do nothing.
-            try:
-                key = self.model().stringList().index(key)
-            except ValueError:
-                return
+        try:
+            key = self.model().stringList().index(key)
+        except ValueError:
+            return
         idx = self.model().index(key, 0)
         self.blockSignals(True)
         self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)

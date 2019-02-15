@@ -1,6 +1,7 @@
-from typing import Union, List
+from typing import List, Optional, Tuple
 
-from spectra_lexer import Component, on, respond_to
+from spectra_lexer import Component, on, pipe
+from spectra_lexer.config import CFGOption
 from spectra_lexer.search.steno_dict import StenoSearchDictionary
 
 
@@ -8,24 +9,95 @@ class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
 
     ROLE = "search"
+    match_limit: int = CFGOption(100, "Match Limit", "Maximum number of matches returned by a search.")
 
-    translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
+    _translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
+    _last_input: str = ""                 # Last known state of user textbox input.
+    _last_match: str = ""                 # Last search match selected by the user in the list.
+    _mode_strokes: bool = False           # If True, search for strokes instead of translations
+    _mode_regex: bool = False             # If True, perform search using regex characters
 
     def __init__(self):
         super().__init__()
-        self.translations = StenoSearchDictionary()
+        self._translations = StenoSearchDictionary()
 
-    @on("new_translations")
-    def new_search_dict(self, d:dict) -> None:
-        """ Create a master dictionary to search in either direction from the raw translations dict given. """
-        self.translations = StenoSearchDictionary(d)
+    def reset(self):
+        """ Reset all current state. """
+        self._last_input = self._last_match = ""
+        self._mode_strokes = self._mode_regex = False
 
-    @respond_to("search_lookup")
-    def get(self, match, from_dict:str="forward") -> Union[str, List[str]]:
-        """ Perform a simple lookup as with dict.get. """
-        return self.translations.get(match, from_dict)
+    @pipe("new_translations", "new_search_state")
+    def set_translations(self, d:dict) -> bool:
+        """ Create a master dictionary to search in either direction from the raw translations dict given.
+            Reset the GUI search widgets and all current state afterwards. """
+        self._translations = StenoSearchDictionary(d)
+        self.reset()
+        return bool(d)
 
-    @respond_to("search_special")
-    def search(self, pattern:str, count:int=None, from_dict:str="forward", regex:bool=False) -> List[str]:
-        """ Perform a special search for <pattern> with the given dict and mode. Return up to <count> matches. """
-        return self.translations.search(pattern, count, from_dict, regex)
+    @on("search_input", "new_search_matches", unpack=True)
+    def on_input(self, pattern:str) -> tuple:
+        """ Look up a pattern in the dictionary and populate the upper matches list. """
+        self._last_input = pattern
+        # Choose the right type of search based on the mode flags and execute it.
+        # If the text box is blank, a search would return the entire dictionary, so don't bother.
+        matches = self._search(pattern) if pattern else []
+        # If there's only one match and it's new, select it and continue as if the user had done it.
+        if len(matches) == 1 and matches[0] != self._last_match:
+            selection = matches[0]
+            self.engine_call("search_choose_match", selection)
+        else:
+            # Otherwise, the match selection isn't changed and the previous mappings list must be cleared.
+            selection = None
+            self.engine_call("new_search_mappings", [], "")
+        # Show the list of results, even if the list is empty.
+        return matches, selection
+
+    @on("search_choose_match", "new_search_mappings", unpack=True)
+    def on_choose_match(self, match:str) -> tuple:
+        """ When a match is chosen from the upper list, look up its mappings and display them in the lower list. """
+        self._last_match = match
+        # Display the mapping results list and begin analysis.
+        m_list = self._translations.get(match, self._mode_strokes)
+        # It shouldn't be possible to fail a search on a listed match, but if it happens, just clear the list.
+        if not m_list:
+            return [], None
+        # If the results aren't a list (strokes mode), make it one.
+        if not isinstance(m_list, list):
+            m_list = [m_list]
+        if len(m_list) == 1:
+            # With one mapping (either mode), make a regular query with that mapping and the last match.
+            selection = m_list[0]
+            self.on_choose_mapping(selection)
+        else:
+            # If there is more than one mapping (only in word mode), make a lexer query to select the best one.
+            assert not self._mode_strokes
+            result = self.engine_call("lexer_query_product", m_list, [self._last_match])
+            # Parse the rule's keys back into RTFCRE form and try to select that string in the list. """
+            selection = result.keys.to_rtfcre()
+        return m_list, selection
+
+    @on("search_choose_mapping")
+    def on_choose_mapping(self, mapping:str) -> Optional[Tuple[str, str]]:
+        """ Make and send a lexer query based on the last selected match and this mapping (if non-empty). """
+        match = self._last_match
+        if not match or not mapping:
+            return
+        # The order of strokes/word depends on the mode.
+        strokes, word = (match, mapping) if self._mode_strokes else (mapping, match)
+        self.engine_call("lexer_query", strokes, word)
+
+    def _search(self, pattern:str) -> List[str]:
+        """ Perform a special search for <pattern> with the given dict and mode. Return up to <match_limit> matches. """
+        return self._translations.search(pattern, self.match_limit, self._mode_strokes, self._mode_regex)
+
+    @on("search_mode_strokes", "search_input")
+    def set_mode_strokes(self, enabled:bool) -> str:
+        """ Set strokes mode and search for the previous text again. """
+        self._mode_strokes = enabled
+        return self._last_input
+
+    @on("search_mode_regex", "search_input")
+    def set_mode_regex(self, enabled:bool) -> str:
+        """ Set regex mode and search for the previous text again. """
+        self._mode_regex = enabled
+        return self._last_input
