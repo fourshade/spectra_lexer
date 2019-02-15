@@ -11,7 +11,7 @@ Characters from an outside source (JSON files or the Plover engine) are assumed 
 """
 
 from collections import defaultdict
-from typing import Callable, List, Tuple
+from typing import Callable
 
 from spectra_lexer.utils import str_map, str_prefix, str_without
 

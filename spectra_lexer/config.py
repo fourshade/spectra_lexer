@@ -35,7 +35,7 @@ class CFGOption:
         self.val = self.tp(value)
 
     def __set_name__(self, owner:Type[Component], name:str) -> None:
-        """ Set an additional attribute on the owner to update this config option. """
+        """ Set an additional attribute on the owner to update this config option on command. """
         def set_cfg(cmp, cfg_data:dict):
             """ Overwrite this config value with data read from disk (if any).
                 Send detailed info about this option to components such as the config editor. """
@@ -43,7 +43,7 @@ class CFGOption:
             if v is not None:
                 setattr(cmp, name, v)
             return cmp.ROLE, name, self
-        setattr(owner, "_cfg_" + name, pipe("new_config", "new_config_info", unpack=True)(set_cfg))
+        setattr(owner, "_cfg_" + name, pipe("new_config", "new_config_info")(set_cfg))
 
 
 class ConfigManager(ResourceManager):
@@ -65,10 +65,10 @@ class ConfigManager(ResourceManager):
 
     def parse(self, d:dict) -> dict:
         """ Try to convert Python literal strings to objects. This fixes crap like bool('False') = True. """
-        for (sect, page) in d.items():
+        for page in d.values():
             for (opt, val) in page.items():
                 if isinstance(val, str):
-                    d[sect][opt] = str_eval(val)
+                    page[opt] = str_eval(val)
         return d
 
     def inv_parse(self, new_data:dict) -> dict:

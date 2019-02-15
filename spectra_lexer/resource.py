@@ -1,5 +1,5 @@
 from functools import partialmethod
-from typing import List, Sequence
+from typing import Sequence
 
 from spectra_lexer import Component, fork, pipe
 from spectra_lexer.utils import merge
@@ -13,13 +13,13 @@ class ResourceManager(Component):
     def __init_subclass__(cls) -> None:
         """ Create command decorators for each subclass based on its role/resource type. """
         s = cls.ROLE
-        cls.start = pipe("start", s + "_load", unpack=True)(partialmethod(cls.start))
-        cls.dialog = pipe(s + "_dialog", "new_dialog_info", unpack=True)(partialmethod(cls.dialog))
+        cls.start = pipe("start", s + "_load")(partialmethod(cls.start))
         cls.load = fork(s + "_load", "new_" + s)(partialmethod(cls.load))
-        cls.save = pipe(s + "_save", "file_save", unpack=True)(partialmethod(cls.save))
+        cls.save = pipe(s + "_save", "file_save")(partialmethod(cls.save))
+        cls.dialog = pipe(s + "_dialog", "new_dialog_info")(partialmethod(cls.dialog))
         super().__init_subclass__()
 
-    def start(self, **opts) -> object:
+    def start(self, **opts) -> Sequence[str]:
         """ If there is a command line option for this component, even if empty, attempt to load its resource.
             If the option is not empty (or otherwise evaluates True), also save it over the default first. """
         file = opts.get(self.ROLE)
@@ -28,19 +28,11 @@ class ResourceManager(Component):
                 self.files = [file]
             return ()
 
-    def dialog(self) -> tuple:
-        """ Get all valid file extensions for this data type and send both to a new GUI file dialog. """
-        return self.ROLE, self.engine_call("file_get_supported_exts")
-
     def load(self, filenames:Sequence[str]=()) -> dict:
         """ Load and merge resources from disk. If no filenames are given by the command,
             load the one from defaults or the command line. """
-        dicts = self._load(filenames or self.files)
+        dicts = self.engine_call("file_load", *(filenames or self.files))
         return self.parse(merge(dicts))
-
-    def _load(self, filenames:Sequence[str]) -> List[dict]:
-        """ Decode all files from the argument. If there's no files, just return that empty sequence. """
-        return filenames and self.engine_call("file_load", *filenames)
 
     def parse(self, d:dict) -> dict:
         """ Optional parse function to convert from raw disk format. May simply return the argument unchanged. """
@@ -54,3 +46,7 @@ class ResourceManager(Component):
     def inv_parse(self, obj:object) -> object:
         """ Optional parse function to convert to raw disk format. May simply return the argument unchanged. """
         return obj
+
+    def dialog(self) -> tuple:
+        """ Get all valid file extensions for this data type and send both to a new GUI file dialog. """
+        return self.ROLE, self.engine_call("file_get_supported_exts")

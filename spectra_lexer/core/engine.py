@@ -55,11 +55,12 @@ class SpectraEngine:
         try:
             value = None
             # Run all commands under this key and return the last value.
-            for func, next_key, unpack, cmd_kwargs in self._cmd_dict[cmd_key]:
+            for func, next_key, cmd_kwargs in self._cmd_dict[cmd_key]:
                 value = func(*args, **kwargs)
                 # If there's a follow-up command to run and the output value wasn't None, run it with that value.
                 if value is not None and next_key is not None:
-                    next_args = value if unpack else (value,)
+                    # Normal tuples (not subclasses) will be automatically unpacked into the next command.
+                    next_args = value if type(value) is tuple else (value,)
                     self.call(next_key, *next_args, is_top=False, **cmd_kwargs)
             return value
         except Exception as e:

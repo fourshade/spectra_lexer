@@ -37,7 +37,7 @@ direct_connect(RULES, FILE)
 def test_dict_files():
     """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
     full_dict = {}
-    for d in RULES._load(RULES.files):
+    for d in FILE.load(*RULES.files):
         # Check for rules that have identical names (keys)
         conflicts = set(d).intersection(full_dict)
         assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)

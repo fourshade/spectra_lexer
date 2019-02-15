@@ -6,15 +6,16 @@ from spectra_lexer.core.engine import SpectraEngine
 from spectra_lexer.utils import nop
 
 
-def pipe(cmd_key:Hashable, next_key:Hashable=None, unpack:bool=False, **cmd_kwargs) -> callable:
+def pipe(cmd_key:Hashable, next_key:Hashable=None, **cmd_kwargs) -> callable:
     """ Decorator for component engine command flow. """
     def base_decorator(func:callable) -> callable:
-        """ Call the command and unpack/pipe its return value to another command. """
-        func.cmd = (cmd_key, next_key, unpack, cmd_kwargs)
+        """ Call the command and pipe its return value to another command. """
+        func.cmd = (cmd_key, next_key, cmd_kwargs)
         return func
     return base_decorator
 
 
+# All command decorators currently do the same thing.
 on = respond_to = fork = pipe
 
 

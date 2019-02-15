@@ -47,7 +47,7 @@ class PloverPluginInterface(Component):
         usable_dicts = [d for d in steno_dc.dicts if d and d.enabled]
         return _parse_and_merge(usable_dicts)
 
-    @pipe("sig_on_new_translation", "lexer_query", unpack=True)
+    @pipe("sig_on_new_translation", "lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         # Lock the Plover engine thread to access its state.

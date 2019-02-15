@@ -34,7 +34,7 @@ class SearchEngine(Component):
         self.reset()
         return bool(d)
 
-    @on("search_input", "new_search_matches", unpack=True)
+    @on("search_input", "new_search_matches")
     def on_input(self, pattern:str) -> tuple:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
         self._last_input = pattern
@@ -52,7 +52,7 @@ class SearchEngine(Component):
         # Show the list of results, even if the list is empty.
         return matches, selection
 
-    @on("search_choose_match", "new_search_mappings", unpack=True)
+    @on("search_choose_match", "new_search_mappings")
     def on_choose_match(self, match:str) -> tuple:
         """ When a match is chosen from the upper list, look up its mappings and display them in the lower list. """
         self._last_match = match
