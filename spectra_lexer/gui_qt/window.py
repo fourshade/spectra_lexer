@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterable, Optional
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow
 
@@ -21,28 +21,20 @@ class GUIQtWindow(Component):
         """ Show the window once the engine is fully initialized and sends the start signal.
             If the file menu is used, add the basic window-based dialog commands first. """
         if show_file_menu:
-            self.engine_call("gui_menu_add", "File", "Load Rules...", "gui_window_load_rules")
-            self.engine_call("gui_menu_add", "File", "Load Translations...", "gui_window_load_translations")
+            self.engine_call("gui_menu_add", "File", "Load Rules...", "rules_dialog")
+            self.engine_call("gui_menu_add", "File", "Load Translations...", "translations_dialog")
             self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)
         self.window.show()
 
-    @pipe("gui_window_load_rules", "rules_load")
-    def load_rules(self) -> Optional[list]:
-        return self._dialog_load("rules")
-
-    @pipe("gui_window_load_translations", "translations_load")
-    def load_translations(self) -> Optional[list]:
-        return self._dialog_load("translations")
-
-    def _dialog_load(self, d_type:str) -> Optional[list]:
+    @pipe("new_dialog_info", "new_status")
+    def _dialog_load(self, d_type:str, file_formats:Iterable[str]) -> Optional[str]:
         """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
-        file_formats = self.engine_call("file_get_supported_exts")
         (filenames, _) = QFileDialog.getOpenFileNames(self.window, 'Load {} Dictionaries'.format(d_type.title()), '.',
                                                       "Supported file formats (*" + " *".join(file_formats) + ")")
         if not filenames:
             return None
-        self.engine_call("new_status", "Loaded {} from file dialog.".format(d_type))
-        return filenames
+        self.engine_call(d_type + "_load", filenames)
+        return "Loaded {} from file dialog.".format(d_type)
 
     @on("gui_window_close")
     def close(self):

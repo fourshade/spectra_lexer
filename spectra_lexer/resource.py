@@ -14,6 +14,7 @@ class ResourceManager(Component):
         """ Create command decorators for each subclass based on its role/resource type. """
         s = cls.ROLE
         cls.start = pipe("start", s + "_load", unpack=True)(partialmethod(cls.start))
+        cls.dialog = pipe(s + "_dialog", "new_dialog_info", unpack=True)(partialmethod(cls.dialog))
         cls.load = fork(s + "_load", "new_" + s)(partialmethod(cls.load))
         cls.save = pipe(s + "_save", "file_save", unpack=True)(partialmethod(cls.save))
         super().__init_subclass__()
@@ -26,6 +27,10 @@ class ResourceManager(Component):
             if file:
                 self.files = [file]
             return ()
+
+    def dialog(self) -> tuple:
+        """ Get all valid file extensions for this data type and send both to a new GUI file dialog. """
+        return self.ROLE, self.engine_call("file_get_supported_exts")
 
     def load(self, filenames:Sequence[str]=()) -> dict:
         """ Load and merge resources from disk. If no filenames are given by the command,
