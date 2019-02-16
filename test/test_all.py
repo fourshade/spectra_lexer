@@ -19,7 +19,8 @@ from test import get_test_filename
 
 
 def direct_connect(cmp:Component, subcmp:Component) -> None:
-    """ Connect one component directly to another without an engine for basic calls. """
+    """ Connect one component directly to another without an engine for basic calls.
+        Only works with components that have no duplicate command keys. """
     cmd_dict = dict(subcmp.engine_commands())
     def direct_call(cmd:str, *args, **kwargs) -> callable:
         c = cmd_dict.get(cmd)

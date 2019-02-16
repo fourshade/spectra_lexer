@@ -1,6 +1,6 @@
 """ Base module for the GUI Qt package. """
 
-from spectra_lexer import Composite
+from spectra_lexer.core.base import Subprocess
 from spectra_lexer.gui_qt.board import GUIQtBoardDisplay
 from spectra_lexer.gui_qt.config import GUIQtConfig
 from spectra_lexer.gui_qt.console import GUIQtConsoleDisplay
@@ -20,7 +20,7 @@ COMPONENTS = {GUIQtMenu:           "menu",
               GUIQtConsoleDisplay: "text"}
 
 
-class GUIQt(Composite):
+class GUIQt(Subprocess):
     """ Top-level component of the GUI Qt package. Central constructor/container for all other Qt-based components. """
 
     ROLE = "gui"

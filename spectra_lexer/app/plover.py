@@ -36,7 +36,7 @@ class PloverPlugin(QDialog):
             The engine is always the first argument passed by Plover. Others are irrelevant. """
         if cls.window is None:
             app = GUIQtApplication(*PLOVER_COMPONENTS)
-            cls.window = next(c.window for c in app.root.components if isinstance(c, GUIQt))
+            cls.window = next(c.window for c in app.components if isinstance(c, GUIQt))
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
             app.start(plover_engine=args[0], show_file_menu=False)

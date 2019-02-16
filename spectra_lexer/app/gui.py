@@ -24,8 +24,8 @@ class GUIQtApplication(SpectraApplication):
         super().__init__(*GUI_COMPONENTS, *cls_iter)
 
     def start(self, **opts) -> None:
-        """ Load the board SVG asset and add the app's engine and components to the console on startup. """
-        cvars = {"engine": self.engine, **{c.ROLE: c for c in self.root.components}}
+        """ Load the board SVG asset and add the app and its components to the console on startup. """
+        cvars = {"app": self, **{c.ROLE: c for c in self.components}}
         all_opts = {"board": (), "console_vars": cvars, **opts}
         super().start(**all_opts)
 
