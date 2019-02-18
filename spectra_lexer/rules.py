@@ -39,7 +39,7 @@ class StenoRule(NamedTuple):
     rulemap: tuple         # Tuple of tuples mapping child rules to letter positions.
 
     def __str__(self) -> str:
-        return "{} → {}".format(self.keys.to_rtfcre(), self.letters)
+        return "{} → {}".format(self.keys.rtfcre, self.letters)
 
 
 class RuleMapItem(NamedTuple):
@@ -142,7 +142,7 @@ class RulesManager(ResourceManager):
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """
         # The keys must be converted to RTFCRE form.
-        keys = r.keys.to_rtfcre()
+        keys = r.keys.rtfcre
         # The pattern must be deduced from the letters, the rulemap, and the reference dict.
         pattern = self._inv_substitute(r.letters, r.rulemap)
         # Join the flags into a string. The description is copied verbatim.

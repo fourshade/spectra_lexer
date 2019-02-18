@@ -5,7 +5,6 @@ from spectra_lexer.config import ConfigManager
 from spectra_lexer.file import FileHandler
 from spectra_lexer.lexer import StenoLexer
 from spectra_lexer.rules import RulesManager
-from spectra_lexer.search import SearchEngine
 from spectra_lexer.translations import TranslationsManager
 
 # Constituent component classes of the base application. These should be enough to run the lexer in batch mode.
@@ -13,7 +12,6 @@ BASE_COMPONENTS = [FileHandler,
                    ConfigManager,
                    RulesManager,
                    TranslationsManager,
-                   SearchEngine,
                    StenoLexer]
 
 

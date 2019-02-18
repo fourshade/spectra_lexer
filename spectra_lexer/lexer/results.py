@@ -1,18 +1,22 @@
 from operator import attrgetter
-from typing import List, Generator, NamedTuple
+from typing import List, Generator, NamedTuple, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleFlags, RuleMapItem, StenoRule
 
+# Flag constants for rule generation.
+_UNMATCHED_FLAG_SET = frozenset({RuleFlags.UNMATCHED})
+_GENERATED_FLAG_SET = frozenset({RuleFlags.GENERATED})
 
-class _Result(NamedTuple):
+
+class LexerResult(NamedTuple):
     """ Container to hold a list-based rulemap from the lexer, with optimized ranking methods.
         The list must be frozen before inclusion in a rule. """
 
     rulemap: List[RuleMapItem]  # Rulemap from the lexer
+    leftover_keys: StenoKeys    # Unmatched keys left in the map.
     keys: StenoKeys             # Full key string.
     letters: str                # Full English text of the word.
-    leftover_keys: StenoKeys    # Unmatched keys left in the map.
 
     def letters_matched(self, _agetter=attrgetter("rule.letters")) -> int:
         """ Get the number of characters matched by mapped rules. """
@@ -68,37 +72,18 @@ class _Result(NamedTuple):
                 last_match = self.rulemap[-1]
                 last_match_end = last_match.start + last_match.length
             # Make a special rule with the unmatched keys to cover everything after the last match.
-            bad_rule = StenoRule(self.leftover_keys, "", frozenset({RuleFlags.UNMATCHED}), "unmatched keys", ())
+            bad_rule = StenoRule(self.leftover_keys, "", _UNMATCHED_FLAG_SET, "unmatched keys", ())
             self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters) - last_match_end))
         # Freeze the rulemap and mark this rule as lexer-generated.
-        return StenoRule(self.keys, self.letters, frozenset({RuleFlags.GENERATED}), desc, tuple(self.rulemap))
+        return StenoRule(self.keys, self.letters, _GENERATED_FLAG_SET, desc, tuple(self.rulemap))
 
-
-class LexerResults(list):
-    """ Controller for finished lexer results. Determines which rulemaps are valid
-        and creates a rule out of the best result that passes judgement. """
-
-    _need_all_keys: bool  # Do we only keep results that have all keys mapped?
-
-    def __init__(self, need_all_keys:bool=False):
-        """ Results may not be required to match every key to be valid. This allows the lexer
-            to make partial guesses on difficult translations at the cost of lower performance. """
-        super().__init__()
-        self._need_all_keys = need_all_keys
-
-    def add_result(self, rulemap:list, keys:StenoKeys, word:str, keys_left:StenoKeys) -> None:
-        """ Add a rulemap to the list of results with all required parameters for ranking.
-            If we need all keys to be matched, discard incomplete maps. """
-        if not keys_left or not self._need_all_keys:
-            self.append(_Result(rulemap, keys, word, keys_left))
-
-    def to_rule(self, default_pair:tuple) -> StenoRule:
-        """ Find the best out of our current rule maps based on the rank value of each and build a rule from it. """
-        if self:
-            best_result = max(self)
-        else:
+    @classmethod
+    def best_rule(cls, results:list, *, default:Tuple[str,str]=("", "")) -> StenoRule:
+        """ Find the best out of a list of results based on the rank value of each and build a rule from it. """
+        if results:
+            return max(results).to_rule()
+        elif default is not None:
             # Make an empty rule with the default pair (after cleansing) if no valid rule maps were added by the lexer.
-            keys, word = default_pair
-            cleansed = StenoKeys.cleanse_from_rtfcre(keys)
-            best_result = _Result([], cleansed, word, cleansed)
-        return best_result.to_rule()
+            keys, word = default
+            keys = StenoKeys.cleanse_from_rtfcre(keys)
+            return cls([], keys, keys, word).to_rule()

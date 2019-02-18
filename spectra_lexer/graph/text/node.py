@@ -23,7 +23,7 @@ class TextNode(GraphNode):
     def __init__(self, rule:StenoRule, *args):
         """ Add node characteristics that are helpful for text graphing. """
         super().__init__(rule, *args)
-        formatted_keys = rule.keys.to_rtfcre()
+        formatted_keys = rule.keys.rtfcre
         if not self.children:
             # Base rules (i.e. leaf nodes) display their keys instead of their letters.
             self.text = formatted_keys

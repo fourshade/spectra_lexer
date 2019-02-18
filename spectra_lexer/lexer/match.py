@@ -27,11 +27,11 @@ class LexerRuleMatcher:
     # Separator rule constant (can be tested by identity). This rule is unique in that it is not loaded from JSON.
     _RULE_SEP = StenoRule(StenoKeys.separator(), "", frozenset({RuleFlags.SEPARATOR}), "Stroke separator", ())
 
-    _special_dict: Dict[str, StenoRule] = None       # Rules that match by reference name.
-    _stroke_dict: Dict[StenoKeys, StenoRule] = None  # Rules that match by full stroke only.
-    _word_dict: Dict[str, StenoRule] = None          # Rules that match by exact word only (whitespace-separated).
-    _prefix_tree: OrderedKeyPrefixTree = None        # Rules that match by starting with certain keys in order.
-    _translations: Dict[str, str] = {}               # Optional translation search dict for stroke conflicts.
+    _special_dict: Dict[str, StenoRule] = None  # Rules that match by reference name.
+    _stroke_dict: Dict[str, StenoRule] = None   # Rules that match by full stroke only.
+    _word_dict: Dict[str, StenoRule] = None     # Rules that match by exact word only (whitespace-separated).
+    _prefix_tree: OrderedKeyPrefixTree = None   # Rules that match by starting with certain keys in order.
+    _translations: Dict[str, str] = {}          # Optional translation search dict for stroke conflicts.
 
     def set_rules(self, rules_dict:Dict[str, StenoRule]):
         """ Construct a specially-structured series of dictionaries from a dict of finished rules. """
@@ -123,7 +123,7 @@ class LexerRuleMatcher:
             return StarRules.AFFIX
         # If the search component loaded a translations dict, we can check if there's an entry with every key
         # *except* the star. If there is, it's probably there because of a conflict.
-        if self._translations.get(all_keys.without(KEY_STAR).to_rtfcre()):
+        if self._translations.get(all_keys.without(KEY_STAR).rtfcre):
             return StarRules.CONFLICT
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
         return StarRules.UNKNOWN

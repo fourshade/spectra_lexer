@@ -42,16 +42,20 @@ class StenoKeys(str):
     """ Derived string class for a sequence of case-distinct steno keys with
         no hyphens and lowercase characters for every key on the right side. """
 
-    def to_rtfcre(self) -> str:
-        """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
-        return str_map(self, _stroke_stenokeys_to_rtfcre, KEY_SEP)
+    class RTFCREDescr:
+        """ Non-data descriptor to convert a string to RTFCRE if it wasn't originally in that form. """
+        def __get__(self, instance, owner) -> str:
+            """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
+            return str_map(instance, _stroke_stenokeys_to_rtfcre, KEY_SEP)
+
+    rtfcre = RTFCREDescr()
 
     @classmethod
     def from_rtfcre(cls, s:str):
         """ Transform a string from RTFCRE. Result will have the derived class.
-            Overwrite the reverse method with one that returns the original string. """
+            For performance, save the original string on the instance so we don't have to convert back. """
         self = cls(str_map(s, _stroke_rtfcre_to_stenokeys, KEY_SEP))
-        self.to_rtfcre = lambda: s
+        self.rtfcre = s
         return self
 
     @classmethod
@@ -93,7 +97,7 @@ class StenoKeys(str):
         return self.__class__(s)
 
     def __repr__(self) -> str:
-        return repr(self.to_rtfcre())
+        return repr(self.rtfcre)
 
 
 def _stroke_stenokeys_to_rtfcre(s:str) -> str:

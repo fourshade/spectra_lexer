@@ -73,7 +73,7 @@ class SearchEngine(Component):
             assert not self._mode_strokes
             result = self.engine_call("lexer_query_product", m_list, [self._last_match])
             # Parse the rule's keys back into RTFCRE form and try to select that string in the list. """
-            selection = result.keys.to_rtfcre()
+            selection = result.keys.rtfcre
         return m_list, selection
 
     @on("search_choose_mapping")

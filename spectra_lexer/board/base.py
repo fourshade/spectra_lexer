@@ -38,7 +38,7 @@ class BoardRenderer(SVGManager):
     def get_info(self, rule:StenoRule) -> Tuple[List[List[str]], str]:
         """ Generate board diagram elements from a steno rule and send them along with the description. """
         keys, letters, flags, desc, rulemap = rule
-        raw_keys = keys.to_rtfcre()
+        raw_keys = keys.rtfcre
         if RuleFlags.GENERATED in flags:
             # If this is a lexer-generated rule (usually the root at the top), just display the description.
             description = desc
