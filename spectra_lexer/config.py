@@ -35,15 +35,17 @@ class CFGOption:
         self.val = self.tp(value)
 
     def __set_name__(self, owner:Type[Component], name:str) -> None:
-        """ Set an additional attribute on the owner to update this config option on command. """
-        def set_cfg(cmp, cfg_data:dict):
+        """ Set an additional attribute on the owner class to update this config option on command. """
+        def set_cfg(cmp:Component, cfg_data:dict):
             """ Overwrite this config value with data read from disk (if any).
                 Send detailed info about this option to components such as the config editor. """
             v = cfg_data.get(cmp.ROLE, {}).get(name)
             if v is not None:
                 setattr(cmp, name, v)
             return cmp.ROLE, name, self
-        setattr(owner, "_cfg_" + name, pipe("new_config", "new_config_info")(set_cfg))
+        attr = "_cfg_" + name
+        set_cfg.__name__ = attr
+        setattr(owner, attr, pipe("new_config", "new_config_info")(set_cfg))
 
 
 class ConfigManager(ResourceManager):

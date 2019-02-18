@@ -1,1 +1,1 @@
-from .base import CodecDict, StringCodec
+from .base import CodecDatabase, StringCodec

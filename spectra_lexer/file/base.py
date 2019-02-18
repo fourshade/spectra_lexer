@@ -1,5 +1,5 @@
 from spectra_lexer import Component, on, respond_to
-from spectra_lexer.file.codecs import CodecDict
+from spectra_lexer.file.codecs import CodecDatabase
 from spectra_lexer.file.codecs.cfg import CFGCodec
 from spectra_lexer.file.codecs.json import CSONCodec, JSONCodec
 from spectra_lexer.file.resource import Resource, resource_from_string, resources_from_patterns
@@ -13,11 +13,11 @@ class FileHandler(Component):
 
     ROLE = "file"
 
-    _codecs: CodecDict  # Dict of decoders/encoders for each supported file format.
+    _codecs: CodecDatabase  # Holds decoders/encoders for each supported file format.
 
     def __init__(self):
         super().__init__()
-        self._codecs = CodecDict(_ALL_CODECS)
+        self._codecs = CodecDatabase(_ALL_CODECS)
 
     @respond_to("file_load")
     def load(self, *patterns:str) -> list:
