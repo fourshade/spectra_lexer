@@ -68,10 +68,6 @@ class Process(Engine):
                 self.setdefault(key, []).append(cmd)
             c.engine_connect(self.call)
 
-    def start(self, **opts) -> None:
-        """ Send the start signal with all options. """
-        self.call("start", **opts)
-
 
 class Subprocess(Process, Component):
     """ Runnable component setup that acts as a component itself to a parent engine. """

@@ -48,6 +48,12 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
+    @fork("lexer_query_map", "new_lexer_result_list")
+    def query_map(self, keys:Iterable[str], words:Iterable[str], mapfn=map) -> List[StenoRule]:
+        """ Take iterables of keys and words and return the best rule for each pair in a list.
+            This can be done with map(), or with ProcessPoolExecutor.map() to use multiple processes in parallel. """
+        return list(mapfn(self.query, keys, words))
+
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """
         # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
