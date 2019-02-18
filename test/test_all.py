@@ -8,13 +8,14 @@ from itertools import starmap
 import pytest
 
 from spectra_lexer import Component
-from spectra_lexer.board import BoardRenderer
-from spectra_lexer.file import FileHandler
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.graph import GraphRenderer
-from spectra_lexer.rules import RuleFlags, RulesManager
-from spectra_lexer.search import SearchEngine
-from spectra_lexer.translations import TranslationsManager
+from spectra_lexer.interactive.board import BoardRenderer
+from spectra_lexer.core.file import FileHandler
+from spectra_lexer.core.lexer import StenoLexer
+from spectra_lexer.interactive.graph import GraphRenderer
+from spectra_lexer.rules import RuleFlags
+from spectra_lexer.core.rules import RulesManager
+from spectra_lexer.interactive.search import SearchEngine
+from spectra_lexer.core.translations import TranslationsManager
 from test import get_test_filename
 
 

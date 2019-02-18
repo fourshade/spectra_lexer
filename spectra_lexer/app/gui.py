@@ -3,18 +3,8 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from spectra_lexer.app import SpectraApplication
-from spectra_lexer.board import BoardRenderer
-from spectra_lexer.console import SpectraConsole
-from spectra_lexer.graph import GraphRenderer
 from spectra_lexer.gui_qt import GUIQt
-from spectra_lexer.search import SearchEngine
-
-# Components specifically used by the GUI. Without the GUI, these components do no good.
-GUI_COMPONENTS = [GUIQt,
-                  SearchEngine,
-                  BoardRenderer,
-                  GraphRenderer,
-                  SpectraConsole]
+from spectra_lexer.interactive import Interactive
 
 
 class GUIQtApplication(SpectraApplication):
@@ -23,12 +13,12 @@ class GUIQtApplication(SpectraApplication):
     def __init__(self, *cls_iter:type):
         """ The Qt widgets take direct orders from the GUIQt component and its children.
             Other components provide support services for interactive tasks. """
-        super().__init__(*GUI_COMPONENTS, *cls_iter)
+        super().__init__(Interactive, GUIQt, *cls_iter)
 
     def start(self, **opts) -> None:
         """ Load the board SVG asset and add the app and its components to the console on startup. """
         cvars = {"app": self, **{c.ROLE: c for c in self.components}}
-        all_opts = {"board": (), "console_vars": cvars, **opts}
+        all_opts = {"svg": (), "console_vars": cvars, **opts}
         super().start(**all_opts)
 
 

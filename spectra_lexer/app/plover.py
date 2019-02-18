@@ -8,9 +8,6 @@ from spectra_lexer.gui_qt import GUIQt
 from spectra_lexer.plover import PloverPluginInterface
 from spectra_lexer.utils import nop
 
-# Components used only by the Plover plugin. The interface to the Plover engine is all that's needed.
-PLOVER_COMPONENTS = [PloverPluginInterface]
-
 
 class PloverPlugin(QDialog):
     """ Main entry point for the Plover plugin. Non-instantiatable dummy class with parameters required by Plover.
@@ -35,7 +32,8 @@ class PloverPlugin(QDialog):
         """ Only create a new app/window instance on the first call; return the saved instance otherwise.
             The engine is always the first argument passed by Plover. Others are irrelevant. """
         if cls.window is None:
-            app = GUIQtApplication(*PLOVER_COMPONENTS)
+            # The interface to the Plover engine is the only new component needed.
+            app = GUIQtApplication(PloverPluginInterface)
             cls.window = next(c.window for c in app.components if isinstance(c, GUIQt))
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)

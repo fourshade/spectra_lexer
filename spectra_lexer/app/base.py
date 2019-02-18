@@ -1,28 +1,15 @@
 import argparse
 
 from spectra_lexer import Process
-from spectra_lexer.config import ConfigManager
-from spectra_lexer.file import FileHandler
-from spectra_lexer.lexer import StenoLexer
-from spectra_lexer.rules import RulesManager
-from spectra_lexer.translations import TranslationsManager
-
-# Constituent component classes of the base application. These should be enough to run the lexer in batch mode.
-BASE_COMPONENTS = [FileHandler,
-                   ConfigManager,
-                   RulesManager,
-                   TranslationsManager,
-                   StenoLexer]
+from spectra_lexer.core import Core
 
 
 class SpectraApplication(Process):
     """ Process to handle fundamental operations of the Spectra lexer with base components. """
 
-    ROLE = "app"
-
     def __init__(self, *cls_iter:type):
         """ Create all necessary components in order, starting from base components and moving to subclasses. """
-        super().__init__(*BASE_COMPONENTS, *cls_iter)
+        super().__init__(Core, *cls_iter)
 
     def start(self, **opts) -> None:
         """ Send the start signal with these options, in order of decreasing precedence:
