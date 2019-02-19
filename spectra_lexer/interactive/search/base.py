@@ -4,6 +4,9 @@ from spectra_lexer import Component, on, pipe
 from spectra_lexer.config import CFGOption
 from spectra_lexer.interactive.search.steno_dict import StenoSearchDictionary
 
+# Text displayed as the final list item, allowing the user to expand the search.
+_MORE_TEXT = "(more...)"
+
 
 class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
@@ -14,8 +17,9 @@ class SearchEngine(Component):
     _translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
     _last_input: str = ""                 # Last known state of user textbox input.
     _last_match: str = ""                 # Last search match selected by the user in the list.
-    _mode_strokes: bool = False           # If True, search for strokes instead of translations
-    _mode_regex: bool = False             # If True, perform search using regex characters
+    _last_page: int = 0                   # Number of times user has clicked "more" without changing the input.
+    _mode_strokes: bool = False           # If True, search for strokes instead of translations.
+    _mode_regex: bool = False             # If True, perform search using regex characters.
 
     def __init__(self):
         super().__init__()
@@ -24,6 +28,7 @@ class SearchEngine(Component):
     def reset(self):
         """ Reset all current state. """
         self._last_input = self._last_match = ""
+        self._last_page = 0
         self._mode_strokes = self._mode_regex = False
 
     @pipe("new_translations", "new_search_state")
@@ -35,12 +40,12 @@ class SearchEngine(Component):
         return bool(d)
 
     @on("search_input", "new_search_matches")
-    def on_input(self, pattern:str) -> tuple:
+    def on_input(self, pattern:str, match_page:int=0) -> tuple:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
         self._last_input = pattern
-        # Choose the right type of search based on the mode flags and execute it.
+        self._last_page = match_page
         # If the text box is blank, a search would return the entire dictionary, so don't bother.
-        matches = self._search(pattern) if pattern else []
+        matches = self._search() if pattern else []
         # If there's only one match and it's new, select it and continue as if the user had done it.
         if len(matches) == 1 and matches[0] != self._last_match:
             selection = matches[0]
@@ -53,8 +58,12 @@ class SearchEngine(Component):
         return matches, selection
 
     @on("search_choose_match", "new_search_mappings")
-    def on_choose_match(self, match:str) -> tuple:
+    def on_choose_match(self, match:str) -> Optional[tuple]:
         """ When a match is chosen from the upper list, look up its mappings and display them in the lower list. """
+        # If the user clicked "more", increment the page and add to the results list. Do not find a mapping.
+        if match == _MORE_TEXT:
+            self.engine_call("search_input", self._last_input, self._last_page + 1)
+            return
         self._last_match = match
         # Display the mapping results list and begin analysis.
         m_list = self._translations.get(match, self._mode_strokes)
@@ -86,10 +95,6 @@ class SearchEngine(Component):
         strokes, word = (match, mapping) if self._mode_strokes else (mapping, match)
         self.engine_call("lexer_query", strokes, word)
 
-    def _search(self, pattern:str) -> List[str]:
-        """ Perform a special search for <pattern> with the given dict and mode. Return up to <match_limit> matches. """
-        return self._translations.search(pattern, self.match_limit, self._mode_strokes, self._mode_regex)
-
     @on("search_mode_strokes", "search_input")
     def set_mode_strokes(self, enabled:bool) -> str:
         """ Set strokes mode and search for the previous text again. """
@@ -101,3 +106,13 @@ class SearchEngine(Component):
         """ Set regex mode and search for the previous text again. """
         self._mode_regex = enabled
         return self._last_input
+
+    def _search(self) -> List[str]:
+        """ Perform a special search for the last input under the current modes.
+            The match_limit is determined by the config setting and the number of "more" selections. """
+        count = (self._last_page + 1) * self.match_limit
+        matches = self._translations.search(self._last_input, count, self._mode_strokes, self._mode_regex)
+        # If we met the count, add a final item to allow search expansion.
+        if len(matches) == count:
+            matches.append(_MORE_TEXT)
+        return matches
