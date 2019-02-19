@@ -2,7 +2,7 @@
 
 import argparse
 from functools import partial
-from typing import Any, ClassVar, Hashable, List
+from typing import ClassVar, Hashable, List
 
 from spectra_lexer.engine import Engine
 from spectra_lexer.utils import nop
@@ -29,7 +29,7 @@ class Component:
     As such, it cannot depend on anything except core helpers and pure utility functions.
     """
 
-    # Standard identifier for a component's function, usable in many ways (i.e. # config page).
+    # Standard identifier for a component's function, usable in many ways (e.g. config page title).
     ROLE: ClassVar[str] = "UNDEFINED"
 
     _cmd_attr_list: ClassVar[List[tuple]] = []  # Default class command parameter list; meant to be copied.
@@ -37,7 +37,7 @@ class Component:
 
     def __init_subclass__(cls) -> None:
         """ Make a list of commands this component class handles with methods that handle each one.
-            Each engine-callable method (class attribute) has its command info saved on attributes.
+            Each engine-callable method (class attribute) has its command info saved on an attribute.
             Save each of these to a list. Combine it with the parent's command list to make a new child list.
             This new combined list covers the full inheritance tree. Parent commands execute first. """
         cmd_list = [(attr, *func.cmd) for attr, func in vars(cls).items() if hasattr(func, "cmd")]
@@ -56,10 +56,7 @@ class Component:
 class Gateway(Component):
     """ Central constructor/container for components. All commands issued to children go through here first. """
 
-    components: List[Component]     # List of all child components. Should not change after initialization.
-
-    def child_call(self, func, *args, **kwargs) -> Any:
-        return func(*args, **kwargs)
+    components: List[Component]  # List of all child components. Should not change after initialization.
 
     def engine_connect(self, cb:callable) -> None:
         """ All child components must be able to call the engine independently. """
@@ -69,7 +66,7 @@ class Gateway(Component):
     def engine_commands(self) -> List[tuple]:
         """ Any command serviced by a child component should be forwarded here by the engine. """
         cmds = [cmd for c in self.components for cmd in c.engine_commands()]
-        return [(key, (partial(self.child_call, func), *params)) for (key, (func, *params)) in cmds]
+        return [(key, (partial(self.engine_call, func), *params)) for (key, (func, *params)) in cmds]
 
 
 class Application(Engine):

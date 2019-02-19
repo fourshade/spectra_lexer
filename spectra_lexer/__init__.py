@@ -7,7 +7,7 @@ The Spectra program is conceptually divided into several parts that form a pipel
 
     Search/input - Translations for the program to parse have to come from somewhere, and usually it's a JSON
     dictionary loaded from outside. The search component handles all search functionality and sends queries
-    to the lexer at certain points when the old information is ready to be overwritten by new information.
+    to the lexer any time a selection has narrowed down to a single entry.
 
     Plover/input - Translations and search dictionaries may also come from Plover when activated as a plugin.
     Strokes from Plover are handled independently of search results; the output window will display the last
@@ -31,8 +31,8 @@ The Spectra program is conceptually divided into several parts that form a pipel
     any actual software functionality should be implemented in one of the component classes.
 
     GUI - As the frontend for accepting user input and displaying lexer output, the GUI is conceptually separate
-    from any of the other components. It may run on a standalone framework, meaning we can't blindly call its
-    methods without going through an intermediary layer. For this reason, it must run its own sub-engine.
+    from any of the other components. It may run on a standalone framework, meaning we can't call its methods from
+    anywhere except the main thread without going through an intermediary layer.
 """
 
 from .base import Application, Component, Gateway, fork, on, pipe, respond_to

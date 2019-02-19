@@ -11,14 +11,15 @@ class GUIQtMenu(Component):
     ROLE = "gui_menu"
 
     m_menu: QMenuBar  # Top-level widget for the entire menu bar.
-    menus: dict       # Menu heading objects (File, Edit, etc.).
-    actions: dict     # The items you click.
+
+    _menus: dict      # Menu heading objects (File, Edit, etc.).
+    _actions: dict    # The items you click.
 
     def __init__(self, m_menu:QMenuBar):
         super().__init__()
         self.m_menu = m_menu
-        self.menus = {}
-        self.actions = {}
+        self._menus = {}
+        self._actions = {}
 
     @on("start")
     def start(self, show_menu=True, **opts) -> None:
@@ -29,13 +30,13 @@ class GUIQtMenu(Component):
     def add(self, heading:str, action:str, command:str, *args, sep_first:bool=False, **kwargs):
         """ Add a new menu item under <heading> -> <action> to execute <command>. These are currently permanent.
             Create any required headings/items needed, including a separator if <sep_first> is True."""
-        menu_obj = self.menus.get(heading)
+        menu_obj = self._menus.get(heading)
         if not menu_obj:
-            menu_obj = self.menus[heading] = self.m_menu.addMenu(heading)
-            self.actions[heading] = {}
+            menu_obj = self._menus[heading] = self.m_menu.addMenu(heading)
+            self._actions[heading] = {}
         if sep_first:
             menu_obj.addSeparator()
-        items = self.actions[heading]
+        items = self._actions[heading]
         action_obj = items.get(action)
         if not action_obj:
             action_obj = items[action] = menu_obj.addAction(action)

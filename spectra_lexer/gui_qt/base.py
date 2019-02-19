@@ -39,7 +39,7 @@ class GUIQtGateway(Gateway):
         cmp_args = self.window.partition()
         self.components = [cls(*cmp_args[w]) for (cls, w) in COMPONENTS.items()]
 
-    def child_call(self, func, *args, **kwargs) -> Any:
+    def engine_call(self, func, *args, **kwargs) -> Any:
         """ Manually process events after every engine call to avoid hanging. """
         value = func(*args, **kwargs)
         self.process_events()

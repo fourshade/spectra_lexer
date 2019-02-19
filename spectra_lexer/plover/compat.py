@@ -12,6 +12,7 @@ INCOMPATIBLE_MESSAGE = "ERROR: Plover v{} or greater required.".format(_PLOVER_V
 class PloverStenoDict(Iterable):
     enabled: bool
     items: Callable[[], Iterator[tuple]]
+    __iter__: Callable[[], Iterator[tuple]]
 
 class PloverStenoDictCollection:
     dicts: Iterable[PloverStenoDict]

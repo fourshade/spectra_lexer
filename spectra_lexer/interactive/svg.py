@@ -2,7 +2,7 @@ from xml.parsers.expat import ParserCreate
 
 from spectra_lexer.resource import ResourceManager
 
-# Resource identifier for the main SVG graphic (containing every element needed).
+# Resource identifier for the main SVG graphic. Contains every element needed.
 _BOARD_ASSET_NAME: str = ':/board.svg'
 
 

@@ -54,7 +54,6 @@ class LexerRuleMatcher:
             elif match_word in flags:
                 word_dict[r.letters] = r
             # Everything else gets added to the tree-based prefix dictionary.
-            # TODO: Only attempt RARE matches after failing with the normal set of rules.
             else:
                 prefix_tree.add_entry(r.keys, r.letters, r)
 

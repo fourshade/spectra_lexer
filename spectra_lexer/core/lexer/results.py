@@ -13,7 +13,7 @@ class LexerResult(NamedTuple):
     """ Container to hold a list-based rulemap from the lexer, with optimized ranking methods.
         The list must be frozen before inclusion in a rule. """
 
-    rulemap: List[RuleMapItem]  # Rulemap from the lexer
+    rulemap: List[RuleMapItem]  # Rulemap from the lexer.
     leftover_keys: StenoKeys    # Unmatched keys left in the map.
     keys: StenoKeys             # Full key string.
     letters: str                # Full English text of the word.
@@ -45,11 +45,12 @@ class LexerResult(NamedTuple):
         """ Generator to find the difference in "rank value" between two lexer-generated rulemaps.
             Used as a lazy sequence-based comparison, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate maps have smaller values. """
+        # TODO: Deprioritize RARE matches over the normal set of rules.
         yield -len(self.leftover_keys) + len(other.leftover_keys)  # Fewest keys unmatched
         yield self.letters_matched()   - other.letters_matched()   # Most letters matched
         yield -len(self.keys)          + len(other.keys)           # Fewest total keys
         yield -len(self.rulemap)       + len(other.rulemap)        # Fewest child rules
-        yield -self.word_coverage()    + other.word_coverage()    # End-to-end word coverage
+        yield -self.word_coverage()    + other.word_coverage()     # End-to-end word coverage
 
     def __gt__(self, other) -> bool:
         """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """

@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple
 
-from PyQt5.QtCore import QXmlStreamReader, QRectF
+from PyQt5.QtCore import QRectF, QXmlStreamReader
 from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget

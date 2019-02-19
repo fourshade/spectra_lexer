@@ -21,7 +21,7 @@ class ResourceManager(Component):
 
     def start(self, **opts) -> Sequence[str]:
         """ If there is a command line option for this component, even if empty, attempt to load its resource.
-            If the option is not empty (or otherwise evaluates True), also save it over the default first. """
+            If the option is not empty (or otherwise evaluates True), save it over the default first. """
         file = opts.get(self.ROLE)
         if file is not None:
             if file:
@@ -48,5 +48,5 @@ class ResourceManager(Component):
         return obj
 
     def dialog(self) -> tuple:
-        """ Get all valid file extensions for this data type and send both to a new GUI file dialog. """
+        """ Get all valid file extensions for this data type and send them with the role to a new GUI file dialog. """
         return self.ROLE, self.engine_call("file_get_supported_exts")

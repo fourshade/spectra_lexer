@@ -5,8 +5,9 @@ from operator import attrgetter
 from typing import List, NamedTuple, Tuple
 
 from spectra_lexer.interactive.graph.text.generator.object import ObjectNode, ObjectNodeUnmatched
-from spectra_lexer.interactive.graph.text.generator.pattern import PatternNode, PatternSeparators, PatternUnmatched, \
-    PatternInversion, PatternThick
+from spectra_lexer.interactive.graph.text.generator.pattern import PatternInversion, PatternNode, PatternSeparators, \
+    PatternThick, PatternUnmatched
+
 from spectra_lexer.interactive.graph.text.node import TextFlags, TextNode
 
 

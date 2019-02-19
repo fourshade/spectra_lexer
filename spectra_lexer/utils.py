@@ -71,7 +71,7 @@ def memoize_one_arg(fn:callable) -> callable:
     return MemoDict().__getitem__
 
 
-def nondata_property(fn:callable):
+def nondata_property(fn:callable) -> callable:
     """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
     class NondataProp:
         def __get__(self, instance, owner) -> str:

@@ -18,14 +18,14 @@ from spectra_lexer.utils import nondata_property, str_map, str_prefix, str_witho
 # Key constants which aren't physical steno keys but appear in strings.
 KEY_SEP = "/"
 KEY_SPLIT = "-"
-# Various ordered strings of keys for testing based on steno order.
+# Unique characters for each key in steno order, moving left -> center -> right.
 L_KEYS = "#STKPWHR"
 C_KEYS = "AO*EU"
 R_KEYS = "frpblgtsdz"
-# Various pre-computed key containers for fast membership testing.
+# Pre-computed key containers for fast membership testing.
 C_KEYS_SET = set(C_KEYS)
 R_KEYS_SET = set(R_KEYS)
-# Number key and RTFCRE steno keys required to produce the numbers 0-9 in order with this key.
+# Number key and RTFCRE steno keys required to produce the numbers 0-9 in order.
 KEY_NUMBER = "#"
 NUMBER_ALIASES = "OSTPHAFPLT"
 NUMBER_LITERALS_IN = set(map(str, range(10))).intersection

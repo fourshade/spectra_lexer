@@ -4,8 +4,8 @@ from typing import Dict, Iterable, Iterator, Optional, Sequence, Tuple
 
 from spectra_lexer import Component, pipe
 from spectra_lexer.keys import join_strokes
-from spectra_lexer.plover.compat import PloverAction, PloverEngine, PloverStenoDict, PloverStenoDictCollection, \
-    compatibility_check, INCOMPATIBLE_MESSAGE
+from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverAction, PloverEngine, \
+    PloverStenoDict, PloverStenoDictCollection
 
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
@@ -84,9 +84,9 @@ def _parse_and_merge(d_iter:Iterable[PloverStenoDict]) -> Dict[str, str]:
 
 
 def _parse_items(d:PloverStenoDict) -> Iterator[tuple]:
-    """ Parse items from a Plover dictionary into string form and return an iterator. """
-    # Plover dictionaries are not proper Python dicts and cannot be handled as such.
-    # They only have a subset of the standard dict methods. The fastest of these is items().
+    """ Parse items from a Plover dictionary into string form and return an iterator.
+        Plover dictionaries are not proper Python dicts and cannot be handled as such.
+        They only have a subset of the standard dict methods. The fastest of these is items(). """
     if isinstance(next(iter(d)), tuple):
         # If strokes are in tuple form, they must be joined into strings.
         # The fastest method found in profiling uses a single chained iterator called twice per item.

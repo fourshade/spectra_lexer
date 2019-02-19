@@ -12,8 +12,8 @@ class JSONCodec(StringCodec):
     decode = staticmethod(json.loads)
 
     def encode(self, d:dict) -> str:
-        """ For JSON encoding, Unicode requires an explicit flag. """
-        return json.dumps(d, ensure_ascii=False)
+        """ For JSON encoding, an explicit flag is required to preserve Unicode symbols. """
+        return json.dumps(d, ensure_ascii=False, sort_keys=True)
 
 
 class CSONCodec(JSONCodec):
