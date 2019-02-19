@@ -1,3 +1,11 @@
+1.0.0
+-----
+* Completely reorganized component system
+* Added parallel processing to batch mode
+* Added link to show more results at the end of search lists
+* Ctrl + mouse wheel now changes the font size in the search window
+* General optimizations made on core (non-GUI) components
+
 0.6.1
 -----
 * Added most major steno rules to the board diagram

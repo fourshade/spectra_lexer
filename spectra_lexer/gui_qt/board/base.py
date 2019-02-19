@@ -15,6 +15,7 @@ class GUIQtBoardDisplay(Component):
 
     w_desc: QLineEdit              # Displays rule description.
     w_board: StenoBoardWidget      # Displays steno board diagram.
+
     _layout: ElementLayout = None  # Gets bounds for each element.
     _elements: List[List[str]]     # Current list of graphical element names for each stroke.
     _width: int = 100              # Total width of the diagram widget in pixels.

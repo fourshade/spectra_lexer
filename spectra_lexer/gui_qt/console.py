@@ -1,6 +1,6 @@
+from functools import partial
 import sys
 import traceback
-from functools import partial
 
 from PyQt5.QtWidgets import QWidget
 

@@ -97,7 +97,7 @@ SEARCH.set_translations(TRANSLATIONS_DICT)
 def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
-    # Search should return a list containing the item and the item itself in both directions and in either mode.
+    # Search should return a one-item list with that item selected for both keys and word in either mode.
     SEARCH.reset()
     assert SEARCH.on_input(word) == ([word], word)
     SEARCH.set_mode_strokes(True)

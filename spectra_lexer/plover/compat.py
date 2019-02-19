@@ -8,7 +8,7 @@ import pkg_resources
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
 INCOMPATIBLE_MESSAGE = "ERROR: Plover v{} or greater required.".format(_PLOVER_VERSION_REQUIRED)
 
-# Partial class structures that specify a minimum level of functionality for compatibility with Plover.
+# Partial class structures that specify a minimum interface for compatibility with Plover.
 class PloverStenoDict(Iterable):
     enabled: bool
     items: Callable[[], Iterator[tuple]]
