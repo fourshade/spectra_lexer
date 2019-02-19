@@ -35,4 +35,4 @@ The Spectra program is conceptually divided into several parts that form a pipel
     methods without going through an intermediary layer. For this reason, it must run its own sub-engine.
 """
 
-from .base import Component, Composite, Process, Subprocess, Application, fork, on, pipe, respond_to
+from .base import Application, Component, Gateway, fork, on, pipe, respond_to

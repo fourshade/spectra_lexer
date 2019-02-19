@@ -15,7 +15,7 @@ class Engine(Dict[Hashable, list]):
         try:
             value = None
             # Run all commands under this key (if any) and return the last value.
-            for func, next_key, cmd_kwargs in self[key]:
+            for func, next_key, cmd_kwargs in (self.get(key) or []):
                 value = func(*args, **kwargs)
                 # If there's a follow-up command to run and the output value wasn't None, run it with that value.
                 if value is not None and next_key is not None:
@@ -27,7 +27,3 @@ class Engine(Dict[Hashable, list]):
             # The caller may want to catch this exception, so don't catch it here unless this is the top level.
             if not is_top or not self.call("new_exception", e):
                 raise
-
-    def __missing__(self, key:Hashable) -> list:
-        """ If a command isn't handled by any component, the base class should just ignore it. """
-        return []

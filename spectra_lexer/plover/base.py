@@ -1,9 +1,9 @@
 from collections import namedtuple
 from typing import ClassVar
 
-from PyQt5.QtWidgets import QDialog, QWidget
+from PyQt5.QtWidgets import QApplication, QDialog, QWidget
 
-from spectra_lexer.gui_qt import GUIQt, GUIQtApplication
+from spectra_lexer.gui_qt import GUIQtApplication
 from spectra_lexer.plover.interface import PloverPluginInterface
 from spectra_lexer.utils import nop
 
@@ -31,9 +31,11 @@ class PloverPlugin(QDialog):
         """ Only create a new app/window instance on the first call; return the saved instance otherwise.
             The engine is always the first argument passed by Plover. Others are irrelevant. """
         if cls.window is None:
+            # The QApplication currently running Plover is required to manually process events.
+            evt_proc = QApplication.instance().processEvents
             # The interface to the Plover engine is the only new component needed.
-            app = GUIQtApplication(PloverPluginInterface)
-            cls.window = next(c.window for c in app.components if isinstance(c, GUIQt))
+            app = GUIQtApplication(PloverPluginInterface, gui_evt_proc=evt_proc)
+            cls.window = app.get_window()
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
             app.start(plover_engine=args[0], show_file_menu=False)

@@ -2,7 +2,7 @@
 
 import argparse
 from functools import partial
-from typing import ClassVar, Hashable, Iterable, List
+from typing import Any, ClassVar, Hashable, List
 
 from spectra_lexer.engine import Engine
 from spectra_lexer.utils import nop
@@ -50,59 +50,43 @@ class Component:
     def engine_commands(self) -> List[tuple]:
         """ Bind all class command functions to the instance and return the raw (key, (func, ...)) command tuples.
             Each command has a main callable followed by optional instructions on what to execute next. """
-        return [(key, (getattr(self, attr), *args)) for (attr, key, *args) in self._cmd_attr_list]
+        return [(key, (getattr(self, attr), *params)) for (attr, key, *params) in self._cmd_attr_list]
 
 
-class Composite(Component):
+class Gateway(Component):
+    """ Central constructor/container for components. All commands issued to children go through here first. """
 
-    components: List[Component]  # List of all child components. Should not change after initialization.
+    components: List[Component]     # List of all child components. Should not change after initialization.
 
-    def __init__(self, *cls_iter:type, args_iter:Iterable=iter(tuple, ...)):
-        """ Assemble child components from constructors.
-            <args_iter> contains positional arguments for each constructor in order, defaulting to empty. """
-        super().__init__()
-        self.components = [cls(*args) for (cls, args) in zip(cls_iter, args_iter)]
+    def child_call(self, func, *args, **kwargs) -> Any:
+        return func(*args, **kwargs)
 
     def engine_connect(self, cb:callable) -> None:
+        """ All child components must be able to call the engine independently. """
         for c in self.components:
             c.engine_call = cb
 
     def engine_commands(self) -> List[tuple]:
-        return [cmd for c in self.components for cmd in c.engine_commands()]
+        """ Any command serviced by a child component should be forwarded here by the engine. """
+        cmds = [cmd for c in self.components for cmd in c.engine_commands()]
+        return [(key, (partial(self.child_call, func), *params)) for (key, (func, *params)) in cmds]
 
 
-class Process(Engine):
-    """ Runnable component setup for an engine. """
+class Application(Engine):
+    """ Runnable component setup for an engine that serves as a base for an entire application. """
 
     components: List[Component]  # List of all connected components. Should not change after initialization.
 
-    def __init__(self, *cls_iter:type, args_iter:Iterable=iter(tuple, ...)):
-        """ Assemble child components from constructors and initialize the engine.
-            <args_iter> contains positional arguments for each constructor in order, defaulting to empty. """
+    def __init__(self, *cls_iter:type):
+        """ Assemble child components from constructors and initialize the engine. """
         super().__init__()
         # Create all necessary components in order from base to derived classes.
-        self.components = [cls(*args) for (cls, args) in zip(cls_iter, args_iter)]
+        self.components = [cls() for cls in cls_iter]
         # Add (key, (func, ...)) command tuples and set callbacks for all child components.
         for c in self.components:
             for (key, cmd) in c.engine_commands():
                 self.setdefault(key, []).append(cmd)
             c.engine_connect(self.call)
-
-
-class Subprocess(Process, Component):
-    """ Runnable component setup that acts as a component itself to a parent engine. """
-
-    def engine_commands(self) -> List[tuple]:
-        """ Any command using a key serviced by a child component should be forwarded here by the parent engine. """
-        return [(key, (partial(self.call, key), None, {})) for key in self]
-
-    def __missing__(self, key:Hashable) -> list:
-        """ Any command we can't find is forwarded to the parent engine. """
-        return [(partial(self.engine_call, key), None, {})]
-
-
-class Application(Process):
-    """ Runnable component setup for an engine that serves as a base for an entire application. """
 
     def start(self, **opts) -> None:
         """ Send the start signal with options from command line arguments parsed from sys.argv,
