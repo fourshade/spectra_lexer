@@ -2,20 +2,21 @@
 
 """ Main test module for the Spectra steno lexer. Currently handles all major components except the GUI. """
 
-import re
 from itertools import starmap
+import re
 
 import pytest
 
 from spectra_lexer import Component
-from spectra_lexer.interactive.board import BoardRenderer
 from spectra_lexer.core.file import FileHandler
 from spectra_lexer.core.lexer import StenoLexer
-from spectra_lexer.interactive.graph import GraphRenderer
-from spectra_lexer.rules import RuleFlags
 from spectra_lexer.core.rules import RulesManager
-from spectra_lexer.interactive.search import SearchEngine
 from spectra_lexer.core.translations import TranslationsManager
+from spectra_lexer.interactive.board import BoardRenderer
+from spectra_lexer.interactive.graph import GraphRenderer
+from spectra_lexer.interactive.search import SearchEngine
+from spectra_lexer.interactive.svg import SVGManager
+from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
 
@@ -107,9 +108,10 @@ def test_search(trial):
     assert SEARCH.on_input(re.escape(word)) == ([word], word)
 
 
+SVG = SVGManager()
+direct_connect(SVG, FILE)
+BOARD_DICT = SVG.load()
 BOARD = BoardRenderer()
-direct_connect(BOARD, FILE)
-BOARD_DICT = BOARD.load()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_elements(BOARD_DICT)
 

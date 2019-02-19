@@ -13,6 +13,8 @@ from spectra_lexer.gui_qt.menu import GUIQtMenu
 from spectra_lexer.gui_qt.search import GUIQtSearch
 from spectra_lexer.gui_qt.graph import GUIQtTextDisplay
 from spectra_lexer.gui_qt.window import GUIQtWindow
+from spectra_lexer.interactive import InteractiveApplication
+
 
 # Subcomponents of the GUI with their widget sections. Some components may use the same section.
 COMPONENTS = {GUIQtMenu:           "menu",
@@ -44,3 +46,11 @@ class GUIQt(Subprocess):
         value = super().call(*args, **kwargs)
         self.process_events()
         return value
+
+
+class GUIQtApplication(InteractiveApplication):
+    """ Class for operation of the Spectra program with the standard Qt GUI. """
+
+    def __init__(self, *cls_iter:type):
+        """ The Qt widgets take direct orders from the GUIQt component and its children. """
+        super().__init__(GUIQt, *cls_iter)

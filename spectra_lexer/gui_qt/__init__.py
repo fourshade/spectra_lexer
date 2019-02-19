@@ -1,1 +1,1 @@
-from .base import GUIQt
+from .base import GUIQt, GUIQtApplication

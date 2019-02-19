@@ -1,1 +1,1 @@
-from .base import Interactive
+from .base import InteractiveApplication

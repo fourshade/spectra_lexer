@@ -6,7 +6,7 @@ from spectra_lexer import Component, on, pipe
 
 
 class BatchExecutor(Component):
-    """ Class for operation of the Spectra program in batch mode on a translation dictionary. """
+    """ Component to run the lexer in batch mode on a translation dictionary. """
 
     _translations: dict  # Translation dict to parse.
 

@@ -1,5 +1,6 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
+import argparse
 from functools import partial
 from typing import ClassVar, Hashable, Iterable, List
 
@@ -59,6 +60,7 @@ class Composite(Component):
     def __init__(self, *cls_iter:type, args_iter:Iterable=iter(tuple, ...)):
         """ Assemble child components from constructors.
             <args_iter> contains positional arguments for each constructor in order, defaulting to empty. """
+        super().__init__()
         self.components = [cls(*args) for (cls, args) in zip(cls_iter, args_iter)]
 
     def engine_connect(self, cb:callable) -> None:
@@ -78,6 +80,7 @@ class Process(Engine):
         """ Assemble child components from constructors and initialize the engine.
             <args_iter> contains positional arguments for each constructor in order, defaulting to empty. """
         super().__init__()
+        # Create all necessary components in order from base to derived classes.
         self.components = [cls(*args) for (cls, args) in zip(cls_iter, args_iter)]
         # Add (key, (func, ...)) command tuples and set callbacks for all child components.
         for c in self.components:
@@ -96,3 +99,18 @@ class Subprocess(Process, Component):
     def __missing__(self, key:Hashable) -> list:
         """ Any command we can't find is forwarded to the parent engine. """
         return [(partial(self.engine_call, key), None, {})]
+
+
+class Application(Process):
+    """ Runnable component setup for an engine that serves as a base for an entire application. """
+
+    def start(self, **opts) -> None:
+        """ Send the start signal with options from command line arguments parsed from sys.argv,
+            followed by keyword options given directly by subclasses or by main(). """
+        # Suppress defaults for unused options so that they don't override the ones from subclasses with None.
+        parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+        for c in opts:
+            parser.add_argument('--' + c)
+        # Command-line options must be added with update() to enforce precedence and eliminate duplicates.
+        opts.update(vars(parser.parse_args()))
+        self.call("start", **opts)

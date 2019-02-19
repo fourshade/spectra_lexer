@@ -1,1 +1,1 @@
-from .base import Core
+from .base import CoreApplication

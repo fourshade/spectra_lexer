@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from spectra_lexer.interactive.search import SimilarKeyDict, StringSearchDict
-from spectra_lexer.interactive.search import ReverseDict, ReverseStringSearchDict
+from spectra_lexer.interactive.search.search_dict import SimilarKeyDict, StringSearchDict
+from spectra_lexer.interactive.search.steno_dict import ReverseDict, ReverseStringSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
