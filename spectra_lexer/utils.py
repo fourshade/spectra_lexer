@@ -62,13 +62,21 @@ def merge(d_iter) -> dict:
     return merged
 
 
-def memoize_one_arg(f:callable) -> callable:
+def memoize_one_arg(fn:callable) -> callable:
     """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
     class MemoDict(dict):
         def __missing__(self, key):
-            ret = self[key] = f(key)
+            ret = self[key] = fn(key)
             return ret
     return MemoDict().__getitem__
+
+
+def nondata_property(fn:callable):
+    """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
+    class NondataProp:
+        def __get__(self, instance, owner) -> str:
+            return fn(instance)
+    return NondataProp()
 
 
 # These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.

@@ -13,7 +13,7 @@ Characters from an outside source (JSON files or the Plover engine) are assumed 
 from collections import defaultdict
 from typing import Callable
 
-from spectra_lexer.utils import str_map, str_prefix, str_without
+from spectra_lexer.utils import nondata_property, str_map, str_prefix, str_without
 
 # Key constants which aren't physical steno keys but appear in strings.
 KEY_SEP = "/"
@@ -42,13 +42,10 @@ class StenoKeys(str):
     """ Derived string class for a sequence of case-distinct steno keys with
         no hyphens and lowercase characters for every key on the right side. """
 
-    class RTFCREDescr:
-        """ Non-data descriptor to convert a string to RTFCRE if it wasn't originally in that form. """
-        def __get__(self, instance, owner) -> str:
-            """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
-            return str_map(instance, _stroke_stenokeys_to_rtfcre, KEY_SEP)
-
-    rtfcre = RTFCREDescr()
+    @nondata_property
+    def rtfcre(self) -> str:
+        """ Transform a StenoKeys string to RTFCRE. Result will be a basic string. """
+        return str_map(self, _stroke_stenokeys_to_rtfcre, KEY_SEP)
 
     @classmethod
     def from_rtfcre(cls, s:str):

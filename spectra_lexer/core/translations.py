@@ -2,6 +2,7 @@ import json
 from typing import List
 
 from spectra_lexer.resource import ResourceManager
+from spectra_lexer.utils import nondata_property
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR: str = "~plover/"
@@ -14,14 +15,10 @@ class TranslationsManager(ResourceManager):
 
     ROLE = "translations"
 
-    _files = ()
-
-    @property
+    @nondata_property
     def files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
             in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
-        if self._files:
-            return self._files
         try:
             cfg_dict = self.engine_call("file_load", _PLOVER_USER_DIR + _PLOVER_CFG_FILENAME)[0]
             dict_section = cfg_dict['System: English Stenotype']['dictionaries']
@@ -35,7 +32,3 @@ class TranslationsManager(ResourceManager):
         except json.decoder.JSONDecodeError:
             print("Problem decoding JSON in plover.cfg.")
         return []
-
-    @files.setter
-    def files(self, filenames:List[str]) -> None:
-        self._files = filenames
