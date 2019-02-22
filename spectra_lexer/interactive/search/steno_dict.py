@@ -1,7 +1,7 @@
 from collections import defaultdict
 from itertools import repeat
 import re
-from typing import Callable, Dict, Iterable, List, Mapping, Tuple, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Tuple, TypeVar, Union
 
 from spectra_lexer.interactive.search.search_dict import StringSearchDict
 
@@ -42,7 +42,7 @@ class ReverseDict(Dict[VT, List[KT]]):
         if not self[v]:
             del self[v]
 
-    def match_forward(self, fdict:Mapping[KT,VT]) -> None:
+    def match_forward(self, fdict:Dict[KT,VT]) -> None:
         """ Make this dict into the reverse of the given forward dict by rebuilding all of the lists.
             It is a fast way to populate a reverse dict from scratch after creation. """
         self.clear()
@@ -63,8 +63,8 @@ def _strip_lower_simfns(strip_chars:str=' ') -> Tuple[Callable[[str],str], Calla
         return _lower(_strip(s, strip_chars))
     # Also define a mapped version for use across a large number of keys.
     # Mapping the built-in string methods separately provides a large speed boost.
-    def mapfn(s:str, rp_chars=repeat(strip_chars)) -> map:
-        return map(str.lower, map(str.strip, s, rp_chars))
+    def mapfn(s_iter:Iterable[str], rp_chars=repeat(strip_chars)) -> map:
+        return map(str.lower, map(str.strip, s_iter, rp_chars))
     return simfn, mapfn
 
 

@@ -1,10 +1,11 @@
-from operator import attrgetter
+from operator import attrgetter, methodcaller
 from typing import List, Generator, NamedTuple, Tuple
 
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleFlags, RuleMapItem, StenoRule
 
 # Flag constants for rule generation.
+_RARE_FLAG = RuleFlags.RARE
 _UNMATCHED_FLAG_SET = frozenset({RuleFlags.UNMATCHED})
 _GENERATED_FLAG_SET = frozenset({RuleFlags.GENERATED})
 
@@ -18,9 +19,9 @@ class LexerResult(NamedTuple):
     keys: StenoKeys             # Full key string.
     letters: str                # Full English text of the word.
 
-    def letters_matched(self, _agetter=attrgetter("rule.letters")) -> int:
+    def letters_matched(self, _get_letters=attrgetter("rule.letters")) -> int:
         """ Get the number of characters matched by mapped rules. """
-        return sum(map(len, map(_agetter, self.rulemap)))
+        return sum(map(len, map(_get_letters, self.rulemap)))
 
     def letters_matchable(self) -> int:
         """ Get the number of characters possible to match (i.e. not spaces). """
@@ -33,24 +34,19 @@ class LexerResult(NamedTuple):
         # All whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
         return matched / matchable if matchable else 0
 
-    def word_coverage(self) -> int:
-        """ Return the number of characters between the start of the first child rule and the end of the last. """
-        if not self.rulemap:
-            return 0
-        start_item = self.rulemap[0]
-        end_item = self.rulemap[-1]
-        return end_item.start + end_item.length - start_item.start
+    def rare_count(self, _get_flags=attrgetter("rule.flags"), _rare_in=methodcaller("__contains__", _RARE_FLAG)) -> int:
+        """ Get the number of rare rules in the map. """
+        return sum(map(_rare_in, map(_get_flags, self.rulemap)))
 
     def rank_diff(self, other) -> Generator:
         """ Generator to find the difference in "rank value" between two lexer-generated rulemaps.
             Used as a lazy sequence-based comparison, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate maps have smaller values. """
-        # TODO: Deprioritize RARE matches over the normal set of rules.
         yield -len(self.leftover_keys) + len(other.leftover_keys)  # Fewest keys unmatched
         yield self.letters_matched()   - other.letters_matched()   # Most letters matched
+        yield -self.rare_count()       + other.rare_count()        # Fewest rare rules
         yield -len(self.keys)          + len(other.keys)           # Fewest total keys
         yield -len(self.rulemap)       + len(other.rulemap)        # Fewest child rules
-        yield -self.word_coverage()    + other.word_coverage()     # End-to-end word coverage
 
     def __gt__(self, other) -> bool:
         """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """

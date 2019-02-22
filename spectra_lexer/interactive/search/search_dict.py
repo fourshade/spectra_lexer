@@ -62,9 +62,7 @@ class SimilarKeyDict(Dict[KT, VT]):
         super().__init__()
         self._list = []
         self._simfn = simfn
-        if mapfn is None:
-            mapfn = (lambda keys: map(simfn, keys))
-        self._mapfn = mapfn
+        self._mapfn = mapfn or (lambda keys: map(simfn, keys))
         if args or kwargs:
             self._update_empty(*args, **kwargs)
 
