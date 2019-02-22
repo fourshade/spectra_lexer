@@ -16,7 +16,6 @@ class ResourceManager(Component):
         cls.start = pipe("start", s + "_load")(partialmethod(cls.start))
         cls.load = fork(s + "_load", "new_" + s)(partialmethod(cls.load))
         cls.save = pipe(s + "_save", "file_save")(partialmethod(cls.save))
-        cls.dialog = pipe(s + "_dialog", "new_dialog_info")(partialmethod(cls.dialog))
         super().__init_subclass__()
 
     def start(self, **opts) -> Sequence[str]:
@@ -46,7 +45,3 @@ class ResourceManager(Component):
     def inv_parse(self, obj:object) -> object:
         """ Optional parse function to convert to raw disk format. May simply return the argument unchanged. """
         return obj
-
-    def dialog(self) -> tuple:
-        """ Get all valid file extensions for this data type and send them with the role to a new GUI file dialog. """
-        return self.ROLE, self.engine_call("file_get_supported_exts")

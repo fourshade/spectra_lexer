@@ -12,8 +12,8 @@ _RIGHT_BRACKETS = r'\)\]'
 _SUBRULE_RX = re.compile(r'[{}]'.format(_LEFT_BRACKETS) +
                          r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
                          r'[{}]'.format(_RIGHT_BRACKETS))
-# Resource glob pattern for the built-in JSON-based rules files.
-_RULES_ASSET_PATTERN = ":/*.cson"
+# Resource glob patterns for the built-in JSON-based rules files.
+_RULES_ASSET_PATTERNS = [":/*.cson"]
 
 
 class _RawRule(NamedTuple):
@@ -30,7 +30,7 @@ class RulesManager(ResourceManager):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "rules"
-    files = [_RULES_ASSET_PATTERN]
+    files = _RULES_ASSET_PATTERNS
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
@@ -100,8 +100,8 @@ class RulesManager(ResourceManager):
         return pattern, built_map
 
     def inv_parse(self, rules:Iterable[StenoRule]) -> Dict[str, _RawRule]:
-        """ From a bare iterable of rules (generally from the lexer), make a new raw dict using auto-generated
-            reference names and substituting rules in each rulemap for their letters. """
+        """ From a bare iterable of rules (generally from the lexer), make a new raw dict ready to save to JSON
+            using auto-generated reference names and substituting rules in each rulemap for their letters. """
         # The previous dict must be reversed one-to-one to look up names given rules.
         self._rev_dict = {v: k for (k, v) in self._dst_dict.items()}
         return {str(r): self._inv_parse(r) for r in rules}

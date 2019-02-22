@@ -66,11 +66,6 @@ class StenoKeys(str):
         """ Return a class instance of the stroke separator. """
         return cls(KEY_SEP)
 
-    @classmethod
-    def full_stroke(cls):
-        """ Return a class instance of a stroke containing all possible keys. """
-        return cls(L_KEYS + C_KEYS + R_KEYS)
-
     def first_stroke(self) -> str:
         """ Return the first stroke in a key string, or the whole string if there is only one. """
         return str_prefix(self, KEY_SEP)

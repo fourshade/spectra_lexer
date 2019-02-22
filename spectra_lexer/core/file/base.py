@@ -1,4 +1,4 @@
-from spectra_lexer import Component, on, respond_to
+from spectra_lexer import Component, on, respond_to, pipe
 from spectra_lexer.core.file.codecs import CodecDatabase
 from spectra_lexer.core.file.codecs.cfg import CFGCodec
 from spectra_lexer.core.file.codecs.json import CSONCodec, JSONCodec
@@ -29,10 +29,10 @@ class FileHandler(Component):
         """ Attempt to encode and save a resource to a file given by name. """
         return self._encode(resource_from_string(filename), d)
 
-    @respond_to("file_get_supported_exts")
-    def get_supported_exts(self) -> list:
-        """ Return all valid file extensions (including the dot) for encodable/decodable dict formats. """
-        return self._codecs.get_formats()
+    @pipe("file_dialog", "new_file_dialog")
+    def dialog(self, d_type:str) -> tuple:
+        """ Get all valid file extensions (including the dot) and send them with the type to a new GUI dialog. """
+        return d_type, self._codecs.get_formats()
 
     def _decode(self, f:Resource) -> dict:
         """ Read and decode a string resource. """

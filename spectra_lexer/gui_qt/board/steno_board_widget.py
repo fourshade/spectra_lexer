@@ -35,9 +35,10 @@ class StenoBoardWidget(QWidget):
         self._draw_list = []
         bounds = self._bounds
         for (el, ox, oy, scale) in gfx:
-            x, y, w, h = [c * scale for c in bounds[el]]
-            rectf = QRectF(x + ox, y + oy, w, h)
-            self._draw_list.append((el, rectf))
+            if el in bounds:
+                x, y, w, h = [c * scale for c in bounds[el]]
+                rectf = QRectF(x + ox, y + oy, w, h)
+                self._draw_list.append((el, rectf))
         self.update()
 
     def paintEvent(self, event:QPaintEvent) -> None:

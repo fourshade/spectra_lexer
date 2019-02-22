@@ -3,7 +3,7 @@ from xml.parsers.expat import ParserCreate
 from spectra_lexer.resource import ResourceManager
 
 # Resource identifier for the main SVG graphic. Contains every element needed.
-_BOARD_ASSET_NAME: str = ':/board.svg'
+_BOARD_ASSET_NAME = ':/board.svg'
 
 
 class SVGManager(ResourceManager):
@@ -24,7 +24,3 @@ class SVGManager(ResourceManager):
         p.Parse(xml_dict["raw"])
         xml_dict["ids"] = d
         return xml_dict
-
-    def save(self, filename:str, obj:object) -> tuple:
-        """ Board graphics data may not be saved back to disk. """
-        raise TypeError("Cannot save board SVG data to disk.")

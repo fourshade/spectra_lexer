@@ -21,7 +21,7 @@ class GUIQtConsoleDisplay(Component):
         _, self.w_text = widgets
 
     @on("start")
-    def start(self, show_menu=True, **opts) -> None:
+    def start(self, show_menu:bool=True, **opts) -> None:
         """ Connect the keyboard signal to the console. If the menu is used, add the console dialog command. """
         self.w_text.textInputComplete.connect(partial(self.engine_call, "console_input"))
         if show_menu:

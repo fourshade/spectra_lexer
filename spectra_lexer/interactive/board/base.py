@@ -26,7 +26,7 @@ class BoardRenderer(Component):
 
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str,StenoRule]) -> None:
-        """ Set up the generator with the rule dictionary. """
+        """ Set up the matcher with the rule dictionary. """
         self._matcher.set_rules(rules_dict)
 
     @pipe("new_svg", "new_board_setup")

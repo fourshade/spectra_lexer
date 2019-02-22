@@ -5,8 +5,8 @@ from spectra_lexer.resource import ResourceManager
 from spectra_lexer.utils import nondata_property
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
-_PLOVER_USER_DIR: str = "~plover/"
-_PLOVER_CFG_FILENAME: str = "plover.cfg"
+_PLOVER_USER_DIR = "~plover/"
+_PLOVER_CFG_FILENAME = "plover.cfg"
 
 
 class TranslationsManager(ResourceManager):
