@@ -2,23 +2,23 @@
 
 {
   # left bank
-  "rep.":   ["R",   "(r.)ep",     "", "drop `e` and consonant for common `re` words"],
-  "ret.":   ["R",   "(r.)et",     "", "drop `e` and consonant for common `re` words"],
+  "rep.":   ["R",   "(r.)ep",         [], "drop `e` and consonant for common `re` words"],
+  "ret.":   ["R",   "(r.)et",         [], "drop `e` and consonant for common `re` words"],
 
   # right bank
-  ".cial":  ["-RBL","[c|.sh]ia(.l)",  "", "drop unstressed vowels"],
-  ".sual":  ["-RBL","[s|.sh]ua(.l)",  "", "drop unstressed vowels"],
-  ".cious": ["-RBS","[c|.sh]iou(.s)", "", "drop unstressed vowels"],
-  ".sious": ["-RBS","[s|.sh]iou(.s)", "", "drop unstressed vowels"],
-  ".tious": ["-RBS","[t|.sh]iou(.s)", "", "drop unstressed vowels"],
+  ".cial":  ["-RBL","[c|.sh]ia(.l)",  [], "drop unstressed vowels"],
+  ".sual":  ["-RBL","[s|.sh]ua(.l)",  [], "drop unstressed vowels"],
+  ".cious": ["-RBS","[c|.sh]iou(.s)", [], "drop unstressed vowels"],
+  ".sious": ["-RBS","[s|.sh]iou(.s)", [], "drop unstressed vowels"],
+  ".tious": ["-RBS","[t|.sh]iou(.s)", [], "drop unstressed vowels"],
 
   # vowels
-  ".othe.": ["OE",  "(o)th(e)",   "", "drop middle `th`", "PHOER → mother"],
+  ".othe.": ["OE",  "(o)th(e)",       [], "drop middle `th` (PHOER → mother)"],
 
   # specific shortenings used in the most common words
-  "some.":  ["S",   "some",       "", "prefix `some` in common compound words"],
-  ".thing": ["-G",  "thing",      "", "suffix `thing` in common compound words"],
-  ".ever":  ["-FR", "e(.v)e(.r)", "", "suffix `ever` in common compound words"],
-  ".body":  ["-B",  "body",       "", "suffix `body` in common compound words"],
-  ".self":  ["*S",  "self",       "", "suffix `self` in common pronouns"]
+  "some.":  ["S",   "some",           [], "prefix `some` in common compound words"],
+  ".thing": ["-G",  "thing",          [], "suffix `thing` in common compound words"],
+  ".ever":  ["-FR", "e(.v)e(.r)",     [], "suffix `ever` in common compound words"],
+  ".body":  ["-B",  "body",           [], "suffix `body` in common compound words"],
+  ".self":  ["*S",  "self",           [], "suffix `self` in common pronouns"]
 }

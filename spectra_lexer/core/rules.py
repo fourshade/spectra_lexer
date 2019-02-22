@@ -18,11 +18,10 @@ _RULES_ASSET_PATTERNS = [":/*.cson"]
 
 class _RawRule(NamedTuple):
     """ Data structure for raw string fields read from each line in a JSON rules file. """
-    keys: str              # RTFCRE formatted series of steno strokes.
-    pattern: str           # English text pattern, consisting of raw letters as well as references to other rules.
-    flag_str: str = ""     # Optional pipe-delimited series of flags.
-    description: str = ""  # Optional description for when the rule is displayed in the GUI.
-    example_str: str = ""  # Optional pipe-delimited series of example translations using this rule.
+    keys: str                # RTFCRE formatted series of steno strokes.
+    pattern: str             # English text pattern, consisting of raw letters as well as references to other rules.
+    flag_list: list = ()     # Optional sequence of flags.
+    description: str = ""    # Optional description for when the rule is displayed in the GUI.
 
 
 class RulesManager(ResourceManager):
@@ -51,18 +50,13 @@ class RulesManager(ResourceManager):
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
-        keys, pattern, flag_str, description, example_str = self._src_dict[k]
+        raw = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
-        letters, built_map = self._substitute(pattern)
+        letters, built_map = self._substitute(raw.pattern)
         # The keys must be converted from RTFCRE form into lexer form.
-        keys = StenoKeys.from_rtfcre(keys)
-        # Parse the flag string into a set if not empty.
-        flags = frozenset(filter(None, flag_str.split("|"))) if flag_str else frozenset()
-        # For now, just include examples as a line after the description joined with commas.
-        if example_str:
-            description = "{}\n({})".format(description, example_str.replace("|", ", "))
-        # The built rulemap must be frozen before final inclusion in a rule.
-        self._dst_dict[k] = StenoRule(keys, letters, flags, description, tuple(built_map))
+        keys = StenoKeys.from_rtfcre(raw.keys)
+        # The flags and built rulemap must be frozen before final inclusion in an immutable rule.
+        self._dst_dict[k] = StenoRule(keys, letters, frozenset(raw.flag_list), raw.description, tuple(built_map))
 
     def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
         """
@@ -112,12 +106,8 @@ class RulesManager(ResourceManager):
         keys = r.keys.rtfcre
         # The pattern must be deduced from the letters, the rulemap, and the reference dict.
         pattern = self._inv_substitute(r.letters, r.rulemap)
-        # Join the flags into a string. The description is copied verbatim.
-        flag_str = "|".join(r.flags)
-        description = r.desc
-        # There are no examples in a generated rule.
-        example_str = ""
-        return _RawRule(keys, pattern, flag_str, description, example_str)
+        # Put the flags into a list. The description is copied verbatim.
+        return _RawRule(keys, pattern, list(r.flags), r.desc)
 
     def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
         """ For each mapped rule with a name reference, replace the mapped letters with the reference. """

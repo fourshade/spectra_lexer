@@ -1,8 +1,9 @@
 # Root plaintext files (license, changelog, etc.)
 include ./*.txt
-# Built-in rules files and board graphics.
+# Built-in rules files, board graphics, and rules format documentation.
 include spectra_lexer/assets/*.cson
 include spectra_lexer/assets/*.svg
+include spectra_lexer/assets/*.txt
 # Test data and package header (doesn't get included by default???).
 include test/__init__.py
 include test/data/*.json

@@ -1,0 +1,80 @@
+This directory contains the built-in JSON-based rules files for the Spectra steno lexer.
+The file extension is .cson for "commented JSON". Full-line comments are allowed using "#".
+The format is alternately named so that normal JSON parsers won't try to read it (JSON does not support comments).
+The fastest way to parse these is to strip out comment lines followed by sending it through a normal JSON parser.
+These files may also be parsed as valid YAML, but YAML parsers are much slower due to their complexity.
+
+Each UTF-8 file contains a single JSON object prefaced by one or more comment lines.
+Inside the object, each line contains a key/value pair with a single steno rule, a comment, or nothing.
+The key strings are rule names, which are only internally used and not displayed in any way to the user.
+The body of each rule is an array containing between 2 and 4 values. Numbers, true, false, and null are not allowed.
+
+At a minimum, a rule must include a series of steno keys and the English characters they map to.
+Some rules may be built off of others, in which case their characters contain references to one or more "child" rules.
+The order of rule definitions does not matter for the purpose of references, but there cannot be any reference cycles.
+References may not be nested. Keeping references on a single level of nesting simplifies parsing greatly.
+
+The following is a specification of the formal grammar for the Spectra steno rule file format:
+
+--------------------------------------------------------------------------------
+
+LHS ::= RHS      Substitution; anywhere LHS occurs, it must be replaced with a valid interpretation of RHS.
+""               Empty substitution.
+'x'              Single UTF-8 character.
+<char>           Single UTF-8 character of code point 0x20 or greater.
+<s_char>         Single UTF-8 character of code point 0x20 or greater excluding '"' (double quote)
+<newline>        Newline sequence; either 0x0A or 0x0D+0x0A. Whichever is chosen must be uniform throughout a file.
+expr1 expr2      Concatenation of expressions.
+expr1 | expr2    Either one expression or the other. Has lowest precedence.
+; line           Comment line; explains usages of data fields.
+
+--------------------------------------------------------------------------------
+
+FILE        ::=  comments '{' body '}' <newline>
+body        ::=  "" | blocks
+blocks      ::=  block | block delim blocks
+block       ::=  comments rule
+comments    ::=  "" | comment comments
+comment     ::=  ws '#' chars <newline>
+chars       ::=  "" | <char> chars
+rule        ::=  ws name ':' ws '[' keys delim letters optional ']' <newline>
+optional    ::=  "" | with_f | with_f_d
+with_f_d    ::=  with_f delim desc
+with_f      ::=  delim '[' opt_flags ']'
+opt_flags   ::=  "" | flags
+flags       ::=  flag | flag delim flags
+delim       ::=  ',' ws
+ws          ::=  "" | ' ' ws
+string      ::=  '"' s_chars '"'
+s_chars     ::=  "" | <s_char> s_chars
+
+name        ::=  string
+; Contains one of the following naming patterns, where `name` is typically the literal characters produced:
+; "name"   = vowel keys in center
+; "name."  = keys on left side
+; ".name"  = keys on right side
+; ".name." = non-vowel keys near center
+; "name-"  = independent prefix stroke
+; "-name"  = independent suffix stroke
+; "NAME"   = soft variants of consonants, long variants of vowels
+; "name+"  = stroke required because of conflict with another entry (also resolves key name conflicts)
+; "name~"  = for internal use only, should not appear in top level of parsing output
+; "X:name" = determines purpose of an asterisk (or other key) that doesn't contribute to the letters in the word
+
+keys        ::=  string
+; Contains a sequence of steno keys. Keys are uppercase, hyphen-separated if necessary, with strokes separated by '/'.
+
+letters     ::=  string
+; Contains a combination of literal characters and the following types of bracketed references:
+; "(name)"         = substitute complete translation from the rule with `name`
+; "[letters|name]" = use sound or strategy from the rule with `name` on the literal `letters`
+
+flag        ::=  string
+; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
+; "SPEC" = special rule used internally, do not match directly using lexer
+; "STRK" = only matches a full stroke (i.e. fingerspelling)
+; "WORD" = only matches a full word (i.e. common briefs)
+; "RARE" = rarely found in practice and/or may cause false positives, matches are less reliable
+
+desc        ::=  string
+; Contains an English description of the rule and its application.
