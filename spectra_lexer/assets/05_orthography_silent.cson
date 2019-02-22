@@ -1,17 +1,16 @@
-# Orthography for English text with silent letters.
-# Also includes steno patterns that drop unstressed letters.
+# Orthographic rules for English text with silent letters
 
 {
   # left bank
   "ch.+": ["K",     "(c.)h",      "", "hard `c`, `h` is silent"],
+  "chr.": ["KR",    "(ch.+)(r.)", "", "hard `chr` prefix"],
+  "sch.": ["SH",    "(s.)c(h.)",  "", "soft `sch` prefix"],
+  "sch.+":["SK",    "(s.)(ch.+)", "", "hard `sch` prefix"],
+  "sc.":  ["SK",    "(s.)(c.)",   "", "also applies to soft `sc` words such as `science`"],
+
   "gh.":  ["TKPW",  "(g.)h",      "", "`h` is silent"],
   "gn.":  ["TPH",   "g(n.)",      "", "`g` is silent"],
   "kn.":  ["TPH",   "k(n.)",      "", "`k` is silent"],
-
-  "chr.": ["KR",    "(ch.+)(r.)", "", "hard `chr` prefix"],
-  "sc.":  ["SK",    "(s.)(c.)",   "", "also applies to soft `sc` words such as `science`"],
-  "sch.": ["SH",    "(s.)c(h.)",  "", "soft `sch` prefix"],
-  "sch.+":["SK",    "(s.)(ch.+)", "", "hard `sch` prefix"],
 
   # right bank
   ".ch+": ["-BG",   "(.c)h",      "", "hard `c`, `h` is silent"],
@@ -24,15 +23,6 @@
   ".nge": ["-PBG",  "[ng|.nj]e",  "", "soft `g` coda must end with silent `e`"],
   ".que": ["-BG",   "(.q)ue",     "", "`ue` is silent"],
   ".gue": ["-G",    "(.g)ue",     "", "`ue` is silent"],
-
-  ".ded":   ["-TD",   "[d|.t](.ed)",  "", "use -T for first of two `d`s (standard?)", "SKWRAEUTD → jaded"],
-  ".xed":   ["-BGD",  "[x|.k](.ed)",  "", "treat `x` as `k` to avoid -SD combo", "PLEUBGD → mixed"],
-
-  ".cial":  ["-RBL","[c|.sh]ia(.l)",  "", "drop unstressed vowels"],
-  ".sual":  ["-RBL","[s|.sh]ua(.l)",  "", "drop unstressed vowels"],
-  ".cious": ["-RBS","[c|.sh]iou(.s)", "", "drop unstressed vowels"],
-  ".sious": ["-RBS","[s|.sh]iou(.s)", "", "drop unstressed vowels"],
-  ".tious": ["-RBS","[t|.sh]iou(.s)", "", "drop unstressed vowels"],
 
   # full board
   "~av":    ["AF",  "(a)(.v)",    "SPEC", "use short vowel sound for v ending"],

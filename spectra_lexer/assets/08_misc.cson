@@ -1,12 +1,15 @@
 # Other unique rule patterns/combinations not specified elsewhere
 
 {
-  # prefixes
+  # left bank
   "ent.":   ["SPW",   "ent",          "", "prefix `ent`", "SPWER → enter"],
   "int.":   ["SPW",   "int",          "", "prefix `int`", "SPWELGT → intelligent"],
   "enter.": ["SPWR",  "(ent.)e(r.)",  "", "ONLY works as prefix"],
   "inter.": ["SPWR",  "(int.)e(r.)",  "", "ONLY works as prefix"],
-  "synd.":  ["STK",   "(s.)yn(d.)",   "", "drop middle"],
+
+  # right bank
+  ".ded":   ["-TD",   "[d|.t](.ed)",  "", "use -T for first of two `d`s (standard?)", "SKWRAEUTD → jaded"],
+  ".xed":   ["-BGD",  "[x|.k](.ed)",  "", "treat `x` as `k` to avoid -SD combo", "PLEUBGD → mixed"],
 
   # connecting strokes
   "b/b":    ["-B/PW",      "b",   "RARE", "consonant `b` split between strokes"],
@@ -30,17 +33,5 @@
   "v/v":    ["-F/SR",      "v",   "RARE", "consonant `v` split between strokes"],
   "x/x":    ["-BGS/S",     "x",   "RARE", "consonant `x` split between strokes"],
   "z/z":    ["-Z/S*",      "z",   "RARE", "consonant `z` split between strokes"],
-  "zz+":    ["-T/S",       "zz",  "RARE", "Italian `zz` split between strokes"],
-
-  # large eliminations
-  "rep.":   ["R",   "(r.)ep",     "", "drop `e` and consonant for common `re` words"],
-  "ret.":   ["R",   "(r.)et",     "", "drop `e` and consonant for common `re` words"],
-  ".othe.": ["OE",  "(o)th(e)",   "", "drop middle `th`", "PHOER → mother"],
-
-  # specific shortenings used in the most common words
-  "some.":  ["S",   "some",       "", "prefix `some` in common compound words"],
-  ".thing": ["-G",  "thing",      "", "suffix `thing` in common compound words"],
-  ".ever":  ["-FR", "e(.v)e(.r)", "", "suffix `ever` in common compound words"],
-  ".body":  ["-B",  "body",       "", "suffix `body` in common compound words"],
-  ".self":  ["*S",  "self",       "", "suffix `self` in common pronouns"]
+  "zz+":    ["-T/S",       "zz",  "RARE", "Italian `zz` split between strokes"]
 }

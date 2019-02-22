@@ -1,4 +1,4 @@
-# Orthography for various sounds in English text.
+# Orthographic rules for various sounds in English text.
 
 {
   # left bank
@@ -8,6 +8,7 @@
 
   "ph.":    ["TP",       "[ph|f.]",    "",     "`ph`onetic"],
   "qu.":    ["KW",       "(q.)(.u~)",  "",     "phonetic"],
+  "t.+":    ["KH",       "[t|ch.]",    "RARE", "phonetic"],
 
   "exc.":   ["KP",       "[exc|ex.]",  "",     "combined consonant sounds"],
 
@@ -43,7 +44,8 @@
 
   ".cc.":   ["-BGS", "[cc|.x]",        "",     "phonetic"],
   ".ss.+":  ["-RB",  "[ss|.sh]",       "",     "phonetic", "TPEURB/UR → fissure"],
-  ".t.":    ["-FP",  "[t|.ch]",        "RARE", "phonetic", "TPHAFP/RAL → natural"],
+
+  ".t+":    ["-FP",  "[t|.ch]",        "RARE", "phonetic", "TPHAFP/RAL → natural"],
   ".nt.":   ["-FRPBLG","[nt|.nch+]",   "RARE", "phonetic"],
   ".nc":    ["*PBG", "[nc|.nk]",       "RARE", "phonetic"],
   ".gh":    ["-F",   "[gh|.f]",        "",     "phonetic", "TUF → tough"],
@@ -96,9 +98,9 @@
 
   "eau": ["OE",  "[eau|O]", "RARE", "`eau` as in `tableau`"],
 
-   # full board
-  "wu~":   ["WU",   "(w.)(u)",      "SPEC", "`wu` sound"],
-  "on.":   ["WUPB", "[o|wu~](.n)",  "RARE", "unique `w` sound as in `one` and `once`"],
-  "su.":   ["SHU",  "[s|sh.](u)",   "RARE", "unique `sh` sound as in `sure` and `sugar`"],
-  ".tur":  ["KHUR", "[t|ch.](u)(.r)]",  "", "phonetic"]
+  # full board
+  "s~":    ["SH",   "s",                "SPEC", "`sh` sound"],
+  "su.":   ["SHU",  "(s~)(u)",          "RARE", "unique `sh` sound as in `sure` and `sugar`"],
+  "wu~":   ["WU",   "(w.)(u)",          "SPEC", "`wu` sound"],
+  "on.":   ["WUPB", "[o|wu~](.n)",      "RARE", "unique `w` sound as in `one` and `once`"]
 }

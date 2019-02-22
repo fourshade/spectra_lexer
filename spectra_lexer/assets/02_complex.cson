@@ -2,6 +2,10 @@
 
 {
   # left bank
+  "ch.":  ["KH",   "(c.)(h.)",   "",     "left side `ch`"],
+  "sh.":  ["SH",   "(s.)(h.)",   "",     "left side `sh`"],
+  "th.":  ["TH",   "(t.)(h.)",   "",     "left side `th`"],
+
   "C.+":  ["KR",   "c",          "",     "used to disambiguate soft `c` vs. `s`"],
   ".v.":  ["W",    "v",          "RARE", "rarely used as middle `v`", "TKWOUR → devour|KAUN/WHRAOUGS → convolution"],
   "z.+":  ["STKPW","z",          "RARE", "used for `z` when asterisk is used elsewhere", "STKPW*EUPBG → zinc"],
@@ -16,15 +20,18 @@
   ".C.":  ["-F",   "c",          "",     "used as soft `c` when necessary to preserve steno order"],
   ".st+": ["*S",   "st",         "",     "right side `st`; used in case of conflict with -FT"],
 
-  ".m.":  ["-FR",  "m",          "RARE", "ghost pattern for `m`; used when combined with certain letters"],
+  ".m~":  ["-FR",  "m",          "SPEC", "ghost pattern for `m`; used when combined with certain letters"],
+  ".mp":  ["-FRP", "(.m~)(.p)",  "",     "uncommon consonant pair", "KAFRP → camp"],
+  ".mb":  ["-FRB", "(.m~)(.b)",  "",     "uncommon consonant pair", "TKPBEUFRBL → gimble"],
+  ".ml":  ["-FRL", "(.m~)(.l)",  "",     "uncommon consonant pair", "KAFRL → camel"],
   ".mp+": ["*PL",  "mp",         "",     "alternative for `mp`; deprecated in favor of -FRP by certain parties"],
 
-  ".k~":  ["*G",   "k",          "RARE", "ghost pattern for `k`; used when combined with certain letters"],
+  ".k~":  ["*G",   "k",          "SPEC", "ghost pattern for `k`; used when combined with certain letters"],
   ".nj":  ["-PBG", "(.n)[j|.g]", "",     "the NJ sound; treats `g` as `j`"],
   ".nk":  ["*PBG", "(.n)(.k~)",  "",     "the NK sound; overlap of `n` and `k`"],
+  ".lk":  ["*LG",  "(.l)(.k~)",  "",     "the LK sound", "H*ULG → hulk"],
   ".lj":  ["-LG",  "(.l)[j|.g]", "",     "the LJ sound; treats `g` as `j`"],
   ".lch": ["-LG",  "lch",        "",     "the LCH sound", "MULG → mulch"],
-  ".lk":  ["*LG",  "(.l)(.k~)",  "",     "the LK sound", "H*ULG → hulk"],
 
   ".rv":  ["-FRB",   "rv",       "",     "the RV sound", "KUFRB → curve"],
   ".rch": ["-FRPB",  "rch",      "",     "the RCH sound"],

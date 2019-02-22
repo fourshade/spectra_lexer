@@ -18,7 +18,7 @@
   "in":     ["TPH",  "i(n.)",       "WORD", "common brief"],
   "why":    ["KWR",  "wh(y.)",      "WORD", "common brief"],
   "go":     ["TKPW", "(g.)o",       "WORD", "common brief"],
-  "from":   ["TPR",  "(fr.)om",     "WORD", "common brief"],
+  "from":   ["TPR",  "(f.)(r.)om",  "WORD", "common brief"],
   "there":  ["THR",  "(th.)e(r.)e", "WORD", "common brief"],
 
   # right bank
