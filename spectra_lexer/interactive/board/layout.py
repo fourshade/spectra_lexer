@@ -1,22 +1,20 @@
 """ Module for generating steno board diagram element bounds. """
 
 from math import ceil
-from typing import Dict, List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple
 
 
 class ElementLayout(NamedTuple):
     """ Generates a list of board graphical elements fitted to the bounds of the display widget. """
 
-    bounds: Dict[str, tuple]  # (x, y, w, h) bounds of each graphical element by id.
-    viewbox: tuple            # (x, y, w, h) bounds of the SVG view box for the root element.
-    width: int                # Total width of the diagram widget in pixels.
-    height: int               # Total height of the diagram widget in pixels.
+    viewbox: tuple  # (x, y, w, h) bounds of the SVG view box for the root element.
+    width: int      # Total width of the diagram widget in pixels.
+    height: int     # Total height of the diagram widget in pixels.
 
     def make_draw_list(self, ids:List[List[str]]) -> List[tuple]:
-        """ Compute the drawing bounds for each element ID in each stroke on the board diagram.
+        """ Compute the offset and scale for each element ID in each stroke on the board diagram.
             Complete strokes are tiled in a grid layout, scaled to the maximum area of the widget. """
         draw_list = []
-        d = self.bounds
         w_ratio = self.width / self.viewbox[2]
         h_ratio = self.height / self.viewbox[3]
         rows, cols, scale = _arrange(w_ratio, h_ratio, len(ids))
@@ -31,8 +29,7 @@ class ElementLayout(NamedTuple):
             offset_y = oy + sh * steps_y
             # Place each element within its scaled, offset-adjusted bounds.
             for k in stroke:
-                x, y, w, h = [c * scale for c in d[k]]
-                draw_list.append((k, x + offset_x, y + offset_y, w, h))
+                draw_list.append((k, offset_x, offset_y, scale))
         return draw_list
 
 

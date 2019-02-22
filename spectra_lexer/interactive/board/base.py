@@ -36,9 +36,9 @@ class BoardRenderer(Component):
         return xml_dict["raw"], xml_dict["ids"]
 
     @pipe("board_set_layout", "new_board_gfx")
-    def set_layout(self, bounds:Dict[str, tuple], view_box:tuple, width:int, height:int) -> List[tuple]:
-        """ Set the bounds of all elements, the viewbox, and the layout's max bounds and redraw it. """
-        self._layout = ElementLayout(bounds, view_box, width, height)
+    def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:
+        """ Set the viewbox and the layout's max bounds. Recompute the current layout and send it. """
+        self._layout = ElementLayout(view_box, width, height)
         return self._layout.make_draw_list(self._last_ids)
 
     @pipe("new_lexer_result", "new_board_gfx")

@@ -114,8 +114,7 @@ BOARD_DICT = SVG.load()
 BOARD = BoardRenderer()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_elements(BOARD_DICT)
-TEST_BOUNDS = {k: (0, 0, *divmod(i, 10)) for i, k in enumerate(BOARD_DICT["ids"], 1)}
-BOARD.set_layout(TEST_BOUNDS, (0, 0, 100, 100), 100, 100)
+BOARD.set_layout((0, 0, 100, 100), 100, 100)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
