@@ -30,9 +30,10 @@ class ElementMatcher:
 
     def _check(self) -> None:
         """ Narrow down the final dict to element IDs which exist and have a corresponding rule. """
-        if self._valid_rules and self._valid_ids:
-            ids = self._valid_ids
-            self._rule_ids = {rule: name for rule, name in self._valid_rules.items() if name in ids}
+        rules = self._valid_rules
+        ids = self._valid_ids
+        if rules and ids:
+            self._rule_ids = {rule: name for rule, name in rules.items() if name in ids}
 
     def get_element_ids(self, rule:StenoRule, use_dict:bool=True) -> DiagramElements:
         """ Generate board diagram element IDs for a steno rule recursively. """

@@ -20,7 +20,12 @@ class FileHandler(Component):
         self._codecs = CodecDatabase(_ALL_CODECS)
 
     @respond_to("file_load")
-    def load(self, *patterns:str) -> list:
+    def load(self, filename:str) -> dict:
+        """ Attempt to load and decode a single resource (no patterns) given by name. """
+        return self._decode(resource_from_string(filename))
+
+    @respond_to("file_load_all")
+    def load_all(self, *patterns:str) -> list:
         """ Attempt to expand all patterns and decode all files in the arguments and return a list. """
         return list(map(self._decode, resources_from_patterns(*patterns)))
 

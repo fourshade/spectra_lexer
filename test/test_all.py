@@ -15,7 +15,6 @@ from spectra_lexer.core.translations import TranslationsManager
 from spectra_lexer.interactive.board import BoardRenderer
 from spectra_lexer.interactive.graph import GraphRenderer
 from spectra_lexer.interactive.search import SearchEngine
-from spectra_lexer.interactive.svg import SVGManager
 from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
@@ -35,18 +34,6 @@ def direct_connect(cmp:Component, subcmp:Component) -> None:
 FILE = FileHandler()
 RULES = RulesManager()
 direct_connect(RULES, FILE)
-
-
-def test_dict_files():
-    """ Load and perform basic integrity tests on the individual built-in rules dictionaries. """
-    full_dict = {}
-    for d in FILE.load(*RULES.files):
-        # Check for rules that have identical names (keys)
-        conflicts = set(d).intersection(full_dict)
-        assert not conflicts, "Dictionary key {} contained in two or more files".format(conflicts)
-        full_dict.update(d)
-
-
 RULES_DICT = RULES.load()
 
 
@@ -56,7 +43,7 @@ def test_rules(r):
     # If the entry has flags, verify that all of them are valid.
     if r.flags:
         bad_flags = r.flags - RuleFlags
-        assert not bad_flags, "Entry {} has illegal flag(s): {}".format(r, bad_flags)
+        assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     # These tests only work for rules that do not allow the same key to appear in two different strokes.
     if r.rulemap:
@@ -65,11 +52,11 @@ def test_rules(r):
         # Make sure none of the child rules have overlapping keys.
         for s in child_key_sets:
             conflicts = combined_child_keys & s
-            assert not conflicts, "Entry {} has child rules with overlapping keys: {}".format(r, conflicts)
+            assert not conflicts, f"Entry {r} has child rules with overlapping keys: {conflicts}"
             combined_child_keys |= s
         # Make sure the child rules contain all the keys of the parent between them (and no extras).
         key_diff = set(r.keys) ^ combined_child_keys
-        assert not key_diff, "Entry {} has mismatched keys vs. its child rules: {}".format(r, key_diff)
+        assert not key_diff, f"Entry {r} has mismatched keys vs. its child rules: {key_diff}"
 
 
 TRANSLATIONS = TranslationsManager()
@@ -86,7 +73,7 @@ TEST_RESULTS = list(starmap(LEXER.query, TEST_TRANSLATIONS))
 def test_lexer(result):
     """ The parsing tests fail if the parser can't match all the keys. """
     rulemap = result.rulemap
-    assert rulemap, "Lexer failed to match all keys on {} -> {}.".format(result.keys, result.letters)
+    assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
 SEARCH = SearchEngine()
@@ -108,12 +95,10 @@ def test_search(trial):
     assert SEARCH.on_input(re.escape(word)) == ([word], word)
 
 
-SVG = SVGManager()
-direct_connect(SVG, FILE)
-BOARD_DICT = SVG.load()
 BOARD = BoardRenderer()
+direct_connect(BOARD, FILE)
+BOARD_DICT = BOARD.load()
 BOARD.set_rules(RULES_DICT)
-BOARD.set_elements(BOARD_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 
 

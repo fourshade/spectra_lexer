@@ -1,8 +1,9 @@
+from collections import Counter
 import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
+from spectra_lexer import Component, pipe
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.resource import ResourceManager
 from spectra_lexer.rules import StenoRule, RuleMapItem
 
 # Available bracket pairs for parsing rules.
@@ -13,7 +14,9 @@ _SUBRULE_RX = re.compile(r'[{}]'.format(_LEFT_BRACKETS) +
                          r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
                          r'[{}]'.format(_RIGHT_BRACKETS))
 # Resource glob patterns for the built-in JSON-based rules files.
-_RULES_ASSET_PATTERNS = [":/*.cson"]
+_RULES_ASSET_PATTERNS = (":/*.cson",)
+# Default output file name for lexer-generated rules.
+_RULES_OUTPUT_FILE = "output.json"
 
 
 class _RawRule(NamedTuple):
@@ -24,25 +27,37 @@ class _RawRule(NamedTuple):
     description: str = ""    # Optional description for when the rule is displayed in the GUI.
 
 
-class RulesManager(ResourceManager):
+class RulesManager(Component):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "rules"
-    files = _RULES_ASSET_PATTERNS
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    def parse(self, src_dict:Dict[str, str]) -> Dict[str, StenoRule]:
-        """ Top level parsing method. Goes through source JSON dict and parses every entry using mutual recursion. """
-        # Unpack rules from source dictionary and convert to namedtuple form.
-        self._src_dict = {k: _RawRule(*v) for (k, v) in src_dict.items()}
+    @pipe("start", "rules_load")
+    def start(self, rules:str=None, **opts) -> Sequence[str]:
+        """ If there is a command line option for this component, even if empty, attempt to load rules.
+            If the option is present but empty (or otherwise evaluates False), use the default instead. """
+        if rules is not None:
+            return [rules] if rules else ()
+
+    @pipe("rules_load", "new_rules")
+    def load(self, filenames:Sequence[str]=_RULES_ASSET_PATTERNS) -> Dict[str, StenoRule]:
+        """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
+        # Load rules from each source dictionary and convert to namedtuple form.
+        dicts = self.engine_call("file_load_all", *filenames)
+        self._src_dict = {k: _RawRule(*v) for d in dicts for (k, v) in d.items()}
+        # If the size of the combined dict is less than the sum of its components, some rule names are identical.
+        if len(self._src_dict) < sum(map(len, dicts)):
+            conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
+            raise KeyError(f"Found rule keys appearing in more than one file: {conflicts}")
         # Parse all rules from source dictionary into this one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         self._dst_dict = {}
-        for k in self._src_dict.keys():
+        for k in self._src_dict:
             if k not in self._dst_dict:
                 self._parse(k)
         # Return the final rules dict. Components such as the lexer may throw away the names.
@@ -82,7 +97,7 @@ class RulesManager(ResourceManager):
             # we still need to parse it at this stage so that the correct reference goes in the rulemap.
             if rule_key not in self._dst_dict:
                 if rule_key not in self._src_dict:
-                    raise KeyError("Illegal reference: {} in {}".format(rule_key, pattern))
+                    raise KeyError(f"Illegal reference: {rule_key} in {pattern}")
                 self._parse(rule_key)
             rule = self._dst_dict[rule_key]
             # Add the rule to the map and substitute in the letters if necessary.
@@ -93,12 +108,13 @@ class RulesManager(ResourceManager):
             m = _SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    def inv_parse(self, rules:Iterable[StenoRule]) -> Dict[str, _RawRule]:
-        """ From a bare iterable of rules (generally from the lexer), make a new raw dict ready to save to JSON
+    @pipe("rules_save", "file_save")
+    def save(self, filename:str, rules:Iterable[StenoRule]) -> tuple:
+        """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
             using auto-generated reference names and substituting rules in each rulemap for their letters. """
         # The previous dict must be reversed one-to-one to look up names given rules.
         self._rev_dict = {v: k for (k, v) in self._dst_dict.items()}
-        return {str(r): self._inv_parse(r) for r in rules}
+        return (filename or _RULES_OUTPUT_FILE), {str(r): self._inv_parse(r) for r in rules}
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """

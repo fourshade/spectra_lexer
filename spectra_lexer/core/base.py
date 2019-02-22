@@ -21,5 +21,5 @@ class CoreApplication(Application):
 
     def start(self, **opts) -> None:
         """ Set fallback options to load the default config file and rule set. """
-        all_opts = {"config": (), "rules": (), "translations": None, **opts}
+        all_opts = {"config": "", "rules": "", "translations": None, **opts}
         super().start(**all_opts)

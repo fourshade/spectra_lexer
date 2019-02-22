@@ -1,12 +1,16 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
 from typing import Dict, List, Tuple
+from xml.parsers.expat import ParserCreate
 
 from spectra_lexer import Component, on, pipe
 from spectra_lexer.config import CFGOption
 from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher
 from spectra_lexer.rules import RuleFlags, StenoRule
+
+# Resource identifier for the main SVG graphic. Contains every element needed.
+_BOARD_ASSET_NAME = ':/board.svg'
 
 
 class BoardRenderer(Component):
@@ -24,16 +28,33 @@ class BoardRenderer(Component):
         super().__init__()
         self._matcher = ElementMatcher()
 
+    @pipe("start", "board_load")
+    def start(self, board:str=None, **opts) -> str:
+        """ If there is a command line option for this component, even if empty, attempt to load an SVG.
+            If the option is present but empty (or otherwise evaluates False), use the default instead. """
+        if board is not None:
+            return board or ()
+
+    @pipe("board_load", "new_board_setup")
+    def load(self, filename:str=_BOARD_ASSET_NAME) -> Tuple[str, List[str]]:
+        """ Load and parse element ID names out of the raw XML string data. """
+        xml_dict = self.engine_call("file_load", filename)
+        id_dict = {}
+        def start_element(name, attrs):
+            if "id" in attrs:
+                attrs["name"] = name
+                id_dict[attrs["id"]] = attrs
+        p = ParserCreate()
+        p.StartElementHandler = start_element
+        p.Parse(xml_dict["raw"])
+        self._matcher.set_ids(id_dict)
+        # Send the raw SVG text data along with all element IDs to the GUI.
+        return xml_dict["raw"], list(id_dict)
+
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str,StenoRule]) -> None:
         """ Set up the matcher with the rule dictionary. """
         self._matcher.set_rules(rules_dict)
-
-    @pipe("new_svg", "new_board_setup")
-    def set_elements(self, xml_dict:dict) -> Tuple[str, List[str]]:
-        """ Send the raw SVG text data along with all element IDs to the GUI. """
-        self._matcher.set_ids(xml_dict["ids"])
-        return xml_dict["raw"], xml_dict["ids"]
 
     @pipe("board_set_layout", "new_board_gfx")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:
