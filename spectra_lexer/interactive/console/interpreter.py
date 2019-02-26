@@ -4,7 +4,7 @@ import sys
 from threading import Condition, Thread
 
 # Banner containing the Python version after formatting once, and the locals dict after formatting twice.
-_BANNER_FORMAT = "Python {}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{{}}".format(sys.version)
+_BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current components and utilities:\n{{}}"
 
 
 class ConsoleIO(TextIOBase):

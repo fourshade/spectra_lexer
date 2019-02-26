@@ -10,7 +10,7 @@ def main() -> None:
     s_time = time()
     app = CoreApplication(BatchExecutor)
     app.start(translations=(), out="output.json", processes=None)
-    print("Processing done in {:.1f} seconds.".format(time() - s_time))
+    print(f"Processing done in {time() - s_time:.1f} seconds.")
 
 
 if __name__ == '__main__':

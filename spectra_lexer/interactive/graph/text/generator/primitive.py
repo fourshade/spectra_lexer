@@ -16,7 +16,7 @@ class _Primitive:
         """ Draw the object on the text canvas. By default, nothing happens. """
 
     def __repr__(self) -> str:
-        return "<{}: '{}'>".format(self.__class__.__name__, self.src)
+        return f"<{self.__class__.__name__}: {self.src!r}>"
 
 
 class Primitive(_Primitive):

@@ -86,6 +86,6 @@ def _get_description(rule:StenoRule) -> str:
     # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
     raw_keys = rule.keys.rtfcre
     if not rule.rulemap:
-        return "{}: {}".format(raw_keys, description)
+        return f"{raw_keys}: {description}"
     # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
-    return "{} → {}: {}".format(raw_keys, rule.letters, description)
+    return f"{raw_keys} → {rule.letters}: {description}"

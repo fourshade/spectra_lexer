@@ -40,7 +40,7 @@ class Object(Primitive, List[Tuple[int, int, Primitive]]):
             obj.write(canvas, row + r, col + c)
 
     def __repr__(self) -> str:
-        return "<{}: {}>".format(self.__class__.__name__, repr(list(self)))
+        return f"<{self.__class__.__name__}: {list(self)!r}>"
 
 
 class ObjectNode(Object):

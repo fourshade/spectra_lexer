@@ -6,7 +6,7 @@ import pkg_resources
 
 # Minimum version of Plover required for plugin compatibility.
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
-INCOMPATIBLE_MESSAGE = "ERROR: Plover v{} or greater required.".format(_PLOVER_VERSION_REQUIRED)
+INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater required."
 
 # Partial class structures that specify a minimum interface for compatibility with Plover.
 class PloverStenoDict(Iterable):

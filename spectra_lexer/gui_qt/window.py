@@ -29,11 +29,12 @@ class GUIQtWindow(Component):
     @pipe("new_file_dialog", "new_status")
     def _dialog_load(self, d_type:str, file_formats:Iterable[str]) -> str:
         """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
-        (filenames, _) = QFileDialog.getOpenFileNames(self.window, 'Load {} Dictionaries'.format(d_type.title()), '.',
-                                                      "Supported file formats (*" + " *".join(file_formats) + ")")
+        title_msg = f"Load {d_type.title()} Dictionaries"
+        filter_msg = f"Supported file formats (*{' *'.join(file_formats)})"
+        (filenames, _) = QFileDialog.getOpenFileNames(self.window, title_msg, ".", filter_msg)
         if filenames:
             self.engine_call(d_type + "_load", filenames)
-            return "Loaded {} from file dialog.".format(d_type)
+            return f"Loaded {d_type} from file dialog."
 
     @on("gui_window_close")
     def close(self):

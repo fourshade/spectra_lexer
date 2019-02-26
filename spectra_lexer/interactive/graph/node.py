@@ -55,4 +55,4 @@ class GraphNode:
         return list(recurse(self, iter_attr="children"))
 
     def __str__(self):
-        return "{} → {}".format(self.rule, self.children)
+        return f"{self.rule} → {self.children}"

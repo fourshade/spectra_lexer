@@ -16,10 +16,10 @@ def main() -> None:
     ep_iter = pkg_resources.iter_entry_points('spectra_lexer.operations')
     matches = [ep for ep in ep_iter if ep.name.startswith(mode)]
     if not matches:
-        print('No matches for operation "{}"'.format(mode))
+        print(f'No matches for operation "{mode}"')
         return
     if len(matches) > 1:
-        print('Multiple matches for operation "{}". Use more characters.'.format(mode))
+        print(f'Multiple matches for operation "{mode}". Use more characters.')
         return
     # Reassign the remaining arguments to sys.argv and run the entry point.
     sys.argv = [script, *cmd_opts]

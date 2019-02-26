@@ -58,7 +58,7 @@ class LexerResult(NamedTuple):
     def to_rule(self) -> StenoRule:
         """ Make a rule out of this map, with a description and possibly a final rule depending on unmatched keys. """
         if not self.leftover_keys:
-            desc = "Found {:.0%} match.".format(self.letters_matched_ratio())
+            desc = f"Found {self.letters_matched_ratio():.0%} match."
         else:
             # If nothing was matched at all, make the description different from a partial failure.
             if not self.rulemap:

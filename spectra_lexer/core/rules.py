@@ -10,9 +10,7 @@ from spectra_lexer.rules import StenoRule, RuleMapItem
 _LEFT_BRACKETS = r'\(\['
 _RIGHT_BRACKETS = r'\)\]'
 # Rule substitutions must match a left bracket, one or more non-brackets, and a right bracket.
-_SUBRULE_RX = re.compile(r'[{}]'.format(_LEFT_BRACKETS) +
-                         r'[^{0}{1}]+?'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS) +
-                         r'[{}]'.format(_RIGHT_BRACKETS))
+_SUBRULE_RX = re.compile(r'[{0}][^{0}{1}]+?[{1}]'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS))
 # Resource glob patterns for the built-in JSON-based rules files.
 _RULES_ASSET_PATTERNS = (":/*.cson",)
 # Default output file name for lexer-generated rules.
@@ -140,5 +138,5 @@ class RulesManager(Component):
             if start == end:
                 continue
             # Replace the letters this rule takes up with a standard parenthesized reference.
-            letters = letters[:start] + "({})".format(name) + letters[end:]
+            letters = letters[:start] + f"({name})" + letters[end:]
         return letters
