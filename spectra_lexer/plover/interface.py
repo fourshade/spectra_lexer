@@ -1,6 +1,6 @@
 from functools import partial
 from itertools import chain
-from typing import Dict, Iterable, Iterator, Optional, Sequence, Tuple
+from typing import Dict, Iterator, Optional, Sequence, Tuple
 
 from spectra_lexer import Component, pipe
 from spectra_lexer.keys import join_strokes
@@ -21,31 +21,33 @@ class PloverPluginInterface(Component):
     _plover_engine: PloverEngine = None               # Plover engine. Assumed not to change during run-time.
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @pipe("start", "new_status")
-    def start(self, *, plover_engine=None, **opts) -> str:
+    @pipe("start", "plover_load_dicts")
+    def start(self, *, plover_engine=None, **opts) -> Optional[PloverStenoDictCollection]:
         """ Perform initial compatibility check and callback/dictionary setup. """
         # If the compatibility check fails or there's no engine, don't try to connect to Plover. Return an error.
         if not compatibility_check() or plover_engine is None:
-            return INCOMPATIBLE_MESSAGE
+            self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
+            return None
         self._plover_engine = plover_engine
         # Lock the Plover engine thread, connect everything to it, and load all current dictionaries.
         with self._plover_engine:
             self._plover_connect('dictionaries_loaded', "plover_load_dicts")
             self._plover_connect('translated',          "sig_on_new_translation")
-            self.engine_call("plover_load_dicts", self._plover_engine.dictionaries)
-        return "Loaded dictionaries from Plover engine."
+        return self._plover_engine.dictionaries
 
     def _plover_connect(self, plover_signal:str, spectra_cmd:str) -> None:
         """ Connect a Plover engine signal to a Spectra engine command. """
         self._plover_engine.signal_connect(plover_signal, partial(self.engine_call, spectra_cmd))
 
     @pipe("plover_load_dicts", "new_translations")
-    def load_dicts(self, steno_dc:PloverStenoDictCollection) -> Optional[Dict[str, str]]:
+    def load_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
-        if not steno_dc or not steno_dc.dicts:
-            return None
-        usable_dicts = [d for d in steno_dc.dicts if d and d.enabled]
-        return _parse_and_merge(usable_dicts)
+        self.engine_call("new_status", "Loading dictionaries...")
+        # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
+        with self._plover_engine:
+            finished_dict = _parse_and_merge(steno_dc)
+        self.engine_call("new_status", "Loaded dictionaries from Plover engine.")
+        return finished_dict
 
     @pipe("sig_on_new_translation", "lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
@@ -78,9 +80,10 @@ def _get_last_strokes_if_valid(plover:PloverEngine) -> Optional[Tuple[str]]:
         return None
 
 
-def _parse_and_merge(d_iter:Iterable[PloverStenoDict]) -> Dict[str, str]:
-    """ Parse and merge items from Plover dictionaries into a single string dict. """
-    return dict(chain.from_iterable(map(_parse_items, d_iter)))
+def _parse_and_merge(steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
+    """ Parse and merge items from a Plover dictionary collection into a single string dict. """
+    usable_dicts = [d for d in steno_dc.dicts if d and d.enabled]
+    return dict(chain.from_iterable(map(_parse_items, usable_dicts)))
 
 
 def _parse_items(d:PloverStenoDict) -> Iterator[tuple]:

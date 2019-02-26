@@ -51,9 +51,10 @@ class BoardRenderer(Component):
 
     @pipe("board_set_layout", "new_board_gfx")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:
-        """ Set the viewbox and the layout's max bounds. Recompute the current layout and send it. """
-        self._layout = ElementLayout(view_box, width, height)
-        return self._layout.make_draw_list(self._last_ids)
+        """ Set the viewbox and the layout's max bounds if non-zero. Recompute the current layout and send it. """
+        if all(view_box[2:3]) and width and height:
+            self._layout = ElementLayout(view_box, width, height)
+            return self._layout.make_draw_list(self._last_ids)
 
     @pipe("new_lexer_result", "new_board_gfx")
     def get_info(self, rule:StenoRule) -> List[tuple]:

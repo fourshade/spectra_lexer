@@ -23,7 +23,7 @@ class GUIQtConfig(Component):
         self.window = window
         self._cfg_info = defaultdict(dict)
 
-    @on("start")
+    @on("gui_start")
     def start(self, show_menu=True, **opts) -> None:
         """ If the menu is used, add the config dialog command. """
         if show_menu:

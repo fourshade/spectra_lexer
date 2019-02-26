@@ -40,7 +40,7 @@ class GUIQtGateway(Gateway):
         self.components = [cls(*cmp_args[w]) for (cls, w) in COMPONENTS.items()]
 
     def engine_call(self, func, *args, **kwargs) -> Any:
-        """ Manually process events after every engine call to avoid hanging. """
+        """ Manually process events after every GUI engine call to avoid hanging. """
         value = func(*args, **kwargs)
         self.process_events()
         return value
@@ -61,3 +61,9 @@ class GUIQtApplication(InteractiveApplication):
     def get_window(self) -> MainWindow:
         """ Return the main window instance to use in the Plover plugin entry point. """
         return self._gateway.window
+
+    def start(self, **opts) -> None:
+        """ Send two start signals; first send a specific one to the GUI to set up the window.
+            Process all the events to make the window appear, then start the rest of the engine components. """
+        self.call("gui_start", **opts)
+        super().start(**opts)

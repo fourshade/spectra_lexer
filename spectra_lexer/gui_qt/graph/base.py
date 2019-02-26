@@ -18,7 +18,7 @@ class GUIQtTextDisplay(Component):
         super().__init__()
         self.w_title, self.w_text = widgets
 
-    @on("start")
+    @on("gui_start")
     def start(self, **opts) -> None:
         """ Connect the mouse signal to the graph. """
         self.w_text.mouseInteraction.connect(partial(self.engine_call, "graph_select"))

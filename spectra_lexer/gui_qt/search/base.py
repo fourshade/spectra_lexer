@@ -22,7 +22,7 @@ class GUIQtSearch(Component):
         super().__init__()
         self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
 
-    @on("start")
+    @on("gui_start")
     def start(self, **opts) -> None:
         """ Connect all Qt signals on engine start. """
         signals = {self.input_textbox.textEdited:    "search_input",
