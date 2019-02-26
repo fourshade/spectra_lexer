@@ -36,7 +36,7 @@ class RulesManager(Component):
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
     @pipe("start", "rules_load")
-    def start(self, rules:str=None, **opts) -> Sequence[str]:
+    def start(self, rules:str="", **opts) -> Sequence[str]:
         """ If there is a command line option for this component, even if empty, attempt to load rules.
             If the option is present but empty (or otherwise evaluates False), use the default instead. """
         if rules is not None:

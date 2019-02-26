@@ -18,7 +18,7 @@ class TranslationsManager(Component):
     ROLE = "translations"
 
     @pipe("start", "translations_load")
-    def start(self, translations:str=None, **opts) -> Sequence[str]:
+    def start(self, translations:str="", **opts) -> Sequence[str]:
         """ If there is a command line option for this component, even if empty, attempt to load translations.
             If the option is present but empty (or otherwise evaluates False), use the defaults instead. """
         if translations is not None:

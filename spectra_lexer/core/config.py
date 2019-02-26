@@ -15,7 +15,7 @@ class ConfigManager(Component):
     _cfg_data: dict  # Dict with config data values loaded from disk.
 
     @pipe("start", "config_load")
-    def start(self, config:str=None, **opts) -> Sequence[str]:
+    def start(self, config:str="", **opts) -> Sequence[str]:
         """ If there is a command line option for this component, even if empty, attempt to load config.
             If the option is present but empty (or otherwise evaluates False), use the default instead. """
         if config is not None:

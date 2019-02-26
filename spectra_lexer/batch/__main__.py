@@ -9,7 +9,7 @@ def main() -> None:
     # The script will exit after processing all translations and saving the rules.
     s_time = time()
     app = CoreApplication(ParallelExecutor)
-    app.start(translations=(), out="output.json", processes=None)
+    app.start()
     print(f"Processing done in {time() - s_time:.1f} seconds.")
 
 

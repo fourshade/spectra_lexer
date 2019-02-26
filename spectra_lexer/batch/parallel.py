@@ -12,7 +12,7 @@ class ParallelExecutor(Component):
 
     _translations: dict = {}  # Translations dict to parse.
 
-    @pipe("parallel_run", "rules_save")
+    @pipe("start", "rules_save")
     def run(self, processes=None) -> list:
         """ Run each translation through the lexer and save the results to a rules file. """
         # Use ProcessPoolExecutor.map() to run the lexer in multiple processes in parallel.

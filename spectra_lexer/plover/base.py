@@ -40,7 +40,8 @@ class PloverPlugin(QDialog):
             cls.window = app.get_window()
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
-            app.start(plover_engine=args[0], show_file_menu=False)
+            # Translations file loading must be suppressed; we get them from Plover instead.
+            app.start(translations_files=None, plover_engine=args[0], show_file_menu=False)
         return cls.window
 
 

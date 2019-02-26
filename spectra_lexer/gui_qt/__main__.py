@@ -6,12 +6,12 @@ from spectra_lexer.gui_qt import GUIQtApplication
 
 
 def main() -> None:
-    """ Top-level function for operation of the Spectra program *by itself* with the standard GUI. """
+    """ Top-level function for operation of the Spectra program *by itself* with the standard GUI.
+        In standalone mode, Plover's dictionaries are loaded by default. """
     # For standalone operation, a Qt application object must be created to support the windows.
     qt_app = QApplication(sys.argv)
     app = GUIQtApplication(gui_evt_proc=qt_app.processEvents)
-    # In standalone mode, Plover's dictionaries are loaded by default by providing an empty translations option.
-    app.start(translations=())
+    app.start()
     # This function blocks indefinitely after setup to run the GUI event loop.
     qt_app.exec_()
 

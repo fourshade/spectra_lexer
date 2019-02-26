@@ -28,7 +28,6 @@ class CoreApplication(Application):
         parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
         for c in opts:
             parser.add_argument('--' + c)
-        # Set fallback options to load the default config file and rule set.
         # Command-line options must be added with update() to enforce precedence and eliminate duplicates.
-        all_opts = {"config": "", "rules": "", "translations": None, **vars(parser.parse_args()), **opts}
-        self.call("start", **all_opts)
+        opts.update(vars(parser.parse_args()))
+        self.call("start", **opts)
