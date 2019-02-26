@@ -1,6 +1,5 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
-import argparse
 from functools import partial
 from typing import ClassVar, Hashable, List
 
@@ -84,14 +83,3 @@ class Application(Engine):
             for (key, cmd) in c.engine_commands():
                 self.setdefault(key, []).append(cmd)
             c.engine_connect(self.call)
-
-    def start(self, **opts) -> None:
-        """ Send the start signal with options from command line arguments parsed from sys.argv,
-            followed by keyword options given directly by subclasses or by main(). """
-        # Suppress defaults for unused options so that they don't override the ones from subclasses with None.
-        parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-        for c in opts:
-            parser.add_argument('--' + c)
-        # Command-line options must be added with update() to enforce precedence and eliminate duplicates.
-        opts.update(vars(parser.parse_args()))
-        self.call("start", **opts)
