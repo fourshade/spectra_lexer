@@ -37,7 +37,7 @@ class ConfigManager(Component):
         return d
 
     @pipe("config_save", "file_save")
-    def save(self, filename:str, new_data:dict) -> tuple:
+    def save(self, new_data:dict, filename:str="") -> tuple:
         """ Update config options and save them to disk. Saving should not fail silently, unlike loading.
             If no save filename is given, use the default file. """
         for (s, d) in new_data.items():

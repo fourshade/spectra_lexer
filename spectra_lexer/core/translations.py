@@ -48,6 +48,6 @@ class TranslationsManager(Component):
         return merge(self.engine_call("file_load_all", *(filenames or self._default_files())))
 
     @pipe("translations_save", "file_save")
-    def save(self, filename:str, d:dict) -> tuple:
+    def save(self, d:dict, filename:str="") -> tuple:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
         return (filename or _TRANSLATIONS_OUTPUT_FILE), d

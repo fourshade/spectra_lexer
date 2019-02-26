@@ -14,7 +14,7 @@ _SUBRULE_RX = re.compile(r'[{0}][^{0}{1}]+?[{1}]'.format(_LEFT_BRACKETS, _RIGHT_
 # Resource glob patterns for the built-in JSON-based rules files.
 _RULES_ASSET_PATTERNS = (":/*.cson",)
 # Default output file name for lexer-generated rules.
-_RULES_OUTPUT_FILE = "output.json"
+_RULES_OUTPUT_FILE = "rules.json"
 
 
 class _RawRule(NamedTuple):
@@ -107,7 +107,7 @@ class RulesManager(Component):
         return pattern, built_map
 
     @pipe("rules_save", "file_save")
-    def save(self, filename:str, rules:Iterable[StenoRule]) -> tuple:
+    def save(self, rules:Iterable[StenoRule], filename:str="") -> tuple:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
             using auto-generated reference names and substituting rules in each rulemap for their letters. """
         # The previous dict must be reversed one-to-one to look up names given rules.
