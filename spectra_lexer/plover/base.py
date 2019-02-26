@@ -1,9 +1,11 @@
 from collections import namedtuple
+import sys
 from typing import ClassVar
 
 from PyQt5.QtWidgets import QApplication, QDialog, QWidget
 
 from spectra_lexer.gui_qt import GUIQtApplication
+from spectra_lexer.plover.compat import PloverAction, PloverEngine
 from spectra_lexer.plover.interface import PloverPluginInterface
 from spectra_lexer.utils import nop
 
@@ -40,3 +42,20 @@ class PloverPlugin(QDialog):
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
             app.start(plover_engine=args[0], show_file_menu=False)
         return cls.window
+
+
+def plover_test() -> None:
+    """ Entry point for testing the Plover plugin by creating a QApplication with a fake Plover engine. """
+    qt_app = QApplication(sys.argv)
+    test_callbacks = {}
+    fake_engine = PloverEngine()
+    fake_engine.signal_connect = test_callbacks.__setitem__
+    PloverPlugin(fake_engine)
+    # Execute one of each callback with simple test data.
+    test_callbacks['dictionaries_loaded'](fake_engine.dictionaries)
+    test_callbacks['translated']((), [PloverAction()])
+    qt_app.exec_()
+
+
+if __name__ == '__main__':
+    plover_test()

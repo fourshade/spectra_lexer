@@ -1,1 +1,1 @@
-from .base import PloverPlugin
+from .base import plover_test, PloverPlugin
