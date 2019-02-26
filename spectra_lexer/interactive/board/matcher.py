@@ -1,6 +1,6 @@
 """ Module for generating steno board diagram element IDs. """
 
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Set
 
 from spectra_lexer.interactive.board.element import DiagramElements
 from spectra_lexer.rules import RuleFlags, StenoRule
@@ -15,7 +15,7 @@ class ElementMatcher:
         and a number of discrete graphical elements matched to raw keys and/or simple rules. """
 
     _valid_rules: Dict[StenoRule, str] = {}  # Dict matching valid steno rules to possible element ID strings.
-    _valid_ids: set = set()                  # Set of all valid SVG element ID strings.
+    _valid_ids: Set[str] = set()             # Set of all valid SVG element ID strings.
     _rule_ids: Dict[StenoRule, str] = {}     # Dict with valid pairs of rules and IDs from both of these.
 
     def set_rules(self, rules_dict:Dict[str, StenoRule]):
@@ -23,9 +23,9 @@ class ElementMatcher:
         self._valid_rules = {rule: _SVG_RULE_FORMAT(name) for name, rule in rules_dict.items()}
         self._check()
 
-    def set_ids(self, id_dict:dict) -> None:
+    def set_ids(self, ids:Iterable[str]) -> None:
         """ Load a set of element IDs for which graphics exist. """
-        self._valid_ids = set(id_dict)
+        self._valid_ids = set(ids)
         self._check()
 
     def _check(self) -> None:

@@ -1,12 +1,12 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
 from typing import Dict, List, Tuple
-from xml.parsers.expat import ParserCreate
 
 from spectra_lexer import Component, on, pipe
 from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher
+from spectra_lexer.interactive.board.svg import SVGParser
 from spectra_lexer.rules import RuleFlags, StenoRule
 
 # Resource identifier for the main SVG graphic. Contains every element needed.
@@ -24,25 +24,19 @@ class BoardRenderer(Component):
     _last_ids: List[List[str]] = []  # Last set of element IDs, saved in case of resizing.
 
     def __init__(self) -> None:
-        """ Set up the matcher with an empty rule dictionary and the layout with default coordinates. """
+        """ Set up the matcher with an empty rule dictionary and the SVG parser. """
         super().__init__()
         self._matcher = ElementMatcher()
+        self._parser = SVGParser()
 
     @pipe("start", "new_board_setup")
-    def start(self, **opts) -> Tuple[str, List[str]]:
+    def load(self, **opts) -> Tuple[str, Dict[str, dict]]:
         """ Load the SVG file on startup and parse element ID names out of the raw XML string data. """
         xml_dict = self.engine_call("file_load", _BOARD_ASSET_NAME)
-        id_dict = {}
-        def start_element(name, attrs):
-            if "id" in attrs:
-                attrs["name"] = name
-                id_dict[attrs["id"]] = attrs
-        p = ParserCreate()
-        p.StartElementHandler = start_element
-        p.Parse(xml_dict["raw"])
+        id_dict = self._parser.parse(xml_dict)
         self._matcher.set_ids(id_dict)
         # Send the raw SVG text data along with all element IDs to the GUI.
-        return xml_dict["raw"], list(id_dict)
+        return xml_dict["raw"], id_dict
 
     @on("new_rules")
     def set_rules(self, rules_dict:Dict[str,StenoRule]) -> None:

@@ -2,13 +2,12 @@ import json
 from typing import List, Sequence
 
 from spectra_lexer import Component, pipe
+from spectra_lexer.options import CommandOption
 from spectra_lexer.utils import merge
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"
 _PLOVER_CFG_FILENAME = "plover.cfg"
-# Default output file name for user translations.
-_TRANSLATIONS_OUTPUT_FILE = "translations.json"
 
 
 class TranslationsManager(Component):
@@ -16,13 +15,15 @@ class TranslationsManager(Component):
         that require no extra processing after conversion to/from JSON. """
 
     ROLE = "translations"
+    files: list = CommandOption([], "List of glob patterns for JSON-based translations files to load.")
+    out: str = CommandOption("translations.json", "Output file name for translations.")
 
     @pipe("start", "translations_load")
-    def start(self, translations:str="", **opts) -> Sequence[str]:
-        """ If there is a command line option for this component, even if empty, attempt to load translations.
-            If the option is present but empty (or otherwise evaluates False), use the defaults instead. """
-        if translations is not None:
-            return [translations] if translations else ()
+    def start(self, **opts) -> tuple:
+        """ Load translations at startup. By default, the sentinel value is an empty list and means
+           'try and find the files from Plover'. This can be suppressed by setting it to None. """
+        if self.files is not None:
+            return ()
 
     def _default_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
@@ -43,11 +44,10 @@ class TranslationsManager(Component):
 
     @pipe("translations_load", "new_translations")
     def load(self, filenames:Sequence[str]=()) -> dict:
-        """ Load and merge translations from disk. If no filenames are given by the command,
-            try to find and load the ones from Plover by defaults. """
-        return merge(self.engine_call("file_load_all", *(filenames or self._default_files())))
+        """ Load and merge translations from disk. """
+        return merge(self.engine_call("file_load_all", *(filenames or self.files or self._default_files())))
 
     @pipe("translations_save", "file_save")
     def save(self, d:dict, filename:str="") -> tuple:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
-        return (filename or _TRANSLATIONS_OUTPUT_FILE), d
+        return (filename or self.out), d

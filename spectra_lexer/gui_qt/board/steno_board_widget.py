@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
 from PyQt5.QtCore import QRectF, QXmlStreamReader
 from PyQt5.QtGui import QPainter, QPaintEvent
@@ -23,14 +23,14 @@ class StenoBoardWidget(QWidget):
             cb(self._gfx_board.viewBox().getRect(), self.width(), self.height())
         self.resizeEvent = set_layout
 
-    def load(self, xml_text:str, ids:List[str]) -> None:
+    def load(self, xml_text:str, ids:Iterable[str]) -> None:
         """ Load the board graphics from an SVG XML string. Send a resize event at the end to update the main component.
             Compute and store a dict of bounds for all given element IDs, as well as the top-level viewbox. """
         self._gfx_board.load(QXmlStreamReader(xml_text))
         self._bounds = {k: self._gfx_board.boundsOnElement(k).getRect() for k in ids}
         self.resizeEvent()
 
-    def set_elements(self, gfx:List[tuple]) -> None:
+    def set_elements(self, gfx:Iterable[tuple]) -> None:
         """ Set the current list of element ids and bound rects and draw the new elements. """
         self._draw_list = []
         bounds = self._bounds

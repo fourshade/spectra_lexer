@@ -8,6 +8,7 @@ from spectra_lexer.core.file import FileHandler
 from spectra_lexer.core.lexer import StenoLexer
 from spectra_lexer.core.rules import RulesManager
 from spectra_lexer.core.translations import TranslationsManager
+from spectra_lexer.options import CommandOption
 
 
 class CoreApplication(Application):
@@ -26,8 +27,10 @@ class CoreApplication(Application):
             followed by keyword options given directly by subclasses or by main(). """
         # Suppress defaults for unused options so that they don't override the ones from subclasses with None.
         parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-        for c in opts:
-            parser.add_argument('--' + c)
+        for c in self.components:
+            for attr, obj in vars(type(c)).items():
+                if isinstance(obj, CommandOption):
+                    parser.add_argument(f"--{c.ROLE}_{attr}")
         # Command-line options must be added with update() to enforce precedence and eliminate duplicates.
         opts.update(vars(parser.parse_args()))
         self.call("start", **opts)

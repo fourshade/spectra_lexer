@@ -4,6 +4,7 @@ from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer import Component, pipe
 from spectra_lexer.keys import StenoKeys
+from spectra_lexer.options import CommandOption
 from spectra_lexer.rules import StenoRule, RuleMapItem
 
 # Available bracket pairs for parsing rules.
@@ -11,10 +12,6 @@ _LEFT_BRACKETS = r'\(\['
 _RIGHT_BRACKETS = r'\)\]'
 # Rule substitutions must match a left bracket, one or more non-brackets, and a right bracket.
 _SUBRULE_RX = re.compile(r'[{0}][^{0}{1}]+?[{1}]'.format(_LEFT_BRACKETS, _RIGHT_BRACKETS))
-# Resource glob patterns for the built-in JSON-based rules files.
-_RULES_ASSET_PATTERNS = (":/*.cson",)
-# Default output file name for lexer-generated rules.
-_RULES_OUTPUT_FILE = "rules.json"
 
 
 class _RawRule(NamedTuple):
@@ -30,23 +27,22 @@ class RulesManager(Component):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "rules"
+    files: list = CommandOption([":/*.cson"], "List of glob patterns for JSON-based rules files to load.")
+    out: str = CommandOption("rules.json", "Output file name for lexer-generated rules.")
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
     @pipe("start", "rules_load")
-    def start(self, rules:str="", **opts) -> Sequence[str]:
-        """ If there is a command line option for this component, even if empty, attempt to load rules.
-            If the option is present but empty (or otherwise evaluates False), use the default instead. """
-        if rules is not None:
-            return [rules] if rules else ()
+    def start(self, **opts) -> tuple:
+        return ()
 
     @pipe("rules_load", "new_rules")
-    def load(self, filenames:Sequence[str]=_RULES_ASSET_PATTERNS) -> Dict[str, StenoRule]:
+    def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
         # Load rules from each source dictionary and convert to namedtuple form.
-        dicts = self.engine_call("file_load_all", *filenames)
+        dicts = self.engine_call("file_load_all", *(filenames or self.files))
         self._src_dict = {k: _RawRule(*v) for d in dicts for (k, v) in d.items()}
         # If the size of the combined dict is less than the sum of its components, some rule names are identical.
         if len(self._src_dict) < sum(map(len, dicts)):
@@ -112,7 +108,7 @@ class RulesManager(Component):
             using auto-generated reference names and substituting rules in each rulemap for their letters. """
         # The previous dict must be reversed one-to-one to look up names given rules.
         self._rev_dict = {v: k for (k, v) in self._dst_dict.items()}
-        return (filename or _RULES_OUTPUT_FILE), {str(r): self._inv_parse(r) for r in rules}
+        return (filename or self.out), {str(r): self._inv_parse(r) for r in rules}
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """

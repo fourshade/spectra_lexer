@@ -1,4 +1,4 @@
-from typing import List
+from typing import Iterable
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
@@ -24,12 +24,12 @@ class GUIQtBoardDisplay(Component):
         self.engine_call("board_set_layout", *args)
 
     @on("new_board_setup")
-    def set_gfx(self, xml_text:str, ids:List[str]) -> None:
+    def set_gfx(self, xml_text:str, ids:Iterable[str]) -> None:
         """ Load the board graphics from the raw characters of an SVG XML file. """
         self.w_board.load(xml_text, ids)
 
     @on("new_board_gfx")
-    def display_gfx(self, board_gfx:List[tuple]) -> None:
+    def display_gfx(self, board_gfx:Iterable[tuple]) -> None:
         """ Draw the given set of board elements. """
         self.w_board.set_elements(board_gfx)
 

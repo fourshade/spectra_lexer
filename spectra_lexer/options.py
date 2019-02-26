@@ -2,7 +2,7 @@
 
 from typing import Type
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component, on, pipe
 
 
 class CFGOption:
@@ -41,3 +41,35 @@ class CFGOption:
         attr = "_cfg_" + name
         set_cfg.__name__ = attr
         setattr(owner, attr, pipe("new_config", "new_config_info")(set_cfg))
+
+
+class CommandOption:
+    """ Descriptor for a command-line argument. Used like an ordinary attribute by the component. """
+
+    val: object  # Externally visible value, initialized to default.
+    tp: type     # Type of the default value, used for conversion.
+    desc: str    # Description as shown on command line help utility.
+
+    def __init__(self, default:object, desc:str):
+        """ Set the default attributes. """
+        self.val = default
+        self.tp = type(default)
+        self.desc = desc
+
+    def __get__(self, instance:Component, owner:Type[Component]) -> object:
+        """ Options are accessed through the descriptor by the component itself. """
+        return self.val
+
+    def __set__(self, instance:Component, value:object) -> None:
+        self.val = value
+
+    def __set_name__(self, owner:Type[Component], name:str) -> None:
+        """ Set an additional attribute on the owner class to update this option on start. """
+        attr = f"{owner.ROLE}_{name}"
+        def set_cmd(cmp:Component, **opts) -> None:
+            """ Overwrite this option with data read from the command line (if any). """
+            v = opts.get(attr)
+            if v is not None:
+                setattr(cmp, name, v)
+        set_cmd.__name__ = attr
+        setattr(owner, attr, on("start")(set_cmd))

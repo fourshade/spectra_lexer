@@ -1,31 +1,25 @@
-from typing import Sequence
-
 from spectra_lexer import Component, pipe
+from spectra_lexer.options import CommandOption
 from spectra_lexer.utils import str_eval
-
-# File name for the standard user config file (in app data directory).
-_CONFIG_FILE_NAME = "~/config.cfg"
 
 
 class ConfigManager(Component):
     """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
 
     ROLE = "config"
+    file: str = CommandOption("~/config.cfg", "Config .cfg or .ini file to load at startup and save updates.")
 
     _cfg_data: dict  # Dict with config data values loaded from disk.
 
     @pipe("start", "config_load")
-    def start(self, config:str="", **opts) -> Sequence[str]:
-        """ If there is a command line option for this component, even if empty, attempt to load config.
-            If the option is present but empty (or otherwise evaluates False), use the default instead. """
-        if config is not None:
-            return config or ()
+    def start(self, **opts) -> tuple:
+        return ()
 
     @pipe("config_load", "new_config")
-    def load(self, filename:str=_CONFIG_FILE_NAME) -> dict:
+    def load(self, filename:str="") -> dict:
         """ Load all config options from disk. Ignore failures and convert strings using AST. """
         try:
-            d = self.engine_call("file_load", filename)
+            d = self.engine_call("file_load", filename or self.file)
         except OSError:
             return {}
         # Try to convert Python literal strings to objects. This fixes crap like bool('False') = True.
@@ -42,4 +36,4 @@ class ConfigManager(Component):
             If no save filename is given, use the default file. """
         for (s, d) in new_data.items():
             self._cfg_data.setdefault(s, {}).update(d)
-        return (filename or _CONFIG_FILE_NAME), self._cfg_data
+        return (filename or self.file), self._cfg_data
