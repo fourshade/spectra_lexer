@@ -15,6 +15,8 @@ from spectra_lexer.core.translations import TranslationsManager
 from spectra_lexer.interactive.board import BoardRenderer
 from spectra_lexer.interactive.graph import GraphRenderer
 from spectra_lexer.interactive.search import SearchEngine
+from spectra_lexer.plover.compat import PloverEngine, PloverStenoDictCollection
+from spectra_lexer.plover.interface import PloverPluginInterface
 from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
@@ -126,3 +128,13 @@ def test_graph(result):
     assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
     # The nodes available for interaction must be a subset of this collection.
     assert all_nodes_set >= set(GRAPH._graph._formatter)
+
+
+PLOVER = PloverPluginInterface()
+PLOVER.start(plover_engine=PloverEngine())
+
+
+def test_plover():
+    """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
+    test_dc = PloverStenoDictCollection(TRANSLATIONS_DICT, split_count=3)
+    assert len(PLOVER.parse_dicts(test_dc)) == len(TRANSLATIONS_DICT)

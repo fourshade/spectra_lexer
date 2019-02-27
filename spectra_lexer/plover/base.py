@@ -48,13 +48,11 @@ class PloverPlugin(QDialog):
 def plover_test() -> None:
     """ Entry point for testing the Plover plugin by creating a QApplication with a fake Plover engine. """
     qt_app = QApplication(sys.argv)
-    test_callbacks = {}
     fake_engine = PloverEngine()
-    fake_engine.signal_connect = test_callbacks.__setitem__
     PloverPlugin(fake_engine)
     # Execute one of each callback with simple test data.
-    test_callbacks['dictionaries_loaded'](fake_engine.dictionaries)
-    test_callbacks['translated']((), [PloverAction()])
+    fake_engine.dictionaries_loaded(fake_engine.dictionaries)
+    fake_engine.translated((), [PloverAction()])
     qt_app.exec_()
 
 
