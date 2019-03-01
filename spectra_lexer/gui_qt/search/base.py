@@ -1,5 +1,5 @@
 from functools import partial
-from typing import List
+from typing import Dict, List
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
@@ -7,7 +7,7 @@ from spectra_lexer import Component, on
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 
-class GUIQtSearch(Component):
+class GUIQtSearchPanel(Component):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
     ROLE = "gui_search"
@@ -15,21 +15,18 @@ class GUIQtSearch(Component):
     input_textbox: QLineEdit        # Input box for the user to enter a search string.
     match_list: SearchListWidget    # List box to show the direct matches for the user's search.
     mapping_list: SearchListWidget  # List box to show the mappings of a selection in the match list.
-    strokes_chkbox: QCheckBox       # Check box to determine whether to use word or stroke search.
-    regex_chkbox: QCheckBox         # Check box to determine whether to use prefix or regex search.
+    strokes_chk: QCheckBox          # Check box to determine whether to use word or stroke search.
+    regex_chk: QCheckBox            # Check box to determine whether to use prefix or regex search.
 
-    def __init__(self, *widgets:QWidget):
-        super().__init__()
-        self.input_textbox, self.match_list, self.mapping_list, self.strokes_chkbox, self.regex_chkbox = widgets
-
-    @on("gui_start")
-    def start(self, **opts) -> None:
-        """ Connect all Qt signals on engine start. """
+    @on("new_gui_window")
+    def start(self, widgets:Dict[str, QWidget]) -> None:
+        """ Get the required widgets and connect all Qt signals on engine start. """
+        self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk = widgets["search"]
         signals = {self.input_textbox.textEdited:    "search_input",
                    self.match_list.itemSelected:     "search_choose_match",
                    self.mapping_list.itemSelected:   "search_choose_mapping",
-                   self.strokes_chkbox.toggled:      "search_mode_strokes",
-                   self.regex_chkbox.toggled:        "search_mode_regex"}
+                   self.strokes_chk.toggled: "search_mode_strokes",
+                   self.regex_chk.toggled: "search_mode_regex"}
         for signal, cmd_key in signals.items():
             signal.connect(partial(self.engine_call, cmd_key))
 
@@ -40,10 +37,9 @@ class GUIQtSearch(Component):
         self.input_textbox.setPlaceholderText("Search..." if enabled else "No dictionaries.")
         self.match_list.clear()
         self.mapping_list.clear()
-        self.strokes_chkbox.setChecked(False)
-        self.regex_chkbox.setChecked(False)
-        for w in (self.input_textbox, self.match_list, self.mapping_list,
-                  self.strokes_chkbox, self.regex_chkbox):
+        self.strokes_chk.setChecked(False)
+        self.regex_chk.setChecked(False)
+        for w in (self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk):
             w.setEnabled(enabled)
 
     @on("new_search_matches")

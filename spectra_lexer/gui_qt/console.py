@@ -1,6 +1,7 @@
 from functools import partial
 import sys
 import traceback
+from typing import Dict
 
 from PyQt5.QtWidgets import QWidget
 
@@ -14,23 +15,20 @@ class GUIQtConsoleDisplay(Component):
 
     ROLE = "gui_console"
 
-    w_text: TextGraphWidget  # Displays console prompts, input, and output.
+    w_text: TextGraphWidget = None  # Displays console prompts, input, and output.
 
-    def __init__(self, *widgets:QWidget):
-        super().__init__()
-        _, self.w_text = widgets
-
-    @on("gui_start")
-    def start(self, show_menu:bool=True, **opts) -> None:
-        """ Connect the keyboard signal to the console. If the menu is used, add the console dialog command. """
+    @on("new_gui_window")
+    def start(self, widgets:Dict[str, QWidget]) -> None:
+        """ Get the required widgets, connect the keyboard signal to the console, and add the dialog command. """
+        self.w_text = widgets["text"][1]
         self.w_text.textInputComplete.connect(partial(self.engine_call, "console_input"))
-        if show_menu:
-            self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
+        self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
 
     @on("new_console_text")
     def display_console(self, text:str, **kwargs) -> None:
         """ Display a new window of console output plaintext in the main text widget and start accepting input. """
-        self.w_text.set_interactive_text(text, keyboard=True, **kwargs)
+        if self.w_text is not None:
+            self.w_text.set_interactive_text(text, keyboard=True, **kwargs)
 
     @on("new_exception")
     def handle_exception(self, e:Exception) -> bool:
@@ -39,5 +37,6 @@ class GUIQtConsoleDisplay(Component):
         tb_lines = traceback.TracebackException.from_exception(e).format()
         tb_text = "".join(tb_lines)
         sys.stderr.write(tb_text)
-        self.w_text.set_interactive_text(tb_text)
+        if self.w_text is not None:
+            self.w_text.set_interactive_text(tb_text)
         return True

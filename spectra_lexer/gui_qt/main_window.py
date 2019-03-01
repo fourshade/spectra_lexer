@@ -8,13 +8,13 @@ from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
 class MainWindow(QMainWindow, Ui_MainWindow):
     """ Base class for QT application window as created from the command line script or Plover. """
 
+    widgets: Dict[str, List[QWidget]]
+
     def __init__(self):
+        """ Set up the main window and partition all GUI elements into sections for the engine. """
         super().__init__()
         self.setupUi(self)
-
-    def partition(self) -> Dict[str, List[QWidget]]:
-        """ Partition all GUI elements into sections for the engine. """
-        return {
+        self.widgets = {
             # Top-level window.
             "window": [self],
             # Menu bar; only used in standalone mode (top).

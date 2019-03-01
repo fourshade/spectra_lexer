@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Dict
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
@@ -14,13 +15,10 @@ class GUIQtTextDisplay(Component):
     w_title: QLineEdit       # Displays status messages and mapping of keys to word.
     w_text: TextGraphWidget  # Displays formatted text breakdown graph.
 
-    def __init__(self, *widgets:QWidget):
-        super().__init__()
-        self.w_title, self.w_text = widgets
-
-    @on("gui_start")
-    def start(self, **opts) -> None:
-        """ Connect the mouse signal to the graph. """
+    @on("new_gui_window")
+    def start(self, widgets:Dict[str, QWidget]) -> None:
+        """ Get the required widgets and connect the mouse signal to the graph. """
+        self.w_title, self.w_text = widgets["text"]
         self.w_text.mouseInteraction.connect(partial(self.engine_call, "graph_select"))
 
     @on("new_status")

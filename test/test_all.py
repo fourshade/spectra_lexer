@@ -16,7 +16,7 @@ from spectra_lexer.interactive.board import BoardRenderer
 from spectra_lexer.interactive.graph import GraphRenderer
 from spectra_lexer.interactive.search import SearchEngine
 from spectra_lexer.plover.compat import PloverEngine, PloverStenoDictCollection
-from spectra_lexer.plover.interface import PloverPluginInterface
+from spectra_lexer.plover.interface import PloverInterface
 from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
@@ -130,7 +130,7 @@ def test_graph(result):
     assert all_nodes_set >= set(GRAPH._graph._formatter)
 
 
-PLOVER = PloverPluginInterface()
+PLOVER = PloverInterface()
 PLOVER.start(plover_engine=PloverEngine())
 
 

@@ -1,27 +1,24 @@
-from typing import Dict, Iterable, List
+from typing import Callable, Dict, Iterable, List
 
 from PyQt5.QtCore import QRectF, QXmlStreamReader
 from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
 
+from spectra_lexer.utils import nop
+
 
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _gfx_board: QSvgRenderer            # Main renderer of SVG steno board graphics.
-    _draw_list: List[tuple] = []        # List of graphical element IDs with bounds rects.
-    _bounds: Dict[str, tuple] = {}      # (x, y, w, h) bounds of each graphical element by id.
+    _gfx_board: QSvgRenderer                    # Main renderer of SVG steno board graphics.
+    _draw_list: List[tuple] = []                # List of graphical element IDs with bounds rects.
+    _bounds: Dict[str, tuple] = {}              # (x, y, w, h) bounds of each graphical element by id.
+    resize_callback: Callable[..., None] = nop  # Callback to send board size changes to the main component.
 
     def __init__(self, *args):
         super().__init__(*args)
         self._gfx_board = QSvgRenderer()
-
-    def set_update_callback(self, cb:callable) -> None:
-        """ Set a callback to receive new properties for the board widget on any size change. """
-        def set_layout(*args) -> None:
-            cb(self._gfx_board.viewBox().getRect(), self.width(), self.height())
-        self.resizeEvent = set_layout
 
     def load(self, xml_text:str, ids:Iterable[str]) -> None:
         """ Load the board graphics from an SVG XML string. Send a resize event at the end to update the main component.
@@ -48,3 +45,7 @@ class StenoBoardWidget(QWidget):
         render = self._gfx_board.render
         for (el, rectf) in self._draw_list:
             render(p, el, rectf)
+
+    def resizeEvent(self, *args) -> None:
+        """ Send new properties of the board widget on any size change. """
+        self.resize_callback(self._gfx_board.viewBox().getRect(), self.width(), self.height())

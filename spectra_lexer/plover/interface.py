@@ -12,7 +12,7 @@ from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAG
 _BLANK_STATE = ((), "")
 
 
-class PloverPluginInterface(Component):
+class PloverInterface(Component):
     """ Main component class for Plover plugin. It is the only class that should directly access Plover's objects.
         Receives and processes dictionaries and translations from Plover using callbacks. """
 
@@ -66,6 +66,7 @@ class PloverPluginInterface(Component):
         text += "".join(a.text for a in new_actions if a.text)
         self._current_state = strokes, text
         return join_strokes(strokes), text
+
 
 def _get_last_strokes_if_valid(plover:PloverEngine) -> Optional[Tuple[str]]:
     """ Read the Plover translator state and return the newest strokes if they produced valid text, otherwise None. """

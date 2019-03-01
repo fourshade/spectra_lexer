@@ -1,14 +1,15 @@
 from collections import defaultdict
 from functools import partial
+from typing import Dict
 
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QWidget
 
 from spectra_lexer import Component, on, pipe
 from spectra_lexer.options import CFGOption
 from spectra_lexer.gui_qt.config.config_dialog import ConfigDialog
 
 
-class GUIQtConfig(Component):
+class GUIQtConfigDialog(Component):
     """ GUI configuration manager dialog; allows editing of config values for any component. """
 
     ROLE = "gui_config"
@@ -18,16 +19,15 @@ class GUIQtConfig(Component):
 
     _cfg_info: defaultdict       # Dict with detailed config info from active components.
 
-    def __init__(self, window:QMainWindow):
+    def __init__(self):
         super().__init__()
-        self.window = window
         self._cfg_info = defaultdict(dict)
 
-    @on("gui_start")
-    def start(self, show_menu=True, **opts) -> None:
-        """ If the menu is used, add the config dialog command. """
-        if show_menu:
-            self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
+    @on("new_gui_window")
+    def start(self, widgets:Dict[str, QWidget]) -> None:
+        """ Get the required widgets and add the config dialog command. """
+        self.window = widgets["window"][0]
+        self.engine_call("gui_menu_add", "Tools", "Edit Configuration...", "gui_config_open")
 
     @on("new_config_info")
     def set_config_info(self, role:str, key:str, option:CFGOption):

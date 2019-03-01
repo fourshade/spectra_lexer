@@ -1,1 +1,1 @@
-from .base import GUIQtSearch
+from .base import GUIQtSearchPanel

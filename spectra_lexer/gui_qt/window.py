@@ -1,43 +1,33 @@
-from typing import Iterable
+from typing import Sequence
 
-from PyQt5.QtWidgets import QFileDialog, QMainWindow
+from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component, on, respond_to
+from spectra_lexer.gui_qt.main_window import MainWindow
 
 
 class GUIQtWindow(Component):
-    """ GUI engine component; handles top-level window operations separate from the Qt window object. """
+    """ Master component for GUI Qt operations. Controls the main window. """
 
     ROLE = "gui_window"
 
-    window: QMainWindow  # Main window object. Must be the parent of any new dialogs.
+    window: MainWindow = None  # Main window object.
 
-    def __init__(self, window:QMainWindow):
-        super().__init__()
-        self.window = window
-
-    @on("gui_start")
-    def start(self, show_file_menu:bool=True, **opts) -> None:
-        """ Show the window once the engine sends the start signal.
-            If the file menu is used, add the basic window-based dialog commands first. """
-        if show_file_menu:
-            self.engine_call("gui_menu_add", "File", "Load Rules...", "file_dialog", "rules")
-            self.engine_call("gui_menu_add", "File", "Load Translations...", "file_dialog", "translations")
-            self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)
-        self.window.show()
-
-    @on("new_file_dialog")
-    def _dialog_load(self, d_type:str, file_formats:Iterable[str]) -> None:
-        """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
-        title_msg = f"Load {d_type.title()} Dictionaries"
-        filter_msg = f"Supported file formats (*{' *'.join(file_formats)})"
-        (filenames, _) = QFileDialog.getOpenFileNames(self.window, title_msg, ".", filter_msg)
-        if filenames:
-            self.engine_call("new_status", f"Loading {d_type}...")
-            self.engine_call(d_type + "_load", filenames)
-            self.engine_call("new_status", f"Loaded {d_type} from file dialog.")
+    @respond_to("start")
+    def start(self, gui_menus:Sequence[str]=("File", "Tools"), **opts) -> None:
+        # Make the window, get the required widgets, send them all to their required components, and show the window.
+        qt_app = QApplication.instance()
+        window = self.window = MainWindow()
+        # The menu must be initialized first so it can add items from other components.
+        self.engine_call("new_gui_menu", window.widgets, gui_menus)
+        self.engine_call("new_gui_window", window.widgets)
+        window.show()
+        # Manually process events after GUI setup to avoid hanging.
+        qt_app.processEvents()
 
     @on("gui_window_close")
-    def close(self):
-        """ Closing the window means hiding it if there are persistent references and destroying it otherwise. """
-        self.window.close()
+    def close(self) -> None:
+        """ Closing the main window kills the program in standalone mode.
+            It affects the entire QApplication, so this shouldn't be called while running as a plugin. """
+        if self.window is not None:
+            self.window.close()

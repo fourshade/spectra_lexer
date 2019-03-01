@@ -13,9 +13,9 @@ class SpectraConsole(Component):
     console_vars: dict = None           # Variables to load on interpreter startup.
 
     @on("start")
-    def start(self, console_vars:dict=None, **opts) -> None:
-        """ Use the vars dict on interpreter start if given, otherwise just use the defaults. """
-        self.console_vars = console_vars or {}
+    def start(self, *, app:object=None, components:dict=None, **opts) -> None:
+        """ Add the app and all components and options to the interpreter on start if given. """
+        self.console_vars = dict(components or {}, app=app, opts=opts)
 
     @pipe("console_open", "new_console_text", scroll_to="bottom")
     def open(self) -> str:

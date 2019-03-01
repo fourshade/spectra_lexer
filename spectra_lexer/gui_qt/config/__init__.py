@@ -1,1 +1,1 @@
-from .base import GUIQtConfig
+from .base import GUIQtConfigDialog
