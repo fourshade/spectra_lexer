@@ -1,6 +1,6 @@
 from functools import partial
 import sys
-import traceback
+from traceback import TracebackException
 from typing import Dict
 
 from PyQt5.QtWidgets import QWidget
@@ -34,7 +34,7 @@ class GUIQtConsoleDisplay(Component):
     def handle_exception(self, e:Exception) -> bool:
         """ The stack trace for unhandled exceptions is displayed in plaintext with no interaction flags.
             To avoid crashing Plover, exceptions are suppressed (by returning True) after display. """
-        tb_lines = traceback.TracebackException.from_exception(e).format()
+        tb_lines = TracebackException.from_exception(e).format()
         tb_text = "".join(tb_lines)
         sys.stderr.write(tb_text)
         if self.w_text is not None:

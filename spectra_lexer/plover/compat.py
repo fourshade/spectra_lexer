@@ -1,6 +1,5 @@
 """ Module to hold all compatibility-related code for Plover, including partial class typedefs and version check. """
 
-from functools import partialmethod
 from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 import pkg_resources
@@ -10,7 +9,6 @@ from spectra_lexer.utils import nop
 # Minimum version of Plover required for plugin compatibility.
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
 INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater required."
-_TEST_TRANSLATIONS = {"TEFT": "test", "TE*S": "test", "TEFGT": "testing"}
 
 # Partial class structures that specify a minimum type interface for compatibility with Plover.
 # There is enough init code with default parameters to allow tests by creating a fake engine.
@@ -24,11 +22,11 @@ class PloverStenoDict:
         return len(self._dict)
 
 class PloverStenoDictCollection:
-    dicts: Iterable[PloverStenoDict] = ()
-    def __init__(self, d:dict, split_count:int=1):
-        d_list = list(d.items())
-        div = (len(d) // split_count) + 1
-        self.dicts = [PloverStenoDict(dict(d_list[i*div:(i+1)*div])) for i in range(split_count)]
+    dicts: Iterable[PloverStenoDict] = [PloverStenoDict({"TEFT": "test", "TE*S": "test", "TEFGT": "testing"})]
+    def __init__(self, d:dict=None, split_count:int=1):
+        if d is not None:
+            d_list = list(d.items())
+            self.dicts = [PloverStenoDict(dict(d_list[i::split_count])) for i in range(split_count)]
 
 class PloverAction:
     prev_attach: bool = True
@@ -42,11 +40,15 @@ class PloverTranslatorState:
     translations: Sequence[PloverTranslation] = [PloverTranslation()]
 
 class PloverEngine:
-    dictionaries: PloverStenoDictCollection = PloverStenoDictCollection(_TEST_TRANSLATIONS)
+    dictionaries: PloverStenoDictCollection = PloverStenoDictCollection()
     translator_state: PloverTranslatorState = PloverTranslatorState()
     __enter__: Callable[[], None] = nop
     __exit__: Callable[..., None] = nop
-    signal_connect: Callable[[str, Callable], None] = partialmethod(setattr)
+    def signal_connect(self, signal:str, cb:Callable) -> None:
+        if signal == "dictionaries_loaded":
+            cb(self.dictionaries)
+        else:
+            cb((), [PloverAction()])
 
 
 def compatibility_check() -> bool:

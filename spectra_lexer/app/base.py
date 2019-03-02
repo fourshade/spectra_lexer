@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Hashable, Type
+from typing import Dict, Hashable, Generator, Iterable
 
 from spectra_lexer import Component
 from spectra_lexer.options import CommandOption
@@ -16,10 +16,10 @@ class Application:
     components: Dict[str, Component]  # Dict of all connected components by role.
     commands: Dict[Hashable, list]    # Dict of commands from all components combined into a list for each key.
 
-    def __init__(self, *cls_iter:Type[Component]):
+    def __init__(self, *cmp_iter:object):
         """ Gather all component classes in order from base to derived classes.
             Instantiate only one per role. Later components override earlier ones. """
-        classes = {cls.ROLE: cls for cls in cls_iter}
+        classes = dict(_get_component_classes(cmp_iter))
         self.components = {role: cls() for role, cls in classes.items()}
         # Add commands and set callbacks for all components.
         self.commands = defaultdict(list)
@@ -51,3 +51,13 @@ class Application:
             # The caller may want to catch this exception, so don't catch it here unless this is the top level.
             if not is_top or not self.call("new_exception", e):
                 raise
+
+
+def _get_component_classes(items:Iterable, parent:str="") -> Generator:
+    """ Yield all component subclasses in an iterable of arbitrary items along with their roles.
+        If any of the items are child modules, yield from their namespaces recursively. """
+    for item in items:
+        if isinstance(item, type) and issubclass(item, Component) and item is not Component:
+            yield item.ROLE, item
+        elif hasattr(item, "__package__") and item.__package__.startswith(parent):
+            yield from _get_component_classes(vars(item).values(), item.__package__)

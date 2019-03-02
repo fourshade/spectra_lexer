@@ -1,7 +1,8 @@
+import sys
 from collections import namedtuple
 from typing import ClassVar
 
-from PyQt5.QtWidgets import QDialog, QMainWindow
+from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
 
 from spectra_lexer import core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
@@ -23,21 +24,29 @@ class PloverDialog(QDialog):
     __doc__ = "See the breakdown of words using steno rules."
 
     # The window and all of its contents are destroyed if it is closed with no referents.
-    # The app's components are relatively exp
-    # ensive to create, so an app reference is kept
+    # The app's components are relatively expensive to create, so an app reference is kept
     # in the class dictionary and returned on every call after the first, making it a singleton.
     window: ClassVar[QMainWindow] = None
 
     def __new__(cls, *args):
-        """ Only create a new app/window instance on the first call; return the saved instance otherwise.
-            The engine is always the first argument passed by Plover. Others are irrelevant. """
+        """ Only create a new app/window instance on the first call; return the saved instance otherwise. """
         if cls.window is None:
-            app = Application(*gui_qt.COMPONENTS, *core.COMPONENTS, *interactive.COMPONENTS, *plover.COMPONENTS)
+            app = Application(gui_qt, core, interactive, plover)
             # Translations file loading must be suppressed; we get them from Plover instead.
             # The file menu should not be available; clicking the "Exit" button is likely to crash Plover.
-            app.start(translations_files=None, plover_engine=args[0], gui_menus=("Tools",))
-            # We need the window from the GUI Qt component section, so search the component dict for it.
+            app.start(translations_files=None, plover_args=args, gui_menus=("Tools",))
             cls.window = app.components["gui_window"].window
             # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
             cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
         return cls.window
+
+
+def test() -> None:
+    """ Entry point for testing the Plover plugin by running it with no engine. """
+    qt_app = QApplication(sys.argv)
+    PloverDialog()
+    qt_app.exec_()
+
+
+if __name__ == '__main__':
+    test()

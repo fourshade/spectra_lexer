@@ -1,6 +1,6 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import Callable, ClassVar, Hashable, List, Tuple
+from typing import Callable, ClassVar, Dict, Hashable, List, Tuple
 
 from spectra_lexer.utils import nop
 
@@ -29,16 +29,15 @@ class Component:
     # Standard identifier for a component's function, usable in many ways (e.g. config page title).
     ROLE: ClassVar[str] = "UNDEFINED"
 
-    _cmd_attr_list: ClassVar[List[tuple]] = []  # Default class command parameter list; meant to be copied.
+    _cmd_attr_dict: ClassVar[Dict[str, tuple]] = {}  # Default class command parameter dict; meant to be copied.
     engine_call: Callable = nop  # Default engine callback is a no-op (useful for testing individual components).
 
     def __init_subclass__(cls) -> None:
-        """ Make a list of commands this component class handles with methods that handle each one.
-            Each engine-callable method (class attribute) has its command info saved on an attribute.
-            Save each of these to a list. Combine it with the parent's command list to make a new child list.
-            This new combined list covers the full inheritance tree. Child commands execute first. """
-        cmd_list = [(attr, *func.cmd) for attr, func in vars(cls).items() if hasattr(func, "cmd")]
-        cls._cmd_attr_list = cmd_list + cls._cmd_attr_list
+        """ Each engine-callable method is a class attribute with command info saved on it.
+            Save each of these to a dict. Combine it with the parent's command dict to make a new child dict.
+            This new combined dict covers the full inheritance tree. If a child command is different, it overrides. """
+        cmd_dict = {attr: func.cmd for attr, func in vars(cls).items() if hasattr(func, "cmd")}
+        cls._cmd_attr_dict = {**cmd_dict, **cls._cmd_attr_dict}
 
     def engine_connect(self, cb:Callable) -> None:
         """ Set the callback used for engine calls by this component. """
@@ -47,4 +46,4 @@ class Component:
     def engine_commands(self) -> List[Tuple[Hashable, tuple]]:
         """ Bind all class command functions to the instance and return the raw (key, (func, ...)) command tuples.
             Each command has a main callable followed by optional instructions on what to execute next. """
-        return [(key, (getattr(self, attr), *params)) for (attr, key, *params) in self._cmd_attr_list]
+        return [(key, (getattr(self, attr), *params)) for (attr, (key, *params)) in self._cmd_attr_dict.items()]

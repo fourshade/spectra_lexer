@@ -22,13 +22,15 @@ class PloverInterface(Component):
     _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
     @pipe("start", "plover_parse_dicts")
-    def start(self, *, plover_engine:PloverEngine=None, **opts) -> Optional[PloverStenoDictCollection]:
+    def start(self, *, plover_args:Sequence=(), **opts) -> Optional[PloverStenoDictCollection]:
         """ Perform initial compatibility check and callback/dictionary setup. """
-        # If the compatibility check fails or there's no engine, don't try to connect to Plover. Return an error.
-        if not compatibility_check() or plover_engine is None:
+        # If the compatibility check fails, don't try to connect to Plover. Return an error.
+        if not compatibility_check():
             self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
             return None
-        self._plover_engine = plover_engine
+        # The engine is always the first argument passed by Plover. Others are irrelevant.
+        # If there's no engine, make a fake one for testing purposes.
+        self._plover_engine = plover_args[0] if plover_args else PloverEngine()
         # Lock the Plover engine thread, connect everything to it, and load all current dictionaries.
         with self._plover_engine:
             self._plover_connect('dictionaries_loaded', "plover_parse_dicts")

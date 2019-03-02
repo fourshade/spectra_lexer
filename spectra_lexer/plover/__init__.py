@@ -1,6 +1,5 @@
 """ Package for the GUI Qt-based components of the Spectra plugin for Plover. """
 
-from . import dialog, interface
+__all__ = ["interface"]
 
-COMPONENTS = [#dialog.PloverDialog,
-              interface.PloverInterface]
+from . import interface

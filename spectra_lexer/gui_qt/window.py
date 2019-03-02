@@ -2,7 +2,7 @@ from typing import Sequence
 
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import Component, on, respond_to
+from spectra_lexer import Component, on
 from spectra_lexer.gui_qt.main_window import MainWindow
 
 
@@ -13,8 +13,8 @@ class GUIQtWindow(Component):
 
     window: MainWindow = None  # Main window object.
 
-    @respond_to("start")
-    def start(self, gui_menus:Sequence[str]=("File", "Tools"), **opts) -> None:
+    @on("start")
+    def start(self, *, gui_menus:Sequence[str]=("File", "Tools"), **opts) -> None:
         # Make the window, get the required widgets, send them all to their required components, and show the window.
         qt_app = QApplication.instance()
         window = self.window = MainWindow()
