@@ -24,7 +24,6 @@ class GUIQtTextDisplay(Component):
         self.w_title, self.w_text = widgets["text"]
         self.w_text.textMouseAction.connect(partial(self.engine_call, "text_mouse_action"))
         self.w_text.textKeyboardInput.connect(partial(self.engine_call, "text_keyboard_input"))
-        self.engine_call("gui_menu_add", "Tools", "Open Console...", "console_open")
 
     @on("new_status")
     def display_status(self, msg:str) -> None:

@@ -16,6 +16,8 @@ class SpectraConsole(Component):
     def start(self, *, app:object=None, components:dict=None, **opts) -> None:
         """ Add the app and all components and options to the interpreter on start if given. """
         self.console_vars = dict(components or {}, app=app, opts=opts)
+        # Add an item to the GUI tools menu to start the console.
+        self.engine_call("new_menu_item", "Tools", "Open Console...", "console_open")
 
     @pipe("console_open", "new_interactive_text", keyboard=True, scroll_to="bottom")
     def open(self) -> str:

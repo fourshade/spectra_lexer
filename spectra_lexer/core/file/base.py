@@ -1,15 +1,15 @@
-from spectra_lexer import Component, on, respond_to, pipe
+from spectra_lexer import Component, on, respond_to
 from spectra_lexer.core.file.codecs import CodecDatabase
 from spectra_lexer.core.file.codecs.cfg import CFGCodec
 from spectra_lexer.core.file.codecs.json import CSONCodec, JSONCodec
-from spectra_lexer.core.file.resource import Resource, resource_from_string, resources_from_patterns
+from spectra_lexer.core.file.resource import Resource, resources_from_patterns, resource_from_string
 
 # List of all codec subclasses. One of each must be instantiated in the master dict.
 _ALL_CODECS = [CFGCodec, JSONCodec, CSONCodec]
 
 
 class FileHandler(Component):
-    """ Engine wrapper for file I/O operations. Directs engine commands to module-level functions. """
+    """ Main component for file I/O operations and dialogs. Directs actual I/O routines to codecs. """
 
     ROLE = "file"
 
@@ -34,10 +34,13 @@ class FileHandler(Component):
         """ Attempt to encode and save a resource to a file given by name. """
         return self._encode(resource_from_string(filename), d)
 
-    @pipe("file_dialog", "new_file_dialog")
-    def dialog(self, d_type:str) -> tuple:
-        """ Get all valid file extensions (including the dot) and send them with the type to a new GUI dialog. """
-        return d_type, self._codecs.get_formats()
+    @on("file_add_dialog")
+    def add_dialog(self, d_type:str, **kwargs) -> None:
+        """ Add a basic file dialog command for a data type with all valid file extensions (including the dot). """
+        title_msg = f"Load {d_type.title()}"
+        filter_msg = f"Supported file formats (*{' *'.join(self._codecs.get_formats())})"
+        self.engine_call("new_menu_item", "File", title_msg + "...",
+                         "new_file_dialog", d_type, title_msg + " Dictionaries", filter_msg, **kwargs)
 
     def _decode(self, f:Resource) -> dict:
         """ Read and decode a string resource. """

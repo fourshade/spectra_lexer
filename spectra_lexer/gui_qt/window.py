@@ -21,6 +21,7 @@ class GUIQtWindow(Component):
         # The menu must be initialized first so it can add items from other components.
         self.engine_call("new_gui_menu", window.widgets, gui_menus)
         self.engine_call("new_gui_window", window.widgets)
+        self.engine_call("new_menu_item", "File", "Exit", "gui_window_close", sep_first=True)
         window.show()
         # Manually process events after GUI setup to avoid hanging.
         qt_app.processEvents()

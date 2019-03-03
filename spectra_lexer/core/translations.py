@@ -22,6 +22,8 @@ class TranslationsManager(Component):
     def start(self, **opts) -> tuple:
         """ Load translations at startup. By default, the sentinel value is an empty list and means
            'try and find the files from Plover'. This can be suppressed by setting it to None. """
+        # If the file menu is used, add a basic file dialog command.
+        self.engine_call("file_add_dialog", "translations", menu_pos=1)
         if self.files is not None:
             return ()
 

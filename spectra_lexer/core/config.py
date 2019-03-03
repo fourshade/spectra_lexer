@@ -17,6 +17,8 @@ class ConfigManager(Component):
 
     @pipe("start", "config_load")
     def start(self, **opts) -> tuple:
+        """ Add the config dialog command. """
+        self.engine_call("new_menu_item", "Tools", "Edit Configuration...", "config_dialog")
         return ()
 
     @pipe("config_load", "new_config")
@@ -35,7 +37,7 @@ class ConfigManager(Component):
 
     @on("new_config_info")
     def set_config_info(self, role:str, name:str, option:CFGOption):
-        """ Store a single config option by owner role and option key. """
+        """ Store a single config option's info by owner role and option key. """
         self._cfg_info.setdefault(role, {})[name] = option
 
     @pipe("config_dialog", "new_config_dialog")

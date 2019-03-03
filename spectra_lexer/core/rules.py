@@ -36,6 +36,8 @@ class RulesManager(Component):
 
     @pipe("start", "rules_load")
     def start(self, **opts) -> tuple:
+        """ If the file menu is used, add a basic file dialog command. """
+        self.engine_call("file_add_dialog", "rules", menu_pos=0)
         return ()
 
     @pipe("rules_load", "new_rules")

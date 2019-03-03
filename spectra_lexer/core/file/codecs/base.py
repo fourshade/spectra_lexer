@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from os.path import splitext
-from typing import Callable, Iterable, List, Type
+from typing import Callable, Dict, Iterable, List, Type
 
 
 class StringCodec:
@@ -23,7 +23,7 @@ class StringCodec:
 class CodecDatabase:
     """ Global database of supported file formats by subclass. Unlisted formats are decoded as plaintext. """
 
-    _codecs: defaultdict  # Holds one instance of each codec class.
+    _codecs: Dict[str, StringCodec]  # Holds one instance of each codec class.
 
     def __init__(self, codec_classes:Iterable[Type[StringCodec]]=()):
         """ Create an instance of each subclass codec and register it under each of its file extensions. """
@@ -39,6 +39,6 @@ class CodecDatabase:
         """ Return the encoder function for the given file's extension. """
         return self._codecs[splitext(f)[1]].encode
 
-    def get_formats(self) -> List[StringCodec]:
+    def get_formats(self) -> List[str]:
         """ Return the extensions of all supported files, including the dot. """
         return list(self._codecs)
