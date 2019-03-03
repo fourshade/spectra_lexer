@@ -1,9 +1,8 @@
 from functools import lru_cache
 from typing import List, Tuple
 
-from spectra_lexer.interactive.graph.node import GraphNodeAppearance
-from spectra_lexer.interactive.graph.text.formatter import TextFormatter
-from spectra_lexer.interactive.graph.text.node import TextNode
+from spectra_lexer.interactive.graph.node import GraphNodeAppearance, TextNode
+from spectra_lexer.interactive.graph.formatter import TextFormatter
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)

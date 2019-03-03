@@ -1,44 +1,54 @@
+""" Base module for text graphing. Defines top-level graph classes and structures. """
+
 from typing import Optional
 
 from spectra_lexer import Component, pipe
+from spectra_lexer.interactive.graph.formatter import HTMLFormatter
+from spectra_lexer.interactive.graph.generator import CascadedTextGenerator, CompressedTextGenerator
+from spectra_lexer.interactive.graph.locator import GridLocator
+from spectra_lexer.interactive.graph.node import TextNode
 from spectra_lexer.options import CFGOption
-from spectra_lexer.interactive.graph.node import GraphNode
-from spectra_lexer.interactive.graph.text import TextGraph
 from spectra_lexer.rules import StenoRule
 
 
 class GraphRenderer(Component):
-    """ Main component class for creating and formatting a monospaced text graph.
-        The graph object itself does most of the work; this one just exists to pass messages. """
+    """ Component class for creating and formatting a monospaced text graph from a rule. """
 
     ROLE = "graph"
     recursive: bool = CFGOption(True,  "Recursive Graph",    "Include rules that make up other rules.")
     compressed: bool = CFGOption(True, "Compressed Display", "Compress the graph vertically to save space.")
 
-    _graph: TextGraph = None      # Generates text graphs and processes selections.
-    _last_node: GraphNode = None  # Most recent node from a select event (for identity matching).
+    _last_node: TextNode = None       # Most recent node from a select event (for identity matching).
+    _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
+    _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
 
-    @pipe("new_lexer_result", "new_graph_text")
+    @pipe("new_lexer_result", "new_interactive_text", html=True, mouse=True)
     def generate(self, rule:StenoRule) -> str:
-        """ Generate text graph data (of either type) from a rule. """
+        """ Generate text graph data (of either type) from a rule based on config settings. """
         # Send the rule string as a status message (this doubles as the title in the GUI).
         self.engine_call("new_status", str(rule))
-        # Create the graph object based on config settings.
-        self._graph = TextGraph(rule, recursive=self.recursive, compressed=self.compressed)
-        # The graph is new, so render it without no node selected. It should should scroll to the top by default.
-        return self._graph.render()
+        # Make a node tree layout out of the given rule.
+        root = TextNode.for_display(rule, self.recursive)
+        # Generate and render all text objects into standard strings and node grids indexed by position.
+        generator_type = CompressedTextGenerator if self.compressed else CascadedTextGenerator
+        lines, nodes = generator_type(root).render()
+        # Create a locator and formatter using these structures and keep them for later reference.
+        self._locator = GridLocator(nodes)
+        self._formatter = HTMLFormatter(lines, nodes)
+        # The graph is new, so render it with no highlighting or boldface. It should scroll to the top by default.
+        return self._formatter.make_graph_text()
 
-    @pipe("graph_select", "new_graph_selection")
-    def select(self, x:int, y:int, clicked:bool=False) -> Optional[StenoRule]:
-        """ Find the node owning the element at (x, y) of the graph. If it belongs to a new node, send out its rule. """
-        if self._graph is None:
+    @pipe("text_mouse_action", "new_graph_selection")
+    def select(self, row:int, col:int, clicked:bool=False) -> Optional[StenoRule]:
+        """ Find the node owning the element at (row, col) of the graph. If that node is new, send out its rule. """
+        if self._locator is None:
             return None
-        node = self._graph.select_node(x, y)
+        node = self._locator.select(row, col)
         if node is None or node is self._last_node:
             return None
         # Store the new object reference so we can avoid repeated lookups.
         self._last_node = node
-        # Also render and send the graph with the selected node. Don't allow the graph to scroll.
-        text = self._graph.render(node)
-        self.engine_call("new_graph_text", text, scroll_to=None)
+        # Also render and send the graph with this node highlighted. Don't allow the graph to scroll.
+        text = self._formatter.make_graph_text(node)
+        self.engine_call("new_interactive_text", text, html=True, mouse=True, scroll_to=None)
         return node.rule

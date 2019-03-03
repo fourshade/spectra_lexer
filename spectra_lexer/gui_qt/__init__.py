@@ -1,3 +1,3 @@
 """ Package for the GUI Qt-based components of Spectra. """
 
-from . import board, config, console, file, graph, menu, search, window
+from . import board, config, file, text, menu, search, window

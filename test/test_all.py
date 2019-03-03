@@ -118,7 +118,7 @@ def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
     GRAPH.generate(result)
     # The root node starts in the upper left and has no parent.
-    root = GRAPH._graph._locator.select(0, 0)
+    root = GRAPH._locator.select(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
     all_nodes_list = root.get_descendents()
@@ -127,7 +127,7 @@ def test_graph(result):
     # Going the other direction, all nodes except the root must have its parent in the set.
     assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
     # The nodes available for interaction must be a subset of this collection.
-    assert all_nodes_set >= set(GRAPH._graph._formatter)
+    assert all_nodes_set >= set(GRAPH._formatter)
 
 
 PLOVER = PloverInterface()

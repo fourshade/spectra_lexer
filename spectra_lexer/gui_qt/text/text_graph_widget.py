@@ -63,8 +63,8 @@ class TextGraphWidget(QTextEdit):
         self.setTextCursor(c)
 
     # Signals
-    mouseInteraction = pyqtSignal([int, int, bool])
-    textInputComplete = pyqtSignal([str])
+    textMouseAction = pyqtSignal([int, int, bool])
+    textKeyboardInput = pyqtSignal([str])
 
     # Slots
     def mouseMoveEvent(self, event:QMouseEvent) -> None:
@@ -80,8 +80,7 @@ class TextGraphWidget(QTextEdit):
         # that owns that character. Don't waste time if the row and column are the same as before.
         row, col = location_cursor.blockNumber(), location_cursor.columnNumber()
         if self._last_row != row or self._last_col != col:
-            # Switch the arguments to put it in (x, y) order.
-            self.mouseInteraction.emit(col, row, False)
+            self.textMouseAction.emit(row, col, False)
             self._last_row = row
             self._last_col = col
 
@@ -102,5 +101,5 @@ class TextGraphWidget(QTextEdit):
         if event.key() in (Qt.Key_Return, Qt.Key_Enter) and text.endswith("\n"):
             self._set_content(original)
             user_str = text[len(original):]
-            self.textInputComplete.emit(user_str)
+            self.textKeyboardInput.emit(user_str)
             self._reset_cursor()
