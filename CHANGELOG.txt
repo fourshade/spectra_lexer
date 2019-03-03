@@ -1,3 +1,9 @@
+1.1.0
+-----
+* Dismantled application subclasses and moved code into components for modularity
+* Compartmentalized all components into functional groups
+* Fixed premature exception handling bug in engine
+
 1.0.0
 -----
 * Completely reorganized component system
