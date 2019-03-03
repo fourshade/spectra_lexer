@@ -1,15 +1,19 @@
-from spectra_lexer import Component, pipe
-from spectra_lexer.options import CommandOption
+from spectra_lexer import Component, on, pipe
+from spectra_lexer.options import CFGOption, CommandOption
 from spectra_lexer.utils import str_eval
 
 
 class ConfigManager(Component):
-    """ Configuration parser for the Spectra program. Config file may be specified with command-line arguments. """
+    """ Configuration parser for the Spectra program. Config file may be specified with command line arguments. """
 
     ROLE = "config"
     file: str = CommandOption("~/config.cfg", "Config .cfg or .ini file to load at startup and save updates.")
 
-    _cfg_data: dict  # Dict with config data values loaded from disk.
+    _cfg_info: dict  # Dict with detailed config info from active components.
+
+    def __init__(self):
+        super().__init__()
+        self._cfg_info = {}
 
     @pipe("start", "config_load")
     def start(self, **opts) -> tuple:
@@ -27,13 +31,20 @@ class ConfigManager(Component):
             for (opt, val) in page.items():
                 if isinstance(val, str):
                     page[opt] = str_eval(val)
-        self._cfg_data = d
         return d
 
-    @pipe("config_save", "file_save")
-    def save(self, new_data:dict, filename:str="") -> tuple:
-        """ Update config options and save them to disk. Saving should not fail silently, unlike loading.
-            If no save filename is given, use the default file. """
-        for (s, d) in new_data.items():
-            self._cfg_data.setdefault(s, {}).update(d)
-        return (filename or self.file), self._cfg_data
+    @on("new_config_info")
+    def set_config_info(self, role:str, key:str, option:CFGOption):
+        """ Store a single config option by owner role and option key. """
+        self._cfg_info.setdefault(role, {})[key] = option
+
+    @pipe("config_dialog", "new_config_dialog")
+    def dialog(self) -> dict:
+        return self._cfg_info
+
+    @pipe("config_save", "new_config")
+    def save(self, d:dict, filename:str="") -> dict:
+        """ Update config options, send them to the components, and save them to disk.
+            Saving should not fail silently, unlike loading. If no save filename is given, use the default file. """
+        self.engine_call("file_save", (filename or self.file), d)
+        return d

@@ -21,7 +21,7 @@ class GUIQtFileDialog(Component):
         self.engine_call("gui_menu_add", "File", "Exit", "gui_window_close", sep_first=True)
 
     @on("new_file_dialog")
-    def _dialog_load(self, d_type:str, file_formats:Iterable[str]) -> None:
+    def new_dialog(self, d_type:str, file_formats:Iterable[str]) -> None:
         """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
         title_msg = f"Load {d_type.title()} Dictionaries"
         filter_msg = f"Supported file formats (*{' *'.join(file_formats)})"

@@ -44,12 +44,12 @@ class Option:
 class CFGOption(Option):
     """ Descriptor for a file-configurable option. Requires ConfigManager to update defaults from disk. """
 
-    name: str  # Name as shown on config page.
+    label: str  # Option label as shown on config page.
 
-    def __init__(self, default:object, name:str, desc:str):
+    def __init__(self, default:object, label:str="", desc:str=""):
         """ Set the default attributes. """
         super().__init__(default, desc)
-        self.name = name
+        self.label = label
 
     def __set_name__(self, owner:Type[Component], name:str) -> None:
         """ Set an additional attribute on the owner class to update this config option on command. """
