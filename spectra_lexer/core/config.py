@@ -34,9 +34,9 @@ class ConfigManager(Component):
         return d
 
     @on("new_config_info")
-    def set_config_info(self, role:str, key:str, option:CFGOption):
+    def set_config_info(self, role:str, name:str, option:CFGOption):
         """ Store a single config option by owner role and option key. """
-        self._cfg_info.setdefault(role, {})[key] = option
+        self._cfg_info.setdefault(role, {})[name] = option
 
     @pipe("config_dialog", "new_config_dialog")
     def dialog(self) -> dict:

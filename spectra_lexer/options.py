@@ -71,14 +71,12 @@ class CommandOption(Option):
     def __set_name__(self, owner:Type[Component], name:str) -> None:
         """ Set additional attributes on the owner class to retrieve and update this option on command. """
         super().__set_name__(owner, name)
-        key = f"{owner.ROLE}_{name}"
+        role = owner.ROLE
         def get_arg(cmp:Component) -> tuple:
             """ Send info about this option to the command line parser. """
-            return key, self
+            return role, name, self
         self.set_cmd_attr(owner, name, get_arg, "cmdline_get_opts", "new_cmdline_option")
-        def set_arg(cmp:Component, args:dict) -> None:
-            """ Overwrite this option with any applicable arguments from the command line. """
-            v = args.get(key)
-            if v is not None:
-                setattr(cmp, name, v)
-        self.set_cmd_attr(owner, name, set_arg, "new_cmdline_args")
+        def set_arg(cmp:Component, v:object) -> None:
+            """ Overwrite this option with the applicable argument from the command line. """
+            setattr(cmp, name, v)
+        self.set_cmd_attr(owner, name, set_arg, f"cmdline_set_{role}_{name}")

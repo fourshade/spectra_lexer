@@ -27,7 +27,7 @@ class RulesManager(Component):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "rules"
-    files: list = CommandOption([":/*.cson"], "List of glob patterns for JSON-based rules files to load.")
+    files: list = CommandOption([":/*.cson"], "Glob patterns for JSON-based rules files to load.")
     out: str = CommandOption("rules.json", "Output file name for lexer-generated rules.")
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.

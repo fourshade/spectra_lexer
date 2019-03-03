@@ -15,7 +15,7 @@ class TranslationsManager(Component):
         that require no extra processing after conversion to/from JSON. """
 
     ROLE = "translations"
-    files: list = CommandOption([], "List of glob patterns for JSON-based translations files to load.")
+    files: list = CommandOption([], "Glob patterns for JSON-based translations files to load.")
     out: str = CommandOption("translations.json", "Output file name for translations.")
 
     @pipe("start", "translations_load")

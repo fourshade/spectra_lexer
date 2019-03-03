@@ -38,16 +38,16 @@ The standalone mode operates identically to the plugin in all respects except th
 
 There is also a batch mode available for analysis purposes. Run it by typing:
 
-``spectra_lexer batch [--translations=FILE_IN] [--out=FILE_OUT]``
+``spectra_lexer batch [--translations-files=FILE_IN1 [FILE_IN2 ...]] [--rules-out=FILE_OUT]``
 
-FILE_IN is a path to a JSON file containing a dictionary of steno translations, and FILE_OUT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
+Each FILE_IN is a path to a JSON file containing a dictionary of steno translations, and FILE_OUT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
 
-There are other command line arguments available, but they are usually redundant and/or unnecessary. See __main__.py for more details.
+There are other command line arguments available, but they are usually redundant and/or unnecessary. See the individual component source files for more details.
 
 Details
 -------
 
-This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. If it cannot match every single steno key to letters in the word, it will simply not return a result at all (to avoid guessing wrong). Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
+This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. Depending on the config setting, if it cannot match every single steno key to letters in the word, it may not return a result at all (to avoid guessing wrong) or may return an incomplete guess on the first part of the word. Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
 
 When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke), choosing shorter strokes over longer ones to break ties.
 

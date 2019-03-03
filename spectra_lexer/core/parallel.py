@@ -9,7 +9,7 @@ class ParallelExecutor(Component):
     """ Component to run operations in parallel. """
 
     ROLE = "parallel"
-    processes: int = CommandOption(None, "Number of processes to run at once (if None, use one for each CPU core).")
+    processes: int = CommandOption(None, "Number of processes to run at once. Default is one process per CPU core.")
 
     @respond_to("parallel_map")
     def map(self, func:callable, *iterables, chunksize:int=None) -> list:
