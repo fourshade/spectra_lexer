@@ -4,11 +4,11 @@ from itertools import chain
 from operator import attrgetter
 from typing import List, NamedTuple, Tuple
 
+from spectra_lexer.interactive.graph.node import GraphNodeAppearance
 from spectra_lexer.interactive.graph.text.generator.object import ObjectNode, ObjectNodeUnmatched
 from spectra_lexer.interactive.graph.text.generator.pattern import PatternInversion, PatternNode, PatternSeparators, \
     PatternThick, PatternUnmatched
-
-from spectra_lexer.interactive.graph.text.node import TextFlags, TextNode
+from spectra_lexer.interactive.graph.text.node import TextNode
 
 
 class ConnectionInfo(NamedTuple):
@@ -33,10 +33,10 @@ class TextGenerator:
 
     # Appearance flag table with custom object and pattern constructor types.
     NODE_DEFAULT = (ObjectNode, PatternNode)
-    NODE_APPEARANCE = {TextFlags.SEPARATOR: (ObjectNode,          PatternSeparators),
-                       TextFlags.UNMATCHED: (ObjectNodeUnmatched, PatternUnmatched),
-                       TextFlags.INVERSION: (ObjectNode,          PatternInversion),
-                       TextFlags.BRANCH:    (ObjectNode,          PatternThick)}
+    NODE_APPEARANCE = {GraphNodeAppearance.SEPARATOR: (ObjectNode, PatternSeparators),
+                       GraphNodeAppearance.UNMATCHED: (ObjectNodeUnmatched, PatternUnmatched),
+                       GraphNodeAppearance.INVERSION: (ObjectNode, PatternInversion),
+                       GraphNodeAppearance.BRANCH:    (ObjectNode, PatternThick)}
 
     _root_object: ObjectNode  # Main container for drawable text objects.
 
@@ -92,7 +92,7 @@ class CascadedTextGenerator(TextGenerator):
         right_bound = 0
         for _, height, width, appearance, col, _, b_shift, b_span in info:
             # Advance to the next free row. Move down one more if this child shares columns with the last one.
-            row += (right_bound > col and appearance != TextFlags.SEPARATOR)
+            row += (right_bound > col and appearance != GraphNodeAppearance.SEPARATOR)
             rows.append(row)
             # Advance the bounds by this child's height and width.
             row += height
@@ -114,7 +114,7 @@ class CompressedTextGenerator(TextGenerator):
         # the top down, and the rightmost column it needs. After that column is passed, the slot becomes free again.
         for _, height, width, appearance, col, _, b_shift, b_span in info:
             # Make sure strokes don't run together.
-            if appearance == TextFlags.SEPARATOR:
+            if appearance == GraphNodeAppearance.SEPARATOR:
                 right_bound = _end
                 continue
             # Index 2 can only be occupied by nodes that attach at the bottom with a single connector.
@@ -139,5 +139,5 @@ class CompressedTextGenerator(TextGenerator):
                 bounds[i] = right_bound + 1
             bounds[bottom_bound] = max(right_bound, bounds[bottom_bound])
         # Filter out all stroke separators from the info list.
-        info[:] = [i for i in info if i.appearance != TextFlags.SEPARATOR]
+        info[:] = [i for i in info if i.appearance != GraphNodeAppearance.SEPARATOR]
         return rows

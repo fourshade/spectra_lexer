@@ -1,6 +1,5 @@
 from typing import Dict, Generator
 
-from spectra_lexer.constants import Constants
 from spectra_lexer.core.lexer.prefix import OrderedKeyPrefixTree
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import RuleFlags, StenoRule
@@ -12,7 +11,7 @@ KEY_STAR = StenoKeys("*")
 _UNORDERED_KEYS = [KEY_STAR]
 
 
-class StarRules(Constants):
+class _StarRules:
     """ Star rules give meanings to an unmatched asterisk. The actual rule structures must be loaded from JSON. """
     UNKNOWN = "*:??"       # purpose unknown - possibly resolves a conflict.
     CONFLICT = "*:CF"      # resolves conflict between words.
@@ -111,18 +110,18 @@ class LexerRuleMatcher:
             the full word, and the current rulemap. Return the reference name for the best-guess rule. """
         # If the word contains a period, it's probably an abbreviation (it must have letters to make it this far).
         if "." in all_letters:
-            return StarRules.ABBREVIATION
+            return _StarRules.ABBREVIATION
         # If the word has uppercase letters in it, it's probably a proper noun.
         if all_letters != all_letters.lower():
-            return StarRules.PROPER
+            return _StarRules.PROPER
         # If we have a separator key left but no recorded matches, we are at the beginning of a multi-stroke word.
         # If we have recorded separator rules but none left in the keys, we are at the end of a multi-stroke word.
         # Neither = single-stroke word, both = middle of multi-stroke word, just one = prefix/suffix.
         if keys.has_separator() ^ any(m.rule.keys.has_separator() for m in rulemap):
-            return StarRules.AFFIX
+            return _StarRules.AFFIX
         # If the search component loaded a translations dict, we can check if there's an entry with every key
         # *except* the star. If there is, it's probably there because of a conflict.
         if self._translations.get(all_keys.without(KEY_STAR).rtfcre):
-            return StarRules.CONFLICT
+            return _StarRules.CONFLICT
         # No other possible uses of the star are decidable by the program, so return the "ambiguous" rule.
-        return StarRules.UNKNOWN
+        return _StarRules.UNKNOWN

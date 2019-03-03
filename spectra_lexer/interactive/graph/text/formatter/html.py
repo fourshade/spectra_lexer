@@ -1,8 +1,9 @@
 from functools import lru_cache
 from typing import List, Tuple
 
+from spectra_lexer.interactive.graph.node import GraphNodeAppearance
 from spectra_lexer.interactive.graph.text.formatter import TextFormatter
-from spectra_lexer.interactive.graph.text.node import TextFlags, TextNode
+from spectra_lexer.interactive.graph.text.node import TextNode
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -15,9 +16,9 @@ _FINISH_FORMAT = "<pre>{}</pre>"
 _ATTACH_COL_OFFSET = 3
 # Appearance flags which dictate a default format for nodes, even if not selected.
 # Every node with children is bold by default, as is the root.
-_FORMAT_FLAGS = {TextFlags.INVERSION: _BOLD_FORMAT,
-                 TextFlags.BRANCH:    _BOLD_FORMAT,
-                 TextFlags.ROOT:      _BOLD_FORMAT}
+_FORMAT_FLAGS = {GraphNodeAppearance.INVERSION: _BOLD_FORMAT,
+                 GraphNodeAppearance.BRANCH:    _BOLD_FORMAT,
+                 GraphNodeAppearance.ROOT:      _BOLD_FORMAT}
 
 
 def _rgb_color(level:int, row:int) -> Tuple[int, int, int]:

@@ -79,6 +79,12 @@ def nondata_property(fn:callable) -> callable:
     return NondataProp()
 
 
+def with_sets(cls:type) -> type:
+    """ Decorator for a constants class to add sets of all legal keys and values for membership testing. """
+    cls.keys, cls.values = map(set, zip(*vars(cls).items()))
+    return cls
+
+
 # These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.
 # Even after caching attributes and globals, repeated string creation and function call overhead will eat you alive.
 

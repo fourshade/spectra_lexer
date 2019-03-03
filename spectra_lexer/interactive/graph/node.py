@@ -2,16 +2,19 @@
 
 from typing import Sequence
 
-from spectra_lexer.constants import Constants
 from spectra_lexer.rules import RuleFlags, StenoRule
-from spectra_lexer.utils import recurse, traverse
+from spectra_lexer.utils import recurse, traverse, with_sets
 
 
-class GraphFlags(Constants):
-    """ Acceptable rule flags that indicate special behavior for output graph formatting. """
+@with_sets
+class GraphNodeAppearance:
+    """ Flags that indicate special behavior for drawing a node on a graph. """
     SEPARATOR = RuleFlags.SEPARATOR  # Stroke separator. Unconnected; does not appear as direct text.
     UNMATCHED = RuleFlags.UNMATCHED  # Incomplete lexer result. Unmatched keys connect to question marks.
-    INVERSION = RuleFlags.INVERSION  # Inversion of steno order. Appears different on format drawing.
+    INVERSION = RuleFlags.INVERSION  # Inversion of steno order. Connections appear different.
+    ROOT = "ROOT"                    # Root node; has no parent.
+    BRANCH = "BRANCH"                # Branch node; has one or more children.
+    LEAF = "LEAF"                    # Leaf node; has no children.
 
 
 class GraphNode:
@@ -24,9 +27,9 @@ class GraphNode:
     rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
-    flags: set               # Specific output modifier flags.
     parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
     children: Sequence = ()  # Direct children of the node. If empty, it is considered a leaf node.
+    appearance: str = GraphNodeAppearance.LEAF  # Special appearance flag for formatting. Default is a base (leaf) node.
 
     def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int=RECURSION_LIMIT):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
@@ -34,17 +37,20 @@ class GraphNode:
             maxdepth = 0 only displays the root node.
             maxdepth = 1 displays the root node and all of the rules that make it up.
             maxdepth = 2 also displays the rules that make up each of those, and so on. """
-        keys, letters, flags, desc, rulemap = rule
+        keys, letters, flags, desc, rulemap = self.rule = rule
         self.attach_start = start
         self.attach_length = length
-        self.rule = rule
         if rulemap and maxdepth:
             nodes = [self.__class__(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap]
             for n in nodes:
                 n.parent = self
             self.children = nodes
-        # Save the output flags (if any).
-        self.flags = flags & GraphFlags
+            self.appearance = GraphNodeAppearance.BRANCH
+        # If there are legal appearance flags on the rule, use the first one to override the tree-based appearance flag.
+        if flags:
+            appearance_flags = flags & GraphNodeAppearance.values
+            if appearance_flags:
+                self.appearance = next(iter(appearance_flags))
 
     def get_ancestors(self) -> list:
         """ Get a list of all ancestors of this node (starting with itself) up to the root. """
@@ -56,3 +62,13 @@ class GraphNode:
 
     def __str__(self):
         return f"{self.rule} → {self.children}"
+
+    @classmethod
+    def for_display(cls, rule:StenoRule, recursive:bool=False):
+        """ Special method to generate a full output tree starting with the given rule as root.
+            The root node has no parent; its "attach interval" is arbitrarily defined as starting
+            at 0 and being the length of its letters, and its appearance flag overrides all others. """
+        maxdepth = 1 if not recursive else cls.RECURSION_LIMIT
+        self = cls(rule, 0, len(rule.letters), maxdepth)
+        self.appearance = GraphNodeAppearance.ROOT
+        return self

@@ -44,7 +44,7 @@ def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
     # If the entry has flags, verify that all of them are valid.
     if r.flags:
-        bad_flags = r.flags - RuleFlags
+        bad_flags = r.flags - RuleFlags.values
         assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
     # A rule with children in a rulemap must conform to strict rules for successful parsing.
     # These tests only work for rules that do not allow the same key to appear in two different strokes.
