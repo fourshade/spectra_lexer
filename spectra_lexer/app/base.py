@@ -2,7 +2,6 @@ from collections import defaultdict
 from typing import Dict, Hashable, Generator, Iterable
 
 from spectra_lexer import Component
-from spectra_lexer.options import CommandOption
 
 
 class Application:
@@ -30,7 +29,7 @@ class Application:
 
     def start(self, **opts) -> None:
         """ Parse command line arguments from sys.argv and keyword options given by subclasses or by main(). """
-        CommandOption.parse_args(**opts)
+        self.call("cmdline_parse", **opts)
         # Add the app and its components to the keyword options and send the start signal.
         self.call("start", app=self, components=self.components, **opts)
 
