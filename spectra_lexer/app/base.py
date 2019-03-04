@@ -16,12 +16,13 @@ class Application:
     _commands: Dict[Hashable, list]   # Dict of commands from all components combined into a list for each key.
     _rlevel: int = 0                  # Level of re-entrancy, 0 = top of stack.
 
-    def __init__(self, *cmp_iter:object):
-        """ Gather all component classes in order from base to derived classes.
-            Instantiate only one per role. Later components override earlier ones. """
-        self.components = {role: cls() for role, cls in _get_component_classes(list(cmp_iter)).items()}
-        self._commands = defaultdict(list)
+    def __init__(self, *cls_mod_iter:object):
+        """ Make components from all unique classes in order, including those in modules. """
+        iters = [vars(item).values() if hasattr(item, "__package__") else [item] for item in cls_mod_iter]
+        # Only one component is allowed per role. Later components in iteration order override earlier ones.
+        self.components = {cls.ROLE: cls() for it in iters for cls in it if hasattr(cls, "ROLE")}
         # Add commands and set callbacks for all components.
+        self._commands = defaultdict(list)
         for c in self.components.values():
             for (key, cmd) in c.engine_commands():
                 self._commands[key].append(cmd)
@@ -54,13 +55,3 @@ class Application:
         """ The caller may depend on exceptions, so don't catch them here unless this is the top level. """
         self._rlevel -= 1
         return exc_value is not None and not self._rlevel and self.call("new_exception", exc_value)
-
-
-def _get_component_classes(items:list, depth:int=2) -> dict:
-    """ Get all unique component subclasses in a list of arbitrary items along with their roles.
-        If any of the items are modules, get classes from their namespaces as well, down to the given depth. """
-    for _ in range(depth):
-        # Test only the namespace attributes which are public (not underscored).
-        items += [v for item in items if hasattr(item, "__package__")
-                  for k, v in vars(item).items() if not k.startswith("_")]
-    return {item.ROLE: item for item in items if hasattr(item, "ROLE") and item is not Component}
