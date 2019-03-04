@@ -26,15 +26,13 @@ class CmdlineParser(Component):
             self._parser.add_argument(key, help=opt.desc, **kwds)
 
     @on("cmdline_parse")
-    def parse_args(self, **opts) -> None:
-        """ Create the parser and suppress defaults for unused arguments so that they don't override any subclasses. """
+    def parse_args(self) -> None:
+        """ Create the parser and suppress its defaults (components have their own default settings). """
         self._parser = ArgumentParser(description="Steno rule analyzer", argument_default=SUPPRESS)
-        # Send a command to gather all possible command line options and their defaults from all components.
+        # Send a command to add all possible command line options to the parser from each component that has some.
         self.engine_call("cmdline_get_opts")
-        # Parse arguments from sys.argv using the gathered info. Options from main() have precedence over these.
-        cmd_opts = vars(self._parser.parse_args())
-        cmd_opts.update(opts)
-        # Update all components with the new options and clean up the parser.
-        for opt, val in cmd_opts.items():
+        # Parse arguments from sys.argv using the gathered info and update all components with the new options.
+        for opt, val in vars(self._parser.parse_args()).items():
             self.engine_call(f"cmdline_set_{opt}", val)
+        # The parser isn't pickleable due to strange internal state, so get rid of it at the end.
         del self._parser

@@ -29,9 +29,9 @@ class Application:
             c.engine_connect(self.call)
 
     def start(self, **opts) -> None:
-        """ Parse command line arguments from sys.argv and keyword options given by subclasses or by main(). """
-        self.call("cmdline_parse", **opts)
-        # Add the app and its components to the keyword options and send the start signal.
+        """ Parse command line arguments from sys.argv. """
+        self.call("cmdline_parse")
+        # Add the app and its components to the keyword options given by main() and send the start signal.
         self.call("start", app=self, components=self.components, **opts)
 
     def call(self, key:Hashable, *args, **kwargs) -> object:

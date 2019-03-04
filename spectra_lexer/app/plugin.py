@@ -4,9 +4,20 @@ from typing import ClassVar
 
 from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
 
-from spectra_lexer import core, gui_qt, interactive, plover
+from spectra_lexer import core, gui_qt, interactive, plover, respond_to
 from spectra_lexer.app import Application
+from spectra_lexer.gui_qt.window import GUIQtWindow
 from spectra_lexer.utils import nop
+
+
+class PloverWindow(GUIQtWindow):
+    """ Master component for GUI Qt operations. Controls the main window. """
+
+    @respond_to("gui_window_get")
+    def get_window(self) -> QMainWindow:
+        # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
+        self.window.finished = namedtuple("dummy_signal", "connect")(nop)
+        return self.window
 
 
 class PloverDialog(QDialog):
@@ -31,13 +42,12 @@ class PloverDialog(QDialog):
     def __new__(cls, *args):
         """ Only create a new app/window instance on the first call; return the saved instance otherwise. """
         if cls.window is None:
-            app = Application(gui_qt, core, interactive, plover)
             # Translations file loading must be suppressed; we get them from Plover instead.
+            sys.argv.append("--translations-files=IGNORE")
             # The file menu should not be available; clicking the "Exit" button is likely to crash Plover.
-            app.start(translations_files=None, plover_args=args, gui_menus=("Tools",))
-            cls.window = app.components["gui_window"].window
-            # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
-            cls.window.finished = namedtuple("dummy_signal", "connect")(nop)
+            app = Application(gui_qt, PloverWindow, core, interactive, plover)
+            app.start(plover_args=args, gui_menus=("Tools",))
+            cls.window = app.call("gui_window_get")
         return cls.window
 
 

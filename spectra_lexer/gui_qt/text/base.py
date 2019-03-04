@@ -15,8 +15,8 @@ class GUIQtTextDisplay(Component):
 
     ROLE = "gui_text"
 
-    w_title: QLineEdit       # Displays status messages and mapping of keys to word.
-    w_text: TextGraphWidget  # Displays formatted rule graphs and other textual data.
+    w_title: QLineEdit = None       # Displays status messages and mapping of keys to word.
+    w_text: TextGraphWidget = None  # Displays formatted rule graphs and other textual data.
 
     @on("new_gui_window")
     def start(self, widgets:Dict[str, QWidget]) -> None:
@@ -42,5 +42,6 @@ class GUIQtTextDisplay(Component):
         tb_lines = TracebackException.from_exception(e).format()
         tb_text = "".join(tb_lines)
         sys.stderr.write(tb_text)
-        self.w_text.set_interactive_text(tb_text)
+        if self.w_text is not None:
+            self.w_text.set_interactive_text(tb_text)
         return True
