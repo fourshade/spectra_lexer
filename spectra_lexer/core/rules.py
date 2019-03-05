@@ -25,7 +25,6 @@ class RulesManager(Component):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    ROLE = "rules"
     files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
     out = Option("cmdline", "rules-out", "rules.json", "Output file name for lexer-generated rules.")
 

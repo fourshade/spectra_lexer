@@ -10,8 +10,6 @@ from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 class GUIQtSearchPanel(Component):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
-    ROLE = "gui_search"
-
     input_textbox: QLineEdit        # Input box for the user to enter a search string.
     match_list: SearchListWidget    # List box to show the direct matches for the user's search.
     mapping_list: SearchListWidget  # List box to show the mappings of a selection in the match list.

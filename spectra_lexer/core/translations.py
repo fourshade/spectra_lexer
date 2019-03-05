@@ -13,7 +13,6 @@ class TranslationsManager(Component):
     """ Translation parser for the Spectra program. The structures are just string dicts
         that require no extra processing after conversion to/from JSON. """
 
-    ROLE = "translations"
     files = Option("cmdline", "translations-files", [], "Glob patterns for JSON-based translations files to load.")
     out = Option("cmdline", "translations-out", "translations.json", "Output file name for translations.")
 

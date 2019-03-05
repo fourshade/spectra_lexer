@@ -15,9 +15,8 @@ _BOARD_ASSET_NAME = ':/board.svg'
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
-    ROLE = "board"
-    show_compound: bool = Option("config", "board:show_compound_keys", True,
-                                 "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
+    show_compound = Option("config", "board:show_compound_keys", True,
+                           "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
 
     _matcher: ElementMatcher         # Generates the list of element IDs for each stroke of a rule.
     _layout: ElementLayout = None    # Calculates drawing bounds for each element.

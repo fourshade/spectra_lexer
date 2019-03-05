@@ -22,9 +22,10 @@ from test import get_test_filename
 
 
 # Create and connect components for the tests in order as we need them.
-FILE = FileHandler()
+# Some will need access to the file system. They only need to send engine commands for this, not receive them.
+FILE_ENGINE = Application(FileHandler)
 RULES = RulesManager()
-Application(RULES, FILE)
+RULES.engine_connect(FILE_ENGINE.call)
 RULES_DICT = RULES.load()
 
 
@@ -51,7 +52,7 @@ def test_rules(r):
 
 
 TRANSLATIONS = TranslationsManager()
-Application(TRANSLATIONS, FILE)
+TRANSLATIONS.engine_connect(FILE_ENGINE.call)
 TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename()])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
@@ -87,7 +88,7 @@ def test_search(trial):
 
 
 BOARD = BoardRenderer()
-Application(BOARD, FILE)
+BOARD.engine_connect(FILE_ENGINE.call)
 BOARD_DICT = BOARD.load()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)

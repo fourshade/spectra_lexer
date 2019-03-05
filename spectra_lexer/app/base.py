@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, List
 
 from spectra_lexer import Component
 
@@ -12,22 +12,22 @@ class Application:
     Since all execution state is kept within the call stack, multiple threads may run without conflict.
     """
 
-    components: Dict[str, Component]  # Dict of all connected components by role. Primarily exists for introspection.
-    _commands: Dict[str, list]        # Dict of commands from all components combined into a list for each key.
-    _options: Dict[str, list]         # Dict of options from all components combined into a list for each role.
-    _rlevel: int = 0                  # Level of re-entrancy, 0 = top of stack.
+    components: List[Component]  # List of all connected components. Primarily exists for introspection.
+    _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
+    _options: Dict[str, list]    # Dict of options from all components combined into a list for each role.
+    _rlevel: int = 0             # Level of re-entrancy, 0 = top of stack.
 
     def __init__(self, *cls_mod_iter:object):
-        """ Connect all unique components and component classes in order, including those in modules. """
-        iters = [vars(item).values() if hasattr(item, "__package__") else [item] for item in cls_mod_iter]
-        # Only one component is allowed per role. Later components in iteration order override earlier ones.
-        filtered = {cmp.ROLE: cmp for it in iters for cmp in it if hasattr(cmp, "ROLE")}
-        # Component objects may be used directly, but classes must be instantiated.
-        self.components = {role: (cls() if isinstance(cls, type) else cls) for role, cls in filtered.items()}
+        """ Create instances of all unique component subclasses in order, including those in modules. """
+        classes = [cls for i in cls_mod_iter for cls in (vars(i).values() if hasattr(i, "__package__") else [i])
+                   if isinstance(cls, type) and issubclass(cls, Component) and cls is not Component]
+        # Duplicate classes and classes with a direct inheritance relationship are not allowed.
+        # Only instantiate the most derived class of each line. Remove duplicates entirely.
+        self.components = [cls() for cls in classes if sum(issubclass(other, cls) for other in classes) == 1]
         # Add commands/options and set callbacks for all components.
         self._commands = defaultdict(list)
         self._options = defaultdict(list)
-        for c in self.components.values():
+        for c in self.components:
             c.engine_connect(self.call)
             cls = type(c)
             for (func, key, *params) in cls.cmd_list:

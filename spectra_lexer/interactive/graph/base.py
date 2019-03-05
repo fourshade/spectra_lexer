@@ -13,7 +13,6 @@ from spectra_lexer.rules import StenoRule
 class GraphRenderer(Component):
     """ Component class for creating and formatting a monospaced text graph from a rule. """
 
-    ROLE = "graph"
     recursive = Option("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
     compressed = Option("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
 

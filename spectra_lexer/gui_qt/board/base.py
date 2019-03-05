@@ -10,8 +10,6 @@ from spectra_lexer.gui_qt.board.steno_board_widget import StenoBoardWidget
 class GUIQtBoardDisplay(Component):
     """ Draws steno board diagram elements and the description for rules. """
 
-    ROLE = "gui_board"
-
     w_desc: QLineEdit          # Displays rule description.
     w_board: StenoBoardWidget  # Displays steno board diagram.
 

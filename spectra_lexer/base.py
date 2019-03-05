@@ -68,8 +68,6 @@ class Component(metaclass=ComponentMeta):
     As such, it cannot depend on anything except core helpers and pure utility functions.
     """
 
-    ROLE: ClassVar[str] = "UNDEFINED"  # Standard identifier for a component's function. Only one of each is allowed.
-
     engine_call: Callable = nop  # Default engine callback is a no-op (useful for testing individual components).
 
     def engine_connect(self, cb:Callable) -> None:

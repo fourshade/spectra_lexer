@@ -9,8 +9,6 @@ from spectra_lexer.gui_qt.main_window import MainWindow
 class GUIQtWindow(Component):
     """ Master component for GUI Qt operations. Controls the main window. """
 
-    ROLE = "gui_window"
-
     window: MainWindow = None  # Main window object.
 
     @on("start")

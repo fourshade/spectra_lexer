@@ -7,7 +7,6 @@ from spectra_lexer import Component
 class ParallelExecutor(Component):
     """ Component to run operations in parallel. """
 
-    ROLE = "parallel"
     processes = Option("cmdline", "processes", 0,
                        "Number of processes to run in parallel in batch mode. Default is one per CPU core.")
 

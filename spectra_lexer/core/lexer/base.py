@@ -14,7 +14,6 @@ class StenoLexer(Component):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
-    ROLE = "lexer"
     need_all_keys = Option("config", "lexer:need_all_keys", False,
                            "Only return results that match every key in the stroke.")
 

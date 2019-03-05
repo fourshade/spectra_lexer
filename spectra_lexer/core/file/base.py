@@ -11,8 +11,6 @@ _ALL_CODECS = [CFGCodec, JSONCodec, CSONCodec]
 class FileHandler(Component):
     """ Main component for file I/O operations and dialogs. Directs actual I/O routines to codecs. """
 
-    ROLE = "file"
-
     _codecs: CodecDatabase  # Holds decoders/encoders for each supported file format.
 
     def __init__(self):

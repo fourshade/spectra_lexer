@@ -13,8 +13,6 @@ class GUIQtTextDisplay(Component):
     """ GUI operations class for displaying status, interactive text, and exceptions.
         Also handles keyboard and mouse input to the text widget. """
 
-    ROLE = "gui_text"
-
     w_title: QLineEdit = None       # Displays status messages and mapping of keys to word.
     w_text: TextGraphWidget = None  # Displays formatted rule graphs and other textual data.
 

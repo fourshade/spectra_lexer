@@ -9,8 +9,6 @@ class GUIQtMenu(Component):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
-    ROLE = "gui_menu"
-
     _menus: Dict[str, QMenu] = {}  # Menu headings (File, Edit, etc.) mapped to Qt menu objects.
 
     @on("new_gui_menu")

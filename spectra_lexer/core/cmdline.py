@@ -11,8 +11,6 @@ _TYPE_KWDS = defaultdict(dict, {list: {"nargs": "+"}})
 class CmdlineParser(Component):
     """ Command line parser for the Spectra program. """
 
-    ROLE = "cmdline"
-
     _parser: ArgumentParser = None  # Temporarily holds command line option info from active components.
 
     @on("cmdline_options")

@@ -5,14 +5,13 @@ from spectra_lexer.utils import str_eval
 class ConfigManager(Component):
     """ Configuration parser for the Spectra program. Config file may be specified with command line arguments. """
 
-    ROLE = "config"
     file = Option("cmdline", "config-file", "~/config.cfg", "Config .cfg or .ini file to load at startup.")
 
     _cfg_info: dict = {}  # Dict with detailed config info from active components.
 
     @on("config_options")
     def get_options(self, options:list):
-        """ Store all active config option info by owner role and option name. """
+        """ Store all active config option info by owner section and option name. """
         d = self._cfg_info = {}
         for (key, opt) in options:
             sect, name = key.split(":", 1)

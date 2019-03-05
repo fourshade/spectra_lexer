@@ -10,8 +10,7 @@ _MORE_TEXT = "(more...)"
 class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
 
-    ROLE = "search"
-    match_limit: int = Option("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
+    match_limit = Option("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
 
     _translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
     _last_input: str = ""                 # Last known state of user textbox input.

@@ -7,15 +7,13 @@ from spectra_lexer.interactive.console.interpreter import InterpreterConsole
 class SpectraConsole(Component):
     """ Component for interactive engine and system interpreter operations. """
 
-    ROLE = "console"
-
     console: InterpreterConsole = None  # Main interpreter console, run on a different thread.
     console_vars: dict = None           # Variables to load on interpreter startup.
 
     @on("start")
-    def start(self, *, app:object=None, components:dict=None, **opts) -> None:
-        """ Add the app and all components and options to the interpreter on start if given. """
-        self.console_vars = dict(components or {}, app=app, opts=opts)
+    def start(self, **opts) -> None:
+        """ Add all global options to the interpreter on start. """
+        self.console_vars = opts
         # Add an item to the GUI tools menu to start the console.
         self.engine_call("new_menu_item", "Tools", "Open Console...", "console_open")
 
