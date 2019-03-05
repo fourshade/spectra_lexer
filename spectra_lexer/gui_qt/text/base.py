@@ -5,7 +5,7 @@ from typing import Dict
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 from spectra_lexer.gui_qt.text.text_graph_widget import TextGraphWidget
 
 

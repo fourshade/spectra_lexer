@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Tuple
 
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component
 from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher

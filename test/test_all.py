@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from spectra_lexer import Component
+from spectra_lexer.app import Application
 from spectra_lexer.core.file import FileHandler
 from spectra_lexer.core.lexer import StenoLexer
 from spectra_lexer.core.rules import RulesManager
@@ -21,21 +21,10 @@ from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
 
-def direct_connect(cmp:Component, subcmp:Component) -> None:
-    """ Connect one component directly to another without an engine for basic calls.
-        Only works with components that have no duplicate command keys. """
-    cmd_dict = dict(subcmp.engine_commands())
-    def direct_call(cmd:str, *args, **kwargs) -> callable:
-        c = cmd_dict.get(cmd)
-        if c:
-            return c[0](*args, **kwargs)
-    cmp.engine_connect(direct_call)
-
-
-# Create components for the tests in order as we need them.
+# Create and connect components for the tests in order as we need them.
 FILE = FileHandler()
 RULES = RulesManager()
-direct_connect(RULES, FILE)
+Application(RULES, FILE)
 RULES_DICT = RULES.load()
 
 
@@ -62,7 +51,7 @@ def test_rules(r):
 
 
 TRANSLATIONS = TranslationsManager()
-direct_connect(TRANSLATIONS, FILE)
+Application(TRANSLATIONS, FILE)
 TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename()])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
@@ -98,7 +87,7 @@ def test_search(trial):
 
 
 BOARD = BoardRenderer()
-direct_connect(BOARD, FILE)
+Application(BOARD, FILE)
 BOARD_DICT = BOARD.load()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)

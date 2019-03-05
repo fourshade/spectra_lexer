@@ -2,7 +2,7 @@ from typing import Dict, Sequence
 
 from PyQt5.QtWidgets import QAction, QMenu, QWidget
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 
 
 class GUIQtMenu(Component):

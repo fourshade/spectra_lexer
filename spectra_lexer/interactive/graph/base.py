@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component
 from spectra_lexer.interactive.graph.formatter import HTMLFormatter
 from spectra_lexer.interactive.graph.generator import CascadedTextGenerator, CompressedTextGenerator
 from spectra_lexer.interactive.graph.locator import GridLocator

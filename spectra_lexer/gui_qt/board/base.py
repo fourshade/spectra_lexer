@@ -3,7 +3,7 @@ from typing import Dict, Iterable
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 from spectra_lexer.gui_qt.board.steno_board_widget import StenoBoardWidget
 
 

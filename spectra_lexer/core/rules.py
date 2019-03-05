@@ -2,7 +2,7 @@ from collections import Counter
 import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component
 from spectra_lexer.keys import StenoKeys
 from spectra_lexer.options import CommandOption
 from spectra_lexer.rules import StenoRule, RuleMapItem

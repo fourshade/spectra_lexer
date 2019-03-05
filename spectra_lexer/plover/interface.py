@@ -2,7 +2,7 @@ from functools import partial
 from itertools import chain
 from typing import Dict, Optional, Sequence, Tuple
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component
 from spectra_lexer.keys import join_strokes
 from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverAction, PloverEngine, \
     PloverStenoDictCollection

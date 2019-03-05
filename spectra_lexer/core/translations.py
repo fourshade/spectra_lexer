@@ -1,7 +1,7 @@
 import json
 from typing import List, Sequence
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component
 from spectra_lexer.options import CommandOption
 from spectra_lexer.utils import merge
 

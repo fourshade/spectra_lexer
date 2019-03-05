@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 from spectra_lexer.gui_qt.search.search_list_widget import SearchListWidget
 
 

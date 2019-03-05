@@ -2,7 +2,7 @@ from typing import Sequence
 
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 from spectra_lexer.gui_qt.main_window import MainWindow
 
 

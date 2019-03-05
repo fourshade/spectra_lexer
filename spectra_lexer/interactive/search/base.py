@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component
 from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.search.steno_dict import StenoSearchDictionary
 

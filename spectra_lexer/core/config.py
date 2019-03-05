@@ -1,4 +1,4 @@
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component
 from spectra_lexer.options import CFGOption, CommandOption
 from spectra_lexer.utils import str_eval
 

@@ -1,7 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor
 from os import cpu_count
 
-from spectra_lexer import Component, respond_to
+from spectra_lexer import Component
 from spectra_lexer.options import CommandOption
 
 

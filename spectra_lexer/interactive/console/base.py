@@ -1,6 +1,6 @@
 from typing import Optional
 
-from spectra_lexer import Component, on, pipe
+from spectra_lexer import Component
 from spectra_lexer.interactive.console.interpreter import InterpreterConsole
 
 

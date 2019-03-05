@@ -1,8 +1,8 @@
 """" Module specifically for component options, i.e. anything dynamically configured on a global level. """
 
-from typing import Callable, Type
+from typing import Type
 
-from spectra_lexer import Component, pipe
+from spectra_lexer import Component
 
 
 class Option:
@@ -35,11 +35,6 @@ class Option:
         except (AttributeError, KeyError):
             pass
 
-    def set_cmd_attr(self, owner:Type[Component], name:str, func:Callable, *cmd_keys:str):
-        """ Set an additional attribute on the owner class with an engine command. """
-        attr = func.__name__ = f"_{func.__name__}_{name}"
-        setattr(owner, attr, pipe(*cmd_keys)(func))
-
 
 class CFGOption(Option):
     """ Descriptor for a file-configurable option. Requires ConfigManager to update defaults from disk. """
@@ -62,7 +57,7 @@ class CFGOption(Option):
             if v is not None:
                 setattr(cmp, name, v)
             return role, name, self
-        self.set_cmd_attr(owner, name, set_cfg, "new_config", "new_config_info")
+        owner.pipe("new_config", "new_config_info")(set_cfg)
 
 
 class CommandOption(Option):
@@ -75,8 +70,8 @@ class CommandOption(Option):
         def get_arg(cmp:Component) -> tuple:
             """ Send info about this option to the command line parser. """
             return role, name, self
-        self.set_cmd_attr(owner, name, get_arg, "cmdline_get_opts", "new_cmdline_option")
+        owner.pipe("cmdline_get_opts", "new_cmdline_option")(get_arg)
         def set_arg(cmp:Component, v:object) -> None:
             """ Overwrite this option with the applicable argument from the command line. """
             setattr(cmp, name, v)
-        self.set_cmd_attr(owner, name, set_arg, f"cmdline_set_{role}_{name}")
+        owner.on(f"cmdline_set_{role}_{name}")(set_arg)

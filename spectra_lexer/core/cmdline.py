@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, SUPPRESS
 
-from spectra_lexer import Component, on
+from spectra_lexer import Component
 from spectra_lexer.options import CommandOption
 
 # Default placeholder names and other keywords for argument parsing based on the option's data type.

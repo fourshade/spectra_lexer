@@ -1,4 +1,4 @@
-from spectra_lexer import Component, on, respond_to
+from spectra_lexer import Component
 from spectra_lexer.core.file.codecs import CodecDatabase
 from spectra_lexer.core.file.codecs.cfg import CFGCodec
 from spectra_lexer.core.file.codecs.json import CSONCodec, JSONCodec

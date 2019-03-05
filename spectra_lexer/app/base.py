@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Hashable
+from typing import Dict
 
 from spectra_lexer import Component
 
@@ -13,20 +13,23 @@ class Application:
     """
 
     components: Dict[str, Component]  # Dict of all connected components by role. Primarily exists for introspection.
-    _commands: Dict[Hashable, list]   # Dict of commands from all components combined into a list for each key.
+    _commands: Dict[str, list]        # Dict of commands from all components combined into a list for each key.
     _rlevel: int = 0                  # Level of re-entrancy, 0 = top of stack.
 
     def __init__(self, *cls_mod_iter:object):
-        """ Make components from all unique classes in order, including those in modules. """
+        """ Connect all unique components and component classes in order, including those in modules. """
         iters = [vars(item).values() if hasattr(item, "__package__") else [item] for item in cls_mod_iter]
         # Only one component is allowed per role. Later components in iteration order override earlier ones.
-        self.components = {cls.ROLE: cls() for it in iters for cls in it if hasattr(cls, "ROLE")}
+        filtered = {cmp.ROLE: cmp for it in iters for cmp in it if hasattr(cmp, "ROLE")}
+        # Component objects may be used directly, but classes must be instantiated.
+        self.components = {role: (cls() if isinstance(cls, type) else cls) for role, cls in filtered.items()}
         # Add commands and set callbacks for all components.
         self._commands = defaultdict(list)
         for c in self.components.values():
-            for (key, cmd) in c.engine_commands():
-                self._commands[key].append(cmd)
             c.engine_connect(self.call)
+            for (func, key, *params) in c.engine_commands():
+                # Bind all class command functions to the instance and save the finished tuples.
+                self._commands[key].append((func.__get__(c, type(c)), *params))
 
     def start(self, **opts) -> None:
         """ Parse command line arguments from sys.argv. """
@@ -34,7 +37,7 @@ class Application:
         # Add the app and its components to the keyword options given by main() and send the start signal.
         self.call("start", app=self, components=self.components, **opts)
 
-    def call(self, key:Hashable, *args, **kwargs) -> object:
+    def call(self, key:str, *args, **kwargs) -> object:
         """ Run all commands under this key (if any) and return the last value. """
         value = None
         for func, next_key, cmd_kwargs in self._commands[key]:

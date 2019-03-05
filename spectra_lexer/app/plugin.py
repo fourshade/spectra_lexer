@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
 
-from spectra_lexer import core, gui_qt, interactive, plover, respond_to
+from spectra_lexer import core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
 from spectra_lexer.gui_qt.window import GUIQtWindow
 from spectra_lexer.utils import nop

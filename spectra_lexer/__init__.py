@@ -35,4 +35,4 @@ The Spectra program is conceptually divided into several parts that form a pipel
     anywhere except the main thread without going through an intermediary layer.
 """
 
-from .base import Component, fork, on, pipe, respond_to
+from .base import Component
