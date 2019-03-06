@@ -5,8 +5,7 @@ from typing import Dict, Optional, Sequence, Tuple
 from spectra_lexer import Component
 from spectra_lexer.keys import join_strokes
 from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverAction, PloverEngine, \
-    PloverStenoDictCollection
-
+    PloverStenoDictCollection, PloverTranslatorState
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")
@@ -16,35 +15,33 @@ class PloverInterface(Component):
     """ Main component class for Plover plugin. It is the only class that should directly access Plover's objects.
         Receives and processes dictionaries and translations from Plover using callbacks. """
 
-    _plover_engine: PloverEngine = None               # Plover engine. Assumed not to change during run-time.
-    _current_state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
+    _plover: PloverEngine = None              # Plover engine. Assumed not to change during run-time.
+    _state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @pipe("start", "plover_parse_dicts")
-    def start(self, *, plover_args:Sequence=(), **opts) -> Optional[PloverStenoDictCollection]:
+    @pipe("new_plover_engine", "plover_parse_dicts")
+    def start(self, plover_engine:PloverEngine) -> Optional[PloverStenoDictCollection]:
         """ Perform initial compatibility check and callback/dictionary setup. """
+        self._plover = plover_engine
         # If the compatibility check fails, don't try to connect to Plover. Return an error.
         if not compatibility_check():
             self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
             return None
-        # The engine is always the first argument passed by Plover. Others are irrelevant.
-        # If there's no engine, make a fake one for testing purposes.
-        self._plover_engine = plover_args[0] if plover_args else PloverEngine()
-        # Lock the Plover engine thread, connect everything to it, and load all current dictionaries.
-        with self._plover_engine:
-            self._plover_connect('dictionaries_loaded', "plover_parse_dicts")
-            self._plover_connect('translated',          "plover_new_translation")
-        return self._plover_engine.dictionaries
+        # Connect all commands to the Plover engine and load all current dictionaries.
+        self._plover_connect({"dictionaries_loaded": "plover_parse_dicts", "translated": "plover_new_translation"})
+        return plover_engine.dictionaries
 
-    def _plover_connect(self, plover_signal:str, spectra_cmd:str) -> None:
-        """ Connect a Plover engine signal to a Spectra engine command. """
-        self._plover_engine.signal_connect(plover_signal, partial(self.engine_call, spectra_cmd))
+    def _plover_connect(self, connections:Dict[str, str]) -> None:
+        """ Connect Plover engine signals to Spectra engine commands. """
+        with self._plover:
+            for signal, cmd in connections.items():
+                self._plover.signal_connect(signal, partial(self.engine_call, cmd))
 
     @pipe("plover_parse_dicts", "new_translations")
     def parse_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
         self.engine_call("new_status", "Loading dictionaries...")
         # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
-        with self._plover_engine:
+        with self._plover:
             finished_dict = _parse_and_merge(steno_dc)
         self.engine_call("new_status", "Loaded dictionaries from Plover engine.")
         return finished_dict
@@ -53,26 +50,26 @@ class PloverInterface(Component):
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         # Lock the Plover engine thread to access its state.
-        with self._plover_engine:
-            t_strokes = _get_last_strokes_if_valid(self._plover_engine)
+        with self._plover:
+            t_strokes = _get_last_strokes_if_valid(self._plover.translator_state)
         # Make sure that we have at least one new action and strokes from one new valid translation.
         if not new_actions or not t_strokes:
-            self._current_state = _BLANK_STATE
+            self._state = _BLANK_STATE
             return None
         # Unpack and use the current state if the new text attaches to it, otherwise start fresh.
-        strokes, text = self._current_state if new_actions[0].prev_attach else _BLANK_STATE
+        strokes, text = self._state if new_actions[0].prev_attach else _BLANK_STATE
         # Combine all the new strokes and text into the current state and send it to the lexer.
         strokes += t_strokes
         text += "".join(a.text for a in new_actions if a.text)
-        self._current_state = strokes, text
+        self._state = strokes, text
         return join_strokes(strokes), text
 
 
-def _get_last_strokes_if_valid(plover:PloverEngine) -> Optional[Tuple[str]]:
+def _get_last_strokes_if_valid(translator_state:PloverTranslatorState) -> Optional[Tuple[str]]:
     """ Read the Plover translator state and return the newest strokes if they produced valid text, otherwise None. """
     try:
         # Get the last translation, if existing and valid.
-        t = plover.translator_state.translations[-1]
+        t = translator_state.translations[-1]
         # It must have produced English text with at least one alphanumeric character.
         if any(map(str.isalnum, t.english)):
             return t.rtfcre

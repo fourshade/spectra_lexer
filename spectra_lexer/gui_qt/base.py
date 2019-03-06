@@ -1,5 +1,5 @@
 import sys
-from typing import ClassVar, Sequence
+from typing import ClassVar
 
 from PyQt5.QtWidgets import QApplication
 
@@ -12,10 +12,10 @@ class GUIQt(Component):
 
     # We can create the QApplication at class level since only one is ever allowed to run.
     qt_app: ClassVar[QApplication] = QApplication.instance() or QApplication(sys.argv)
-    window: MainWindow = None  # Main window object.
+    window: MainWindow = None  # Main Qt window object.
 
     @on("start")
-    def start(self, *, gui_menus:Sequence[str]=("File", "Tools"), **opts) -> None:
+    def start(self, *, gui_menus:tuple=("File", "Tools"), **opts) -> None:
         """ Make the window, get the required widgets, and send them all to their required components. """
         window = self.window = MainWindow()
         # The menu must be initialized first so it can add items from other components.
@@ -27,10 +27,10 @@ class GUIQt(Component):
         self.qt_app.processEvents()
 
     @respond_to("run")
-    def loop(self) -> int:
+    def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. """
         self.qt_app.exec_()
-        return 1
+        return 0
 
     @on("gui_window_close")
     def close(self) -> None:

@@ -30,11 +30,11 @@ class PloverStenoDictCollection:
 
 class PloverAction:
     prev_attach: bool = True
-    text: Optional[str] = "test"
+    text: Optional[str] = "Plover Test"
 
 class PloverTranslation:
-    rtfcre: Tuple[str] = ("TEFT",)
-    english: Optional[str] = "test"
+    rtfcre: Tuple[str] = ("PHROFR", "TEFT")
+    english: Optional[str] = "Plover Test"
 
 class PloverTranslatorState:
     translations: Sequence[PloverTranslation] = [PloverTranslation()]
@@ -42,13 +42,9 @@ class PloverTranslatorState:
 class PloverEngine:
     dictionaries: PloverStenoDictCollection = PloverStenoDictCollection()
     translator_state: PloverTranslatorState = PloverTranslatorState()
+    signal_connect: Callable[[str, Callable], None] = nop
     __enter__: Callable[[], None] = nop
     __exit__: Callable[..., None] = nop
-    def signal_connect(self, signal:str, cb:Callable) -> None:
-        if signal == "dictionaries_loaded":
-            cb(self.dictionaries)
-        else:
-            cb((), [PloverAction()])
 
 
 def compatibility_check() -> bool:

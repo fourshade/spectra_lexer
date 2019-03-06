@@ -17,12 +17,12 @@ class TranslationsManager(Component):
     out = Option("cmdline", "translations-out", "translations.json", "Output file name for translations.")
 
     @pipe("start", "translations_load")
-    def start(self, **opts) -> tuple:
+    def start(self, suppress_translations:bool=False, **opts) -> tuple:
         """ Load translations at startup. By default, an empty list and means 'try and find the files from Plover'.
-            This can be suppressed by setting one or more of the string values to 'IGNORE'. """
-        # If the file menu is used, add a basic file dialog command.
-        self.engine_call("file_add_dialog", "translations", menu_pos=1)
-        if "IGNORE" not in self.files:
+            Since plugin mode uses dictionaries from Plover's memory, this can be suppressed with an explicit flag. """
+        if not suppress_translations:
+            # If the file menu is used, add a basic file dialog command.
+            self.engine_call("file_add_dialog", "translations", menu_pos=1)
             return ()
 
     def _default_files(self) -> List[str]:

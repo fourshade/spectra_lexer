@@ -1,29 +1,7 @@
-import sys
-from collections import namedtuple
-from typing import ClassVar
-
-from PyQt5.QtWidgets import QDialog, QMainWindow
+from PyQt5.QtWidgets import QDialog
 
 from spectra_lexer import core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
-from spectra_lexer.gui_qt import GUIQt
-from spectra_lexer.gui_qt.main_window import MainWindow
-from spectra_lexer.utils import nop
-
-
-class PloverWindow(GUIQt):
-    """ The Plover plugin must not create its own QApplication or run its own event loop (unless in test mode). """
-
-    test_mode = Option("cmdline", "plover-test", False, "If True, run the plugin without Plover.")
-
-    @respond_to("run")
-    def loop(self) -> MainWindow:
-        """ As a plugin, there is already an event loop running somewhere that needs the window we created. """
-        if self.test_mode:
-            super().loop()
-        # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
-        self.window.finished = namedtuple("dummy_signal", "connect")(nop)
-        return self.window
 
 
 class PloverDialog(QDialog):
@@ -43,25 +21,20 @@ class PloverDialog(QDialog):
     # The window and all of its contents are destroyed if it is closed with no referents.
     # The app's components are relatively expensive to create, so an app reference is kept
     # in the class dictionary and returned on every call after the first, making it a singleton.
-    window: ClassVar[QMainWindow] = None
+    window = None
 
-    def __new__(cls, *args):
+    def __new__(cls, engine=None, *args):
         """ Only create a new app/window instance on the first call; return the saved instance otherwise. """
         if cls.window is None:
-            # Translations file loading must be suppressed; we get them from Plover instead.
-            sys.argv.append("--translations-files=IGNORE")
-            # The file menu should not be available; clicking the "Exit" button is likely to crash Plover.
-            app = Application(gui_qt, PloverWindow, core, interactive, plover)
+            app = Application(gui_qt, plover, core, interactive)
+            # The engine is always the first argument passed by Plover. Others are irrelevant.
+            # Translations file loading must be suppressed; we get those from Plover instead.
             # In plugin mode, the GUI event loop isn't run by Spectra, so the Qt window is returned instead.
-            cls.window = app.start(plover_args=args, gui_menus=("Tools",))
+            cls.window = app.start(suppress_translations=True)
+            app.call("plover_test") if engine is None else app.call("new_plover_engine", engine)
         return cls.window
 
 
-def test():
-    """ Entry point for testing the Plover plugin by running it with no engine in a standalone configuration. """
-    sys.argv.append("--plover-test=True")
-    PloverDialog()
-
-
+# Entry point for testing the Plover plugin by running it with no engine in a standalone configuration.
 if __name__ == '__main__':
-    test()
+    PloverDialog()
