@@ -15,8 +15,8 @@ from spectra_lexer.core.translations import TranslationsManager
 from spectra_lexer.interactive.board import BoardRenderer
 from spectra_lexer.interactive.graph import GraphRenderer
 from spectra_lexer.interactive.search import SearchEngine
-from spectra_lexer.plover.compat import PloverEngine, PloverStenoDictCollection
-from spectra_lexer.plover.interface import PloverInterface
+from spectra_lexer.plover import PloverTranslationsManager
+from spectra_lexer.plover.compat import PloverStenoDictCollection
 from spectra_lexer.rules import RuleFlags
 from test import get_test_filename
 
@@ -24,7 +24,6 @@ from test import get_test_filename
 # Create and connect components for the tests in order as we need them.
 # Some will need access to the file system. They only need to send engine commands for this, not receive them.
 FILE_ENGINE = Application(FileHandler)
-FILE_ENGINE.start()
 RULES = RulesManager()
 RULES.engine_connect(FILE_ENGINE.call)
 RULES_DICT = RULES.load()
@@ -78,7 +77,6 @@ def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
     # Search should return a one-item list with that item selected for both keys and word in either mode.
-    SEARCH.reset()
     assert SEARCH.on_input(word) == ([word], word)
     SEARCH.set_mode_strokes(True)
     assert SEARCH.on_input(keys) == ([keys], keys)
@@ -86,6 +84,7 @@ def test_search(trial):
     assert SEARCH.on_input(re.escape(keys)) == ([keys], keys)
     SEARCH.set_mode_strokes(False)
     assert SEARCH.on_input(re.escape(word)) == ([word], word)
+    SEARCH.set_mode_regex(False)
 
 
 BOARD = BoardRenderer()
@@ -121,11 +120,10 @@ def test_graph(result):
     assert all_nodes_set >= set(GRAPH._formatter)
 
 
-PLOVER = PloverInterface()
-PLOVER.start(plover_engine=PloverEngine())
+PLOVER = PloverTranslationsManager()
 
 
 def test_plover():
     """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
     test_dc = PloverStenoDictCollection(TRANSLATIONS_DICT, split_count=3)
-    assert len(PLOVER.parse_dicts(test_dc)) == len(TRANSLATIONS_DICT)
+    assert len(PLOVER.load_dicts(test_dc)) == len(TRANSLATIONS_DICT)

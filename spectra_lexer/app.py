@@ -23,21 +23,21 @@ class Application:
         # Duplicate classes and classes with a direct inheritance relationship are not allowed.
         # Only instantiate the most derived class of each line. Remove duplicates entirely.
         self.components = [cls() for cls in classes if sum(issubclass(other, cls) for other in classes) == 1]
+        # Add commands and set callbacks for all components.
         self._commands = defaultdict(list)
-
-    def start(self, **opts) -> object:
-        """ Connect everything and run the general lifecycle of the application. """
-        options = defaultdict(list)
         for c in self.components:
-            # Add commands/options and set callbacks for all components.
             c.engine_connect(self.call)
             for key, (func, *params) in c.cmd_dict.items():
                 # Bind all class command functions to the instance and save the finished tuples.
                 self._commands[key].append((func.__get__(c, type(c)), *params))
+
+    def start(self, **opts) -> object:
+        """ Run the general lifecycle of the application. """
+        # Collect and process options such as command line arguments from sys.argv. This stage should be very quick.
+        options = defaultdict(list)
+        for c in self.components:
             for (src, opt) in c.opt_list:
-                # Add each option under the source command that handles it.
                 options[src].append(opt)
-        # Parse startup options such as command line arguments from sys.argv. This stage should be very quick.
         self.call("setup", options)
         # Add the app and its components to the keyword options given by main() and start resource loading.
         self.call("start", app=self, components=self.components, **opts)
