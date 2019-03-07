@@ -11,7 +11,6 @@ Characters from an outside source (JSON files or the Plover engine) are assumed 
 """
 
 from collections import defaultdict
-from typing import Callable
 
 from spectra_lexer.utils import nondata_property, str_map, str_prefix, str_without
 
@@ -33,9 +32,6 @@ NUMBER_LITERALS_IN = set(map(str, range(10))).intersection
 VALID_CHAR_SET = set().union(L_KEYS, C_KEYS, R_KEYS, R_KEYS.upper(), KEY_SEP, KEY_SPLIT)
 _TF_DICT = defaultdict(lambda: None, {ord(k): k for k in VALID_CHAR_SET})
 _TF_DICT.update(enumerate(NUMBER_ALIASES, ord("0")))
-
-# Public module-level function that works on any class of stroke.
-join_strokes:Callable[[str], str] = KEY_SEP.join
 
 
 class StenoKeys(str):

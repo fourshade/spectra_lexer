@@ -1,4 +1,5 @@
-""" Package for the GUI Qt-based components of the Spectra plugin for Plover. """
+""" Package for the Plover plugin components of Spectra. """
 
 from .base import PloverGUI
 from .interface import PloverInterface
+from .translations import PloverTranslationsManager

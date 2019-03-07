@@ -65,9 +65,8 @@ class PloverDialog(QDialog):
         if cls.window is None:
             app = Application(gui_qt, plover, core, interactive)
             # The engine is always the first argument passed by Plover. Others are irrelevant.
-            # Translations file loading must be suppressed; we get those from Plover instead.
             # In plugin mode, the GUI event loop isn't run by Spectra, so the Qt window is returned instead.
-            cls.window = app.start(suppress_translations=True)
+            cls.window = app.start()
             app.call("plover_test") if engine is None else app.call("new_plover_engine", engine)
         return cls.window
 

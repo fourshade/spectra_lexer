@@ -1,50 +1,40 @@
 from functools import partial
-from itertools import chain
 from typing import Dict, Optional, Sequence, Tuple
 
 from spectra_lexer import Component
-from spectra_lexer.keys import join_strokes
-from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverAction, PloverEngine, \
-    PloverStenoDictCollection, PloverTranslatorState
+from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, join_strokes, PloverAction, \
+    PloverEngine, PloverTranslatorState
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")
 
 
 class PloverInterface(Component):
-    """ Main component class for Plover plugin. It is the only class that should directly access Plover's objects.
-        Receives and processes dictionaries and translations from Plover using callbacks. """
+    """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
     _plover: PloverEngine = None              # Plover engine. Assumed not to change during run-time.
     _state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @pipe("new_plover_engine", "plover_parse_dicts")
-    def start(self, plover_engine:PloverEngine) -> Optional[PloverStenoDictCollection]:
+    @pipe("new_plover_engine", "new_status")
+    def start(self, plover_engine:PloverEngine) -> str:
         """ Perform initial compatibility check and callback/dictionary setup. """
         self._plover = plover_engine
         # If the compatibility check fails, don't try to connect to Plover. Return an error.
         if not compatibility_check():
-            self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
-            return None
+            return INCOMPATIBLE_MESSAGE
         # Connect all commands to the Plover engine and load all current dictionaries.
-        self._plover_connect({"dictionaries_loaded": "plover_parse_dicts", "translated": "plover_new_translation"})
-        return plover_engine.dictionaries
+        self._plover_connect({"dictionaries_loaded": "plover_load_dicts", "translated": "plover_new_translation"})
+        self.engine_call("new_status", "Loading dictionaries...")
+        # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
+        with plover_engine:
+            self.engine_call("plover_load_dicts", plover_engine.dictionaries)
+        return "Loaded dictionaries from Plover engine."
 
     def _plover_connect(self, connections:Dict[str, str]) -> None:
         """ Connect Plover engine signals to Spectra engine commands. """
         with self._plover:
             for signal, cmd in connections.items():
                 self._plover.signal_connect(signal, partial(self.engine_call, cmd))
-
-    @pipe("plover_parse_dicts", "new_translations")
-    def parse_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
-        """ When usable Plover dictionaries become available, parse their items into a standard dict for search. """
-        self.engine_call("new_status", "Loading dictionaries...")
-        # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
-        with self._plover:
-            finished_dict = _parse_and_merge(steno_dc)
-        self.engine_call("new_status", "Loaded dictionaries from Plover engine.")
-        return finished_dict
 
     @pipe("plover_new_translation", "lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
@@ -75,20 +65,3 @@ def _get_last_strokes_if_valid(translator_state:PloverTranslatorState) -> Option
             return t.rtfcre
     except (IndexError, TypeError, ValueError):
         return None
-
-
-def _parse_and_merge(steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
-    """ Parse and merge items from a Plover dictionary collection into a single string dict.
-        Plover dictionaries are not proper Python dicts and cannot be handled as such.
-        They only have a subset of the normal dict methods. The fastest of these is d.items(). """
-    finished_dict = {}
-    for d in steno_dc.dicts:
-        if d and d.enabled:
-            if isinstance(next(iter(d.items())), tuple):
-                # If strokes are in tuple form, they must be joined into strings.
-                # The fastest method found in profiling uses a chained alternating iterator.
-                kv_alt = chain.from_iterable(d.items())
-                finished_dict.update(zip(map(join_strokes, kv_alt), kv_alt))
-            else:
-                finished_dict.update(d.items())
-    return finished_dict
