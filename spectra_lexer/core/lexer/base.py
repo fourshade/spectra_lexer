@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Dict, Generator, Iterable, List
+from typing import Generator, Iterable, List
 
 from spectra_lexer import Component
 from spectra_lexer.core.lexer.match import LexerRuleMatcher
@@ -25,9 +25,9 @@ class StenoLexer(Component):
         self._matcher = LexerRuleMatcher()
 
     @on("new_rules")
-    def set_rules(self, rules_dict:Dict[str, StenoRule]) -> None:
+    def set_rules(self, d:dict) -> None:
         """ Set up the rule matcher with a dict of rules. """
-        self._matcher.set_rules(rules_dict)
+        self._matcher.set_rules(d)
 
     @on("new_translations")
     def set_translations(self, d:dict) -> None:

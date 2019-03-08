@@ -2,6 +2,7 @@
 -----
 * Dismantled application subclasses and moved code into components for modularity
 * Compartmentalized all components into functional groups
+* Added rule search with "/" prefix in the search window
 * Fixed premature exception handling bug in engine
 
 1.0.0
