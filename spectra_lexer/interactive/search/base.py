@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple
 
 from spectra_lexer import Component, on, pipe
-from spectra_lexer.config import CFGOption
+from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.search.steno_dict import StenoSearchDictionary
 
 # Text displayed as the final list item, allowing the user to expand the search.

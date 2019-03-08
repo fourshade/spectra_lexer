@@ -1,7 +1,7 @@
 from typing import Optional
 
 from spectra_lexer import Component, pipe
-from spectra_lexer.config import CFGOption
+from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.graph.node import GraphNode
 from spectra_lexer.interactive.graph.text import TextGraph
 from spectra_lexer.rules import StenoRule

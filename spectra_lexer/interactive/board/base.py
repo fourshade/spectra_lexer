@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 from xml.parsers.expat import ParserCreate
 
 from spectra_lexer import Component, on, pipe
-from spectra_lexer.config import CFGOption
+from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher
 from spectra_lexer.rules import RuleFlags, StenoRule
@@ -28,17 +28,10 @@ class BoardRenderer(Component):
         super().__init__()
         self._matcher = ElementMatcher()
 
-    @pipe("start", "board_load")
-    def start(self, board:str=None, **opts) -> str:
-        """ If there is a command line option for this component, even if empty, attempt to load an SVG.
-            If the option is present but empty (or otherwise evaluates False), use the default instead. """
-        if board is not None:
-            return board or ()
-
-    @pipe("board_load", "new_board_setup")
-    def load(self, filename:str=_BOARD_ASSET_NAME) -> Tuple[str, List[str]]:
-        """ Load and parse element ID names out of the raw XML string data. """
-        xml_dict = self.engine_call("file_load", filename)
+    @pipe("start", "new_board_setup")
+    def start(self, **opts) -> Tuple[str, List[str]]:
+        """ Load the SVG file on startup and parse element ID names out of the raw XML string data. """
+        xml_dict = self.engine_call("file_load", _BOARD_ASSET_NAME)
         id_dict = {}
         def start_element(name, attrs):
             if "id" in attrs:

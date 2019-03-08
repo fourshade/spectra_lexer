@@ -5,13 +5,15 @@ from os import cpu_count
 from spectra_lexer import Component, on, pipe
 
 
-class BatchExecutor(Component):
-    """ Component to run the lexer in batch mode on a translation dictionary. """
+class ParallelExecutor(Component):
+    """ Component to run the lexer in parallel on a translation dictionary. """
+
+    ROLE = "parallel"
 
     _translations: dict = {}  # Translations dict to parse.
 
-    @pipe("start", "rules_save")
-    def start(self, *, out:str, processes:int=None, **opts) -> tuple:
+    @pipe("parallel_run", "rules_save")
+    def run(self, processes=None) -> list:
         """ Run each translation through the lexer and save the results to a rules file. """
         # Use ProcessPoolExecutor.map() to run the lexer in multiple processes in parallel.
         # The lexical analysis does not mutate any global state, so it is thread/process-safe.
@@ -22,7 +24,7 @@ class BatchExecutor(Component):
             # For best performance, split the work up into a single large chunk for each process.
             mapfn = partial(executor.map, chunksize=(len(d) // workers))
             results = self.engine_call("lexer_query_map", d.keys(), d.values(), mapfn=mapfn)
-        return out, results
+        return results
 
     @on("new_translations")
     def set_translations(self, d:dict) -> None:

@@ -2,7 +2,7 @@ from itertools import product
 from typing import Dict, Generator, Iterable, List
 
 from spectra_lexer import Component, fork, on
-from spectra_lexer.config import CFGOption
+from spectra_lexer.options import CFGOption
 from spectra_lexer.core.lexer.match import LexerRuleMatcher
 from spectra_lexer.core.lexer.results import LexerResult
 from spectra_lexer.keys import StenoKeys

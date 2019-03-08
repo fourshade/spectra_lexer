@@ -4,7 +4,7 @@ from functools import partial
 from PyQt5.QtWidgets import QMainWindow
 
 from spectra_lexer import Component, on, pipe
-from spectra_lexer.config import CFGOption
+from spectra_lexer.options import CFGOption
 from spectra_lexer.gui_qt.config.config_dialog import ConfigDialog
 
 

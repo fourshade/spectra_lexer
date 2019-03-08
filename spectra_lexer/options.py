@@ -1,4 +1,4 @@
-"""" Module specifically for configurable components, i.e. those that draw one or more values from a config file. """
+"""" Module specifically for component options, i.e. anything dynamically configured on a global level. """
 
 from typing import Type
 
@@ -31,7 +31,7 @@ class CFGOption:
 
     def __set_name__(self, owner:Type[Component], name:str) -> None:
         """ Set an additional attribute on the owner class to update this config option on command. """
-        def set_cfg(cmp:Component, cfg_data:dict):
+        def set_cfg(cmp:Component, cfg_data:dict) -> tuple:
             """ Overwrite this config value with data read from disk (if any).
                 Send detailed info about this option to components such as the config editor. """
             v = cfg_data.get(cmp.ROLE, {}).get(name)
