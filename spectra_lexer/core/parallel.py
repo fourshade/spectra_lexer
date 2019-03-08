@@ -2,14 +2,14 @@ from concurrent.futures import ProcessPoolExecutor
 from os import cpu_count
 
 from spectra_lexer import Component
-from spectra_lexer.options import CommandOption
 
 
 class ParallelExecutor(Component):
     """ Component to run operations in parallel. """
 
     ROLE = "parallel"
-    processes: int = CommandOption(None, "Number of processes to run at once. Default is one process per CPU core.")
+    processes = Option("cmdline", "processes", 0,
+                       "Number of processes to run in parallel in batch mode. Default is one per CPU core.")
 
     @respond_to("parallel_map")
     def map(self, func:callable, *iterables, chunksize:int=None) -> list:

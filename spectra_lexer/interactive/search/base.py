@@ -1,7 +1,6 @@
 from typing import List, Optional, Tuple
 
 from spectra_lexer import Component
-from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.search.steno_dict import StenoSearchDictionary
 
 # Text displayed as the final list item, allowing the user to expand the search.
@@ -12,7 +11,7 @@ class SearchEngine(Component):
     """ Provides steno translation search engine services to the GUI and lexer. """
 
     ROLE = "search"
-    match_limit: int = CFGOption(100, "Match Limit", "Maximum number of matches returned by a search.")
+    match_limit: int = Option("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
 
     _translations: StenoSearchDictionary  # Search dict between strokes <-> translations.
     _last_input: str = ""                 # Last known state of user textbox input.

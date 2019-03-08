@@ -2,7 +2,6 @@ import json
 from typing import List, Sequence
 
 from spectra_lexer import Component
-from spectra_lexer.options import CommandOption
 from spectra_lexer.utils import merge
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
@@ -15,8 +14,8 @@ class TranslationsManager(Component):
         that require no extra processing after conversion to/from JSON. """
 
     ROLE = "translations"
-    files: list = CommandOption([], "Glob patterns for JSON-based translations files to load.")
-    out: str = CommandOption("translations.json", "Output file name for translations.")
+    files = Option("cmdline", "translations-files", [], "Glob patterns for JSON-based translations files to load.")
+    out = Option("cmdline", "translations-out", "translations.json", "Output file name for translations.")
 
     @pipe("start", "translations_load")
     def start(self, **opts) -> tuple:

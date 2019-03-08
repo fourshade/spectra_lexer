@@ -4,7 +4,6 @@ from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer import Component
 from spectra_lexer.keys import StenoKeys
-from spectra_lexer.options import CommandOption
 from spectra_lexer.rules import StenoRule, RuleMapItem
 
 # Available bracket pairs for parsing rules.
@@ -27,8 +26,8 @@ class RulesManager(Component):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     ROLE = "rules"
-    files: list = CommandOption([":/*.cson"], "Glob patterns for JSON-based rules files to load.")
-    out: str = CommandOption("rules.json", "Output file name for lexer-generated rules.")
+    files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
+    out = Option("cmdline", "rules-out", "rules.json", "Output file name for lexer-generated rules.")
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.

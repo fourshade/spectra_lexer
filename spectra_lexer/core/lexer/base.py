@@ -2,7 +2,6 @@ from itertools import product
 from typing import Dict, Generator, Iterable, List
 
 from spectra_lexer import Component
-from spectra_lexer.options import CFGOption
 from spectra_lexer.core.lexer.match import LexerRuleMatcher
 from spectra_lexer.core.lexer.results import LexerResult
 from spectra_lexer.keys import StenoKeys
@@ -16,7 +15,8 @@ class StenoLexer(Component):
     """
 
     ROLE = "lexer"
-    need_all_keys: bool = CFGOption(False, "Need All Keys", "Only return results that match every key in the stroke.")
+    need_all_keys = Option("config", "lexer:need_all_keys", False,
+                           "Only return results that match every key in the stroke.")
 
     _matcher: LexerRuleMatcher  # Master rule-matching dictionary.
 
@@ -35,12 +35,12 @@ class StenoLexer(Component):
         """ Set up the rule matcher with an optional translations dict for asterisks. """
         self._matcher.set_translations(d)
 
-    @fork("lexer_query", "new_lexer_result")
+    @pipe("lexer_query", "new_lexer_result")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
         return LexerResult.best_rule(self._gather_results(keys, word), default=(keys, word))
 
-    @fork("lexer_query_product", "new_lexer_result")
+    @pipe("lexer_query_product", "new_lexer_result")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
@@ -48,7 +48,7 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
-    @fork("lexer_query_map", "new_lexer_result_list")
+    @pipe("lexer_query_map", "new_lexer_result_list")
     def query_map(self) -> List[StenoRule]:
         """ Find the best rule for each of many translations using multiple processes in parallel.
             The lexical analysis does not mutate any global state, so it is thread/process-safe. """

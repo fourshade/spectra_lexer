@@ -7,7 +7,6 @@ from spectra_lexer.interactive.graph.formatter import HTMLFormatter
 from spectra_lexer.interactive.graph.generator import CascadedTextGenerator, CompressedTextGenerator
 from spectra_lexer.interactive.graph.locator import GridLocator
 from spectra_lexer.interactive.graph.node import TextNode
-from spectra_lexer.options import CFGOption
 from spectra_lexer.rules import StenoRule
 
 
@@ -15,8 +14,8 @@ class GraphRenderer(Component):
     """ Component class for creating and formatting a monospaced text graph from a rule. """
 
     ROLE = "graph"
-    recursive: bool = CFGOption(True,  "Recursive Graph",    "Include rules that make up other rules.")
-    compressed: bool = CFGOption(True, "Compressed Display", "Compress the graph vertically to save space.")
+    recursive = Option("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
+    compressed = Option("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
 
     _last_node: TextNode = None       # Most recent node from a select event (for identity matching).
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.

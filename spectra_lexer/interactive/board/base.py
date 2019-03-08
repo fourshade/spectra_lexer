@@ -3,7 +3,6 @@
 from typing import Dict, List, Tuple
 
 from spectra_lexer import Component
-from spectra_lexer.options import CFGOption
 from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher
 from spectra_lexer.interactive.board.svg import SVGParser
@@ -17,7 +16,8 @@ class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
     ROLE = "board"
-    show_compound: bool = CFGOption(True, "Compound Key Labels", "Show special labels for compound keys and numbers")
+    show_compound: bool = Option("config", "board:show_compound_keys", True,
+                                 "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
 
     _matcher: ElementMatcher         # Generates the list of element IDs for each stroke of a rule.
     _layout: ElementLayout = None    # Calculates drawing bounds for each element.

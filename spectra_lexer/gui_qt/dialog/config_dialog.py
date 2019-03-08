@@ -31,18 +31,18 @@ class OptionPage(QFrame):
         super().__init__()
         self._widgets = {}
         layout = QFormLayout()
-        for (opt, cfg) in opt_dict.items():
-            w = self._widgets[opt] = option_widget(cfg.val, cfg.tp)
-            label = QLabel(cfg.label or opt)
-            if cfg.desc:
-                w.setToolTip(cfg.desc)
-                label.setToolTip(cfg.desc)
+        for (name, opt) in opt_dict.items():
+            w = self._widgets[name] = option_widget(opt.val, opt.tp)
+            label = QLabel(name.replace("_", " ").title())
+            if opt.desc:
+                w.setToolTip(opt.desc)
+                label.setToolTip(opt.desc)
             layout.addRow(label, w)
         self.setLayout(layout)
 
     def save(self) -> dict:
         """ Gather config values from each widget and save them to a dict. """
-        return {opt: w.save() for (opt, w) in self._widgets.items()}
+        return {name: w.save() for (name, w) in self._widgets.items()}
 
 
 class ConfigDialog(QDialog):
@@ -79,8 +79,8 @@ class ConfigDialog(QDialog):
         """ (Re)create all tabs and widgets using config info from the dict. """
         self._pages = {}
         self.w_tabs.clear()
-        for (sect, opt_dict) in sorted(cfg_info.items()):
-            page = OptionPage(opt_dict)
+        for sect in sorted(cfg_info):
+            page = OptionPage(cfg_info[sect])
             self._pages[sect] = page
             self.w_tabs.addTab(page, sect)
 

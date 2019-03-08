@@ -14,6 +14,7 @@ class Application:
 
     components: Dict[str, Component]  # Dict of all connected components by role. Primarily exists for introspection.
     _commands: Dict[str, list]        # Dict of commands from all components combined into a list for each key.
+    _options: Dict[str, list]         # Dict of options from all components combined into a list for each role.
     _rlevel: int = 0                  # Level of re-entrancy, 0 = top of stack.
 
     def __init__(self, *cls_mod_iter:object):
@@ -23,17 +24,23 @@ class Application:
         filtered = {cmp.ROLE: cmp for it in iters for cmp in it if hasattr(cmp, "ROLE")}
         # Component objects may be used directly, but classes must be instantiated.
         self.components = {role: (cls() if isinstance(cls, type) else cls) for role, cls in filtered.items()}
-        # Add commands and set callbacks for all components.
+        # Add commands/options and set callbacks for all components.
         self._commands = defaultdict(list)
+        self._options = defaultdict(list)
         for c in self.components.values():
             c.engine_connect(self.call)
-            for (func, key, *params) in c.engine_commands():
+            cls = type(c)
+            for (func, key, *params) in cls.cmd_list:
                 # Bind all class command functions to the instance and save the finished tuples.
-                self._commands[key].append((func.__get__(c, type(c)), *params))
+                self._commands[key].append((func.__get__(c, cls), *params))
+            for (src, *params) in cls.opt_list:
+                # Add each option under the source component role that handles it.
+                self._options[src].append(params)
 
     def start(self, **opts) -> None:
-        """ Parse command line arguments from sys.argv. """
-        self.call("cmdline_parse")
+        """ Parse all global options such as command line arguments from sys.argv. """
+        for src, options in self._options.items():
+            self.call(f"{src}_options", options)
         # Add the app and its components to the keyword options given by main() and send the start signal.
         self.call("start", app=self, components=self.components, **opts)
 
