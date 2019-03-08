@@ -12,9 +12,8 @@ class Application:
     Since all execution state is kept within the call stack, multiple threads may run without conflict.
     """
 
-    components: List[Component]  # List of all connected components. Primarily exists for introspection.
+    components: List[Component]  # List of all connected components.
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
-    _options: Dict[str, list]    # Dict of options from all components combined into a list for each source.
     _rlevel: int = 0             # Level of re-entrancy, 0 = top of stack.
 
     def __init__(self, *cls_mod_iter:object):
@@ -24,25 +23,27 @@ class Application:
         # Duplicate classes and classes with a direct inheritance relationship are not allowed.
         # Only instantiate the most derived class of each line. Remove duplicates entirely.
         self.components = [cls() for cls in classes if sum(issubclass(other, cls) for other in classes) == 1]
-        # Add commands/options and set callbacks for all components.
         self._commands = defaultdict(list)
-        self._options = defaultdict(list)
-        for c in self.components:
-            c.engine_connect(self.call)
-            cls = type(c)
-            for (func, key, *params) in cls.cmd_list:
-                # Bind all class command functions to the instance and save the finished tuples.
-                self._commands[key].append((func.__get__(c, cls), *params))
-            for (src, opt) in cls.opt_list:
-                # Add each option under the source command that handles it.
-                self._options[src].append(opt)
 
-    def start(self, **opts) -> None:
-        """ Parse all global options such as command line arguments from sys.argv. """
-        for src, options in self._options.items():
-            self.call(f"{src}_options", options)
-        # Add the app and its components to the keyword options given by main() and send the start signal.
+    def start(self, **opts) -> object:
+        """ Connect everything and run the general lifecycle of the application. """
+        options = defaultdict(list)
+        for c in self.components:
+            # Add commands/options and set callbacks for all components.
+            c.engine_connect(self.call)
+            for key, (func, *params) in c.cmd_dict.items():
+                # Bind all class command functions to the instance and save the finished tuples.
+                self._commands[key].append((func.__get__(c, type(c)), *params))
+            for (src, opt) in c.opt_list:
+                # Add each option under the source command that handles it.
+                options[src].append(opt)
+        # Parse startup options such as command line arguments from sys.argv. This stage should be very quick.
+        self.call("setup", options)
+        # Add the app and its components to the keyword options given by main() and start resource loading.
         self.call("start", app=self, components=self.components, **opts)
+        # After everything else is ready, a component may run an event loop indefinitely.
+        # In batch mode, the main operation can run here. A single value may be returned to main().
+        return self.call("run")
 
     def call(self, key:str, *args, **kwargs) -> object:
         """ Run all commands under this key (if any) and return the last value. """

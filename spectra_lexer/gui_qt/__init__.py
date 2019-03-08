@@ -1,6 +1,6 @@
 """ Package for the GUI Qt-based components of Spectra. """
 
-from .window import GUIQtWindow
+from .base import GUIQt
 from .menu import GUIQtMenu
 from .dialog import GUIQtDialogManager
 from .search import GUIQtSearchPanel

@@ -13,12 +13,12 @@ class ConfigManager(Component):
     _cfg_data: Dict[str, dict]  # Dict with config values from all components loaded from disk.
     _cfg_info: Dict[str, dict]  # Dict with detailed config info from active components.
 
-    @on("config_options")
-    def new_options(self, options:list) -> None:
+    @on("setup")
+    def new_options(self, options:dict) -> None:
         """ Store all active config option info by owner section and option name. Data values start at default. """
         info = self._cfg_info = defaultdict(dict)
         data = self._cfg_data = defaultdict(dict)
-        for opt in options:
+        for opt in options.get("config", []):
             sect, name = opt.key.split(":", 1)
             info[sect][name] = opt
             data[sect][name] = opt.default

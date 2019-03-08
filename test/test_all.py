@@ -24,6 +24,7 @@ from test import get_test_filename
 # Create and connect components for the tests in order as we need them.
 # Some will need access to the file system. They only need to send engine commands for this, not receive them.
 FILE_ENGINE = Application(FileHandler)
+FILE_ENGINE.start()
 RULES = RulesManager()
 RULES.engine_connect(FILE_ENGINE.call)
 RULES_DICT = RULES.load()

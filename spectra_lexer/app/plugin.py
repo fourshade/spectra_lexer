@@ -2,19 +2,25 @@ import sys
 from collections import namedtuple
 from typing import ClassVar
 
-from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
+from PyQt5.QtWidgets import QDialog, QMainWindow
 
 from spectra_lexer import core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
-from spectra_lexer.gui_qt.window import GUIQtWindow
+from spectra_lexer.gui_qt import GUIQt
+from spectra_lexer.gui_qt.main_window import MainWindow
 from spectra_lexer.utils import nop
 
 
-class PloverWindow(GUIQtWindow):
-    """ Master component for GUI Qt operations. Controls the main window. """
+class PloverWindow(GUIQt):
+    """ The Plover plugin must not create its own QApplication or run its own event loop (unless in test mode). """
 
-    @respond_to("gui_window_get")
-    def get_window(self) -> QMainWindow:
+    test_mode = Option("cmdline", "plover-test", False, "If True, run the plugin without Plover.")
+
+    @respond_to("run")
+    def loop(self) -> MainWindow:
+        """ As a plugin, there is already an event loop running somewhere that needs the window we created. """
+        if self.test_mode:
+            super().loop()
         # To emulate a dialog class, we have to fake a "finished" signal object with a 'connect' attribute.
         self.window.finished = namedtuple("dummy_signal", "connect")(nop)
         return self.window
@@ -46,16 +52,15 @@ class PloverDialog(QDialog):
             sys.argv.append("--translations-files=IGNORE")
             # The file menu should not be available; clicking the "Exit" button is likely to crash Plover.
             app = Application(gui_qt, PloverWindow, core, interactive, plover)
-            app.start(plover_args=args, gui_menus=("Tools",))
-            cls.window = app.call("gui_window_get")
+            # In plugin mode, the GUI event loop isn't run by Spectra, so the Qt window is returned instead.
+            cls.window = app.start(plover_args=args, gui_menus=("Tools",))
         return cls.window
 
 
-def test() -> None:
-    """ Entry point for testing the Plover plugin by running it with no engine. """
-    qt_app = QApplication(sys.argv)
+def test():
+    """ Entry point for testing the Plover plugin by running it with no engine in a standalone configuration. """
+    sys.argv.append("--plover-test=True")
     PloverDialog()
-    qt_app.exec_()
 
 
 if __name__ == '__main__':

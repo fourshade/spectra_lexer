@@ -6,7 +6,7 @@ from spectra_lexer.utils import nop
 
 
 class Option(NamedTuple):
-    """ A customizable option. """
+    """ A customizable option. These are configured before the application actually starts. """
     src: str                # Designator for an option's source handling command.
     key: str                # Option key. Must be unique for a given source.
     default: object = None  # Externally visible default value.
@@ -19,18 +19,18 @@ class ComponentMeta(type):
 
     @classmethod
     def __prepare__(mcs, name:str, bases:tuple) -> dict:
-        # Combine all parent command lists to make a new child list.
-        cmd_list = [cmd for b in bases for cmd in getattr(b, "cmd_list", [])]
+        # Combine all parent command dicts to make a new child dict. Child commands will override these.
+        cmd_dict = {key: cmd for b in bases for key, cmd in getattr(b, "cmd_dict", {}).items()}
         def command(key:str, next_key:str=None, **cmd_kwargs) -> Callable:
             """ Decorator for component engine command flow. """
             def add_cmd_attr(func:Callable) -> Callable:
                 """ Add a command to call the function. """
-                cmd_list.append((func, key, next_key, cmd_kwargs))
+                cmd_dict[key] = (func, next_key, cmd_kwargs)
                 return func
             return add_cmd_attr
         # Add references to the command decorators for every component. All of them currently do the same thing.
         decorators = dict.fromkeys(("on", "pipe", "respond_to"), command)
-        return {"cmd_list": cmd_list, **decorators, "Option": Option}
+        return {"cmd_dict": cmd_dict, **decorators, "Option": Option}
 
     def __init__(cls, name:str, bases:tuple, dct:dict):
         """ Get every option defined and set additional attributes to update each one on command. """

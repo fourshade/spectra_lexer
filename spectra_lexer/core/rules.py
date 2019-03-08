@@ -26,7 +26,7 @@ class RulesManager(Component):
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
     files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
-    out = Option("cmdline", "rules-out", "rules.json", "Output file name for lexer-generated rules.")
+    out = Option("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
