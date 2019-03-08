@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import QListView
 class SearchListWidget(QListView):
     """ Simple QListView extension with strings that sends a signal when the selection has changed. """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super().__init__(*args)
         self.setModel(QStringListModel([]))
 
     def clear(self) -> None:

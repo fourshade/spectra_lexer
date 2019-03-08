@@ -6,31 +6,28 @@ from spectra_lexer.keys import StenoKeys
 from spectra_lexer.rules import StenoRule, RuleFlags
 
 # Parameters for creating SVG element IDs.
-SVG_BASE_ID = "Base"
-SVG_RULE_PREFIX = ":"
-SVG_UNMATCHED_SUFFIX = "?"
+_SVG_RULE_PREFIX = ":"
+_SVG_UNMATCHED_SUFFIX = "?"
+# Pre-made element IDs.
+_SEP_ID = StenoKeys.separator()
+_BACKGROUND_ID = "Base"
+_UNMATCHED_IDS = {k: k + _SVG_UNMATCHED_SUFFIX for k in StenoKeys.full_stroke()}
+_UNMATCHED_IDS[_SEP_ID] = _SEP_ID
 
 
 class ElementMatcher:
     """ Generates lists of element IDs for stroke diagrams, each of which contains a basic background
         and a number of discrete graphical elements matched to raw keys and/or simple rules. """
 
-    _rules_dict: Dict[str, StenoRule] = {}     # Saved copy of the rules dict for finding element IDs.
     _rule_elements: Dict[StenoRule, str] = {}  # Dict matching steno rule namedtuples to element ID strings.
-    _sep: str = StenoKeys.separator()          # Pre-made stroke separator.
 
     def set_rules(self, rules_dict:Dict[str, StenoRule]):
-        self._rules_dict = rules_dict
+        """ Load a dictionary with element ID names of each rule. """
+        self._rule_elements = {rule: _SVG_RULE_PREFIX + name for name, rule in rules_dict.items()}
 
-    def set_rule_elements(self, id_dict:dict) -> None:
-        """ Load a dictionary with names of each graphical element that has a specific rule. """
-        self._rule_elements = {rule: SVG_RULE_PREFIX + name
-                               for name, rule in self._rules_dict.items() if SVG_RULE_PREFIX + name in id_dict}
-
-    def get_all_ids(self) -> List[str]:
-        """ Get a list of all possible element IDs, including the base, the raw keys, and the rules. """
-        keys = StenoKeys.full_stroke()
-        return [SVG_BASE_ID, *keys, *[k + SVG_UNMATCHED_SUFFIX for k in keys], *self._rule_elements.values()]
+    def set_ids(self, id_dict:dict) -> None:
+        """ Narrow the rules dict down to only element IDs which actually exist. """
+        self._rule_elements = {rule: name for rule, name in self._rule_elements.items() if name in id_dict}
 
     def get_element_ids(self, rule:StenoRule, use_dict:bool=True) -> List[List[str]]:
         """ Generate board diagram element IDs for a steno rule. """
@@ -40,10 +37,8 @@ class ElementMatcher:
         else:
             # Without the rule dict, the raw key names can be used without recursion.
             elements = list(rule.keys)
-        # Consume any stroke separators to split the elements into strokes.
-        strokes = self._split_elements(elements)
-        # Add the background for each stroke and return.
-        return [[SVG_BASE_ID] + s for s in strokes]
+        # Consume stroke separators to split the elements into strokes and add the background for each one.
+        return [[_BACKGROUND_ID] + s for s in _split_elements(elements)]
 
     def _elements_from_rule(self, rule:StenoRule) -> Generator:
         """ Yield board diagram elements from a steno rule recursively. """
@@ -59,18 +54,16 @@ class ElementMatcher:
             # If the rule has no children and no dict entry, just add element IDs for each raw key.
             if RuleFlags.UNMATCHED in rule.flags:
                 # If the rule is for unmatched keys, display question marks instead of the key names.
-                yield from [k + SVG_UNMATCHED_SUFFIX if k != self._sep else k for k in rule.keys]
+                yield from [_UNMATCHED_IDS[k] for k in rule.keys]
             else:
                 yield from rule.keys
 
-    def _split_elements(self, elements:List[str]) -> List[List[str]]:
-        """ Split a list of elements at each stroke separator. """
-        sep = self._sep
-        strokes = []
-        start = 0
-        for i, element in enumerate(elements):
-            if element == sep:
-                strokes.append(elements[start:i])
-                start = i + 1
-        strokes.append(elements[start:])
-        return strokes
+
+def _split_elements(elements:List[str]) -> Generator:
+    """ Split a list of elements at each stroke separator. """
+    start = 0
+    for i, element in enumerate(elements):
+        if element == _SEP_ID:
+            yield elements[start:i]
+            start = i + 1
+    yield elements[start:]

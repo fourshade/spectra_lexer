@@ -1,31 +1,29 @@
 """ Module for generating steno board diagram element bounds. """
 
 from math import ceil
-from typing import Dict, List, Tuple
+from typing import Dict, List, NamedTuple, Tuple
 
 
-class ElementLayout:
+class ElementLayout(NamedTuple):
     """ Generates a list of board graphical elements fitted to the bounds of the display widget. """
 
-    _bounds_dict: Dict[str, tuple]  # (x, y, w, h) bounds of each graphical element by id.
-    _view_box: tuple                # (x, y, w, h) bounds of the SVG view box for the root element.
+    bounds: Dict[str, tuple]  # (x, y, w, h) bounds of each graphical element by id.
+    viewbox: tuple            # (x, y, w, h) bounds of the SVG view box for the root element.
+    width: int                # Total width of the diagram widget in pixels.
+    height: int               # Total height of the diagram widget in pixels.
 
-    def __init__(self, d:Dict[str, tuple], view_box:tuple):
-        self._bounds_dict = d
-        self._view_box = view_box
-
-    def generate(self, ids:List[List[str]], width:int, height:int) -> List[tuple]:
-        """ Compute the new drawing bounds for each element on the board diagram.
-            Each diagram is tiled in a grid layout, scaled to the maximum area of the widget. """
+    def make_draw_list(self, ids:List[List[str]]) -> List[tuple]:
+        """ Compute the drawing bounds for each element ID in each stroke on the board diagram.
+            Complete strokes are tiled in a grid layout, scaled to the maximum area of the widget. """
         draw_list = []
-        d = self._bounds_dict
-        w_ratio = width / self._view_box[2]
-        h_ratio = height / self._view_box[3]
+        d = self.bounds
+        w_ratio = self.width / self.viewbox[2]
+        h_ratio = self.height / self.viewbox[3]
         rows, cols, scale = _arrange(w_ratio, h_ratio, len(ids))
         # Find the global offsets needed to center everything in the widget at maximum scale.
-        sx, sy, sw, sh = [c * scale for c in self._view_box]
-        ox = -sx + (width - (sw * cols)) / 2
-        oy = -sy + (height - (sh * rows)) / 2
+        sx, sy, sw, sh = [c * scale for c in self.viewbox]
+        ox = -sx + (self.width - (sw * cols)) / 2
+        oy = -sy + (self.height - (sh * rows)) / 2
         # Subdiagrams are tiled left-to-right, top-to-bottom. Find the top-left corner of each one.
         for i, stroke in enumerate(ids):
             steps_y, steps_x = divmod(i, cols)

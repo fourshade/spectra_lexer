@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 
 from spectra_lexer import Component, on, pipe
 from spectra_lexer.config import CFGOption
+from spectra_lexer.interactive.board.layout import ElementLayout
 from spectra_lexer.interactive.board.matcher import ElementMatcher
 from spectra_lexer.rules import RuleFlags, StenoRule
 
@@ -14,10 +15,12 @@ class BoardRenderer(Component):
     ROLE = "board"
     show_compound: bool = CFGOption(True, "Compound Key Labels", "Show special labels for compound keys and numbers")
 
-    _matcher: ElementMatcher  # Generates the list of element IDs for each stroke of a rule.
+    _matcher: ElementMatcher         # Generates the list of element IDs for each stroke of a rule.
+    _layout: ElementLayout = None    # Calculates drawing bounds for each element.
+    _last_ids: List[List[str]] = []  # Last set of element IDs, saved in case of resizing.
 
     def __init__(self) -> None:
-        """ Set up the matcher with an empty rule dictionary. """
+        """ Set up the matcher with an empty rule dictionary and the layout with default coordinates. """
         super().__init__()
         self._matcher = ElementMatcher()
 
@@ -28,33 +31,40 @@ class BoardRenderer(Component):
 
     @pipe("new_svg", "new_board_setup")
     def set_elements(self, xml_dict:dict) -> Tuple[str, List[str]]:
-        """ Load the generator with each graphical element that has a specific rule.
-            Send the raw SVG text data along with all usable element IDs to the GUI. """
-        self._matcher.set_rule_elements(xml_dict["ids"])
-        return xml_dict["raw"], self._matcher.get_all_ids()
+        """ Send the raw SVG text data along with all element IDs to the GUI. """
+        self._matcher.set_ids(xml_dict["ids"])
+        return xml_dict["raw"], xml_dict["ids"]
 
-    @pipe("new_lexer_result", "new_board_info")
-    def get_info(self, rule:StenoRule) -> Tuple[List[List[str]], str]:
-        """ Generate board diagram elements from a steno rule and send them along with the description. """
-        keys, letters, flags, desc, rulemap = rule
-        raw_keys = keys.rtfcre
-        if RuleFlags.GENERATED in flags:
-            # If this is a lexer-generated rule (usually the root at the top), just display the description.
-            description = desc
-        elif not rulemap:
-            # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
-            description = "{}: {}".format(raw_keys, desc)
-        else:
-            # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
-            description = "{} → {}: {}".format(raw_keys, letters, desc)
-        # Create the list of element ID lists (one list for each stroke), with or without the special rule elements.
-        if self._matcher:
-            elements = self._matcher.get_element_ids(rule, self.show_compound)
-        else:
-            elements = []
-        return elements, description
+    @pipe("board_set_layout", "new_board_gfx")
+    def set_layout(self, bounds:Dict[str, tuple], view_box:tuple, width:int, height:int) -> List[tuple]:
+        """ Set the bounds of all elements, the viewbox, and the layout's max bounds and redraw it. """
+        self._layout = ElementLayout(bounds, view_box, width, height)
+        return self._layout.make_draw_list(self._last_ids)
 
-    @pipe("new_graph_selection", "new_board_info")
-    def get_selection_info(self, rule:StenoRule) -> Tuple[List[List[str]],str]:
+    @pipe("new_lexer_result", "new_board_gfx")
+    def get_info(self, rule:StenoRule) -> List[tuple]:
+        """ Generate board diagram graphics from a steno rule and send them along with the description. """
+        self.engine_call("new_board_description", _get_description(rule))
+        # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
+        self._last_ids = self._matcher.get_element_ids(rule, self.show_compound)
+        if self._layout is not None:
+            return self._layout.make_draw_list(self._last_ids)
+
+    @pipe("new_graph_selection", "new_board_gfx")
+    def get_selection_info(self, rule:StenoRule) -> List[tuple]:
         """ The task is identical whether the rule is from a new lexer result or a user graph selection. """
         return self.get_info(rule)
+
+
+def _get_description(rule:StenoRule) -> str:
+    """ Generate a caption text for a rule to go above the board diagram. """
+    description = rule.desc
+    # If this is a lexer-generated rule (usually the root at the top), just display the description by itself.
+    if RuleFlags.GENERATED in rule.flags:
+        return description
+    # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
+    raw_keys = rule.keys.rtfcre
+    if not rule.rulemap:
+        return "{}: {}".format(raw_keys, description)
+    # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
+    return "{} → {}: {}".format(raw_keys, rule.letters, description)

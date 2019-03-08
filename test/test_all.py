@@ -114,14 +114,14 @@ BOARD_DICT = SVG.load()
 BOARD = BoardRenderer()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_elements(BOARD_DICT)
+TEST_BOUNDS = {k: (0, 0, *divmod(i, 10)) for i, k in enumerate(BOARD_DICT["ids"], 1)}
+BOARD.set_layout(TEST_BOUNDS, (0, 0, 100, 100), 100, 100)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_board(result):
     """ Perform all tests for board diagram output. Currently only checks that the output isn't empty. """
-    elements, desc = BOARD.get_info(result)
-    assert elements
-    assert desc
+    assert BOARD.get_info(result)
 
 
 GRAPH = GraphRenderer()
