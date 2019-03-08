@@ -1,9 +1,8 @@
 from functools import partial
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 from spectra_lexer import Component
-from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, join_strokes, PloverAction, \
-    PloverEngine, PloverTranslatorState
+from spectra_lexer.plover.compat import join_strokes, PloverAction, PloverEngine, PloverTranslatorState
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")
@@ -17,24 +16,17 @@ class PloverInterface(Component):
 
     @pipe("new_plover_engine", "new_status")
     def start(self, plover_engine:PloverEngine) -> str:
-        """ Perform initial compatibility check and callback/dictionary setup. """
+        """ Perform initial engine connection and callback/dictionary setup. """
         self._plover = plover_engine
-        # If the compatibility check fails, don't try to connect to Plover. Return an error.
-        if not compatibility_check():
-            return INCOMPATIBLE_MESSAGE
-        # Connect all commands to the Plover engine and load all current dictionaries.
-        self._plover_connect({"dictionaries_loaded": "plover_load_dicts", "translated": "plover_new_translation"})
         self.engine_call("new_status", "Loading dictionaries...")
         # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
         with plover_engine:
+            # Connect Plover engine signals to Spectra commands and load all current dictionaries.
+            for signal, command in ("dictionaries_loaded", "plover_load_dicts"), \
+                                   ("translated",          "plover_new_translation"):
+                plover_engine.signal_connect(signal, partial(self.engine_call, command))
             self.engine_call("plover_load_dicts", plover_engine.dictionaries)
         return "Loaded dictionaries from Plover engine."
-
-    def _plover_connect(self, connections:Dict[str, str]) -> None:
-        """ Connect Plover engine signals to Spectra engine commands. """
-        with self._plover:
-            for signal, cmd in connections.items():
-                self._plover.signal_connect(signal, partial(self.engine_call, cmd))
 
     @pipe("plover_new_translation", "lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:

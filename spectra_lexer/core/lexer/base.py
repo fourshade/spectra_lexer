@@ -47,13 +47,6 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
-    @pipe("lexer_query_map", "new_lexer_result_list")
-    def query_map(self) -> List[StenoRule]:
-        """ Find the best rule for each of many translations using multiple processes in parallel.
-            The lexical analysis does not mutate any global state, so it is thread/process-safe. """
-        d = self._matcher._translations
-        return self.engine_call("parallel_map", self.query, d.keys(), d.values())
-
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """
         # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).

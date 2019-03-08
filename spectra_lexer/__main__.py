@@ -1,9 +1,8 @@
+""" Master console script for the Spectra program. Contains all entry points. """
+
 import sys
-from time import time
 
-from PyQt5.QtWidgets import QDialog
-
-from spectra_lexer import core, gui_qt, interactive, plover
+from spectra_lexer import batch, core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
 
 
@@ -15,16 +14,11 @@ def entry_point(func):
 
 
 @entry_point
-def batch():
+def analyze():
     """ Top-level function for operation of the Spectra program by itself in batch mode.
         The script will exit after processing all translations and saving the rules. """
-    s_time = time()
-    app = Application(core)
+    app = Application(core, batch)
     app.start()
-    # Run the lexer in parallel on all translations, save the results, and print the execution time.
-    results = app.call("lexer_query_map")
-    app.call("rules_save", results)
-    print(f"Processing done in {time() - s_time:.1f} seconds.")
 
 
 @entry_point
@@ -36,15 +30,8 @@ def gui():
 
 
 @entry_point
-def plover_test():
-    """ Entry point for testing the Plover plugin by running it with no engine in a standalone configuration. """
-    PloverDialog()
-
-
-class PloverDialog(QDialog):
-    """ Main entry point for the Plover plugin. Non-instantiatable dummy class with parameters required by Plover.
-        The actual window returned by __new__ is the standard QMainWindow used by the standalone GUI.
-        This class is just a facade, appearing as a QDialog to satisfy Plover's setup requirements. """
+class PloverPlugin:
+    """ See the breakdown of words using steno rules. """
 
     # Class constants required by Plover for toolbar.
     TITLE = 'Spectra'
@@ -52,23 +39,10 @@ class PloverDialog(QDialog):
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
-    # Docstring is used as tooltip on Plover GUI toolbar, so change it dynamically.
-    __doc__ = "See the breakdown of words using steno rules."
-
-    # The window and all of its contents are destroyed if it is closed with no referents.
-    # The app's components are relatively expensive to create, so an app reference is kept
-    # in the class dictionary and returned on every call after the first, making it a singleton.
-    window = None
-
-    def __new__(cls, engine=None, *args):
-        """ Only create a new app/window instance on the first call; return the saved instance otherwise. """
-        if cls.window is None:
-            app = Application(gui_qt, plover, core, interactive)
-            # The engine is always the first argument passed by Plover. Others are irrelevant.
-            # In plugin mode, the GUI event loop isn't run by Spectra, so the Qt window is returned instead.
-            cls.window = app.start()
-            app.call("plover_test") if engine is None else app.call("new_plover_engine", engine)
-        return cls.window
+    def __new__(cls, *args):
+        """ Entry point for the Plover plugin. Running it with no args starts a standalone test configuration. """
+        app = Application(gui_qt, plover, core, interactive)
+        return app.start(plugin_args=args)
 
 
 def main():

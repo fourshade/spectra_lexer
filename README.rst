@@ -36,9 +36,9 @@ From the console, you can execute the main GUI program on its own by typing:
 
 The standalone mode operates identically to the plugin in all respects except that it cannot decipher strokes in real-time. By default, the program will look for your Plover dictionaries in the default user app data directory for your platform. It may not find them if you have them somewhere else, or have a strange user configuration. In any case, you can load dictionaries manually from the menu bar in standalone mode.
 
-There is also a batch mode available for analysis purposes. Run it by typing:
+There is also a batch mode available to analyze entire dictionaries. Run it by typing:
 
-``spectra_lexer batch [--translations-files=FILE_IN1 [FILE_IN2 ...]] [--rules-out=FILE_OUT]``
+``spectra_lexer analyze [--translations-files=FILE_IN1 [FILE_IN2 ...]] [--rules-out=FILE_OUT]``
 
 Each FILE_IN is a path to a JSON file containing a dictionary of steno translations, and FILE_OUT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
 
