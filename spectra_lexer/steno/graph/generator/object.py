@@ -2,9 +2,9 @@
 
 from typing import List, Tuple
 
-from spectra_lexer.interactive.graph.generator.canvas import Canvas
-from spectra_lexer.interactive.graph.generator.pattern import Pattern
-from spectra_lexer.interactive.graph.generator.primitive import Primitive
+from .canvas import Canvas
+from .pattern import Pattern
+from .primitive import Primitive
 
 
 class Object(Primitive, List[Tuple[int, int, Primitive]]):

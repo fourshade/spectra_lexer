@@ -2,11 +2,11 @@
 
 from typing import Dict, List, Tuple
 
+from .layout import ElementLayout
+from .matcher import ElementMatcher
+from .svg import SVGParser
 from spectra_lexer import Component
-from spectra_lexer.interactive.board.layout import ElementLayout
-from spectra_lexer.interactive.board.matcher import ElementMatcher
-from spectra_lexer.interactive.board.svg import SVGParser
-from spectra_lexer.rules import RuleFlags, StenoRule
+from spectra_lexer.steno.rules import RuleFlags, StenoRule
 
 
 class BoardRenderer(Component):

@@ -1,6 +1,6 @@
 import json
 
-from spectra_lexer.core.file.codecs import StringCodec
+from .base import StringCodec
 
 
 class JSONCodec(StringCodec):

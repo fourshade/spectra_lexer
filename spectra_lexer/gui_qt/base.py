@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from spectra_lexer import Component
-from spectra_lexer.gui_qt.main_window import MainWindow
+from .main_window import MainWindow
 
 
 class GUIQt(Component):
@@ -28,7 +28,7 @@ class GUIQt(Component):
         window.show()
         self.QT_APP.processEvents()
 
-    @respond_to("run")
+    @on("run")
     def run(self) -> int:
         """ If no subclasses object, start the GUI event loop and run it indefinitely. """
         return self.QT_APP.exec_()

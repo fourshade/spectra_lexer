@@ -1,7 +1,7 @@
 from configparser import ConfigParser
 from io import StringIO
 
-from spectra_lexer.core.file.codecs import StringCodec
+from .base import StringCodec
 
 
 class CFGCodec(StringCodec):

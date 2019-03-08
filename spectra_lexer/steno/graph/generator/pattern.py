@@ -1,6 +1,6 @@
 """ Module controlling the general appearance of text graph patterns and character sets. """
 
-from spectra_lexer.interactive.graph.generator.primitive import Primitive
+from .primitive import Primitive
 from spectra_lexer.utils import memoize_one_arg
 
 

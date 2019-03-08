@@ -1,8 +1,8 @@
 from operator import attrgetter, methodcaller
 from typing import List, Generator, NamedTuple, Tuple
 
-from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleFlags, RuleMapItem, StenoRule
+from spectra_lexer.steno.keys import StenoKeys
+from spectra_lexer.steno.rules import RuleFlags, RuleMapItem, StenoRule
 
 # Flag constants for rule generation.
 _RARE_FLAG = RuleFlags.RARE

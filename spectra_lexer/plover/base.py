@@ -1,6 +1,5 @@
 from spectra_lexer.gui_qt import GUIQt
-from spectra_lexer.gui_qt.main_window import MainWindow
-from spectra_lexer.plover.compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverEngine, PloverAction
+from .compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverEngine, PloverAction
 
 
 class PloverGUI(GUIQt):
@@ -18,8 +17,8 @@ class PloverGUI(GUIQt):
         if args:
             self._plover = args[0]
 
-    @respond_to("run")
-    def run(self) -> MainWindow:
+    @on("run")
+    def run(self) -> object:
         """ After everything else is set up, connect the engine and return the window to Plover. """
         if self._plover is None:
             # Plover is not running, so we need to make a fake engine and run some tests with our own event loop.

@@ -4,10 +4,9 @@ from itertools import chain
 from operator import attrgetter
 from typing import List, NamedTuple, Tuple
 
-from spectra_lexer.interactive.graph.node import GraphNodeAppearance, TextNode
-from spectra_lexer.interactive.graph.generator.object import ObjectNode, ObjectNodeUnmatched
-from spectra_lexer.interactive.graph.generator.pattern import PatternInversion, PatternNode, PatternSeparators, \
-    PatternThick, PatternUnmatched
+from .object import ObjectNode, ObjectNodeUnmatched
+from .pattern import PatternInversion, PatternNode, PatternSeparators, PatternThick, PatternUnmatched
+from spectra_lexer.steno.graph.node import GraphNodeAppearance, TextNode
 
 
 class ConnectionInfo(NamedTuple):

@@ -1,7 +1,7 @@
 from typing import List, Optional
 
+from .collection import StringSearchDictCollection
 from spectra_lexer import Component
-from spectra_lexer.interactive.search.collection import StringSearchDictCollection
 
 # Text displayed as the final list item, allowing the user to expand the search.
 _MORE_TEXT = "(more...)"

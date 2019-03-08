@@ -2,7 +2,7 @@
 
 from typing import Sequence
 
-from spectra_lexer.rules import RuleFlags, StenoRule
+from spectra_lexer.steno.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse, traverse, with_sets
 
 

@@ -1,8 +1,8 @@
 from typing import Dict, Generator
 
-from spectra_lexer.core.lexer.prefix import OrderedKeyPrefixTree
-from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleFlags, StenoRule
+from .prefix import OrderedKeyPrefixTree
+from spectra_lexer.steno.keys import StenoKeys
+from spectra_lexer.steno.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import str_prefix
 
 # Steno order is not enforced for any keys in this set. This has a large performance and accuracy cost.

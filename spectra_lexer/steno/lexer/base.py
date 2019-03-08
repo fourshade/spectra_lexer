@@ -1,11 +1,11 @@
 from itertools import product
 from typing import Generator, Iterable, List
 
+from .match import LexerRuleMatcher
+from .results import LexerResult
 from spectra_lexer import Component
-from spectra_lexer.core.lexer.match import LexerRuleMatcher
-from spectra_lexer.core.lexer.results import LexerResult
-from spectra_lexer.keys import StenoKeys
-from spectra_lexer.rules import RuleMapItem, StenoRule
+from spectra_lexer.steno.keys import StenoKeys
+from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 
 
 class StenoLexer(Component):

@@ -2,12 +2,12 @@
 
 from typing import Optional
 
+from .formatter import HTMLFormatter
+from .generator import CascadedTextGenerator, CompressedTextGenerator
+from .locator import GridLocator
+from .node import TextNode
 from spectra_lexer import Component
-from spectra_lexer.interactive.graph.formatter import HTMLFormatter
-from spectra_lexer.interactive.graph.generator import CascadedTextGenerator, CompressedTextGenerator
-from spectra_lexer.interactive.graph.locator import GridLocator
-from spectra_lexer.interactive.graph.node import TextNode
-from spectra_lexer.rules import StenoRule
+from spectra_lexer.steno.rules import StenoRule
 
 
 class GraphRenderer(Component):

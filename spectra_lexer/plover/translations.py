@@ -1,8 +1,8 @@
 from itertools import chain
 from typing import Dict
 
-from spectra_lexer.core import TranslationsManager
-from spectra_lexer.plover.compat import join_strokes, PloverStenoDictCollection
+from spectra_lexer.steno import TranslationsManager
+from .compat import join_strokes, PloverStenoDictCollection
 
 
 class PloverTranslationsManager(TranslationsManager):

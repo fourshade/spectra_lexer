@@ -9,7 +9,7 @@ class BatchProcessor(Component):
 
     _translations: Dict[str, str] = {}  # Main translations dict to process.
 
-    @respond_to("run")
+    @on("run")
     def run(self) -> int:
         """ Run the lexer in parallel on all translations, save the results, and print the execution time. """
         s_time = time()

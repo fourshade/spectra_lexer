@@ -2,7 +2,7 @@ from itertools import repeat
 import re
 from typing import Callable, Dict, Iterable, List
 
-from spectra_lexer.interactive.search.dict import StringSearchDict, ReverseStringSearchDict
+from .dict import StringSearchDict, ReverseStringSearchDict
 
 
 def _strip_lower_simfns(strip_chars:str=None) -> Dict[str, Callable]:

@@ -9,15 +9,15 @@ import pytest
 
 from spectra_lexer.app import Application
 from spectra_lexer.core.file import FileHandler
-from spectra_lexer.core.lexer import StenoLexer
-from spectra_lexer.core.rules import RulesManager
-from spectra_lexer.core.translations import TranslationsManager
-from spectra_lexer.interactive.board import BoardRenderer
-from spectra_lexer.interactive.graph import GraphRenderer
-from spectra_lexer.interactive.search import SearchEngine
+from spectra_lexer.steno.lexer import StenoLexer
+from spectra_lexer.steno.rules import RulesManager
+from spectra_lexer.steno.translations import TranslationsManager
+from spectra_lexer.steno.board import BoardRenderer
+from spectra_lexer.steno.graph import GraphRenderer
+from spectra_lexer.steno.search import SearchEngine
 from spectra_lexer.plover import PloverTranslationsManager
 from spectra_lexer.plover.compat import PloverStenoDictCollection
-from spectra_lexer.rules import RuleFlags
+from spectra_lexer.steno.rules import RuleFlags
 from test import get_test_filename
 
 

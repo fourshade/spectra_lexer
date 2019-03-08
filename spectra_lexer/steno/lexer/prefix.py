@@ -1,6 +1,6 @@
 from typing import Iterable, Sequence, Tuple
 
-from spectra_lexer.keys import StenoKeys
+from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.utils import str_without
 
 

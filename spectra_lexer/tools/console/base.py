@@ -1,7 +1,7 @@
 from typing import Optional
 
+from .interpreter import InterpreterConsole
 from spectra_lexer import Component
-from spectra_lexer.interactive.console.interpreter import InterpreterConsole
 
 
 class SpectraConsole(Component):

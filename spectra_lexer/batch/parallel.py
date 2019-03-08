@@ -11,7 +11,7 @@ class ParallelExecutor(Component):
     processes = Option("cmdline", "processes", 0,
                        "Number of processes to run in parallel. Default is one per CPU core.")
 
-    @respond_to("parallel_map")
+    @on("parallel_map")
     def map(self, key:str, *iterables, chunksize:int=None) -> list:
         """ Use ProcessPoolExecutor.map() to call an engine command on each item in <iterables> in parallel.
             The calling thread will block until everything is finished. """

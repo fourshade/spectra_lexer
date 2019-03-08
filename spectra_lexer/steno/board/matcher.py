@@ -2,8 +2,8 @@
 
 from typing import Dict, Iterable, Set
 
-from spectra_lexer.interactive.board.element import DiagramElements
-from spectra_lexer.rules import RuleFlags, StenoRule
+from .element import DiagramElements
+from spectra_lexer.steno.rules import RuleFlags, StenoRule
 
 # Format strings for creating SVG element IDs.
 _SVG_RULE_FORMAT = ":{}".format

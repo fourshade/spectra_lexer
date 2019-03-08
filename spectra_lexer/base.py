@@ -28,9 +28,8 @@ class ComponentMeta(type):
                 cmd_dict[key] = (func, next_key, cmd_kwargs)
                 return func
             return add_cmd_attr
-        # Add references to the command decorators for every component. All of them currently do the same thing.
-        decorators = dict.fromkeys(("on", "pipe", "respond_to"), command)
-        return {"cmd_dict": cmd_dict, **decorators, "Option": Option}
+        # Add references to the command decorator and option class for every component.
+        return {"cmd_dict": cmd_dict, "on": command, "pipe": command, "Option": Option}
 
     def __init__(cls, name:str, bases:tuple, dct:dict):
         """ Get every option defined and set additional attributes to update each one on command. """

@@ -2,7 +2,7 @@ from typing import Dict, List
 
 from PyQt5.QtWidgets import QMainWindow, QWidget
 
-from spectra_lexer.gui_qt.main_window_ui import Ui_MainWindow
+from .main_window_ui import Ui_MainWindow
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):

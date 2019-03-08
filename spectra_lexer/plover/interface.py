@@ -2,7 +2,7 @@ from functools import partial
 from typing import Optional, Sequence, Tuple
 
 from spectra_lexer import Component
-from spectra_lexer.plover.compat import join_strokes, PloverAction, PloverEngine, PloverTranslatorState
+from .compat import join_strokes, PloverAction, PloverEngine, PloverTranslatorState
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")

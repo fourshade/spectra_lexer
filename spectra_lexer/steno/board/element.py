@@ -1,6 +1,6 @@
 from typing import Iterable, List
 
-from spectra_lexer.keys import StenoKeys
+from spectra_lexer.steno.keys import StenoKeys
 
 # Pre-made element IDs.
 _BACKGROUND_IDS = ["Base"]

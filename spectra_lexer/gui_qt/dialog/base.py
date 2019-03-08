@@ -3,8 +3,8 @@ from typing import Dict
 
 from PyQt5.QtWidgets import QFileDialog, QMainWindow, QWidget
 
+from .config_dialog import ConfigDialog
 from spectra_lexer import Component
-from spectra_lexer.gui_qt.dialog.config_dialog import ConfigDialog
 
 
 class GUIQtDialogManager(Component):

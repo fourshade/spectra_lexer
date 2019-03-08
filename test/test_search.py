@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from spectra_lexer.interactive.search.dict import SimilarKeyDict, StringSearchDict, ReverseDict, \
+from spectra_lexer.steno.search.dict import SimilarKeyDict, StringSearchDict, ReverseDict, \
     ReverseStringSearchDict
 from test import class_tester
 

@@ -1,6 +1,6 @@
 """ Module for primitive operations consisting of drawing simple lines of text. """
 
-from spectra_lexer.interactive.graph.generator.canvas import Canvas
+from .canvas import Canvas
 
 
 class _Primitive:
