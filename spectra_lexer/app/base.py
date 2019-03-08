@@ -14,7 +14,7 @@ class Application:
 
     components: List[Component]  # List of all connected components. Primarily exists for introspection.
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
-    _options: Dict[str, list]    # Dict of options from all components combined into a list for each role.
+    _options: Dict[str, list]    # Dict of options from all components combined into a list for each source.
     _rlevel: int = 0             # Level of re-entrancy, 0 = top of stack.
 
     def __init__(self, *cls_mod_iter:object):
@@ -33,9 +33,9 @@ class Application:
             for (func, key, *params) in cls.cmd_list:
                 # Bind all class command functions to the instance and save the finished tuples.
                 self._commands[key].append((func.__get__(c, cls), *params))
-            for (src, *params) in cls.opt_list:
-                # Add each option under the source component role that handles it.
-                self._options[src].append(params)
+            for (src, opt) in cls.opt_list:
+                # Add each option under the source command that handles it.
+                self._options[src].append(opt)
 
     def start(self, **opts) -> None:
         """ Parse all global options such as command line arguments from sys.argv. """

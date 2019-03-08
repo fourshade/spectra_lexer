@@ -1,51 +1,24 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import Callable, ClassVar
+from typing import Callable, NamedTuple
 
 from spectra_lexer.utils import nop
 
 
-class Option:
+class Option(NamedTuple):
     """ A customizable option. """
-
-    src: str     # Role of an option's source handler component.
-    key: str     # Option key. Must be unique for a given source.
-    val: object  # Externally visible value, initialized to default.
-    desc: str    # Description as shown on documentation page.
-    tp: type     # Type of the default value, used for conversion.
-
-    def __init__(self, src:str, key:str, default:object=None, desc:str=""):
-        self.src = src
-        self.key = key
-        self.val = default
-        self.desc = desc
-        self.tp = type(default)
-
-    def __get__(self, instance, owner) -> object:
-        """ Options are accessed through the descriptor by the component itself. """
-        return self.val
-
-    def __set__(self, instance, value:object) -> None:
-        """ Options typically come from strings, so they are converted to the most likely useful type. """
-        if self.tp is None or value is None:
-            self.val = value
-        else:
-            self.val = self.tp(value)
-
-    def __set_name__(self, owner, name:str) -> None:
-        """ Set an additional attribute on the owner class to update this option on command. """
-        src = self.src
-        key = self.key
-        def set_arg(cmp:Component, v:object) -> None:
-            """ Overwrite this option with the applicable argument. """
-            setattr(cmp, name, v)
-        owner.on(f"set_{src}_{key}")(set_arg)
-        owner.opt_list.append((src, key, self))
+    src: str                # Designator for an option's source handling command.
+    key: str                # Option key. Must be unique for a given source.
+    default: object = None  # Externally visible default value.
+    desc: str = ""          # Description as shown on documentation page.
 
 
 class ComponentMeta(type):
+    """ Metaclass for all subclasses of Component. Most assembly and configuration is done here,
+        including handling of command decorators, config options, and command line arguments. """
 
-    def __prepare__(cls, bases, **kwargs) -> dict:
+    @classmethod
+    def __prepare__(mcs, name:str, bases:tuple) -> dict:
         # Combine all parent command lists to make a new child list.
         cmd_list = [cmd for b in bases for cmd in getattr(b, "cmd_list", [])]
         def command(key:str, next_key:str=None, **cmd_kwargs) -> Callable:
@@ -57,7 +30,22 @@ class ComponentMeta(type):
             return add_cmd_attr
         # Add references to the command decorators for every component. All of them currently do the same thing.
         decorators = dict.fromkeys(("on", "pipe", "respond_to"), command)
-        return {"cmd_list": cmd_list, "opt_list": [], **decorators, "Option": Option}
+        return {"cmd_list": cmd_list, **decorators, "Option": Option}
+
+    def __init__(cls, name:str, bases:tuple, dct:dict):
+        """ Get every option defined and set additional attributes to update each one on command. """
+        super().__init__(name, bases, dct)
+        cls.opt_list = []
+        for attr, opt in dct.items():
+            if isinstance(opt, Option):
+                def set_arg(cmp:Component, v:object, attr=attr) -> None:
+                    """ Overwrite this option value on the instance. """
+                    setattr(cmp, attr, v)
+                cmd = set_arg.__name__ = f"set_{opt.src}_{opt.key}"
+                setattr(cls, cmd, cls.on(cmd)(set_arg))
+                cls.opt_list.append((opt.src, opt))
+                # Overwrite the option on the class with the default value.
+                setattr(cls, attr, opt.default)
 
 
 class Component(metaclass=ComponentMeta):

@@ -19,12 +19,13 @@ class GUIQtDialogManager(Component):
         self.window = widgets["window"][0]
 
     @on("new_config_dialog")
-    def config_dialog(self, cfg_info:Dict[str, dict]) -> None:
+    def config_dialog(self, cfg_info:Dict[str, dict], cfg_data:Dict[str, dict]=None) -> None:
         """ Create GUI configuration manager dialog; allows editing of config values for any component. """
         if self.dialog is None:
-            self.dialog = ConfigDialog(self.window, partial(self.engine_call, "config_save"))
+            self.dialog = ConfigDialog(self.window, partial(self.engine_call, "config_save"), cfg_info)
         # Load all supported config info for the current components into the dialog and show it.
-        self.dialog.load_settings(cfg_info)
+        if cfg_data is not None:
+            self.dialog.load_settings(cfg_data)
         self.dialog.show()
 
     @on("new_file_dialog")
