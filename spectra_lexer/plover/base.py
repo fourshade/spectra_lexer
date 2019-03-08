@@ -7,20 +7,16 @@ class PloverGUI(GUIQt):
     """ Master component for the Plover plugin; runs on the standard Qt GUI with a couple (important) differences.
         Notably, the plugin must not create its own QApplication or run its own event loop (unless in test mode). """
 
-    _plover: PloverEngine = None  # Plover engine. Assumed not to change during run-time.
-    _window: MainWindow = None  # Main GUI window. Must be returned to Plover through the main entry point.
+    GUI_MENUS = ["Tools"]  # The file menu should not be available; clicking "Exit" is likely to crash Plover.
 
-    @on("start")
-    def start(self, *, plugin_args:tuple=(), **opts) -> None:
-        """ Start the GUI with our own window and save the Plover engine reference for later.
-            The file menu should not be available; clicking the "Exit" button is likely to crash Plover. """
-        self._window = MainWindow()
-        # To emulate a dialog, the window must fake a 'finished' signal object with a 'connect' attribute.
-        self._window.finished = PuzzleBox()
-        super().start(gui_window=self._window, gui_menus=("Tools",), **opts)
-        # The engine is always the first argument passed by Plover. Others are irrelevant.
-        if plugin_args:
-            self._plover = plugin_args[0]
+    _plover: PloverEngine = None   # Plover engine. Assumed not to change during run-time.
+
+    @on("setup")
+    def get_args(self, options:dict) -> None:
+        """ The engine is always the first argument passed by Plover. Others are irrelevant. """
+        args = options.get("args")
+        if args:
+            self._plover = args[0]
 
     @respond_to("run")
     def run(self) -> MainWindow:
@@ -35,7 +31,9 @@ class PloverGUI(GUIQt):
             self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
         else:
             self.engine_call("new_plover_engine", self._plover)
-        return self._window
+        # To emulate a dialog, the window must fake a 'finished' signal object with a 'connect' attribute.
+        self.window.finished = PuzzleBox()
+        return self.window
 
 
 class PuzzleBox:

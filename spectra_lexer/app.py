@@ -16,12 +16,9 @@ class Application:
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
     _rlevel: int = 0             # Level of re-entrancy, 0 = top of stack.
 
-    def __init__(self, *cls_mod_iter:object):
-        """ Create instances of all unique component subclasses in order, including those in modules. """
-        classes = [cls for i in cls_mod_iter for cls in (vars(i).values() if hasattr(i, "__package__") else [i])
-                   if isinstance(cls, type) and issubclass(cls, Component) and cls is not Component]
-        # Duplicate classes and classes with a direct inheritance relationship are not allowed.
-        # Only instantiate the most derived class of each line. Remove duplicates entirely.
+    def __init__(self, *classes:type):
+        """ Create instances of all unique component classes that do not share an inheritance line. """
+        # Only instantiate the most derived class of each line. Position in the list determines command execution order.
         self.components = [cls() for cls in classes if sum(issubclass(other, cls) for other in classes) == 1]
         # Add commands and set callbacks for all components.
         self._commands = defaultdict(list)
@@ -31,16 +28,18 @@ class Application:
                 # Bind all class command functions to the instance and save the finished tuples.
                 self._commands[key].append((func.__get__(c, type(c)), *params))
 
-    def start(self, **opts) -> object:
+    def start(self, *args) -> object:
         """ Run the general lifecycle of the application. """
-        # Collect and process options such as command line arguments from sys.argv. This stage should be very quick.
-        options = defaultdict(list)
+        # Gather options, starting with the arguments given by main(). Add a component section for debug purposes.
+        options = defaultdict(list, args=args, components=self.components)
         for c in self.components:
             for (src, opt) in c.opt_list:
                 options[src].append(opt)
+        # Process options such as these and command line arguments from sys.argv.
+        # This stage should be very quick. Engine calls are not allowed yet.
         self.call("setup", options)
-        # Add the app and its components to the keyword options given by main() and start resource loading.
-        self.call("start", app=self, components=self.components, **opts)
+        # Open communications and start resource loading.
+        self.call("start")
         # After everything else is ready, a component may run an event loop indefinitely.
         # In batch mode, the main operation can run here. A single value may be returned to main().
         return self.call("run")

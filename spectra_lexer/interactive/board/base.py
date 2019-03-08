@@ -8,13 +8,11 @@ from spectra_lexer.interactive.board.matcher import ElementMatcher
 from spectra_lexer.interactive.board.svg import SVGParser
 from spectra_lexer.rules import RuleFlags, StenoRule
 
-# Resource identifier for the main SVG graphic. Contains every element needed.
-_BOARD_ASSET_NAME = ':/board.svg'
-
 
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
+    file = Option("cmdline", "board-file", ":/board.svg", "SVG file with graphics for the steno board diagram.")
     show_compound = Option("config", "board:show_compound_keys", True,
                            "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
 
@@ -28,10 +26,15 @@ class BoardRenderer(Component):
         self._matcher = ElementMatcher()
         self._parser = SVGParser()
 
-    @pipe("start", "new_board_setup")
-    def load(self, **opts) -> Tuple[str, Dict[str, dict]]:
-        """ Load the SVG file on startup and parse element ID names out of the raw XML string data. """
-        xml_dict = self.engine_call("file_load", _BOARD_ASSET_NAME)
+    @pipe("start", "board_load")
+    def start(self) -> tuple:
+        """ Load the default SVG file on startup. """
+        return ()
+
+    @pipe("board_load", "new_board_setup")
+    def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
+        """ Load an SVG file and parse element ID names out of the raw XML string data. """
+        xml_dict = self.engine_call("file_load", filename or self.file)
         id_dict = self._parser.parse(xml_dict)
         self._matcher.set_ids(id_dict)
         # Send the raw SVG text data along with all element IDs to the GUI.

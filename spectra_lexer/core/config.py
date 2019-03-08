@@ -8,7 +8,7 @@ from spectra_lexer.utils import str_eval
 class ConfigManager(Component):
     """ Configuration parser for the Spectra program. """
 
-    file = Option("cmdline", "config-file", "~/config.cfg", "Config .cfg or .ini file to load at startup.")
+    file = Option("cmdline", "config-file", "~/config.cfg", "CFG or INI file with config settings to load at startup.")
 
     _cfg_data: Dict[str, dict]  # Dict with config values from all components loaded from disk.
     _cfg_info: Dict[str, dict]  # Dict with detailed config info from active components.
@@ -24,7 +24,7 @@ class ConfigManager(Component):
             data[sect][name] = opt.default
 
     @pipe("start", "config_load")
-    def start(self, **opts) -> tuple:
+    def start(self) -> tuple:
         """ Add the config dialog command and load the config file. """
         self.engine_call("new_menu_item", "Tools", "Edit Configuration...", "config_dialog")
         return ()

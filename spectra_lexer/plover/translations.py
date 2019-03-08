@@ -9,7 +9,7 @@ class PloverTranslationsManager(TranslationsManager):
     """ Translation parser for the Plover plugin. Plover's data structures behave *almost* like dicts but not quite. """
 
     @on("start")
-    def start(self, **opts) -> None:
+    def start(self) -> None:
         """ Since plugin mode uses dictionaries from Plover's memory, translations should not be loaded from disk. """
         return None
 

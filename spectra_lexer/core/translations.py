@@ -14,10 +14,10 @@ class TranslationsManager(Component):
         that require no extra processing after conversion to/from JSON. """
 
     files = Option("cmdline", "translations-files", [], "Glob patterns for JSON-based translations files to load.")
-    out = Option("cmdline", "translations-out", "translations.json", "Output file name for translations.")
+    out = Option("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
 
     @pipe("start", "translations_load")
-    def start(self, **opts) -> tuple:
+    def start(self) -> tuple:
         """ Load translations at startup. By default, an empty list and means 'try and find the files from Plover'. """
         # If the file menu is used, add a basic file dialog command.
         self.engine_call("file_add_dialog", "translations", menu_pos=1)

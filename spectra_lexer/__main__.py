@@ -6,43 +6,30 @@ from spectra_lexer import batch, core, gui_qt, interactive, plover
 from spectra_lexer.app import Application
 
 
-_ENTRY_POINTS = {}
-def entry_point(func):
-    """ Decorator for a console script entry point. """
-    _ENTRY_POINTS[func.__name__] = func
-    return func
+class EntryPoint:
+    """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes. """
+    def __init__(self, *modules, **attrs):
+        """ Unpack all classes found in modules. These modules can only contain classes suitable for the engine. """
+        self.__dict__ = attrs
+        self.classes = [cls for m in modules for cls in (m, *vars(m).values()) if isinstance(cls, type)]
+
+    def __call__(self, *args):
+        """ Assemble and start all components. """
+        return Application(*self.classes).start(*args)
 
 
-@entry_point
-def analyze():
-    """ Top-level function for operation of the Spectra program by itself in batch mode.
-        The script will exit after processing all translations and saving the rules. """
-    app = Application(core, batch)
-    app.start()
-
-
-@entry_point
-def gui():
-    """ Top-level function for operation of the Spectra program *by itself* with the standard GUI. """
-    # Assemble and start all components. The GUI components must be first in the list so that they start before others.
-    app = Application(gui_qt, core, interactive)
-    app.start()
-
-
-@entry_point
-class PloverPlugin:
-    """ See the breakdown of words using steno rules. """
-
-    # Class constants required by Plover for toolbar.
-    TITLE = 'Spectra'
-    ICON = ':/spectra_lexer/icon.svg'
-    ROLE = 'spectra_dialog'
-    SHORTCUT = 'Ctrl+L'
-
-    def __new__(cls, *args):
-        """ Entry point for the Plover plugin. Running it with no args starts a standalone test configuration. """
-        app = Application(gui_qt, plover, core, interactive)
-        return app.start(plugin_args=args)
+# Run the Spectra program by itself in batch mode.
+analyze = EntryPoint(core, batch)
+# Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
+gui = EntryPoint(gui_qt, core, interactive)
+# Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
+plugin = EntryPoint(gui_qt, plover, core, interactive,
+                    # Class constants required by Plover for toolbar.
+                    __doc__='See the breakdown of words using steno rules.',
+                    TITLE='Spectra',
+                    ICON=':/spectra_lexer/icon.svg',
+                    ROLE='spectra_dialog',
+                    SHORTCUT='Ctrl+L')
 
 
 def main():
@@ -53,7 +40,7 @@ def main():
     # With no arguments, redirect to the standalone GUI app.
     mode, *cmd_opts = args or ["gui"]
     # Make sure the mode matches exactly one entry point function.
-    matches = [func for attr, func in _ENTRY_POINTS.items() if attr.startswith(mode)]
+    matches = [ep for attr, ep in globals().items() if attr.startswith(mode) and isinstance(ep, EntryPoint)]
     if not matches:
         print(f'No matches for operation "{mode}"')
         return

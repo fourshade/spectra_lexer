@@ -33,7 +33,7 @@ class RulesManager(Component):
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
     @pipe("start", "rules_load")
-    def start(self, **opts) -> tuple:
+    def start(self) -> tuple:
         """ If the file menu is used, add a basic file dialog command. """
         self.engine_call("file_add_dialog", "rules", menu_pos=0)
         return ()

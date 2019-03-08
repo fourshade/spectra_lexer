@@ -10,11 +10,14 @@ class SpectraConsole(Component):
     console: InterpreterConsole = None  # Main interpreter console, run on a different thread.
     console_vars: dict = None           # Variables to load on interpreter startup.
 
+    @on("setup")
+    def new_options(self, options:dict) -> None:
+        """ Add all global options to the interpreter on setup. """
+        self.console_vars = options
+
     @on("start")
-    def start(self, **opts) -> None:
-        """ Add all global options to the interpreter on start. """
-        self.console_vars = opts
-        # Add an item to the GUI tools menu to start the console.
+    def start(self) -> None:
+        """ Add an item to the GUI tools menu to start the console. """
         self.engine_call("new_menu_item", "Tools", "Open Console...", "console_open")
 
     @pipe("console_open", "new_interactive_text", keyboard=True, scroll_to="bottom")
