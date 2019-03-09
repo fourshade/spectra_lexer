@@ -61,6 +61,7 @@ class RulesManager(Component):
 
     files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
     out = Option("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
+    dialog = Option("menu", "File:Load Rules", "new_file_dialog", ["rules"])
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
@@ -68,8 +69,6 @@ class RulesManager(Component):
 
     @pipe("start", "rules_load")
     def start(self) -> tuple:
-        """ If the file menu is used, add a basic file dialog command. """
-        self.engine_call("file_add_dialog", "rules", menu_pos=0)
         return ()
 
     @pipe("rules_load", "new_rules")

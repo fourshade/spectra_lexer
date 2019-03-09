@@ -9,14 +9,23 @@ class GUIQtMenu(Component):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
-    _menus: Dict[str, QMenu] = {}  # Menu headings (File, Edit, etc.) mapped to Qt menu objects.
+    _options: list            # Menu items given by components as options at setup.
+    _menus: Dict[str, QMenu]  # Menu headings (File, Edit, etc.) mapped to Qt menu objects.
+
+    @on("setup")
+    def new_options(self, options:dict) -> None:
+        """ Gather the menu items declared as options during setup. """
+        self._options = options.get("menu", [])
 
     @on("new_gui_menu")
     def start(self, widgets:Dict[str, QWidget], menus:Sequence[str]=()) -> None:
-        """ Add the initial headings to the menu bar (if any). The widget reference does not need to be saved. """
+        """ Add the initial headings and items to the menu bar. The widget reference does not need to be saved. """
         menu = widgets["menu"][0]
         menu.setVisible(bool(menus))
         self._menus = {m: menu.addMenu(m) for m in menus}
+        for opt in self._options:
+            args = opt.desc or ()
+            self.add(*opt.key.split(":", 1), opt.default, *args)
 
     @on("new_menu_item")
     def add(self, heading:str, action:str, command:str, *args, menu_pos:int=-1, sep_first:bool=False, **kwargs) -> None:

@@ -25,8 +25,7 @@ class ConfigManager(Component):
 
     @pipe("start", "config_load")
     def start(self) -> tuple:
-        """ Add the config dialog command and load the config file. """
-        self.engine_call("new_menu_item", "Tools", "Edit Configuration...", "config_dialog")
+        """ Load the config file on startup. """
         return ()
 
     @on("config_load")

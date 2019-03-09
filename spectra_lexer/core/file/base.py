@@ -30,13 +30,10 @@ class FileHandler(Component):
         """ Attempt to encode and save a resource to a file given by name. """
         return self._encode(resource_from_string(filename), d)
 
-    @on("file_add_dialog")
-    def add_dialog(self, d_type:str, **kwargs) -> None:
-        """ Add a basic file dialog command for a data type with all valid file extensions (including the dot). """
-        title_msg = f"Load {d_type.title()}"
-        filter_msg = f"Supported file formats (*{' *'.join(self._codecs.get_formats())})"
-        self.engine_call("new_menu_item", "File", title_msg + "...",
-                         "new_file_dialog", d_type, title_msg + " Dictionaries", filter_msg, **kwargs)
+    @on("file_get_extensions")
+    def get_exts(self) -> list:
+        """ Return a list of all valid file extensions (including the dot). """
+        return self._codecs.get_formats()
 
     def _decode(self, f:Resource) -> dict:
         """ Read and decode a string resource. """

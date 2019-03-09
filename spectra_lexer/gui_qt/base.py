@@ -18,14 +18,14 @@ class GUIQt(Component):
     @on("start")
     def start(self) -> None:
         """ Make the window if necessary, get all required widgets from it, and send them to the components. """
-        window = self.window = MainWindow()
-        widgets = window.widgets
+        self.window = MainWindow()
+        widgets = self.window.widgets
         # The menu must be initialized first so it can add items from other components.
         self.engine_call("new_gui_menu", widgets, self.GUI_MENUS)
         self.engine_call("new_gui_window", widgets)
-        self.engine_call("new_menu_item", "File", "Exit", "gui_window_close", window, sep_first=True)
+        self.engine_call("new_menu_item", "File", "Exit", "gui_window_close", sep_first=True)
         # Show the window, then manually process all GUI events to avoid hanging.
-        window.show()
+        self.window.show()
         self.QT_APP.processEvents()
 
     @on("run")
@@ -34,7 +34,7 @@ class GUIQt(Component):
         return self.QT_APP.exec_()
 
     @on("gui_window_close")
-    def close(self, window:MainWindow) -> None:
+    def close(self) -> None:
         """ Closing the main window kills the program in standalone mode. Do not call as a plugin. """
-        if window is not None:
-            window.close()
+        if self.window is not None:
+            self.window.close()

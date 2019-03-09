@@ -8,7 +8,9 @@ from spectra_lexer import Component
 
 
 class GUIQtDialogManager(Component):
-    """ GUI dialog manager dialog; allows editing of config values for any component. """
+    """ GUI dialog manager. """
+
+    config_menu = Option("menu", "Tools:Edit Configuration...", "config_dialog")
 
     window: QMainWindow = None   # Main window object. Must be the parent of any new dialogs.
     dialog: ConfigDialog = None  # Config dialog object. Should persist when closed/hidden.
@@ -29,8 +31,11 @@ class GUIQtDialogManager(Component):
         self.dialog.show()
 
     @on("new_file_dialog")
-    def file_dialog(self, d_type:str, title_msg:str, filter_msg:str) -> None:
+    def file_dialog(self, d_type:str) -> None:
         """ Present a dialog for the user to select dictionary files. Attempt to load them if not empty. """
+        fmts = self.engine_call("file_get_extensions")
+        title_msg = f"Load {d_type.title()}"
+        filter_msg = f"Supported file formats (*{' *'.join(fmts)})"
         (filenames, _) = QFileDialog.getOpenFileNames(self.window, title_msg, ".", filter_msg)
         if filenames:
             self.engine_call("new_status", f"Loading {d_type}...")

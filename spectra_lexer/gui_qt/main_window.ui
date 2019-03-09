@@ -365,7 +365,7 @@
   <customwidget>
    <class>TextGraphWidget</class>
    <extends>QTextEdit</extends>
-   <header>spectra_lexer.gui_qt.graph.text_graph_widget</header>
+   <header>spectra_lexer.gui_qt.text.text_graph_widget</header>
   </customwidget>
   <customwidget>
    <class>StenoBoardWidget</class>
