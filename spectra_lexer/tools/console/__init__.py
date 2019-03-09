@@ -1,1 +1,1 @@
-from .base import SpectraConsole
+from .base import ConsoleTool

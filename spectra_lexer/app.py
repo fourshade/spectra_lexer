@@ -37,7 +37,7 @@ class Application:
                 options[src].append(opt)
         # Process options such as these and command line arguments from sys.argv.
         # This stage should be very quick. Engine calls are not allowed yet.
-        self.call("setup", options)
+        self.call("setup", **options)
         # Open communications and start resource loading.
         self.call("start")
         # After everything else is ready, a component may run an event loop indefinitely.

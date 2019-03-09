@@ -1,5 +1,5 @@
-from spectra_lexer.gui_qt import GUIQt, GUIQtFileDialog
 from .compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverEngine, PloverAction
+from spectra_lexer.gui_qt import GUIQt
 
 
 class PloverGUI(GUIQt):
@@ -9,9 +9,8 @@ class PloverGUI(GUIQt):
     _plover: PloverEngine = None  # Plover engine. Assumed not to change during run-time.
 
     @on("setup")
-    def new_options(self, options:dict) -> None:
+    def new_options(self, *, args=(), **options) -> None:
         """ The engine is always the first argument passed by Plover. Others are irrelevant. """
-        args = options.get("args")
         if args:
             self._plover = args[0]
 
@@ -31,10 +30,6 @@ class PloverGUI(GUIQt):
         # To emulate a dialog, the window must fake a 'finished' signal object with a 'connect' attribute.
         self.window.finished = PuzzleBox()
         return self.window
-
-
-class PloverFileDialog(GUIQtFileDialog):
-    """ Override the file dialog class to remove the file menu. """
 
 
 class PuzzleBox:

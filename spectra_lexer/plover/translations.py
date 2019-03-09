@@ -2,16 +2,15 @@ from itertools import chain
 from typing import Dict
 
 from spectra_lexer.steno import TranslationsManager
+from spectra_lexer.utils import nop
 from .compat import join_strokes, PloverStenoDictCollection
 
 
 class PloverTranslationsManager(TranslationsManager):
     """ Translation parser for the Plover plugin. Plover's data structures behave *almost* like dicts but not quite. """
 
-    @on("start")
-    def start(self) -> None:
-        """ Since plugin mode uses dictionaries from Plover's memory, translations should not be loaded from disk. """
-        return None
+    # Since plugin mode uses dictionaries from Plover's memory, translations should not be loaded from disk.
+    on("start")(nop)
 
     @pipe("plover_load_dicts", "new_translations")
     def load_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:

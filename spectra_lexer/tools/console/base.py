@@ -4,16 +4,16 @@ from .interpreter import InterpreterConsole
 from spectra_lexer import Component
 
 
-class SpectraConsole(Component):
+class ConsoleTool(Component):
     """ Component for interactive engine and system interpreter operations. """
 
-    console_menu = Option("menu", "Tools:Open Console...", "console_open")
+    console_menu = Option("menu", "Tools:Open Console...", ["console_open"])
 
     console: InterpreterConsole = None  # Main interpreter console, run on a different thread.
     console_vars: dict = None           # Variables to load on interpreter startup.
 
     @on("setup")
-    def new_options(self, options:dict) -> None:
+    def new_options(self, **options) -> None:
         """ Add all global options to the interpreter on setup. """
         self.console_vars = options
 

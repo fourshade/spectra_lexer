@@ -2,16 +2,20 @@
 
 import sys
 
-from spectra_lexer import batch, core, gui_qt, plover, steno, tools
+from spectra_lexer import batch, core, gui_qt, plover, steno, tools, Component
 from spectra_lexer.app import Application
+from spectra_lexer.steno import SearchEngine
+from spectra_lexer.tools import FileDialogTool
 
 
 class EntryPoint:
-    """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes. """
+    """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes.
+        Arguments may include component classes and modules. Adding a component class already present removes it. """
     def __init__(self, *modules, **attrs):
-        """ Unpack all classes found in modules. These modules can only contain classes suitable for the engine. """
+        """ Unpack all component classes found in modules. """
         self.__dict__ = attrs
-        self.classes = [cls for m in modules for cls in (m, *vars(m).values()) if isinstance(cls, type)]
+        self.classes = [cls for m in modules for cls in (m, *vars(m).values())
+                        if isinstance(cls, type) and issubclass(cls, Component)]
 
     def __call__(self, *args):
         """ Assemble and start all components. """
@@ -19,11 +23,11 @@ class EntryPoint:
 
 
 # Run the Spectra program by itself in batch mode.
-analyze = EntryPoint(core, steno, batch)
+analyze = EntryPoint(batch, core, steno, SearchEngine)
 # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
-gui = EntryPoint(gui_qt, core, steno, tools)
+gui = EntryPoint(gui_qt, tools, core, steno)
 # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
-plugin = EntryPoint(gui_qt, plover, core, steno, tools,
+plugin = EntryPoint(plover, gui_qt, tools, FileDialogTool, core, steno,
                     # Class constants required by Plover for toolbar.
                     __doc__='See the breakdown of words using steno rules.',
                     TITLE='Spectra',

@@ -14,11 +14,11 @@ class CmdlineParser(Component):
     _parser: ArgumentParser  # Temporarily holds command line option info from active components.
 
     @on("setup")
-    def parse_args(self, options:dict) -> None:
+    def parse_args(self, *, cmdline=(), **options) -> None:
         """ Create the parser and add all possible command line options from each component that has some. """
         # Suppress defaults from unused arguments (components have their own default settings).
         self._parser = ArgumentParser(description="Steno rule analyzer", argument_default=SUPPRESS)
-        for opt in options.get("cmdline", []):
+        for opt in cmdline:
             # All options handled here must be parsed as long options connected by hyphens.
             kwds = {"help": opt.desc, "metavar": str_suffix(opt.key, "-").upper()}
             kwds.update(_TYPE_KWDS[type(opt.default)])
