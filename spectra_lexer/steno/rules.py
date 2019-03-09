@@ -61,16 +61,12 @@ class RulesManager(Component):
 
     files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
     out = Option("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
-    dialog = Option("menu", "File:Load Rules", "new_file_dialog", ["rules"])
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    @pipe("start", "rules_load")
-    def start(self) -> tuple:
-        return ()
-
+    @pipe("start", "new_rules")
     @pipe("rules_load", "new_rules")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """

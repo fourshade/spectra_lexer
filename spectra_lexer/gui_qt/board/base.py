@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict, Iterable
+from typing import Iterable
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
@@ -13,10 +13,10 @@ class GUIQtBoardDisplay(Component):
     w_desc: QLineEdit          # Displays rule description.
     w_board: StenoBoardWidget  # Displays steno board diagram.
 
-    @on("new_gui_window")
-    def start(self, widgets:Dict[str, QWidget]) -> None:
-        """ Get the required widgets and set the size change callback. """
-        self.w_desc, self.w_board = widgets["board"]
+    @on("new_gui_board")
+    def new_gui(self, *widgets:QWidget) -> None:
+        """ Save the required widgets and set the size change callback. """
+        self.w_desc, self.w_board = widgets
         # Send the bounds of graphical elements, the view box, and the size of the board on resize.
         self.w_board.resize_callback = partial(self.engine_call, "board_set_layout")
 

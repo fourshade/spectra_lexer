@@ -1,11 +1,10 @@
 from functools import partial
-from typing import Dict, List
+from typing import List
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
 from .search_list_widget import SearchListWidget
 from spectra_lexer import Component
-
 
 
 class GUIQtSearchPanel(Component):
@@ -17,10 +16,10 @@ class GUIQtSearchPanel(Component):
     strokes_chk: QCheckBox          # Check box to determine whether to use word or stroke search.
     regex_chk: QCheckBox            # Check box to determine whether to use prefix or regex search.
 
-    @on("new_gui_window")
-    def start(self, widgets:Dict[str, QWidget]) -> None:
-        """ Get the required widgets and connect all Qt signals on engine start. """
-        self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk = widgets["search"]
+    @on("new_gui_search")
+    def new_gui(self, *widgets:QWidget) -> None:
+        """ Save the required widgets and connect all Qt signals on engine start. """
+        self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk = widgets
         signals = {self.input_textbox.textEdited:    "search_input",
                    self.match_list.itemSelected:     "search_choose_match",
                    self.mapping_list.itemSelected:   "search_choose_mapping",

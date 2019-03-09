@@ -14,7 +14,7 @@ class Application:
 
     components: List[Component]  # List of all connected components.
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
-    _rlevel: int = 0             # Level of re-entrancy, 0 = top of stack.
+    _rlevel: int = -1            # Level of re-entrancy, 0 = top of stack, -1 = not started yet.
 
     def __init__(self, *classes:type):
         """ Create instances of all unique component classes that do not share an inheritance line. """

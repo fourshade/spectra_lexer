@@ -1,4 +1,4 @@
-from spectra_lexer.gui_qt import GUIQt
+from spectra_lexer.gui_qt import GUIQt, GUIQtFileDialog
 from .compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverEngine, PloverAction
 
 
@@ -6,12 +6,10 @@ class PloverGUI(GUIQt):
     """ Master component for the Plover plugin; runs on the standard Qt GUI with a couple (important) differences.
         Notably, the plugin must not create its own QApplication or run its own event loop (unless in test mode). """
 
-    GUI_MENUS = ["Tools"]  # The file menu should not be available; clicking "Exit" is likely to crash Plover.
-
-    _plover: PloverEngine = None   # Plover engine. Assumed not to change during run-time.
+    _plover: PloverEngine = None  # Plover engine. Assumed not to change during run-time.
 
     @on("setup")
-    def get_args(self, options:dict) -> None:
+    def new_options(self, options:dict) -> None:
         """ The engine is always the first argument passed by Plover. Others are irrelevant. """
         args = options.get("args")
         if args:
@@ -33,6 +31,10 @@ class PloverGUI(GUIQt):
         # To emulate a dialog, the window must fake a 'finished' signal object with a 'connect' attribute.
         self.window.finished = PuzzleBox()
         return self.window
+
+
+class PloverFileDialog(GUIQtFileDialog):
+    """ Override the file dialog class to remove the file menu. """
 
 
 class PuzzleBox:

@@ -1,6 +1,6 @@
-from typing import Dict, Sequence
+from typing import Dict
 
-from PyQt5.QtWidgets import QAction, QMenu, QWidget
+from PyQt5.QtWidgets import QAction, QMenu, QWidget, QMenuBar
 
 from spectra_lexer import Component
 
@@ -9,8 +9,9 @@ class GUIQtMenu(Component):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
         Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
 
-    _options: list            # Menu items given by components as options at setup.
-    _menus: Dict[str, QMenu]  # Menu headings (File, Edit, etc.) mapped to Qt menu objects.
+    _options: list                 # Menu items given by components as options at setup.
+    _menu_bar: QMenuBar            # Menu widget reference.
+    _menus: Dict[str, QMenu] = {}  # Menu headings (File, Edit, etc.) mapped to Qt menu objects.
 
     @on("setup")
     def new_options(self, options:dict) -> None:
@@ -18,31 +19,25 @@ class GUIQtMenu(Component):
         self._options = options.get("menu", [])
 
     @on("new_gui_menu")
-    def start(self, widgets:Dict[str, QWidget], menus:Sequence[str]=()) -> None:
-        """ Add the initial headings and items to the menu bar. The widget reference does not need to be saved. """
-        menu = widgets["menu"][0]
-        menu.setVisible(bool(menus))
-        self._menus = {m: menu.addMenu(m) for m in menus}
-        for opt in self._options:
-            args = opt.desc or ()
-            self.add(*opt.key.split(":", 1), opt.default, *args)
+    def new_gui(self, menu:QWidget) -> None:
+        """ Add the initial headings and items to the menu bar and save the widget reference. """
+        self._menu_bar = menu
+        args = [[*opt.key.split(":", 1), opt.default] for opt in self._options]
+        for a in args:
+            self.add(*a)
 
     @on("new_menu_item")
-    def add(self, heading:str, action:str, command:str, *args, menu_pos:int=-1, sep_first:bool=False, **kwargs) -> None:
-        """ Add a new menu item under <heading> -> <action> to execute <command>. Only add it if its heading exists. """
+    def add(self, heading:str, action:str, command:str="", *args, **kwargs) -> None:
+        """ Add a new menu item under <heading> -> <action> to execute <command>. Make a new heading if necessary. """
         menu_obj = self._menus.get(heading)
-        if menu_obj is not None:
+        if menu_obj is None:
+            menu_obj = self._menus[heading] = self._menu_bar.addMenu(heading)
+        if action == "SEPARATOR":
+            # Add a separator on encountering a certain text string. Don't connect it to anything.
+            menu_obj.addSeparator()
+        else:
             a = QAction(action, menu_obj)
-            old_actions = menu_obj.actions()
-            if menu_pos < 0 or menu_pos >= len(old_actions):
-                # If no position (or an invalid one) was specified, add the new action to the end of the list.
-                menu_obj.addAction(a)
-            else:
-                # If a valid position was specified, add the new action at that index.
-                menu_obj.insertAction(old_actions[menu_pos], a)
-            # Include a separator above the item if <sep_first> is True.
-            if sep_first:
-                menu_obj.insertSeparator(a)
+            menu_obj.addAction(a)
             # Only call the command with args given on setup. Args passed by the signal are useless.
             def execute(*trash, **garbage):
                 return self.engine_call(command, *args, **kwargs)

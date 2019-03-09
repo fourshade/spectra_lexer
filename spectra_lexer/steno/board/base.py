@@ -26,11 +26,7 @@ class BoardRenderer(Component):
         self._matcher = ElementMatcher()
         self._parser = SVGParser()
 
-    @pipe("start", "board_load")
-    def start(self) -> tuple:
-        """ Load the default SVG file on startup. """
-        return ()
-
+    @pipe("start", "new_board_setup")
     @pipe("board_load", "new_board_setup")
     def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
         """ Load an SVG file and parse element ID names out of the raw XML string data. """
@@ -53,18 +49,15 @@ class BoardRenderer(Component):
             return self._layout.make_draw_list(self._last_ids)
 
     @pipe("new_lexer_result", "new_board_gfx")
+    @pipe("new_graph_selection", "new_board_gfx")
     def get_info(self, rule:StenoRule) -> List[tuple]:
-        """ Generate board diagram graphics from a steno rule and send them along with the description. """
+        """ Generate board diagram graphics from a steno rule and send them along with the description.
+            The task is identical whether the rule is from a new lexer result or a user graph selection. """
         self.engine_call("new_board_description", _get_description(rule))
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         self._last_ids = self._matcher.get_element_ids(rule, self.show_compound)
         if self._layout is not None:
             return self._layout.make_draw_list(self._last_ids)
-
-    @pipe("new_graph_selection", "new_board_gfx")
-    def get_selection_info(self, rule:StenoRule) -> List[tuple]:
-        """ The task is identical whether the rule is from a new lexer result or a user graph selection. """
-        return self.get_info(rule)
 
 
 def _get_description(rule:StenoRule) -> str:

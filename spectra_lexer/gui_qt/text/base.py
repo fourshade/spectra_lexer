@@ -1,7 +1,6 @@
 from functools import partial
 import sys
 from traceback import TracebackException
-from typing import Dict
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
@@ -16,10 +15,10 @@ class GUIQtTextDisplay(Component):
     w_title: QLineEdit = None       # Displays status messages and mapping of keys to word.
     w_text: TextGraphWidget = None  # Displays formatted rule graphs and other textual data.
 
-    @on("new_gui_window")
-    def start(self, widgets:Dict[str, QWidget]) -> None:
-        """ Get the required widgets and connect the keyboard and mouse signals to the main text window. """
-        self.w_title, self.w_text = widgets["text"]
+    @on("new_gui_text")
+    def new_gui(self, *widgets:QWidget) -> None:
+        """ Save the required widgets and connect the keyboard and mouse signals to the main text window. """
+        self.w_title, self.w_text = widgets
         self.w_text.textMouseAction.connect(partial(self.engine_call, "text_mouse_action"))
         self.w_text.textKeyboardInput.connect(partial(self.engine_call, "text_keyboard_input"))
 

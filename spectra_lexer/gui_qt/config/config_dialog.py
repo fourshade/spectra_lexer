@@ -89,7 +89,7 @@ class ConfigDialog(QDialog):
             self.w_tabs.addTab(page, sect)
 
     def load_settings(self, cfg_data:Dict[str, dict]) -> None:
-        """ Load all config values from a dict to each page and widget. """
+        """ Load all config values from a dict to each page and widget and show the dialog. """
         for (sect, page) in cfg_data.items():
             if sect in self._pages:
                 self._pages[sect].load(page)

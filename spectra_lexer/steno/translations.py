@@ -13,14 +13,20 @@ class TranslationsManager(Component):
     """ Translation parser for the Spectra program. The structures are just string dicts
         that require no extra processing after conversion to/from JSON. """
 
+    # By default, an empty list and means 'try and find the files from Plover on start'.
     files = Option("cmdline", "translations-files", [], "Glob patterns for JSON-based translations files to load.")
     out = Option("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
-    dialog = Option("menu", "File:Load Translations", "new_file_dialog", ["translations"])
 
-    @pipe("start", "translations_load")
-    def start(self) -> tuple:
-        """ Load translations at startup. By default, an empty list and means 'try and find the files from Plover'. """
-        return ()
+    @pipe("start", "new_translations")
+    @pipe("translations_load", "new_translations")
+    def load(self, filenames:Sequence[str]=()) -> dict:
+        """ Load and merge translations from disk. """
+        return merge(self.engine_call("file_load_all", *(filenames or self.files or self._default_files())))
+
+    @pipe("translations_save", "file_save")
+    def save(self, d:dict, filename:str="") -> tuple:
+        """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
+        return (filename or self.out), d
 
     def _default_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
@@ -38,13 +44,3 @@ class TranslationsManager(Component):
         except json.decoder.JSONDecodeError:
             print("Problem decoding JSON in plover.cfg.")
         return []
-
-    @pipe("translations_load", "new_translations")
-    def load(self, filenames:Sequence[str]=()) -> dict:
-        """ Load and merge translations from disk. """
-        return merge(self.engine_call("file_load_all", *(filenames or self.files or self._default_files())))
-
-    @pipe("translations_save", "file_save")
-    def save(self, d:dict, filename:str="") -> tuple:
-        """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
-        return (filename or self.out), d
