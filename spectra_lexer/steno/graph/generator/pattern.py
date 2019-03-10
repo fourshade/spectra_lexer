@@ -7,10 +7,7 @@ from spectra_lexer.utils import memoize_one_arg
 class Symbols:
     """ Creates primitives to write symbol patterns with a given length to a canvas. """
 
-    _primitive: type
-    _constructor: callable
-
-    def __init__(self, primitive:type, single:str, sides:str, middle:str):
+    def __new__(cls, primitive:type, single:str, sides:str, middle:str):
         """ Return a memoized version of a symbol generator for a specific symbol set and primitive type.  """
         @memoize_one_arg
         def constructor(length:int) -> str:
@@ -22,11 +19,9 @@ class Symbols:
                 return single
             (left, right) = sides
             return left + middle * (length - 2) + right
-        self._primitive = primitive
-        self._constructor = constructor
-
-    def __call__(self, length:int, *args):
-        return self._primitive(self._constructor(length), *args)
+        def make_primitive(length:int, tag:str):
+            return primitive(constructor(length), tag)
+        return make_primitive
 
     @classmethod
     def Row(cls, *args):

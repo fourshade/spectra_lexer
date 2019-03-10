@@ -21,11 +21,11 @@ class ComponentMeta(type):
     def __prepare__(mcs, name:str, bases:tuple) -> dict:
         # Combine all parent command dicts to make a new child dict. Child commands will override these.
         cmd_dict = {key: cmd for b in bases for key, cmd in getattr(b, "cmd_dict", {}).items()}
-        def command(key:str, next_key:str=None, **cmd_kwargs) -> Callable:
+        def command(key:str, *cmd_args, **cmd_kwargs) -> Callable:
             """ Decorator for component engine command flow. """
             def add_cmd_attr(func:Callable) -> Callable:
                 """ Add a command to call the function. """
-                cmd_dict[key] = (func, next_key, cmd_kwargs)
+                cmd_dict[key] = (func, cmd_args, cmd_kwargs)
                 return func
             return add_cmd_attr
         # Add references to the command decorator and option class for every component.

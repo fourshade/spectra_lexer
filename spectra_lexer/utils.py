@@ -11,7 +11,7 @@ def nop(*args, **kwargs) -> None:
     """ ... """
 
 
-def compose(*funcs:callable) -> callable:
+def compose(*funcs):
     """ Compose a series of n callables to create a single callable that combines
         their effects, calling each one in turn with the result of the previous.
         The order is defined such that the first callable in the sequence receives
@@ -62,7 +62,7 @@ def merge(d_iter) -> dict:
     return merged
 
 
-def memoize_one_arg(fn:callable) -> callable:
+def memoize_one_arg(fn):
     """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
     class MemoDict(dict):
         def __missing__(self, key):
@@ -71,10 +71,10 @@ def memoize_one_arg(fn:callable) -> callable:
     return MemoDict().__getitem__
 
 
-def nondata_property(fn:callable) -> callable:
+def nondata_property(fn):
     """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
     class NondataProp:
-        def __get__(self, instance, owner) -> str:
+        def __get__(self, instance, owner):
             return fn(instance)
     return NondataProp()
 
@@ -108,7 +108,7 @@ def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
     return _split(s, sep, 1)[-1]
 
 
-def str_map(s:str, fn:callable, sep:str=" ", _split=str.split, _map=map, _join=str.join) -> str:
+def str_map(s:str, fn, sep:str=" ", _split=str.split, _map=map, _join=str.join) -> str:
     """ Split the string on a delimiter, then map a str->str function to each piece and join it back together. """
     return _join(sep, _map(fn, _split(s, sep)))
 

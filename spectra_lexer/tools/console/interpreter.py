@@ -2,6 +2,7 @@ from code import InteractiveConsole
 from io import StringIO, TextIOBase
 import sys
 from threading import Condition, Thread
+from typing import Callable
 
 # Banner containing the Python version after formatting once, and the locals dict after formatting twice.
 _BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current global objects and options:\n{{}}"
@@ -10,11 +11,11 @@ _BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current global 
 class ConsoleIO(TextIOBase):
     """ Controls all input/output streams necessary for interpreter operation. """
 
-    _return_fn: callable  # Callback to return control on read.
-    _sys_streams: dict    # Dict of the original system standard stream handles.
-    _out: StringIO        # Output stream; takes the place of both stdout and stderr.
+    _return_fn: Callable[[str], str]  # Callback to return control on read.
+    _sys_streams: dict                # Dict of the original system standard stream handles.
+    _out: StringIO                    # Output stream; takes the place of both stdout and stderr.
 
-    def __init__(self, return_fn:callable):
+    def __init__(self, return_fn:Callable[[str],str]):
         """ Save the standard stream handles so they can be overridden during interpreter activity.
             This object itself overrides stdin, blocking until other threads provide input. """
         self._return_fn = return_fn
@@ -55,7 +56,7 @@ class InterpreterThread(Thread):
         self._condition = Condition()
         super().__init__(*args, daemon=True, **kwargs)
 
-    def switch(self):
+    def switch(self) -> None:
         """ Using the mutex, switch between the active and inactive thread. """
         with self._condition:
             self._condition.notify()
@@ -101,7 +102,7 @@ class InterpreterConsole(InteractiveConsole):
         self._thread.switch()
         return self._input
 
-    def runcode(self, code):
+    def runcode(self, code) -> None:
         """ Run the current code object on the main thread (so that Qt objects are accessible). """
         self._code = code
         self._thread.switch()

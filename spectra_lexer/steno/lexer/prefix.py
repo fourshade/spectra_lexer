@@ -1,4 +1,4 @@
-from typing import Iterable, Sequence, Tuple
+from typing import Callable, Iterable, Sequence, Tuple
 
 from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.utils import str_without
@@ -37,7 +37,7 @@ class PrefixTree:
 class OrderedKeyPrefixTree(PrefixTree):
     """ Prefix search tree that returns rules matching a prefix of ORDERED keys only. """
 
-    _get_unordered_in: callable  # Alias for intersection with unordered keys.
+    _get_unordered_in: Callable  # Alias for intersection with unordered keys.
 
     def __init__(self, unordered:Iterable[str]):
         """ Make the tree given a subset of keys that are to be treated as invisible to prefixes. """

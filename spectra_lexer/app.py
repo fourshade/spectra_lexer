@@ -47,14 +47,14 @@ class Application:
     def call(self, key:str, *args, **kwargs) -> object:
         """ Run all commands under this key (if any) and return the last value. """
         value = None
-        for func, next_key, cmd_kwargs in self._commands[key]:
+        for func, cmd_args, cmd_kwargs in self._commands[key]:
             with self:
                 value = func(*args, **kwargs)
             # If there's a follow-up command to run and the output value wasn't None, run it with that value.
-            if value is not None and next_key is not None:
+            if value is not None and cmd_args:
                 # Normal tuples (not subclasses) will be automatically unpacked into the next command.
                 next_args = value if type(value) is tuple else (value,)
-                self.call(next_key, *next_args, **cmd_kwargs)
+                self.call(*cmd_args, *next_args, **cmd_kwargs)
         return value
 
     def __enter__(self) -> None:

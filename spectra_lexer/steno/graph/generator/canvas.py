@@ -1,7 +1,7 @@
 """ Module for the lowest-level string and list operations. Performance is more critical than readability here. """
 
 from operator import itemgetter
-from typing import List
+from typing import Callable, List
 
 
 class Canvas(List[list]):
@@ -51,11 +51,11 @@ class Canvas(List[list]):
         line = [" ", None] * cols
         return cls(map(list, [line] * rows))
 
-    def row_str_op(self, row:int, op:callable, *args, _join="".join) -> None:
+    def row_str_op(self, row:int, op:Callable, *args, _join="".join) -> None:
         """ Simulate a string operation on an entire row without altering any tags. The length must not change. """
         self[row][::2] = op(_join(self[row][::2]), *args)
 
-    def col_str_op(self, col:int, op:callable, *args, _join="".join) -> None:
+    def col_str_op(self, col:int, op:Callable, *args, _join="".join) -> None:
         """ Simulate a string operation on an entire column without altering any tags. The length must not change. """
         col *= 2
         s = _join(map(itemgetter(col), self))
