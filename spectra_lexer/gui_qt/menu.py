@@ -1,42 +1,25 @@
-from typing import Callable, Dict
-
-from PyQt5.QtWidgets import QAction, QMenu, QWidget, QMenuBar
-
 from spectra_lexer import Component
+from spectra_lexer.utils import memoize_one_arg
 
 
 class GUIQtMenu(Component):
-    """ GUI operations class for the menu bar. Each action just consists of clicking a menu bar item.
-        Unlike other widgets, this one starts out empty and has items added dynamically on engine configuration. """
+    """ GUI operations class for the menu bar. Each action just consists of clicking a menu item.
+        Unlike other widgets, this one starts out empty and has items added on engine configuration. """
 
-    m_menu: QMenuBar             # Menu widget reference.
-    _submenus: Dict[str, QMenu]  # Menu headings (File, Edit, etc.) mapped to Qt sub-menu objects.
+    _items: list  # List of tuples describing menu items. Adding them must wait until the GUI sends the menu widget.
+
+    @on("setup")
+    def new_options(self, *, menu=(), **options) -> None:
+        """ Gather the menu items declared as options during setup and prepare the function calls. """
+        self._items = [(opt.key.split(":", 1), lambda *xx, args=opt.default: self.engine_call(*args)) for opt in menu]
 
     @on("new_gui_menu")
-    def new_gui(self, menu:QWidget) -> None:
-        """ Save the widget reference. """
-        self.m_menu = menu
-        self._submenus = {}
-
-    @on("new_menu_item")
-    def add_item(self, heading:str, action:str, func:Callable=None) -> None:
-        """ Add a new menu item under <heading> -> <action> to execute <func>. """
-        menu_obj = self._get_menu(heading)
-        a = QAction(action, menu_obj)
-        menu_obj.addAction(a)
-        if func:
-            # Only call the function by itself. Args passed by the signal are useless.
-            def execute(*trash, **garbage):
-                return func()
-            a.triggered.connect(execute)
-
-    @on("new_menu_separator")
-    def add_separator(self, heading:str) -> None:
-        """ Add a separator to the end of a menu. Don't connect it to anything. """
-        self._get_menu(heading).addSeparator()
-
-    def _get_menu(self, heading:str) -> QMenu:
-        """ Get the current menu object under <heading>, or make a new one if necessary. """
-        if heading not in self._submenus:
-            self._submenus[heading] = self.m_menu.addMenu(heading)
-        return self._submenus[heading]
+    def new_gui(self, menu_bar) -> None:
+        """ Add all items to their respective menus. Menus are created and added to the menu bar as needed. """
+        get_menu = memoize_one_arg(menu_bar.addMenu)
+        for (heading, item_text), func in self._items:
+            # Add a new menu item under <heading> -> <item_text> to execute <func>.
+            # Add a separator instead if the item text is blank.
+            menu = get_menu(heading)
+            action = menu.addAction(item_text) if item_text else menu.addSeparator()
+            action.triggered.connect(func)
