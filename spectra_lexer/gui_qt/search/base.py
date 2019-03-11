@@ -23,33 +23,33 @@ class GUIQtSearchPanel(Component):
         signals = {self.input_textbox.textEdited:    "search_input",
                    self.match_list.itemSelected:     "search_choose_match",
                    self.mapping_list.itemSelected:   "search_choose_mapping",
-                   self.strokes_chk.toggled: "search_mode_strokes",
-                   self.regex_chk.toggled: "search_mode_regex"}
+                   self.strokes_chk.toggled:         "search_mode_strokes",
+                   self.regex_chk.toggled:           "search_mode_regex"}
         for signal, cmd_key in signals.items():
             signal.connect(partial(self.engine_call, cmd_key))
 
     @on("new_search_state")
     def set_enabled(self, enabled:bool) -> None:
-        """ Set up widgets and enable/disable searching based on whether or not a new search dict is empty. """
+        """ Enable/disable all search widgets. """
         self.input_textbox.clear()
         self.input_textbox.setPlaceholderText("Search..." if enabled else "No dictionaries.")
         self.match_list.clear()
         self.mapping_list.clear()
-        self.strokes_chk.setChecked(False)
-        self.regex_chk.setChecked(False)
         for w in (self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk):
             w.setEnabled(enabled)
 
     @on("new_search_matches")
     def set_matches(self, matches:List[str], selection:str=None) -> None:
         """ Update the upper list's contents and/or string selection. """
-        self.match_list.set_items(matches)
+        if matches is not None:
+            self.match_list.set_items(matches)
         if selection is not None:
             self.match_list.select(selection)
 
     @on("new_search_mappings")
     def set_mappings(self, mappings:List[str], selection:str=None) -> None:
         """ Update the lower list's contents and/or string selection. """
-        self.mapping_list.set_items(mappings)
+        if mappings is not None:
+            self.mapping_list.set_items(mappings)
         if selection is not None:
             self.mapping_list.select(selection)

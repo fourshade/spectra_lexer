@@ -5,16 +5,14 @@ from PyQt5.QtGui import QPainter, QPaintEvent
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
 
-from spectra_lexer.utils import nop
-
 
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _gfx_board: QSvgRenderer                    # Main renderer of SVG steno board graphics.
-    _draw_list: List[tuple] = []                # List of graphical element IDs with bounds rects.
-    _bounds: Dict[str, tuple] = {}              # (x, y, w, h) bounds of each graphical element by id.
-    resize_callback: Callable[..., None] = nop  # Callback to send board size changes to the main component.
+    _gfx_board: QSvgRenderer                     # Main renderer of SVG steno board graphics.
+    _draw_list: List[tuple] = []                 # List of graphical element IDs with bounds rects.
+    _bounds: Dict[str, tuple] = {}               # (x, y, w, h) bounds of each graphical element by id.
+    resize_callback: Callable[..., None] = None  # Callback to send board size changes to the main component.
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -48,4 +46,5 @@ class StenoBoardWidget(QWidget):
 
     def resizeEvent(self, *args) -> None:
         """ Send new properties of the board widget on any size change. """
-        self.resize_callback(self._gfx_board.viewBox().getRect(), self.width(), self.height())
+        if self.resize_callback is not None:
+            self.resize_callback(self._gfx_board.viewBox().getRect(), self.width(), self.height())

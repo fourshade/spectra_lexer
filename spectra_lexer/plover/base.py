@@ -1,5 +1,6 @@
 from .compat import compatibility_check, INCOMPATIBLE_MESSAGE, PloverEngine, PloverAction
 from spectra_lexer.gui_qt import GUIQt
+from spectra_lexer.utils import dummy
 
 
 class PloverGUI(GUIQt):
@@ -28,11 +29,5 @@ class PloverGUI(GUIQt):
         else:
             self.engine_call("new_plover_engine", self._plover)
         # To emulate a dialog, the window must fake a 'finished' signal object with a 'connect' attribute.
-        self.window.finished = PuzzleBox()
+        self.window.finished = dummy
         return self.window
-
-
-class PuzzleBox:
-    """ The ultimate dummy object. Always. Returns. Itself. """
-    def __call__(self, *args, **kwargs): return self
-    __getattr__ = __getitem__ = __call__

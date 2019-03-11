@@ -5,6 +5,7 @@ Most are ruthlessly optimized, with attribute lookups and globals cached in defa
 
 import ast
 import functools
+import operator
 
 
 def nop(*args, **kwargs) -> None:
@@ -62,27 +63,19 @@ def merge(d_iter) -> dict:
     return merged
 
 
-def memoize_one_arg(fn):
-    """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
-    class MemoDict(dict):
-        def __missing__(self, key):
-            ret = self[key] = fn(key)
-            return ret
-    return MemoDict().__getitem__
-
-
-def nondata_property(fn):
-    """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
-    class NondataProp:
-        def __get__(self, instance, owner):
-            return fn(instance)
-    return NondataProp()
-
-
 def with_sets(cls:type) -> type:
     """ Decorator for a constants class to add sets of all legal keys and values for membership testing. """
     cls.keys, cls.values = map(set, zip(*vars(cls).items()))
     return cls
+
+
+def memoize_one_arg(fn):
+    """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
+    class MemoDict(dict):
+        def __missing__(self, key:str, _fn=fn):
+            ret = self[key] = _fn(key)
+            return ret
+    return MemoDict().__getitem__
 
 
 # These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.
@@ -120,3 +113,35 @@ def str_eval(val:str, _eval=ast.literal_eval) -> object:
         return _eval(val)
     except (SyntaxError, ValueError):
         return val
+
+
+# These classes are used to modify the behavior of attributes and methods on other classes.
+# They are used like functions, so their names are all lowercase.
+
+class _dummy:
+    """ The ultimate dummy object. Always. Returns. Itself. """
+    def __call__(self, *args, **kwargs): return self
+    __getattr__ = __getitem__ = __call__
+dummy = _dummy()
+
+
+class delegate_to:
+    """ Descriptor to delegate method calls on the assigned name to an instance member.
+        If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
+        If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>. """
+    def __init__(self, attr:str):
+        self.attr = attr
+    def __get__(self, instance:object, owner:type):
+        return self.getter(instance)
+    def __set_name__(self, owner:type, name:str) -> None:
+        if "." not in self.attr:
+            self.attr = ".".join([self.attr, name])
+        self.getter = operator.attrgetter(self.attr)
+
+
+class nondata_property:
+    """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
+    def __init__(self, fn):
+        self.fn = fn
+    def __get__(self, instance:object, owner:type):
+        return self.fn(instance)
