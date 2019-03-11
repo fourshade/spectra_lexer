@@ -45,7 +45,7 @@ class File(Resource):
     def write(self, contents:str) -> None:
         """ Write the given string as the sole contents of a UTF-8 text file.
             If the directory path doesn't exist, create it. """
-        directory = os.path.dirname(self)
+        directory = os.path.dirname(self) or "."
         os.makedirs(directory, exist_ok=True)
         with open(self, 'wb') as fp:
             fp.write(contents.encode('utf-8'))

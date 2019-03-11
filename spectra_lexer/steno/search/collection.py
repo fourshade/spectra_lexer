@@ -37,9 +37,9 @@ class StringSearchDictCollection(Dict[str, StringSearchDict]):
             New keywords may be given in this method that override the global ones on an individual basis. """
         kwargs = {**self._global_kwargs, **_strip_lower_simfns(strip_chars), **kwargs}
         if reverse:
-            self._d = self[key] = ReverseStringSearchDict(match=src_dict, **kwargs)
+            self[key] = ReverseStringSearchDict(match=src_dict, **kwargs)
         else:
-            self._d = self[key] = StringSearchDict(src_dict or {}, **kwargs)
+            self[key] = StringSearchDict(src_dict or {}, **kwargs)
 
     def use_dict(self, key:str) -> None:
         """ Set the current dict to search from. If the key is invalid, use a temporary empty one. """

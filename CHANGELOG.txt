@@ -1,3 +1,10 @@
+2.1.0
+-----
+* Simplified core engine code
+* Improved handling of GUI menu and tools
+* Fixed several minor bugs
+* Fixed pre-premature exception handling bug in engine
+
 2.0.0
 -----
 * Dismantled application subclasses and moved code into components for modularity

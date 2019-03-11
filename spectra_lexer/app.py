@@ -9,12 +9,11 @@ class Application:
     Base application engine class for the Spectra program. Routes messages and data structures between
     all constituent components. Has mappings for every command to a list of registered functions along
     with where to send the return value. Components and commands should not change after initialization.
-    Since all execution state is kept within the call stack, multiple threads may run without conflict.
     """
 
     components: List[Component]  # List of all connected components.
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
-    _rlevel: int = -1            # Level of re-entrancy, 0 = top of stack, -1 = not started yet.
+    _rlevel: int = 0             # Level of re-entrancy for exceptions, 0 = top of stack.
 
     def __init__(self, *classes:type):
         """ Create instances of all unique component classes that do not share an inheritance line. """
@@ -24,24 +23,24 @@ class Application:
         self._commands = defaultdict(list)
         for c in self.components:
             c.engine_connect(self.call)
-            for key, (func, *params) in c.cmd_dict.items():
-                # Bind all class command functions to the instance and save the finished tuples.
-                self._commands[key].append((func.__get__(c, type(c)), *params))
+            for key, cmd in c.engine_commands():
+                self._commands[key].append(cmd)
 
     def start(self, *args) -> object:
         """ Run the general lifecycle of the application. """
-        # Gather options, starting with the arguments given by main(). Add a component section for debug purposes.
-        options = defaultdict(list, args=args, components=self.components)
+        options = defaultdict(list)
         for c in self.components:
-            for (src, opt) in c.opt_list:
-                options[src].append(opt)
-        # Process options such as these and command line arguments from sys.argv.
+            for opt in c.engine_options():
+                options[opt.src].append(opt)
+        # Process options such as command line arguments from sys.argv and add a component section for debug purposes.
         # This stage should be very quick. Engine calls are not allowed yet.
-        self.call("setup", **options)
-        # Open communications and start resource loading.
+        self.call("setup", **options, args=args, components=self.components)
+        # Open engine communications and start resource loading.
         self.call("start")
-        # After everything else is ready, a component may run an event loop indefinitely.
-        # In batch mode, the main operation can run here. A single value may be returned to main().
+        # After everything else is ready, a component may run a task and return a single value to main().
+        # A batch operation can run until complete, or a GUI event loop can run indefinitely.
+        # Exceptions are caught one level lower to avoid crashing such an event loop.
+        self._rlevel -= 1
         return self.call("run")
 
     def call(self, key:str, *args, **kwargs) -> object:
@@ -64,4 +63,4 @@ class Application:
     def __exit__(self, exc_type:type, exc_value:BaseException, traceback:object) -> bool:
         """ The caller may depend on exceptions, so don't catch them here unless this is the top level. """
         self._rlevel -= 1
-        return exc_value is not None and not self._rlevel and self.call("new_exception", exc_value)
+        return exc_value is not None and self._rlevel <= 0 and self.call("new_exception", exc_value)

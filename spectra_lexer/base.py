@@ -1,8 +1,9 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything... """
 
-from typing import Callable, NamedTuple
+from functools import partial
+from typing import Callable, NamedTuple, Iterable
 
-from spectra_lexer.utils import nop
+from spectra_lexer.utils import merge, nop
 
 
 class Option(NamedTuple):
@@ -13,38 +14,32 @@ class Option(NamedTuple):
     desc: str = ""          # Description as shown on documentation page.
 
 
+def Command(key, *cmd_args, **cmd_kwargs) -> Callable:
+    """ Decorator for component engine command flow. """
+    def add_cmd_attr(func:Callable) -> Callable:
+        """ Add a command trigger to a list on an attribute. """
+        func.cmdx = getattr(func, "cmdx", []) + [(key, cmd_args, cmd_kwargs)]
+        return func
+    return add_cmd_attr
+
+
 class ComponentMeta(type):
-    """ Metaclass for all subclasses of Component. Most assembly and configuration is done here,
-        including handling of command decorators, config options, and command line arguments. """
+    """ Metaclass for all subclasses of Component. """
 
-    @classmethod
-    def __prepare__(mcs, name:str, bases:tuple) -> dict:
-        # Combine all parent command dicts to make a new child dict. Child commands will override these.
-        cmd_dict = {key: cmd for b in bases for key, cmd in getattr(b, "cmd_dict", {}).items()}
-        def command(key:str, *cmd_args, **cmd_kwargs) -> Callable:
-            """ Decorator for component engine command flow. """
-            def add_cmd_attr(func:Callable) -> Callable:
-                """ Add a command to call the function. """
-                cmd_dict[key] = (func, cmd_args, cmd_kwargs)
-                return func
-            return add_cmd_attr
+    def __prepare__(*args) -> dict:
         # Add references to the command decorator and option class for every component.
-        return {"cmd_dict": cmd_dict, "on": command, "pipe": command, "Option": Option}
+        return dict(on=Command, pipe=Command, Option=Option)
 
-    def __init__(cls, name:str, bases:tuple, dct:dict):
-        """ Get every option defined and set additional attributes to update each one on command. """
-        super().__init__(name, bases, dct)
-        cls.opt_list = []
-        for attr, opt in dct.items():
-            if isinstance(opt, Option):
-                def set_arg(cmp:Component, v:object, attr=attr) -> None:
-                    """ Overwrite this option value on the instance. """
-                    setattr(cmp, attr, v)
-                cmd = set_arg.__name__ = f"set_{opt.src}_{opt.key}"
-                setattr(cls, cmd, cls.on(cmd)(set_arg))
-                cls.opt_list.append((opt.src, opt))
-                # Overwrite the option on the class with the default value.
-                setattr(cls, attr, opt.default)
+    def __new__(mcs, name:str, bases:tuple, dct:dict):
+        """ Get every command and option defined on the class and sort them into dicts. """
+        cmds = {key: (attr, params) for attr, obj in dct.items() if hasattr(obj, "cmdx") for key, *params in obj.cmdx}
+        opts = {attr: obj for attr, obj in dct.items() if isinstance(obj, Option)}
+        # After saving all options to a dict, overwrite them in the class with their default values.
+        # Merge variables from all bases in order so that this class inherits from and overrides all of its parents.
+        dct.update({attr: opt.default for attr, opt in opts.items()},
+                   cmds=merge([*[b.cmds for b in bases], cmds]),
+                   opts=merge([*[b.opts for b in bases], opts]))
+        return super().__new__(mcs, name, bases, dct)
 
 
 class Component(metaclass=ComponentMeta):
@@ -55,8 +50,18 @@ class Component(metaclass=ComponentMeta):
     As such, it cannot depend on anything except core helpers and pure utility functions.
     """
 
-    engine_call: Callable = nop  # Default engine callback is a no-op (useful for testing individual components).
+    engine_call: Callable = nop   # Default engine callback is a no-op (useful for testing individual components).
 
     def engine_connect(self, cb:Callable) -> None:
         """ Set the callback used for engine calls by this component. """
         self.engine_call = cb
+
+    def engine_commands(self) -> Iterable[tuple]:
+        """ Bind all class command functions to the instance and return a list of these to the engine.
+            Make functions to set option attributes on the instance and add these as well. """
+        return [(key, (getattr(self, attr), *params)) for key, (attr, params) in self.cmds.items()] + \
+               [(f"set_{opt.src}_{opt.key}", (partial(setattr, self, attr), (), {})) for attr, opt in self.opts.items()]
+
+    def engine_options(self) -> Iterable[Option]:
+        """ Return all options (dict values) on this class to the engine. """
+        return self.opts.values()
