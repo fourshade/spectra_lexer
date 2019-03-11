@@ -243,7 +243,3 @@ class ReverseDict(Dict[VT, List[KT]]):
         rdict = defaultdict(list)
         list(map(list.append, [rdict[v] for v in fdict.values()], fdict))
         self.update(rdict)
-
-
-class ReverseStringSearchDict(ReverseDict, StringSearchDict):
-    """ Simple inheritance composition of a string-search dict that inverts some other mapping. """

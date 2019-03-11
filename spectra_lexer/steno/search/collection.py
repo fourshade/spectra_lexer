@@ -1,62 +1,65 @@
-from itertools import repeat
-import re
-from typing import Callable, Dict, Iterable, List
+from operator import attrgetter
+from typing import Dict, List, Optional
 
-from .dict import StringSearchDict, ReverseStringSearchDict
-
-
-def _strip_lower_simfns(strip_chars:str=None) -> Dict[str, Callable]:
-    """ Create similarity functions that remove case and strips a user-defined set of symbols.
-        Return them as a dict that can be passed straight into search constructors as **kwargs. """
-    if strip_chars is None:
-        return {}
-    # Define string methods and strip characters as default argument locals for speed.
-    def simfn(s:str, strip_chars=strip_chars, _strip=str.strip, _lower=str.lower) -> str:
-        return _lower(_strip(s, strip_chars))
-    # Also define a mapped version for use across a large number of keys.
-    # Mapping the built-in string methods separately provides a large speed boost.
-    def mapfn(s_iter:Iterable[str], rp_chars=repeat(strip_chars)) -> map:
-        return map(str.lower, map(str.strip, s_iter, rp_chars))
-    return {"simfn": simfn, "mapfn": mapfn}
+from .nexus import IndexNexus, ResourceNexus, RulesNexus, TranslationNexus
+from .special import StenoSearchDict
 
 
-class StringSearchDictCollection(Dict[str, StringSearchDict]):
-    """ Composite class for similar-key string lookups on one of many dictionaries, including special searches. """
+def _new_dicts(tp:type):
+    """ Create a function to load a new dict of a given type and re-sort them by priority. """
+    def make_and_sort(self, d:dict):
+        self._dicts[tp] = tp(d)
+        values = sorted(self._dicts.values(), key=attrgetter("PRIORITY"), reverse=True)
+        self._dicts = dict(zip(map(type, values), values))
+        return bool(d)
+    return make_and_sort
 
-    _global_kwargs: dict  # Global keyword arguments for construction of each child dict.
-    _d: StringSearchDict  # Current dict in use for lookups. Must be switched explicitly.
 
-    def __init__(self, *, strip_chars:str=None, **kwargs):
-        """ Create an empty collection with the given kwargs as defaults. If strip_chars is given, generate simfns. """
-        super().__init__()
-        self._global_kwargs = {**_strip_lower_simfns(strip_chars), **kwargs}
-        self.use_dict("")
+class MasterSearchDictionary:
+    """ Class for similar-key string lookups on one of many dictionaries grouped into resource types. """
 
-    def new(self, key:str, src_dict:dict=None, *, reverse:bool=False, strip_chars:str=None, **kwargs) -> None:
-        """ Create a new string search dictionary (forward or reverse) under the given key using the default simfns.
-            New keywords may be given in this method that override the global ones on an individual basis. """
-        kwargs = {**self._global_kwargs, **_strip_lower_simfns(strip_chars), **kwargs}
-        if reverse:
-            self[key] = ReverseStringSearchDict(match=src_dict, **kwargs)
-        else:
-            self[key] = StringSearchDict(src_dict or {}, **kwargs)
+    _dicts: Dict[type, ResourceNexus]  # Current collection of resource dict distributors.
+    _d: StenoSearchDict                # Current dict used for lookups.
+    _last_match: str = ""              # Last search match selected by the user in the list.
+    _mode_strokes: bool = False        # If True, search for strokes instead of translations.
+    _mode_regex: bool = False          # If True, perform search using regex characters.
 
-    def use_dict(self, key:str) -> None:
-        """ Set the current dict to search from. If the key is invalid, use a temporary empty one. """
-        self._d = self.get(key) or StringSearchDict()
+    def __init__(self):
+        """ Create an empty collection and set the current dict to a default empty one. """
+        self._dicts = {}
+        self._d = ResourceNexus()
 
-    def search(self, pattern:str, count:int=None, regex:bool=False) -> List[str]:
-        """ Perform a special search for <pattern> with the given dict and mode. Return up to <count> matches. """
-        if not regex:
-            return self._d.prefix_match_keys(pattern, count)
-        try:
-            return self._d.regex_match_keys(pattern, count)
-        except re.error:
-            return ["REGEX ERROR"]
+    set_index = _new_dicts(IndexNexus)
+    set_rules = _new_dicts(RulesNexus)
+    set_translations = _new_dicts(TranslationNexus)
 
-    def get_list(self, match:str) -> List[str]:
-        """ Perform a simple lookup as with dict.get. If the results aren't a list, make it one. """
-        m_list = self._d.get(match) or []
-        if not isinstance(m_list, list):
-            m_list = [m_list]
-        return m_list
+    def set_mode_strokes(self, enabled:bool) -> tuple:
+        """ Set strokes search mode on or off. """
+        self._mode_strokes = enabled
+        return ()
+
+    def set_mode_regex(self, enabled:bool) -> tuple:
+        """ Set whether or not searches treat input queries as regular expressions. """
+        self._mode_regex = enabled
+        return ()
+
+    def search(self, pattern, count) -> List[str]:
+        """ Check which, if any, of our current nexus objects accepts this input pattern.
+            Search for the modified pattern in the first dict we get back and return a list of results. """
+        for test_d in self._dicts.values():
+            result = test_d.check(pattern, strokes=self._mode_strokes)
+            if result is not None:
+                d, pattern = result
+                self._d = d
+                return d.search(pattern, count, self._mode_regex)
+        return []
+
+    def lookup(self, match:str) -> Optional[list]:
+        """ Look up mappings from a match found in the current dict, unless the match is not new. """
+        if self._last_match != match:
+            self._last_match = match
+            return self._d.get_list(match)
+
+    def get_query(self, mapping:object) -> tuple:
+        """ Make a lexer query based on the current dict type, the last match, and this mapping. """
+        return self._d.command(self._last_match, mapping)
