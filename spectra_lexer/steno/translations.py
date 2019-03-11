@@ -1,5 +1,5 @@
 import json
-from typing import List, Sequence
+from typing import Dict, List, Sequence
 
 from spectra_lexer import Component
 from spectra_lexer.utils import merge
@@ -19,12 +19,12 @@ class TranslationsManager(Component):
 
     @pipe("start", "new_translations")
     @pipe("translations_load", "new_translations")
-    def load(self, filenames:Sequence[str]=()) -> dict:
+    def load(self, filenames:Sequence[str]=()) -> Dict[str, str]:
         """ Load and merge translations from disk. """
         return merge(self.engine_call("file_load_all", *(filenames or self.files or self._default_files())))
 
     @pipe("translations_save", "file_save")
-    def save(self, d:dict, filename:str="") -> tuple:
+    def save(self, d:Dict[str, str], filename:str="") -> tuple:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
         return (filename or self.out), d
 

@@ -5,7 +5,7 @@ from typing import Optional
 from .formatter import HTMLFormatter
 from .generator import CascadedTextGenerator, CompressedTextGenerator
 from .locator import GridLocator
-from .node import TextNode
+from .node import GraphNode
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
 
@@ -16,7 +16,7 @@ class GraphRenderer(Component):
     recursive = Option("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
     compressed = Option("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
 
-    _last_node: TextNode = None       # Most recent node from a select event (for identity matching).
+    _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
 
@@ -26,7 +26,7 @@ class GraphRenderer(Component):
         # Send the rule string as a status message (this doubles as the title in the GUI).
         self.engine_call("new_status", str(rule))
         # Make a node tree layout out of the given rule.
-        root = TextNode.for_display(rule, self.recursive)
+        root = GraphNode.for_display(rule, self.recursive)
         # Generate and render all text objects into standard strings and node grids indexed by position.
         generator_type = CompressedTextGenerator if self.compressed else CascadedTextGenerator
         lines, nodes = generator_type(root).render()

@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import List, Tuple
 
 from . import TextFormatter
-from spectra_lexer.steno.graph.node import GraphNodeAppearance, TextNode
+from spectra_lexer.steno.graph.node import GraphNode, GraphNodeAppearance
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -43,7 +43,7 @@ class HTMLFormatter(TextFormatter):
 
     _original_sections: List[List[str]]  # Original set of lines made at graph creation.
 
-    def __init__(self, lines:List[str], node_grid:List[List[TextNode]]):
+    def __init__(self, lines:List[str], node_grid:List[List[GraphNode]]):
         """ From a 2D node grid, compile a dict of nodes with ranges of character positions owned by each one. """
         super().__init__(lines, node_grid)
         # Format the last section (i.e. the body) of every node with a special appearance and save it.
@@ -54,7 +54,7 @@ class HTMLFormatter(TextFormatter):
                 self.format(section, fmt)
         self._original_sections = self.sections
 
-    def make_graph_text(self, node:TextNode=None) -> str:
+    def make_graph_text(self, node:GraphNode=None) -> str:
         """ Make a full graph text string by joining the list of section strings and setting the preformatted tag.
             If a node is specified, format the text with data corresponding to that node first. """
         if node is not None:
@@ -63,7 +63,7 @@ class HTMLFormatter(TextFormatter):
             self._format_node(node)
         return _FINISH_FORMAT.format(self.text())
 
-    def _format_node(self, node:TextNode) -> None:
+    def _format_node(self, node:GraphNode) -> None:
         """ Format the current text with highlights and/or bold for a given node. """
         # All of the node's characters above the text will be box-drawing characters.
         # These mess up when bolded, so only bold the last row, and only if it isn't bolded already.

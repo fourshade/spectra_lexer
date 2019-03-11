@@ -6,7 +6,7 @@ from typing import List, NamedTuple, Tuple
 
 from .object import ObjectNode, ObjectNodeUnmatched
 from .pattern import PatternInversion, PatternNode, PatternSeparators, PatternThick, PatternUnmatched
-from spectra_lexer.steno.graph.node import GraphNodeAppearance, TextNode
+from spectra_lexer.steno.graph.node import GraphNode, GraphNodeAppearance
 
 
 class ConnectionInfo(NamedTuple):
@@ -38,11 +38,11 @@ class TextGenerator:
 
     _root_object: ObjectNode  # Main container for drawable text objects.
 
-    def __init__(self, root:TextNode):
+    def __init__(self, root:GraphNode):
         """ Make a tree of text objects to display for a node. The layout depends on the config settings. """
         self._root_object = self.generate(root)
 
-    def generate(self, node:TextNode) -> ObjectNode:
+    def generate(self, node:GraphNode) -> ObjectNode:
         """ Look up the type and pattern for this node based on the appearance flag and create the object. """
         obj_tp, pattern = self.NODE_APPEARANCE.get(node.appearance, self.NODE_DEFAULT)
         obj = obj_tp(node.text, node, pattern)
