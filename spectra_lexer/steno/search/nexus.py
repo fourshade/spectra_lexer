@@ -2,78 +2,76 @@
 
 from typing import Dict, Optional
 
-from spectra_lexer.steno.search.strip_case import ReverseStripCaseSearchDict, StripCaseSearchDict
+from .dict import ReverseStripCaseSearchDict, StripCaseSearchDict
 from spectra_lexer.utils import delegate_to
 
 
 class ResourceNexus:
 
     PRIORITY: int = 0  # Search priority. Resource prefixes are checked in order from highest to lowest priority nexus.
+    PREFIX: str = ""   # Prefix to test (and strip) on input patterns. Empty by default, so pattern is unmodified.
 
     _d: StripCaseSearchDict = StripCaseSearchDict()  # Current dict used for lookups and commands.
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
         """ Indicator function that returns a new pattern on success and can modify the current dict reference. """
-        raise NotImplementedError
+        prefix = self.PREFIX
+        if pattern.startswith(prefix):
+            return pattern[len(prefix):]
 
-    def command(self, match:str, mapping:object) -> tuple:
-        """ Return a tuple of items that can be directly called as an engine command to show a result. """
-        raise NotImplementedError
+    def command_args(self, match:str, mapping:object) -> Optional[tuple]:
+        """ Return a tuple of items that can be directly called as an engine command to show a result, or None. """
 
     search = delegate_to("_d")
-    get_list = delegate_to("_d")
+    lookup = delegate_to("_d")
 
 
 class TranslationNexus(ResourceNexus):
     """ A hybrid forward+reverse steno translation nexus. Used when nothing else matches. """
 
-    CMD_KEY: str = "show_translation"  # Key for engine command.
+    PRIORITY = 1  # Has low priority. It must outrank the default nexus only.
+    _CMD_KEY: str = "show_translation"    # Key for engine command.
 
     _forward: StripCaseSearchDict         # Forward translations dict (strokes -> English words).
     _reverse: ReverseStripCaseSearchDict  # Reverse translations dict (English words -> strokes).
 
     def __init__(self, d:Dict[str, str]):
         """ For translation-based searches, spaces and hyphens should be stripped off each end. """
-        self._forward = StripCaseSearchDict(d, " -")
-        self._reverse = ReverseStripCaseSearchDict(d, " -")
+        self._forward = StripCaseSearchDict(d, strip_chars=" -")
+        self._reverse = ReverseStripCaseSearchDict(match=d, strip_chars=" -")
 
-    def check(self, pattern:str, strokes:bool=False, **mode_kwargs) -> Optional[str]:
+    def check(self, pattern:str, strokes:bool=False, **mode_kwargs) -> str:
         """ Indicator function that always returns success. Does not modify the pattern. """
         self._d = self._forward if strokes else self._reverse
         return pattern
 
-    def command(self, match:str, mapping:object) -> tuple:
+    def command_args(self, match:str, mapping:object) -> tuple:
         """ The order of strokes/word in the lexer command is reversed for a reverse dict. """
         args = (match, mapping) if self._d is self._forward else (mapping, match)
-        return (self.CMD_KEY, *args)
+        return (self._CMD_KEY, *args)
 
 
 class RulesNexus(ResourceNexus):
     """ A simple nexus for rule search by name when a prefix is added. There is only one dict which never changes. """
 
-    PRIORITY = 1                 # Has medium priority. It must outrank the translations nexus only.
-    PREFIX: str = "/"            # A basic slash which is also a prefix of *other*, higher priority prefixes.
-    CMD_KEY: str = "new_output"  # Key for engine command.
+    PRIORITY = 2  # Has medium priority. It must outrank the translations nexus.
+    PREFIX = "/"  # A basic slash which is also a prefix of *other*, higher priority prefixes.
+    _CMD_KEY: str = "new_output"  # Key for engine command.
 
     def __init__(self, d:dict):
         """ To search the rules dictionary by name, prefix and suffix reference symbols should be stripped. """
-        self._d = StripCaseSearchDict(d, " .+-~")
+        self._d = StripCaseSearchDict(d, strip_chars=" .+-~")
 
-    def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
-        """ Indicator function for a rules search. Requires a simple prefix which is removed. """
-        if pattern.startswith(self.PREFIX):
-            return pattern[1:]
-
-    def command(self, match:str, mapping:object) -> tuple:
+    def command_args(self, match:str, mapping:object) -> tuple:
         """ If the mapping is a rule, send it as direct output just like the lexer would and return. """
-        return self.CMD_KEY, mapping
+        return self._CMD_KEY, mapping
 
 
 class IndexNexus(ResourceNexus):
     """ A resource-heavy nexus for finding translations that contain a particular steno rule. """
 
-    PRIORITY = 2        # Has highest priority but lowest chance of success. Must outrank the rules nexus.
-    PREFIX: str = "//"  # This includes the rules prefix, so it must be checked first.
+    PRIORITY = 3   # Has highest priority but lowest chance of success. Must outrank the rules nexus.
+    PREFIX = "//"  # This includes the rules prefix, so it must be checked first.
 
     _children: Dict[str, TranslationNexus]  # Dict containing a whole subnexus for every rule name.
     _d: TranslationNexus                    # Current nexus used to redirect checks and commands.
@@ -85,11 +83,12 @@ class IndexNexus(ResourceNexus):
         self._d = TranslationNexus({})
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
-        """ Indicator function for a rules search. Strip the prefix to get the subnexus:pattern combo. """
-        if pattern.startswith(self.PREFIX):
-            key, pattern = (pattern[2:].split(":", 1) + [""])[:2]
+        """ Indicator function for a rules search. Prefix is stripped by super method to get subnexus:pattern combo. """
+        pattern = super().check(pattern)
+        if pattern is not None:
+            key, pattern = (pattern.split(":", 1) + [""])[:2]
             if key in self._children:
-                self._d = self._children[key]
-                return self._d.check(pattern, **mode_kwargs)
+                d = self._d = self._children[key]
+                return d.check(pattern, **mode_kwargs)
 
-    command = delegate_to("_d")
+    command_args = delegate_to("_d")

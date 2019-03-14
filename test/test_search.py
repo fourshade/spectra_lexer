@@ -6,11 +6,14 @@ import re
 
 import pytest
 
-from spectra_lexer.steno.search.dict import SimilarKeyDict, StringSearchDict, ReverseDict
+from spectra_lexer.steno.search.dict import ReverseStripCaseSearchDict, StripCaseSearchDict
+from spectra_lexer.steno.search.dict.reverse import ReverseDict
+from spectra_lexer.steno.search.dict.search import SimilarKeyDict, StringSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_tester([SimilarKeyDict, StringSearchDict, ReverseDict])
+class_test = class_tester([SimilarKeyDict, StringSearchDict, ReverseDict,
+                           StripCaseSearchDict, ReverseStripCaseSearchDict])
 
 
 @class_test(SimilarKeyDict)

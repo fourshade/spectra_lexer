@@ -151,7 +151,7 @@
        <bool>true</bool>
       </property>
       <property name="placeholderText">
-       <string>Stroke a word to see its breakdown.</string>
+       <string>Search for any word to see its breakdown.</string>
       </property>
      </widget>
     </item>

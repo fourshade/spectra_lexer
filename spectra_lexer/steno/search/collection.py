@@ -1,38 +1,36 @@
-from operator import attrgetter
-from typing import List, Optional
+from typing import List
 
 from .nexus import ResourceNexus
+from spectra_lexer.utils import delegate_to
 
 
 class MasterSearchDictionary:
     """ Class for similar-key string lookups on one of many dictionaries grouped into resource types. """
 
     _collection: List[ResourceNexus]  # Current collection of resource dict distributors.
-    _nexus: ResourceNexus = None      # Current nexus used for searches and basic lookups.
-    _last_match: str = ""             # Last search match selected by the user in the list.
+    _nexus: ResourceNexus             # Current nexus used for searches and basic lookups.
     _mode_strokes: bool = False       # If True, search for strokes instead of translations.
     _mode_regex: bool = False         # If True, perform search using regex characters.
 
     def __init__(self):
-        """ Create an empty collection. """
-        self._collection = []
+        """ Create a collection with a single fallback nexus (to ensure it is never None). """
+        self._nexus = ResourceNexus()
+        self._collection = [self._nexus]
 
-    def add_and_sort(self, nexus:ResourceNexus) -> None:
-        """ Add a new dict nexus (or overwrite the previous one of the same type) and re-sort them by priority. """
-        self._collection = [n for n in self._collection if type(n) != type(nexus)] + [nexus]
-        self._collection.sort(key=attrgetter("PRIORITY"), reverse=True)
+    def new_resource(self, ntype:type, d:dict) -> None:
+        """ Make a new nexus, overwrite the previous one of the same type (if any), and re-sort them by priority. """
+        self._collection = [n for n in self._collection if type(n) != ntype] + [ntype(d)]
+        self._collection.sort(key=lambda n: n.PRIORITY, reverse=True)
 
-    def set_mode_strokes(self, enabled:bool) -> tuple:
+    def set_mode_strokes(self, enabled:bool) -> None:
         """ Set strokes search mode on or off. """
         self._mode_strokes = enabled
-        return ()
 
-    def set_mode_regex(self, enabled:bool) -> tuple:
+    def set_mode_regex(self, enabled:bool) -> None:
         """ Set whether or not searches treat input queries as regular expressions. """
         self._mode_regex = enabled
-        return ()
 
-    def search(self, pattern, count) -> List[str]:
+    def search(self, pattern:str, count:int) -> List[str]:
         """ Check which, if any, of our current nexus objects accepts this input pattern.
             Search for the modified pattern in the first dict we get back and return a list of results. """
         for nexus in self._collection:
@@ -40,15 +38,6 @@ class MasterSearchDictionary:
             if new_pattern is not None:
                 self._nexus = nexus
                 return nexus.search(new_pattern, count, self._mode_regex)
-        return []
 
-    def lookup(self, match:str) -> Optional[list]:
-        """ Look up mappings from a match found in the current dict, unless the match is not new. """
-        if self._last_match != match and self._nexus is not None:
-            self._last_match = match
-            return self._nexus.get_list(match)
-
-    def get_command_args(self, mapping:object) -> Optional[tuple]:
-        """ Get arguments for a command based on the current dict type, the last match, and this mapping. """
-        if self._nexus is not None:
-            return self._nexus.command(self._last_match, mapping)
+    lookup = delegate_to("_nexus")
+    command_args = delegate_to("_nexus")
