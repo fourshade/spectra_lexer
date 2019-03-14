@@ -34,12 +34,12 @@ class StenoLexer(Component):
         """ Set up the rule matcher with an optional translations dict for asterisks. """
         self._matcher.set_translations(d)
 
-    @pipe("lexer_query", "new_lexer_result")
+    @pipe("lexer_query", "new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
         return LexerResult.best_rule(self._gather_results(keys, word), default=(keys, word))
 
-    @pipe("lexer_query_product", "new_lexer_result")
+    @pipe("lexer_query_product", "new_output")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """

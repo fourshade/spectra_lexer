@@ -48,11 +48,11 @@ class BoardRenderer(Component):
             self._layout = ElementLayout(view_box, width, height)
             return self._layout.make_draw_list(self._last_ids)
 
-    @pipe("new_lexer_result", "new_board_gfx")
+    @pipe("new_output", "new_board_gfx")
     @pipe("new_graph_selection", "new_board_gfx")
     def get_info(self, rule:StenoRule) -> List[tuple]:
         """ Generate board diagram graphics from a steno rule and send them along with the description.
-            The task is identical whether the rule is from a new lexer result or a user graph selection. """
+            The task is identical whether the rule is from a new output or a user graph selection. """
         self.engine_call("new_board_description", _get_description(rule))
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         self._last_ids = self._matcher.get_element_ids(rule, self.show_compound)

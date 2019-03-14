@@ -78,6 +78,11 @@ def memoize_one_arg(fn):
     return MemoDict().__getitem__
 
 
+def ensure_list(obj:object) -> list:
+    # Ensure the output object is a list by wrapping the object in a list if it isn't one already.
+    return obj if isinstance(obj, list) else [obj]
+
+
 # These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.
 # Even after caching attributes and globals, repeated string creation and function call overhead will eat you alive.
 

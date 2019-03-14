@@ -1,11 +1,21 @@
-from typing import Optional
+from typing import Callable, Optional
 
 from .collection import MasterSearchDictionary
+from .nexus import IndexNexus, RulesNexus, TranslationNexus
 from spectra_lexer import Component
+from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.utils import delegate_to
 
 # Text displayed as the final list item, allowing the user to expand the search.
 _MORE_TEXT = "(more...)"
+
+
+def new_resource(tp:type) -> Callable:
+    """ Method creator for loading a new resource nexus. """
+    def add_resource(self, d:dict) -> bool:
+        self._dict.add_and_sort(tp(d))
+        return True
+    return add_resource
 
 
 class SearchEngine(Component):
@@ -16,16 +26,16 @@ class SearchEngine(Component):
     _dict: MasterSearchDictionary  # Search dicts between strokes <-> translations.
     _pages: int                    # Number of pages of search results (each has <match_limit> results).
     _last_input: str               # Last known state of user textbox input.
-    _last_mappings: list
+    _last_mappings: list           # Last returned list of mapping objects (not necessarily strings)
 
     def __init__(self):
         super().__init__()
         self._dict = MasterSearchDictionary()
         self.reset()
 
-    set_index = on("new_index")(delegate_to("_dict"))
-    set_rules = on("new_rules")(delegate_to("_dict"))
-    set_translations = pipe("new_translations", "new_search_state")(delegate_to("_dict"))
+    set_index = on("new_index")(new_resource(IndexNexus))
+    set_rules = on("new_rules")(new_resource(RulesNexus))
+    set_translations = pipe("new_translations", "new_search_state")(new_resource(TranslationNexus))
     set_mode_strokes = pipe("search_mode_strokes", "search_repeat")(delegate_to("_dict"))
     set_mode_regex = pipe("search_mode_regex", "search_repeat")(delegate_to("_dict"))
 
@@ -89,15 +99,14 @@ class SearchEngine(Component):
 
     @on("search_choose_mapping")
     def on_choose_mapping(self, mapping:object) -> None:
-        """ Make and send a lexer query based on the last selected match and this mapping (or a list). """
-        query = self._dict.get_query(mapping)
-        if query is not None:
-            self.engine_call(*query)
+        """ Send an engine command on the last selected match and this mapping (or a list). """
+        cmd_args = self._dict.get_command_args(mapping)
+        if cmd_args is not None:
+            self.engine_call(*cmd_args)
 
-    @on("new_lexer_result", "new_search_mappings")
-    def lexer_result(self, result) -> tuple:
-        # Look for a relevant string in the mapping list and select it.
-        for choice in (result.keys.rtfcre, result.letters, result):
-            if choice in self._last_mappings:
-                return None, str(choice)
-
+    @on("new_output", "new_search_mappings")
+    def on_output(self, rule:StenoRule) -> Optional[tuple]:
+        # Look for a relevant match to a rule property in the mapping list and select the first one, if any.
+        common_items = {rule.keys.rtfcre, rule.letters, rule}.intersection(self._last_mappings)
+        if common_items:
+            return None, str(common_items.pop())

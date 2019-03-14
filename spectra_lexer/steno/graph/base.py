@@ -20,9 +20,9 @@ class GraphRenderer(Component):
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
 
-    @pipe("new_lexer_result", "new_interactive_text", html=True, mouse=True)
+    @pipe("new_output", "new_interactive_text", html=True, mouse=True)
     def generate(self, rule:StenoRule) -> str:
-        """ Generate text graph data (of either type) from a rule based on config settings. """
+        """ Generate text graph data (of either type) from an output rule based on config settings. """
         # Send the rule string as a status message (this doubles as the title in the GUI).
         self.engine_call("new_status", str(rule))
         # Make a node tree layout out of the given rule.

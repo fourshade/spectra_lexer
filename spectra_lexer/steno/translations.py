@@ -1,8 +1,8 @@
 import json
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Optional
 
 from spectra_lexer import Component
-from spectra_lexer.utils import merge
+from spectra_lexer.utils import merge, ensure_list
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"
@@ -44,3 +44,12 @@ class TranslationsManager(Component):
         except json.decoder.JSONDecodeError:
             print("Problem decoding JSON in plover.cfg.")
         return []
+
+    @on("show_translation")
+    def show(self, *items) -> Optional[tuple]:
+        """ Send a lexer query so we can show a translation. <items> are usually (stroke, word) or lists thereof. """
+        if not all(isinstance(i, str) for i in items):
+            # If there is more than one of any input, make a product query to select the best combination.
+            return self.engine_call("lexer_query_product", *map(ensure_list, items))
+        # By default, the items are assumed to be direct lexer input. """
+        return self.engine_call("lexer_query", *items)

@@ -2,13 +2,14 @@
 
 import re
 from itertools import repeat
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 
 from .dict import ReverseDict, StringSearchDict
+from spectra_lexer.utils import ensure_list
 
 
-class StripStringSearchDict(StringSearchDict):
-    """ Class that could be one of many types of dictionaries based on characters in the input. """
+class StripCaseSearchDict(StringSearchDict):
+    """ Class that performs string-based searches after stripping symbols and neutralizing case. """
 
     def __init__(self, d:dict=None, strip_chars:str="", *, strip_fn=str.strip, case_fn=str.lower, **kwargs):
         """ Make similarity functions that remove case and strip a user-defined set of symbols for the constructor. """
@@ -31,34 +32,11 @@ class StripStringSearchDict(StringSearchDict):
 
     def get_list(self, match:str) -> List[str]:
         """ Perform a simple lookup on a dict. If the results aren't a list, make it one. """
-        m_list = self.get(match) or []
-        if not isinstance(m_list, list):
-            m_list = [m_list]
-        return m_list
+        return ensure_list(self.get(match) or [])
 
 
-class StenoSearchDict(StripStringSearchDict):
-
-    def command(self, match:str, mapping:object) -> Optional[tuple]:
-        """ Return an engine command (or not) for the given items. Neither may be empty by any measure. """
-        if match and mapping:
-            multi_match = isinstance(match, list)
-            multi_mapping = isinstance(mapping, list)
-            if multi_match or multi_mapping:
-                # If there is more than one of either input, make a product query to select the best combination.
-                match = match if multi_match else [match]
-                mapping = mapping if multi_mapping else [mapping]
-                return "lexer_query_product", match, mapping
-            # By default, the items are assumed to be direct lexer input. """
-            return "lexer_query", match, mapping
-
-
-class ReverseStenoSearchDict(ReverseDict, StenoSearchDict):
+class ReverseStripCaseSearchDict(ReverseDict, StripCaseSearchDict):
 
     def __init__(self, d:Dict[str, str], *args, **kwargs):
         """ For a reverse dict, we only want to match the forward dict and pass all other arguments along. """
         super().__init__(None, *args, match=d, **kwargs)
-
-    def command(self, match:str, mapping:str) -> tuple:
-        """ The order of strokes/word in the lexer command is reversed for a reverse dict. """
-        return super().command(mapping, match)
