@@ -133,15 +133,21 @@ dummy = _dummy()
 class delegate_to:
     """ Descriptor to delegate method calls on the assigned name to an instance member.
         If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
-        If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>. """
-    def __init__(self, attr:str):
-        self.attr = attr
+        If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>.
+        Partial function arguments may also be added, though the performance cost is considerable. """
+    def __init__(self, attr:str, *partial_args, **partial_kwargs):
+        self.params = attr, partial_args, partial_kwargs
     def __get__(self, instance:object, owner:type):
         return self.getter(instance)
     def __set_name__(self, owner:type, name:str) -> None:
-        if "." not in self.attr:
-            self.attr = ".".join([self.attr, name])
-        self.getter = operator.attrgetter(self.attr)
+        attr, partial_args, partial_kwargs = self.params
+        getter = operator.attrgetter(attr if "." in attr else ".".join([attr, name]))
+        if partial_args or partial_kwargs:
+            def getter(instance:object, _agetter=getter, p_args=partial_args, p_kwargs=partial_kwargs):
+                def p_call(*args, _func=_agetter(instance), **kwargs):
+                    return _func(*p_args, *args, **p_kwargs, **kwargs)
+                return p_call
+        self.getter = getter
 
 
 class nondata_property:

@@ -69,6 +69,7 @@ def test_lexer(result):
 
 
 SEARCH = SearchEngine()
+SEARCH.set_rules(RULES_DICT)
 SEARCH.set_translations(TRANSLATIONS_DICT)
 
 
@@ -76,15 +77,13 @@ SEARCH.set_translations(TRANSLATIONS_DICT)
 def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
-    # Search should return a one-item list with that item selected for both keys and word in either mode.
-    assert SEARCH.on_input(word) == ([word], word)
-    SEARCH.set_mode_strokes(True)
-    assert SEARCH.on_input(keys) == ([keys], keys)
-    SEARCH.set_mode_regex(True)
-    assert SEARCH.on_input(re.escape(keys)) == ([keys], keys)
-    SEARCH.set_mode_strokes(False)
-    assert SEARCH.on_input(re.escape(word)) == ([word], word)
-    SEARCH.set_mode_regex(False)
+    # For both keys and word, and in either mode, search should return a list with only the item itself.
+    assert SEARCH.search(word, None, False, False) == [word]
+    assert SEARCH.search(keys, None, True, False) == [keys]
+    assert SEARCH.search(re.escape(word), None, False, True) == [word]
+    assert SEARCH.search(re.escape(keys), None, True, True) == [keys]
+    # A rules prefix search with no body should return every rule we have.
+    assert len(SEARCH.search("/", None, True, True)) == len(RULES_DICT)
 
 
 BOARD = BoardRenderer()
