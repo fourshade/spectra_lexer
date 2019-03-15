@@ -1,11 +1,11 @@
 from argparse import ArgumentParser, SUPPRESS
-from collections import defaultdict
 
 from spectra_lexer import Component
 from spectra_lexer.utils import str_suffix
 
 # Extra keywords for argument parsing based on the option's data type.
-_TYPE_KWDS = defaultdict(dict, {list: {"nargs": "+"}})
+_TYPE_KWDS = {int:  {"type": int},
+              list: {"nargs": "+"}}
 
 
 class CmdlineParser(Component):
@@ -21,7 +21,7 @@ class CmdlineParser(Component):
         for opt in cmdline:
             # All options handled here must be parsed as long options connected by hyphens.
             kwds = {"help": opt.desc, "metavar": str_suffix(opt.key, "-").upper()}
-            kwds.update(_TYPE_KWDS[type(opt.default)])
+            kwds.update(_TYPE_KWDS.get(type(opt.default), {}))
             self._parser.add_argument(f"--{opt.key}", **kwds)
         # Parse arguments from sys.argv using the gathered info.
         d = dict(vars(self._parser.parse_args()))

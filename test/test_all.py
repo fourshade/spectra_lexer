@@ -9,14 +9,9 @@ import pytest
 
 from spectra_lexer.app import Application
 from spectra_lexer.core.file import FileHandler
-from spectra_lexer.steno.lexer import StenoLexer
-from spectra_lexer.steno.rules import RulesManager
-from spectra_lexer.steno.translations import TranslationsManager
-from spectra_lexer.steno.board import BoardRenderer
-from spectra_lexer.steno.graph import GraphRenderer
-from spectra_lexer.steno.search import SearchEngine
 from spectra_lexer.plover import PloverTranslationsManager
 from spectra_lexer.plover.compat import PloverStenoDictCollection
+from spectra_lexer.steno import *
 from spectra_lexer.steno.rules import RuleFlags
 from test import get_test_filename
 
@@ -86,9 +81,11 @@ def test_search(trial):
     assert len(SEARCH.search("/", None, True, True)) == len(RULES_DICT)
 
 
+SVG = SVGManager()
+SVG.engine_connect(FILE_ENGINE.call)
+SVG_DICT = SVG.load()
 BOARD = BoardRenderer()
-BOARD.engine_connect(FILE_ENGINE.call)
-BOARD_DICT = BOARD.load()
+BOARD.set_svg(SVG_DICT)
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 

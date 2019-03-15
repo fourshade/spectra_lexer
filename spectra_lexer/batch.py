@@ -1,3 +1,5 @@
+""" Module for the batch components of Spectra. These handle bulk data operations in parallel. """
+
 from collections import defaultdict
 from functools import partial
 from time import time

@@ -1,8 +1,8 @@
 import json
-from typing import Dict, List, Sequence, Optional
+from typing import Dict, List, Optional, Sequence
 
 from spectra_lexer import Component
-from spectra_lexer.utils import merge, ensure_list
+from spectra_lexer.utils import ensure_list, merge
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"

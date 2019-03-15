@@ -5,7 +5,6 @@ import sys
 from spectra_lexer import Component, core, gui_qt, plover, steno, tools
 from spectra_lexer.app import Application
 from spectra_lexer.batch import BatchAnalyzer, BatchIndexer
-from spectra_lexer.steno import SearchEngine
 from spectra_lexer.tools import FileDialogTool
 
 
@@ -31,10 +30,10 @@ class Spectra:
     def get_ep_matches(cls, key:str) -> list:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
-    # Run the Spectra program by itself in batch mode. The search engine is not required for this.
-    analyze = EntryPoint(BatchAnalyzer, core, steno, SearchEngine,
+    # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
+    analyze = EntryPoint(BatchAnalyzer, core, steno.data, steno.StenoLexer,
                          desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchIndexer, core, steno, SearchEngine,
+    index = EntryPoint(BatchIndexer, core, steno.data, steno.StenoLexer,
                        desc="analyze a translations file and index each translation by the rules it uses.")
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
     gui = EntryPoint(gui_qt, tools, core, steno,
