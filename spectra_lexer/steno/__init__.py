@@ -2,6 +2,7 @@
 
 from .rules import RulesManager
 from .translations import TranslationsManager
+from .index import IndexManager
 from .lexer import StenoLexer
 from .board import BoardRenderer
 from .graph import GraphRenderer

@@ -3,3 +3,4 @@
 from .cmdline import CmdlineParser
 from .file import FileHandler
 from .config import ConfigManager
+from .parallel import ParallelExecutor
