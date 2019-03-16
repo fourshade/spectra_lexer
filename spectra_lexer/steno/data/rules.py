@@ -44,14 +44,17 @@ class RulesManager(Component):
         if len(self._src_dict) < sum(map(len, dicts)):
             conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
             raise KeyError(f"Found rule keys appearing in more than one file: {conflicts}")
-        # Parse all rules from source dictionary into this one, indexed by name.
+        # Parse all rules from the source dictionary into the final one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
-        self._dst_dict = {}
+        d = self._dst_dict = {}
         for k in self._src_dict:
-            if k not in self._dst_dict:
+            if k not in d:
                 self._parse(k)
+        # The final dict must be reversed one-to-one to look up names given rules. Some components need this.
+        self._rev_dict = {v: k for (k, v) in d.items()}
+        self.engine_call("new_rules_reversed", self._rev_dict)
         # Return the final rules dict. Components such as the lexer may throw away the names.
-        return self._dst_dict
+        return d
 
     def _parse(self, k:str) -> None:
         """ Parse a source dictionary rule into a StenoRule object. """
@@ -102,8 +105,6 @@ class RulesManager(Component):
     def save(self, rules:Iterable[StenoRule], filename:str="") -> tuple:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
             using auto-generated reference names and substituting rules in each rulemap for their letters. """
-        # The previous dict must be reversed one-to-one to look up names given rules.
-        self._rev_dict = {v: k for (k, v) in self._dst_dict.items()}
         return (filename or self.out), {str(r): self._inv_parse(r) for r in rules}
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:

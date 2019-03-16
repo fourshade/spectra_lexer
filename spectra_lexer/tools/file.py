@@ -8,6 +8,7 @@ class FileDialogTool(Component):
 
     load_rules = Option("menu", "File:Load Rules...", ["file_dialog_open", "rules"])
     load_translations = Option("menu", "File:Load Translations...", ["file_dialog_open", "translations"])
+    load_index = Option("menu", "File:Load Index...", ["file_dialog_open", "index"])
     sep = Option("menu", "File:")
     close_window = Option("menu", "File:Exit", ["gui_window_close"])
 
