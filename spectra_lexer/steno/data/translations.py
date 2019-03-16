@@ -25,7 +25,7 @@ class TranslationsManager(Component):
 
     @pipe("translations_save", "file_save")
     def save(self, d:Dict[str, str], filename:str="") -> tuple:
-        """ Save a translations dict directly into JSON. If no save filename is given, use the default file. """
+        """ Save a translations dict directly into JSON. If no save filename is given, use the default. """
         return (filename or self.out), d
 
     def _default_files(self) -> List[str]:

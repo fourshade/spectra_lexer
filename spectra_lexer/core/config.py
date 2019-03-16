@@ -28,7 +28,7 @@ class ConfigManager(Component):
     @pipe("config_save", "file_save")
     def save(self, d:Dict[str, dict], filename:str="") -> tuple:
         """ Send a new set of config values to the components and save them to disk.
-            Saving should not fail silently, unlike loading. If no save filename is given, use the default file. """
+            Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
         self._update_components(d)
         return (filename or self.file), d
 

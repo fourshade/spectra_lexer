@@ -1,6 +1,6 @@
 from spectra_lexer import Component
-from .codecs import CodecDatabase, CFGCodec, CSONCodec, JSONCodec
-from .resource import Resource, resources_from_patterns, resource_from_string
+from .codecs import *
+from .resource import Resource
 
 # List of all codec subclasses. One of each must be instantiated in the master dict.
 _ALL_CODECS = [CFGCodec, JSONCodec, CSONCodec]
@@ -18,17 +18,17 @@ class FileHandler(Component):
     @on("file_load")
     def load(self, filename:str) -> dict:
         """ Attempt to load and decode a single resource (no patterns) given by name. """
-        return self._decode(resource_from_string(filename))
+        return self._decode(Resource.from_string(filename))
 
     @on("file_load_all")
     def load_all(self, *patterns:str) -> list:
         """ Attempt to expand all patterns and decode all files in the arguments and return a list. """
-        return list(map(self._decode, resources_from_patterns(*patterns)))
+        return [self._decode(f) for p in patterns for f in Resource.from_pattern(p)]
 
     @on("file_save")
     def save(self, filename:str, d:dict) -> None:
         """ Attempt to encode and save a resource to a file given by name. """
-        return self._encode(resource_from_string(filename), d)
+        return self._encode(Resource.from_string(filename), d)
 
     @on("file_get_extensions")
     def get_exts(self) -> list:
