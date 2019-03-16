@@ -123,3 +123,11 @@ def test_plover():
     """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
     test_dc = PloverStenoDictCollection(TRANSLATIONS_DICT, split_count=3)
     assert len(PLOVER.load_dicts(test_dc)) == len(TRANSLATIONS_DICT)
+
+
+INDEX = IndexManager()
+INDEX.engine_connect(FILE_ENGINE.call)
+
+
+def test_index():
+    pass
