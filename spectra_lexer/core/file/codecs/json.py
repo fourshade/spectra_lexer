@@ -1,12 +1,10 @@
 import json
 
-from .base import StringCodec
+from . import Codec
 
 
-class JSONCodec(StringCodec):
+class JSONCodec(Codec, formats=[".json"]):
     """ Codec to convert a Python dict to/from a standard JSON string. """
-
-    FORMATS = [".json"]
 
     # JSON standard library functions with default arguments are the fastest way to load structured data in Python.
     decode = staticmethod(json.loads)
@@ -16,10 +14,8 @@ class JSONCodec(StringCodec):
         return json.dumps(d, ensure_ascii=False, sort_keys=True)
 
 
-class CSONCodec(JSONCodec):
+class CSONCodec(JSONCodec, formats=[".cson"]):
     """ Codec to convert a Python dict to/from a JSON string with full-line comments. """
-
-    FORMATS = [".cson"]
 
     # Allowable prefixes for comments. Only full-line comments are currently supported.
     _CSON_COMMENT_PREFIXES = ("#", "/")

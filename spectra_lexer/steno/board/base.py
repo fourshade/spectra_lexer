@@ -29,10 +29,9 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
         self._matcher = ElementMatcher()
 
-    @pipe("new_svg", "new_board_xml")
-    def set_svg(self, xml_dict:dict) -> Tuple[str, Dict[str, dict]]:
+    @pipe("new_board", "new_board_xml")
+    def set_board(self, raw:str, ids:Dict[str, dict]) -> Tuple[str, Dict[str, dict]]:
         """ Save element ID names to the matcher. """
-        raw, ids = xml_dict["raw"], xml_dict["ids"]
         self._matcher.set_ids(ids)
         # Send the raw SVG text data along with all element IDs to the GUI.
         return raw, ids

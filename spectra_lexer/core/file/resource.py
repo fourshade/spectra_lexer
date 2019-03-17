@@ -20,18 +20,17 @@ _ASSET_LIST = resource_listdir(_PACKAGE_NAME, _ASSETS_RESOURCE_PATH)
 class Resource(str):
     """ Abstract class for a resource identifier. """
 
-    PREFIX: str = ""
-    TYPES: list = []
+    _TYPES: list = []  # Resource types to check for membership, in order.
 
-    def __init_subclass__(cls):
+    def __init_subclass__(cls, prefix:str=""):
         """ Add a new resource subclass to the list and sort by prefix in reverse so longer ones are tried first. """
-        cls.TYPES.append((cls.PREFIX, cls))
-        cls.TYPES.sort(reverse=True)
+        cls._TYPES.append((prefix, cls))
+        cls._TYPES.sort(reverse=True)
 
     @classmethod
     def from_string(cls, s:str):
         """ Given a string, determine the type of resource from the prefix and create the appropriate identifier. """
-        for prefix, tp in cls.TYPES:
+        for prefix, tp in cls._TYPES:
             if s.startswith(prefix):
                 return tp(s[len(prefix):])
 
@@ -77,10 +76,8 @@ class File(Resource):
         return self.from_list(glob.glob(self))
 
 
-class Asset(Resource):
+class Asset(Resource, prefix=":/"):
     """ A built-in asset identifier, created by using pkg_resources. """
-
-    PREFIX = ":/"  # If the prefix is :/, it is a built-in asset.
 
     def read(self) -> str:
         """ Return a string with the UTF-8 text contents of a built-in asset as returned by assets_in_package. """
@@ -92,10 +89,8 @@ class Asset(Resource):
         return self.from_list(fnmatch.filter(_ASSET_LIST, self))
 
 
-class UserFile(File):
+class UserFile(File, prefix="~"):
     """ An identifier for a file in the user's app data directory. Produces instances of its superclass only. """
-
-    PREFIX = "~"  # If the prefix is ~, the resource is a user data file for an app, but not necessarily this one.
 
     def __new__(cls, s:str):
         """ If the prefix is ~appname/, it is a file from the user's application-specific data directory.
@@ -105,10 +100,8 @@ class UserFile(File):
         return File(os.path.join(directory, filename))
 
 
-class Null(Resource):
+class Null(Resource, prefix="@"):
     """ A dummy class that reads nothing and writes to a black hole. """
-
-    PREFIX = "@"  # If the prefix is @, it is the null file.
 
     read = lambda self: ""
     write = lambda *args: None

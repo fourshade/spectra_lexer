@@ -1,13 +1,11 @@
 from configparser import ConfigParser
 from io import StringIO
 
-from .base import StringCodec
+from . import Codec
 
 
-class CFGCodec(StringCodec):
+class CFGCodec(Codec, formats=[".cfg", ".ini"]):
     """ Codec to convert a nested Python dict to/from a config/INI formatted string. """
-
-    FORMATS = [".cfg", ".ini"]
 
     def decode(self, contents:str) -> dict:
         """ Decode CFG file contents into a nested dict. A two-level copy must be made to eliminate the proxies. """
