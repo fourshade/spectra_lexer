@@ -57,23 +57,25 @@ class SearchEngine(Component):
         """ With new input, reset the search count and do a new search unless the input is blank. """
         self._reset_count()
         if pattern:
-            self._new_search(pattern)
+            self.search(pattern)
 
-    def _new_search(self, pattern:str) -> None:
+    def search(self, pattern:str) -> list:
+        """ Keep track of the last user input in case we need to update the list items on mode change. """
         self._last_pattern = pattern
-        self._repeat_search()
+        return self._repeat_search()
 
-    def _repeat_search(self) -> None:
-        self.search(self._last_pattern, self._count, self._mode_strokes, self._mode_regex)
+    def _repeat_search(self) -> list:
+        """ Execute a search using only the last stored parameters. """
+        return self._search(self._last_pattern, self._count, self._mode_strokes, self._mode_regex)
 
-    def search(self, pattern:str, count:int=None, strokes:bool=False, regex:bool=False) -> list:
+    def _search(self, pattern:str, count:int=None, strokes:bool=False, regex:bool=False) -> list:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
         matches = self._dictionary.search(pattern, count, strokes, regex)
         self._show_matches(matches)
         if len(matches) == 1:
             # Select the match if there was only one.
             self.engine_call("new_search_match_selection", matches[0])
-            self._new_lookup(matches[0])
+            self.lookup(matches[0])
         return matches
 
     def _show_matches(self, matches:list) -> None:
@@ -92,23 +94,24 @@ class SearchEngine(Component):
             self._add_page_to_count()
             self._repeat_search()
         else:
-            self._new_lookup(match)
-
-    def _new_lookup(self, match:str) -> None:
-        self._last_match = match
-        self.lookup(match)
+            self.lookup(match)
 
     def lookup(self, match:str) -> list:
+        """ Keep track of the last selected match so we can put together a display command with it. """
+        self._last_match = match
+        return self._lookup(match)
+
+    def _lookup(self, match:str) -> list:
         """ Look up mappings and display them in the lower list. """
         mappings = self._dictionary.lookup(match)
         self._show_mappings(mappings)
         if len(mappings) == 1:
             # A lone mapping should be selected manually and sent on its own.
             self.engine_call("new_search_mapping_selection", mappings[0])
-            self._new_display(mappings[0])
+            self.display(mappings[0])
         elif len(mappings) > 1:
             # We may not know which mapping will be chosen in the end, so we must save all possibilities.
-            self._new_display(mappings)
+            self.display(mappings)
         return mappings
 
     def _show_mappings(self, mappings:list) -> None:
@@ -118,14 +121,14 @@ class SearchEngine(Component):
     @on("search_choose_mapping")
     def on_choose_mapping(self, mapping:str) -> None:
         """ When a mapping is chosen from the lower list, send a display command. """
-        self._new_display(mapping)
+        self.display(mapping)
 
-    def _new_display(self, mapping:object) -> None:
-        self._last_mapping = mapping
-        self.display(self._last_match, mapping)
-
-    def display(self, match:str, mappings:object) -> None:
+    def display(self, mapping:object) -> None:
         """ Send an engine command to display the given match and mappings object, whatever they are. """
+        self._last_mapping = mapping
+        self._display(self._last_match, mapping)
+
+    def _display(self, match:str, mappings:object) -> None:
         cmd_args = self._dictionary.command_args(match, mappings)
         if cmd_args is not None:
             self.engine_call(*cmd_args)
@@ -137,3 +140,12 @@ class SearchEngine(Component):
             common_items = {rule.keys.rtfcre, rule.letters, rule}.intersection(self._last_mapping)
             if common_items:
                 self.engine_call("new_search_mapping_selection", str(common_items.pop()))
+
+    @on("search_examples")
+    def on_link(self, name:str, keys:str, letters:str) -> None:
+        """ When a link is clicked, search the index for examples of the named rule near the given keys/letters. """
+        prox_text = keys if self._mode_strokes else letters
+        item = prox_text[:len(prox_text)//2]
+        search_text = f"//{name}:{item}"
+        self.engine_call("new_search_input", search_text)
+        self._search(search_text, self.match_limit, False, False)

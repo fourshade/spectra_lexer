@@ -73,12 +73,12 @@ def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
     # For both keys and word, and in either mode, search should return a list with only the item itself.
-    assert SEARCH.search(word, None, False, False) == [word]
-    assert SEARCH.search(keys, None, True, False) == [keys]
-    assert SEARCH.search(re.escape(word), None, False, True) == [word]
-    assert SEARCH.search(re.escape(keys), None, True, True) == [keys]
+    assert SEARCH._search(word, None, False, False) == [word]
+    assert SEARCH._search(keys, None, True, False) == [keys]
+    assert SEARCH._search(re.escape(word), None, False, True) == [word]
+    assert SEARCH._search(re.escape(keys), None, True, True) == [keys]
     # A rules prefix search with no body should return every rule we have.
-    assert len(SEARCH.search("/", None, True, True)) == len(RULES_DICT)
+    assert len(SEARCH._search("/", None, True, True)) == len(RULES_DICT)
 
 
 SVG = SVGManager()

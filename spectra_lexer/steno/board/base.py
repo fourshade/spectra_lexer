@@ -15,8 +15,8 @@ class BoardRenderer(Component):
 
     show_compound = Option("config", "board:show_compound_keys", True,
                            "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
-    show_links = Option("config", "board:show_links", True,
-                        "Show hyperlinks to other examples of the current rule. Requires an index.")
+    show_links = Option("config", "board:show_example_links", True,
+                        "Show hyperlinks to other examples of a selected rule. Requires an index.")
 
     _captioner: CaptionGenerator     # Generates the caption text above the board diagram.
     _matcher: ElementMatcher         # Generates the list of element IDs for each stroke of a rule.
@@ -51,9 +51,11 @@ class BoardRenderer(Component):
     @pipe("new_output", "new_board_layout")
     @pipe("new_graph_selection", "new_board_layout")
     def get_info(self, rule:StenoRule) -> List[tuple]:
-        """ Generate board diagram layouts from a steno rule and send them along with the description.
+        """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
             The task is identical whether the rule is from a new output or a user graph selection. """
-        self.engine_call("new_board_description", self._captioner.get_text(rule, self.show_links))
+        self.engine_call("new_board_caption", self._captioner.get_text(rule))
+        if self.show_links:
+            self.engine_call("new_board_link", self._captioner.get_link(rule))
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         self._last_ids = self._matcher.get_element_ids(rule, self.show_compound)
         if self._layout is not None:
