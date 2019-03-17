@@ -18,22 +18,22 @@ class StenoBoardWidget(QWidget):
         super().__init__(*args)
         self._gfx_board = QSvgRenderer()
 
-    def load(self, xml_text:str, ids:Iterable[str]) -> None:
+    def set_xml(self, xml_text:str, ids:Iterable[str]) -> None:
         """ Load the board graphics from an SVG XML string. Send a resize event at the end to update the main component.
             Compute and store a dict of bounds for all given element IDs, as well as the top-level viewbox. """
         self._gfx_board.load(QXmlStreamReader(xml_text))
         self._bounds = {k: self._gfx_board.boundsOnElement(k).getRect() for k in ids}
         self.resizeEvent()
 
-    def set_elements(self, gfx:Iterable[tuple]) -> None:
+    def set_layout(self, elements:Iterable[tuple]) -> None:
         """ Set the current list of element ids and bound rects and draw the new elements. """
         self._draw_list = []
         bounds = self._bounds
-        for (el, ox, oy, scale) in gfx:
-            if el in bounds:
-                x, y, w, h = [c * scale for c in bounds[el]]
+        for (e_id, ox, oy, scale) in elements:
+            if e_id in bounds:
+                x, y, w, h = [c * scale for c in bounds[e_id]]
                 rectf = QRectF(x + ox, y + oy, w, h)
-                self._draw_list.append((el, rectf))
+                self._draw_list.append((e_id, rectf))
         self.update()
 
     def paintEvent(self, event:QPaintEvent) -> None:
@@ -41,8 +41,8 @@ class StenoBoardWidget(QWidget):
             Undefined elements are simply ignored. """
         p = QPainter(self)
         render = self._gfx_board.render
-        for (el, rectf) in self._draw_list:
-            render(p, el, rectf)
+        for (e_id, rectf) in self._draw_list:
+            render(p, e_id, rectf)
 
     def resizeEvent(self, *args) -> None:
         """ Send new properties of the board widget on any size change. """

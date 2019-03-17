@@ -29,7 +29,7 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
         self._matcher = ElementMatcher()
 
-    @pipe("new_svg", "new_board_setup")
+    @pipe("new_svg", "new_board_xml")
     def set_svg(self, xml_dict:dict) -> Tuple[str, Dict[str, dict]]:
         """ Save element ID names to the matcher. """
         raw, ids = xml_dict["raw"], xml_dict["ids"]
@@ -38,20 +38,21 @@ class BoardRenderer(Component):
         return raw, ids
 
     set_rules = on("new_rules")(delegate_to("_matcher"))
+
     set_rules_reversed = on("new_rules_reversed")(delegate_to("_captioner"))
     set_index = on("new_index")(delegate_to("_captioner"))
 
-    @pipe("board_set_layout", "new_board_gfx")
+    @pipe("board_set_view", "new_board_layout")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:
         """ Set the viewbox and the layout's max bounds if non-zero. Recompute the current layout and send it. """
         if all(view_box[2:3]) and width and height:
             self._layout = ElementLayout(view_box, width, height)
             return self._layout.make_draw_list(self._last_ids)
 
-    @pipe("new_output", "new_board_gfx")
-    @pipe("new_graph_selection", "new_board_gfx")
+    @pipe("new_output", "new_board_layout")
+    @pipe("new_graph_selection", "new_board_layout")
     def get_info(self, rule:StenoRule) -> List[tuple]:
-        """ Generate board diagram graphics from a steno rule and send them along with the description.
+        """ Generate board diagram layouts from a steno rule and send them along with the description.
             The task is identical whether the rule is from a new output or a user graph selection. """
         self.engine_call("new_board_description", self._captioner.get_text(rule, self.show_links))
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.

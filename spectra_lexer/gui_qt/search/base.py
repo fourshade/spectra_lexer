@@ -1,10 +1,10 @@
 from functools import partial
-from typing import List
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QWidget
 
 from .search_list_widget import SearchListWidget
 from spectra_lexer import Component
+from spectra_lexer.utils import delegate_to
 
 
 class GUIQtSearchPanel(Component):
@@ -38,22 +38,8 @@ class GUIQtSearchPanel(Component):
         for w in (self.input_textbox, self.match_list, self.mapping_list, self.strokes_chk, self.regex_chk):
             w.setEnabled(enabled)
 
-    @on("new_search_match_list")
-    def set_matches(self, matches:List[str]) -> None:
-        """ Update the upper list's contents and reset the string selection. """
-        self.match_list.set_items(matches)
+    set_matches = on("new_search_match_list")(delegate_to("match_list.set_items"))
+    select_matches = on("new_search_match_selection")(delegate_to("match_list.select"))
 
-    @on("new_search_match_selection")
-    def select_matches(self, selection:str) -> None:
-        """ Manually update the upper list's string selection. """
-        self.match_list.select(selection)
-
-    @on("new_search_mapping_list")
-    def set_mappings(self, mappings:List[str]) -> None:
-        """ Update the lower list's contents and reset the string selection. """
-        self.mapping_list.set_items(mappings)
-
-    @on("new_search_mapping_selection")
-    def select_mappings(self, selection:str) -> None:
-        """ Manually update the lower list's string selection. """
-        self.mapping_list.select(selection)
+    set_mappings = on("new_search_mapping_list")(delegate_to("mapping_list.set_items"))
+    select_mappings = on("new_search_mapping_selection")(delegate_to("mapping_list.select"))

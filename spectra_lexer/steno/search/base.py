@@ -36,6 +36,10 @@ class SearchEngine(Component):
         """ Turn on the GUI panel once everything is set up here. """
         return True
 
+    set_index = on("new_index")(delegate_to("_dictionary.new", "index"))
+    set_rules = on("new_rules")(delegate_to("_dictionary.new", "rules"))
+    set_translations = on("new_translations")(delegate_to("_dictionary.new", "translations"))
+
     @on("search_mode_strokes")
     def set_mode_strokes(self, enabled:bool) -> None:
         """ Set strokes search mode on or off and retry the last search. """
@@ -133,7 +137,3 @@ class SearchEngine(Component):
             common_items = {rule.keys.rtfcre, rule.letters, rule}.intersection(self._last_mapping)
             if common_items:
                 self.engine_call("new_search_mapping_selection", str(common_items.pop()))
-
-    set_index = on("new_index")(delegate_to("_dictionary.new", "index"))
-    set_rules = on("new_rules")(delegate_to("_dictionary.new", "rules"))
-    set_translations = on("new_translations")(delegate_to("_dictionary.new", "translations"))

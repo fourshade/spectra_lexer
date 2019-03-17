@@ -6,6 +6,7 @@ from .results import LexerResult
 from spectra_lexer import Component
 from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
+from spectra_lexer.utils import delegate_to
 
 
 class StenoLexer(Component):
@@ -24,15 +25,8 @@ class StenoLexer(Component):
         super().__init__()
         self._matcher = LexerRuleMatcher()
 
-    @on("new_rules")
-    def set_rules(self, d:dict) -> None:
-        """ Set up the rule matcher with a dict of rules. """
-        self._matcher.set_rules(d)
-
-    @on("new_translations")
-    def set_translations(self, d:dict) -> None:
-        """ Set up the rule matcher with an optional translations dict for asterisks. """
-        self._matcher.set_translations(d)
+    set_rules = on("new_rules")(delegate_to("_matcher"))
+    set_translations = on("new_translations")(delegate_to("_matcher"))
 
     @pipe("lexer_query", "new_output")
     def query(self, keys:str, word:str) -> StenoRule:

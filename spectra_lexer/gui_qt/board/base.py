@@ -1,10 +1,10 @@
 from functools import partial
-from typing import Iterable
 
 from PyQt5.QtWidgets import QLineEdit, QWidget
 
-from spectra_lexer import Component
 from .steno_board_widget import StenoBoardWidget
+from spectra_lexer import Component
+from spectra_lexer.utils import delegate_to
 
 
 class GUIQtBoardDisplay(Component):
@@ -17,20 +17,10 @@ class GUIQtBoardDisplay(Component):
     def new_gui(self, *widgets:QWidget) -> None:
         """ Save the required widgets and set the size change callback. """
         self.w_desc, self.w_board = widgets
-        # Send the bounds of graphical elements, the view box, and the size of the board on resize.
-        self.w_board.resize_callback = partial(self.engine_call, "board_set_layout")
+        # Send the SVG view box and the size of the board on resize.
+        self.w_board.resize_callback = partial(self.engine_call, "board_set_view")
 
-    @on("new_board_setup")
-    def set_gfx(self, xml_text:str, ids:Iterable[str]) -> None:
-        """ Load the board graphics from the raw characters of an SVG XML file. """
-        self.w_board.load(xml_text, ids)
+    set_description = on("new_board_description")(delegate_to("w_desc.setText"))
 
-    @on("new_board_gfx")
-    def display_gfx(self, board_gfx:Iterable[tuple]) -> None:
-        """ Draw the given set of board elements. """
-        self.w_board.set_elements(board_gfx)
-
-    @on("new_board_description")
-    def display_desc(self, description:str) -> None:
-        """ Draw the rule description. """
-        self.w_desc.setText(description)
+    set_xml = on("new_board_xml")(delegate_to("w_board"))
+    set_layout = on("new_board_layout")(delegate_to("w_board"))

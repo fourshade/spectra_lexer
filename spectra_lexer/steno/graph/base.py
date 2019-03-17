@@ -23,8 +23,8 @@ class GraphRenderer(Component):
     @pipe("new_output", "new_interactive_text", html=True, mouse=True)
     def generate(self, rule:StenoRule) -> str:
         """ Generate text graph data (of either type) from an output rule based on config settings. """
-        # Send the rule string as a status message (this doubles as the title in the GUI).
-        self.engine_call("new_status", str(rule))
+        # Send the rule string to the GUI as a title message.
+        self.engine_call("new_title_text", str(rule))
         # Make a node tree layout out of the given rule.
         root = GraphNode.for_display(rule, self.recursive)
         # Generate and render all text objects into standard strings and node grids indexed by position.

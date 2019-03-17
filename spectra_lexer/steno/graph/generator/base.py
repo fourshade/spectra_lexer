@@ -2,11 +2,12 @@
 
 from itertools import chain
 from operator import attrgetter
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple
 
 from .object import ObjectNode, ObjectNodeUnmatched
 from .pattern import PatternInversion, PatternNode, PatternSeparators, PatternThick, PatternUnmatched
 from spectra_lexer.steno.graph.node import GraphNode, GraphNodeAppearance
+from spectra_lexer.utils import delegate_to
 
 
 class ConnectionInfo(NamedTuple):
@@ -69,9 +70,7 @@ class TextGenerator:
         # Reverse the list of children in order to ensure that the leftmost objects get drawn last.
         parent.reverse()
 
-    def render(self) -> Tuple[list, list]:
-        """ Start the root object drawing on a new canvas and returning the text and node data. """
-        return self._root_object.render()
+    render = delegate_to("_root_object")
 
 
 class CascadedTextGenerator(TextGenerator):

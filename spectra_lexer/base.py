@@ -48,8 +48,8 @@ class Component(metaclass=ComponentMeta):
         """ Set the callback used for engine calls by this component. """
         self.engine_call = cb
     def engine_commands(self) -> list:
-        """ Bind all class command functions to the instance and return a list of these to the engine. """
-        return [(key, (getattr(self, attr), *params)) for key, (attr, params) in self.cmds.items()]
+        """ Add the instance to each command and return a list to the engine. """
+        return [(key, (self, attr, *params)) for key, (attr, params) in self.cmds.items()]
     def engine_options(self) -> list:
         """ Return all options (dict values) on this class to the engine. """
         return list(self.opts.values())
