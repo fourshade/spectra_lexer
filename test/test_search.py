@@ -121,7 +121,7 @@ def test_skdict_similar(cls):
     In the key lists, they are sorted by this measure, then standard string sort order applies second.
     """
     def just_a(key):
-        return "".join(c for c in key if c is "a")
+        return key.count("a")
 
     # Keys are restricted to whatever type the similarity function takes, so just use strings for now.
     # The values don't matter; just have them be the number of a's for reference.
@@ -146,6 +146,13 @@ def test_skdict_similar(cls):
     assert d.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "a"]
     d["^hates^"] = 1
     assert d.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "^hates^", "a"]
+    del d["----I shall be first!---"]
+
+    # For nearby keys, the number of a's don't have to match exactly; just return keys near the one we want.
+    assert d.get_nearby_keys("Canada", 2) == ["a man!?", "Canada"]
+    assert d.get_nearby_keys("Canada", 5) == ["^hates^", "a", "a man!?", "Canada", "AaaAaa, Ʊnićodə!"]
+    assert d.get_nearby_keys("b", 4) == ["", "lots\nof\nlines", "A's don't count, just a's", "^hates^"]
+    assert set(d.get_nearby_keys("EVERYTHING", 100)) == set(d)
 
 
 @class_test(StringSearchDict)

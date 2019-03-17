@@ -2,7 +2,7 @@ from typing import List
 
 from PyQt5.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel, QStringListModel, Qt
 from PyQt5.QtGui import QWheelEvent
-from PyQt5.QtWidgets import QListView
+from PyQt5.QtWidgets import QAbstractItemView, QListView
 
 
 class SearchListWidget(QListView):
@@ -20,6 +20,7 @@ class SearchListWidget(QListView):
 
     def select(self, key:str) -> None:
         """ Programmatically select a specific item by first instance (if it exists).
+            Scroll to put the item approximately in the middle of the page if possible.
             Suppress signals to keep from tripping the selectionChanged event. """
         try:
             key = self.model().stringList().index(key)
@@ -27,8 +28,13 @@ class SearchListWidget(QListView):
             return
         idx = self.model().index(key, 0)
         self.blockSignals(True)
-        self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)
+        self._change_selection(idx)
         self.blockSignals(False)
+
+    def _change_selection(self, idx:int) -> None:
+        """ Select an item by index and scroll to put it as close as possible to the center of the list. """
+        self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)
+        self.scrollTo(idx, QAbstractItemView.PositionAtCenter)
 
     # Signals
     itemSelected = pyqtSignal([str])

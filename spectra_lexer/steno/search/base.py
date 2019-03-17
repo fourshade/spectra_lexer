@@ -1,4 +1,7 @@
+import random
+
 from .collection import SearchDictionary
+from .nexus import IndexNexus
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.utils import delegate_to
@@ -66,16 +69,15 @@ class SearchEngine(Component):
 
     def _repeat_search(self) -> list:
         """ Execute a search using only the last stored parameters. """
-        return self._search(self._last_pattern, self._count, self._mode_strokes, self._mode_regex)
+        return self._search(self._last_pattern, self._count, self._mode_strokes, regex=self._mode_regex)
 
-    def _search(self, pattern:str, count:int=None, strokes:bool=False, regex:bool=False) -> list:
+    def _search(self, pattern:str, count:int=None, strokes:bool=False, **search_kwargs) -> list:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
-        matches = self._dictionary.search(pattern, count, strokes, regex)
+        matches = self._dictionary.search(pattern, count, strokes=strokes, **search_kwargs)
         self._show_matches(matches)
         if len(matches) == 1:
-            # Select the match if there was only one.
-            self.engine_call("new_search_match_selection", matches[0])
-            self.lookup(matches[0])
+            # Automatically select the match if there was only one.
+            self._select_match(matches[0])
         return matches
 
     def _show_matches(self, matches:list) -> None:
@@ -86,9 +88,18 @@ class SearchEngine(Component):
         self.engine_call("new_search_match_list", matches)
         self.engine_call("new_search_mapping_list", [])
 
+    def _select_match(self, match:str) -> None:
+        """ Select a match with a command and continue with a lookup. """
+        self._select("match", match)
+        self.lookup(match)
+
+    def _select(self, s:str, selection:object) -> None:
+        """ Select an item in a list with a command, defaulting to the first. """
+        self.engine_call(f"new_search_{s}_selection", selection)
+
     @on("search_choose_match")
     def on_choose_match(self, match:str) -> None:
-        """ When a match is chosen from the upper list, do a lookup after special checks. """
+        """ When a match is chosen manually from the upper list, do a lookup after special checks. """
         if match == _MORE_TEXT:
             # If the user clicked "more", increment the count and search again. Do not find mappings.
             self._add_page_to_count()
@@ -106,11 +117,10 @@ class SearchEngine(Component):
         mappings = self._dictionary.lookup(match)
         self._show_mappings(mappings)
         if len(mappings) == 1:
-            # A lone mapping should be selected manually and sent on its own.
-            self.engine_call("new_search_mapping_selection", mappings[0])
-            self.display(mappings[0])
+            # A lone mapping should be selected automatically and displayed on its own.
+            self._select_mapping(mappings[0])
         elif len(mappings) > 1:
-            # We may not know which mapping will be chosen in the end, so we must save all possibilities.
+            # If there is more than one mapping, we look at all possibilities.
             self.display(mappings)
         return mappings
 
@@ -118,9 +128,13 @@ class SearchEngine(Component):
         """ Mappings may be rules. To be safe, show the string form of everything. """
         self.engine_call("new_search_mapping_list", list(map(str, mappings)))
 
+    def _select_mapping(self, mapping:object) -> None:
+        self._select("mapping",  mapping)
+        self.display(mapping)
+
     @on("search_choose_mapping")
     def on_choose_mapping(self, mapping:str) -> None:
-        """ When a mapping is chosen from the lower list, send a display command. """
+        """ When a mapping is chosen manually from the lower list, send a display command. """
         self.display(mapping)
 
     def display(self, mapping:object) -> None:
@@ -142,10 +156,12 @@ class SearchEngine(Component):
                 self.engine_call("new_search_mapping_selection", str(common_items.pop()))
 
     @on("search_examples")
-    def on_link(self, name:str, keys:str, letters:str) -> None:
+    def on_link(self, name:str, keys:str, letters:str) -> list:
         """ When a link is clicked, search the index for examples of the named rule near the given keys/letters. """
-        prox_text = keys if self._mode_strokes else letters
-        item = prox_text[:len(prox_text)//2]
-        search_text = f"//{name}:{item}"
+        item = keys if self._mode_strokes else letters
+        search_text = f"{IndexNexus.PREFIX}{name}{IndexNexus.DELIM}{item}"
         self.engine_call("new_search_input", search_text)
-        self._search(search_text, self.match_limit, False, False)
+        matches = self.search(search_text)
+        if len(matches) > 1:
+            self._select_match(random.choice(matches))
+        return matches

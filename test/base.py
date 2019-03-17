@@ -7,9 +7,9 @@ import os
 import pytest
 
 
-def get_test_filename() -> str:
-    """ Get the filename for the lexer test data (dict of translations that should all pass with matches). """
-    return os.path.join(__file__, "..", "data/translations.json")
+def get_test_filename(r_type:str) -> str:
+    """ Get the filename for the program test data by type (i.e. translations that should all pass with matches). """
+    return os.path.join(__file__, "..", f"data/{r_type}.json")
 
 
 def class_tester(test_classes:list):

@@ -24,14 +24,16 @@ class StripCaseSearchDict(StringSearchDict):
             kwargs.update(simfn=simfn, mapfn=mapfn)
         super().__init__(*args, **kwargs)
 
-    def search(self, pattern:str, count:int, regex:bool) -> List[str]:
-        """ Perform a special search for <pattern> with the current dict. Return up to <count> matches. """
-        if regex:
-            try:
-                return self.regex_match_keys(pattern, count)
-            except re.error:
-                return ["REGEX ERROR"]
-        return self.prefix_match_keys(pattern, count)
+    def search(self, pattern:str, count:int, *, prefix:bool=True, regex:bool=False) -> List[str]:
+        """ Perform a special search for <pattern> with the given flags. Return up to <count> matches. """
+        if prefix:
+            if regex:
+                try:
+                    return self.regex_match_keys(pattern, count)
+                except re.error:
+                    return ["REGEX ERROR"]
+            return self.prefix_match_keys(pattern, count)
+        return self.get_nearby_keys(pattern, count)
 
     def lookup(self, match:str) -> List[str]:
         """ Perform a simple lookup on a dict. If the results aren't a list, make it one. """

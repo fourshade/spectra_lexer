@@ -155,6 +155,21 @@ class SimilarKeyDict(Dict[KT, VT]):
             keys.append(rk)
         return keys
 
+    def get_nearby_keys(self, k:KT, count:int) -> List[KT]:
+        """ Return a list of at most <count> keys that are near to <k> under the similarity function.
+            All keys will be approximately centered around <k> unless we're too close to one edge of the list. """
+        _list = self._list
+        idx_left = self._index_exact(k) - count // 2
+        if idx_left <= 0:
+            items = _list[:count]
+        else:
+            idx_right = idx_left + count
+            if idx_right >= len(_list):
+                items = _list[-count:]
+            else:
+                items = _list[idx_left:idx_right]
+        return [i[1] for i in items]
+
 
 class StringSearchDict(SimilarKeyDict):
     """

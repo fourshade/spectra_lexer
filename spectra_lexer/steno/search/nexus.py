@@ -8,10 +8,24 @@ from spectra_lexer.utils import delegate_to
 
 class ResourceNexus:
 
+    _R_TABLE = {}     # Maps resource key strings to the nexus types that use them.
+
     PRIORITY: int = 0  # Search priority. Resource prefixes are checked in order from highest to lowest priority nexus.
     PREFIX: str = ""   # Prefix to test (and strip) on input patterns. Empty by default, so pattern is unmodified.
 
     _d: StripCaseSearchDict = StripCaseSearchDict()  # Current dict used for lookups and commands.
+
+    def __init_subclass__(cls, resource:str="UNDEFINED"):
+        """ Add each subclass under its resource type. """
+        cls._R_TABLE[resource] = cls
+
+    def __lt__(self, other) -> bool:
+        """ Nexus sort order is equivalent to that of their priority ints. """
+        return self.PRIORITY < other.PRIORITY
+
+    @classmethod
+    def from_resource(cls, r_key:str, d:dict):
+        return cls._R_TABLE[r_key](d)
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
         """ Indicator function that returns a new pattern on success and can modify the current dict reference. """
@@ -26,19 +40,19 @@ class ResourceNexus:
     lookup = delegate_to("_d")
 
 
-class TranslationNexus(ResourceNexus):
+class TranslationNexus(ResourceNexus, resource="translations"):
     """ A hybrid forward+reverse steno translation nexus. Used when nothing else matches. """
 
     PRIORITY = 1  # Has low priority. It must outrank the default nexus only.
-    _CMD_KEY: str = "show_translation"    # Key for engine command.
+    _CMD_KEY: str = "show_translation"
 
     _forward: StripCaseSearchDict         # Forward translations dict (strokes -> English words).
     _reverse: ReverseStripCaseSearchDict  # Reverse translations dict (English words -> strokes).
 
-    def __init__(self, d:Dict[str, str]):
+    def __init__(self, d:Dict[str, str], strip:str=" -"):
         """ For translation-based searches, spaces and hyphens should be stripped off each end. """
-        self._forward = StripCaseSearchDict(d, strip_chars=" -")
-        self._reverse = ReverseStripCaseSearchDict(match=d, strip_chars=" -")
+        self._forward = StripCaseSearchDict(d, strip_chars=strip)
+        self._reverse = ReverseStripCaseSearchDict(match=d, strip_chars=strip)
 
     def check(self, pattern:str, strokes:bool=False, **mode_kwargs) -> str:
         """ Indicator function that always returns success. Does not modify the pattern. """
@@ -51,27 +65,28 @@ class TranslationNexus(ResourceNexus):
         return (self._CMD_KEY, *args)
 
 
-class RulesNexus(ResourceNexus):
-    """ A simple nexus for rule search by name when a prefix is added. There is only one dict which never changes. """
+class RulesNexus(ResourceNexus, resource="rules"):
+    """ A simple nexus for rule search by name when a prefix is added. There is only one dict, which never changes. """
 
     PRIORITY = 2  # Has medium priority. It must outrank the translations nexus.
     PREFIX = "/"  # A basic slash which is also a prefix of *other*, higher priority prefixes.
-    _CMD_KEY: str = "new_output"  # Key for engine command.
+    _CMD_KEY: str = "new_output"
 
-    def __init__(self, d:dict):
+    def __init__(self, d:dict, strip:str=" .+-~"):
         """ To search the rules dictionary by name, prefix and suffix reference symbols should be stripped. """
-        self._d = StripCaseSearchDict(d, strip_chars=" .+-~")
+        self._d = StripCaseSearchDict(d, strip_chars=strip)
 
     def command_args(self, match:str, mapping:object) -> tuple:
         """ If the mapping is a rule, send it as direct output just like the lexer would and return. """
         return self._CMD_KEY, mapping
 
 
-class IndexNexus(ResourceNexus):
+class IndexNexus(ResourceNexus, resource="index"):
     """ A resource-heavy nexus for finding translations that contain a particular steno rule. """
 
-    PRIORITY = 3   # Has highest priority but lowest chance of success. Must outrank the rules nexus.
-    PREFIX = "//"  # This includes the rules prefix, so it must be checked first.
+    PRIORITY = 3      # Has highest priority but lowest chance of success. Must outrank the rules nexus.
+    PREFIX = "//"     # This includes the rules prefix, so it must be checked first.
+    DELIM: str = ";"  # Delimiter between rule name and translation.
 
     _children: Dict[str, TranslationNexus]  # Dict containing a whole subnexus for every rule name.
     _d: TranslationNexus                    # Current nexus used to redirect checks and commands.
@@ -86,9 +101,10 @@ class IndexNexus(ResourceNexus):
         """ Indicator function for a rules search. Prefix is stripped by super method to get subnexus:pattern combo. """
         pattern = super().check(pattern)
         if pattern is not None:
-            key, pattern = (pattern.split(":", 1) + [""])[:2]
+            key, pattern = (pattern.split(self.DELIM, 1) + [""])[:2]
             if key in self._children:
                 d = self._d = self._children[key]
                 return d.check(pattern, **mode_kwargs)
 
+    search = delegate_to("_d", prefix=False)
     command_args = delegate_to("_d")

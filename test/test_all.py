@@ -48,7 +48,7 @@ def test_rules(r):
 
 TRANSLATIONS = TranslationsManager()
 TRANSLATIONS.engine_connect(FILE_ENGINE.call)
-TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename()])
+TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename("translations")])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_rules(RULES_DICT)
@@ -63,9 +63,14 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
+INDEX = IndexManager()
+INDEX.engine_connect(FILE_ENGINE.call)
+INDEX_DICT = INDEX.load(get_test_filename("index"))
+TEST_INDEX = list(INDEX_DICT.items())
 SEARCH = SearchEngine()
 SEARCH.set_rules(RULES_DICT)
 SEARCH.set_translations(TRANSLATIONS_DICT)
+SEARCH.set_index(INDEX_DICT)
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
@@ -73,19 +78,44 @@ def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
     # For both keys and word, and in either mode, search should return a list with only the item itself.
-    assert SEARCH._search(word, None, False, False) == [word]
-    assert SEARCH._search(keys, None, True, False) == [keys]
-    assert SEARCH._search(re.escape(word), None, False, True) == [word]
-    assert SEARCH._search(re.escape(keys), None, True, True) == [keys]
-    # A rules prefix search with no body should return every rule we have.
-    assert len(SEARCH._search("/", None, True, True)) == len(RULES_DICT)
+    assert SEARCH.search(word) == [word]
+    SEARCH.set_mode_strokes(True)
+    assert SEARCH.search(keys) == [keys]
+    SEARCH.set_mode_regex(True)
+    assert SEARCH.search(re.escape(keys)) == [keys]
+    SEARCH.set_mode_strokes(False)
+    assert SEARCH.search(re.escape(word)) == [word]
+    SEARCH.set_mode_regex(False)
+
+
+def test_rules_search():
+    """ A rules prefix search with no body should return every rule we have after expanding it all we can. """
+    results = SEARCH.search("/")
+    while "(more...)" in results:
+        SEARCH._add_page_to_count()
+        results = SEARCH._repeat_search()
+    assert len(results) == len(RULES_DICT)
+
+
+@pytest.mark.parametrize("trial", TEST_INDEX)
+def test_index_search(trial):
+    # Any rule with translations in the index should have its keys and letters somewhere in every entry.
+    rname, tdict = trial
+    rule = RULES_DICT[rname]
+    wresults = SEARCH.search(f"//{rname}")
+    assert all([rule.letters in r for r in wresults])
+    SEARCH.set_mode_strokes(True)
+    kresults = SEARCH.search(f"//{rname}")
+    SEARCH.set_mode_strokes(False)
+    all_keys = set(rule.keys.rtfcre) - set("/-")
+    assert all_keys == all_keys.intersection(*kresults)
 
 
 SVG = SVGManager()
 SVG.engine_connect(FILE_ENGINE.call)
-SVG_DICT = SVG.load()
+SVG_PARAMS = SVG.load()
 BOARD = BoardRenderer()
-BOARD.set_svg(SVG_DICT)
+BOARD.set_board(*SVG_PARAMS)
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 
@@ -123,11 +153,3 @@ def test_plover():
     """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
     test_dc = PloverStenoDictCollection(TRANSLATIONS_DICT, split_count=3)
     assert len(PLOVER.load_dicts(test_dc)) == len(TRANSLATIONS_DICT)
-
-
-INDEX = IndexManager()
-INDEX.engine_connect(FILE_ENGINE.call)
-
-
-def test_index():
-    pass
