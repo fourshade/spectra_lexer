@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Optional, Iterable
+from typing import Dict, Iterable, Optional
 
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
@@ -12,28 +12,30 @@ class IndexManager(Component):
 
     file = Option("cmdline", "index-file", "~/index.json", "JSON index file to load at startup and/or write to.")
     out = Option("cmdline", "index-out", "~/index.json", "Output file name for steno rule -> translation indices.")
-    size = Option("cmdline", "index-size", 12, "Determines the relative size of a generated index:\n"
-                                               "index-size <= 0:  includes nothing.\n"
-                                               "index-size == 10: fast index with relatively simple words.\n"
-                                               "index-size == 12: average-sized index (default).\n"
-                                               "index-size == 15: slower index with more advanced words.\n"
-                                               "index-size >= 20: includes everything.")
+    size = Option("cmdline", "index-size", 12, "Determines the relative size of a generated index (range 1-20).")
 
     _rev_rules: Dict[StenoRule, str] = {}  # Reverse rules dict for rule -> name translation.
+    _translations: dict = {}  # Main translations dict to process.
 
     @on("new_rules_reversed")
     def set_rules_reversed(self, rd:Dict[StenoRule, str]) -> None:
         """ Set up the reverse rule dict. """
         self._rev_rules = rd
 
+    @on("new_translations")
+    def set_translations(self, d:dict) -> None:
+        """ Set the translations dict to be processed with lexer_query_all. """
+        self._translations = d
+
     @pipe("start", "new_index")
     @pipe("index_load", "new_index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
-        """ Load an index from disk if one is found. Ignore failures. """
+        """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:
             return self.engine_call("file_load", filename or self.file)
         except OSError:
-            return None
+            self.engine_call("index_not_found")
+            return
 
     @pipe("index_save", "file_save")
     def save(self, d:Dict[str, dict], filename:str="") -> tuple:
@@ -42,22 +44,28 @@ class IndexManager(Component):
         return (filename or self.out), d
 
     @pipe("index_generate", "new_index")
-    def generate(self, translations:Iterable[tuple]) -> Dict[str, dict]:
+    def generate(self, translations:Iterable=None, *, size:int=None) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every lexer translation that used it. """
-        filter_in, filter_out = self._make_filters()
+        if translations is None:
+            translations = self._translations
+        if isinstance(translations, dict):
+            translations = translations.items()
+        if size is None:
+            size = self.size
+        filter_in, filter_out = self._make_filters(size)
         results = self.engine_call("lexer_query_all", translations, filter_in, filter_out)
         translation_lists = self._count_rules(results)
         return self._sort_translations(translation_lists)
 
-    def _make_filters(self):
-        def filter_in(translation) -> bool:
+    def _make_filters(self, size:int):
+        def filter_in(translation, max_length=size) -> bool:
             """ Filter function to eliminate larger entries from the index depending on the size factor. """
-            return max(map(len, translation)) <= self.size
+            return max(map(len, translation)) <= max_length
         def filter_out(rule) -> bool:
             """ Filter function to eliminate lexer results that are unmatched or basic rules themselves. """
             return len(rule.rulemap) > 1
-        return (filter_in if self.size < 20 else None), filter_out
+        return (filter_in if size < 20 else None), filter_out
 
     def _count_rules(self, results) -> Dict[str, list]:
         """ From the lexer rulemaps, make lists of all translations that use each built-in rule at the top level. """

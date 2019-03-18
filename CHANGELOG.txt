@@ -1,3 +1,8 @@
+3.0.0
+-----
+* Added index and search for example translations by rule.
+* Added better support for parallel processing on large operations.
+
 2.1.0
 -----
 * Simplified core engine code
