@@ -4,7 +4,7 @@ import sys
 
 from spectra_lexer import Component, core, gui_qt, plover, steno, tools
 from spectra_lexer.app import Application
-from spectra_lexer.batch import BatchAnalyzer, BatchIndexer
+from spectra_lexer.batch import BatchProcessor
 from spectra_lexer.tools import FileDialogTool
 
 
@@ -12,13 +12,14 @@ class EntryPoint:
     """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes.
         Arguments may include component classes, modules, and additional command line arguments.
         If a module has an unwanted component class, adding that class again will *remove* it. """
-    def __init__(self, *ep_args, **attrs):
+    def __init__(self, *ep_args, cmd_args=(), **attrs):
         self.__dict__ = attrs
         self.ep_args = ep_args
+        self.cmd_args = cmd_args
 
     def __call__(self, *args):
         """ Add command-line arguments, unpack all component classes found in modules, and start the application. """
-        sys.argv += [s for s in self.ep_args if isinstance(s, str)]
+        sys.argv += self.cmd_args
         classes = [cls for m in self.ep_args for cls in (m, *vars(m).values())
                    if isinstance(cls, type) and issubclass(cls, Component)]
         return Application(*classes).start(*args)
@@ -31,9 +32,9 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchAnalyzer, core, steno.data, steno.StenoLexer,
+    analyze = EntryPoint(BatchProcessor, core, steno.data, steno.StenoLexer, cmd_args=["--operation=analyze"],
                          desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchIndexer, core, steno.data, steno.StenoLexer,
+    index = EntryPoint(BatchProcessor, core, steno.data, steno.StenoLexer, cmd_args=["--operation=index"],
                        desc="analyze a translations file and index each translation by the rules it uses.")
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
     gui = EntryPoint(gui_qt, tools, core, steno,

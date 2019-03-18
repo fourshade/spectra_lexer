@@ -41,6 +41,13 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
+    @pipe("lexer_query_all", "new_analysis")
+    def query_all(self, items:Iterable[tuple], filter_in=None, filter_out=None) -> List[StenoRule]:
+        """ Run the lexer in parallel on all given (keys, word) translation items and return a list of results.
+            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
+        results = self.engine_call("parallel_starmap", "lexer_query", filter(filter_in, items))
+        return list(filter(filter_out, results))
+
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """
         # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
