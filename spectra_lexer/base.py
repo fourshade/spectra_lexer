@@ -5,7 +5,7 @@ from functools import partial
 
 
 class Command(namedtuple("Command", "func key cmd_args cmd_kwargs", defaults=((), {}))):
-    def __set_name__(self, owner:type, name:str) -> None:
+    def __set_name__(self, owner, name:str) -> None:
         """ Add to the command dict, put the original function back, and chain the __set_name__ call if necessary. """
         func, key, *params = self
         owner.cmds[key] = name, params
@@ -20,7 +20,7 @@ class Command(namedtuple("Command", "func key cmd_args cmd_kwargs", defaults=(()
 
 class Option(namedtuple("Option", "src key default desc", defaults=(None, ""))):
     """ A customizable option, configured before the application starts. """
-    def __set_name__(self, owner:type, name:str) -> None:
+    def __set_name__(self, owner, name:str) -> None:
         """ Add to the option dict, put the default value in its place, and make the command. """
         cmdkey = f"set_{self.src}_{self.key}"
         owner.opts[cmdkey] = self.src, self

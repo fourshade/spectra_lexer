@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, List
 
 from spectra_lexer import Component
+from spectra_lexer.utils import nop
 
 
 class Application:
@@ -64,3 +65,10 @@ class Application:
         """ The caller may depend on exceptions, so don't catch them here unless this is the top level. """
         self._rlevel -= 1
         return exc_value is not None and self._rlevel <= 0 and self.call("new_exception", exc_value)
+
+    def __getstate__(self) -> dict:
+        """ This object has reference chains to almost everything, and every component has a reference to self.call.
+            Without intervention, if the pickler tries to pickle a component, it will end up here and in turn will
+            try to pickle the entire program. Some parts are unpickleable, so it must be cut off here.
+            Unfortunately, this means no engine calls may be made by components after unpickling. """
+        return {"call": nop}

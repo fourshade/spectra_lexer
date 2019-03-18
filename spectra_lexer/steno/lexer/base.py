@@ -43,9 +43,9 @@ class StenoLexer(Component):
 
     @pipe("lexer_query_all", "new_analysis")
     def query_all(self, items:Iterable[tuple], filter_in=None, filter_out=None) -> List[StenoRule]:
-        """ Run the lexer in parallel on all given (keys, word) translation items and return a list of results.
+        """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
-        results = self.engine_call("parallel_starmap", "lexer_query", filter(filter_in, items))
+        results = self.engine_call("parallel_starmap", self.query, filter(filter_in, items))
         return list(filter(filter_out, results))
 
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
