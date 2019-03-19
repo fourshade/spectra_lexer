@@ -5,7 +5,6 @@ import sys
 from spectra_lexer import Component, core, gui_qt, plover, steno, tools
 from spectra_lexer.app import Application
 from spectra_lexer.batch import BatchProcessor
-from spectra_lexer.tools import FileDialogTool
 
 
 class EntryPoint:
@@ -40,7 +39,7 @@ class Spectra:
     gui = EntryPoint(gui_qt, tools, core, steno,
                      desc="run the interactive GUI application by itself.")
     # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
-    plugin = EntryPoint(plover, gui_qt, tools, FileDialogTool, core, steno,
+    plugin = EntryPoint(plover, gui_qt, tools, core, steno,
                         desc="run the GUI application in Plover plugin mode.",
                         # Class constants required by Plover for toolbar.
                         __doc__='See the breakdown of words using steno rules.',

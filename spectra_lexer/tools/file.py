@@ -4,13 +4,13 @@ from spectra_lexer import Component
 
 
 class FileDialogTool(Component):
-    """ Controls user-based file loading and window closing. This should not be loaded in plugin mode. """
+    """ Controls user-based file loading and window closing. """
 
     load_rules = Option("menu", "File:Load Rules...", ["file_dialog_open", "rules"])
     load_translations = Option("menu", "File:Load Translations...", ["file_dialog_open", "translations"])
     load_index = Option("menu", "File:Load Index...", ["file_dialog_open", "index"])
     sep = Option("menu", "File:")
-    close_window = Option("menu", "File:Exit", ["gui_window_close"])
+    close_window = Option("menu", "File:Close", ["gui_window_close"])
 
     @on("file_dialog_open", "new_dialog")
     def open_dialog(self, res_type:str) -> tuple:
@@ -22,7 +22,7 @@ class FileDialogTool(Component):
 
     @on("file_dialog_result")
     def load(self, res_type:str, filenames:Sequence[str]=()) -> None:
-        """ Attempt to load the given files (if any) as the last resource type. """
+        """ Attempt to load the given files (if any). """
         if filenames:
             self.engine_call("new_status", f"Loading {res_type}...")
             self.engine_call(f"{res_type}_load", filenames)
