@@ -53,9 +53,9 @@ class BoardRenderer(Component):
     def get_info(self, rule:StenoRule) -> List[tuple]:
         """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
             The task is identical whether the rule is from a new output or a user graph selection. """
-        self.engine_call("new_board_caption", self._captioner.get_text(rule))
-        if self.show_links:
-            self.engine_call("new_board_link", self._captioner.get_link(rule))
+        caption = self._captioner.get_text(rule)
+        link_params = self._captioner.get_link(rule) if self.show_links else ()
+        self.engine_call("new_board_caption", caption, *link_params)
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         self._last_ids = self._matcher.get_element_ids(rule, self.show_compound)
         if self._layout is not None:

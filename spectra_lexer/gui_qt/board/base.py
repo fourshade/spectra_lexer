@@ -1,13 +1,9 @@
-from functools import partial
-
+from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QLabel, QWidget
 
 from .steno_board_widget import StenoBoardWidget
 from spectra_lexer import Component
 from spectra_lexer.utils import delegate_to
-
-# Delimiter for storing multiple strings in a hyperlink anchor.
-_LINK_DELIM = "|"
 
 
 class GUIQtBoardDisplay(Component):
@@ -15,26 +11,34 @@ class GUIQtBoardDisplay(Component):
 
     w_desc: QLabel             # Displays rule description.
     w_board: StenoBoardWidget  # Displays steno board diagram.
+    w_link: QLabel = None      # Displays rule hyperlink. Created dynamically.
+
+    _last_link: tuple = ()     # Search parameters for last hyperlink.
 
     @on("new_gui_board")
     def new_gui(self, *widgets:QWidget) -> None:
         """ Save the required widgets and set the size change callback. """
         self.w_desc, self.w_board = widgets
-        # Set description label hyperlinks to search examples when clicked.
-        self.w_desc.linkActivated.connect(lambda s: self.engine_call("search_examples", *s.split(_LINK_DELIM)))
+        # Set hyperlinks to search examples when clicked.
+        self.w_link = QLabel(self.w_board)
+        self.w_link.setVisible(False)
+        self.w_link.setText(f"<a href='unused'>More Examples</a>")
+        self.w_link.linkActivated.connect(lambda s: self.engine_call("search_examples", *self._last_link))
         # Send the SVG view box and the size of the board on resize.
-        self.w_board.resize_callback = partial(self.engine_call, "board_set_view")
+        self.w_board.resize_callback = self.on_resize
 
-    set_caption = on("new_board_caption")(delegate_to("w_desc.setText"))
-
-    @on("new_board_link")
-    def set_link(self, params:tuple) -> None:
-        """ Add an HTML hyperlink to show examples of the displayed rule. """
-        text = self.w_desc.text()
-        if params:
-            ref = _LINK_DELIM.join(params)
-            text += f" <a href='{ref}'>More Examples</a>"
-        self.w_desc.setText(text)
+    @on("new_board_caption")
+    def set_link(self, caption:str, *link_params:str) -> None:
+        """ Show a caption above the board and optionally a link in the bottom-right corner. """
+        self.w_desc.setText(caption)
+        # Store parameters to show examples of the displayed rule.
+        self._last_link = link_params
+        self.w_link.setVisible(bool(link_params))
 
     set_xml = on("new_board_xml")(delegate_to("w_board"))
     set_layout = on("new_board_layout")(delegate_to("w_board"))
+
+    def on_resize(self, view_box:tuple, width:int, height:int) -> None:
+        """ Reposition the link and send new properties of the board widget on any size change. """
+        self.w_link.move(self.w_board.pos() + QPoint(width - 80, height - 40))
+        self.engine_call("board_set_view", view_box, width, height)
