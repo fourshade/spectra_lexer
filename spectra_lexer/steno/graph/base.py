@@ -37,16 +37,29 @@ class GraphRenderer(Component):
         return self._formatter.make_graph_text()
 
     @pipe("text_mouse_action", "new_graph_selection")
-    def select(self, row:int, col:int, clicked:bool=False) -> Optional[StenoRule]:
-        """ Find the node owning the element at (row, col) of the graph. If that node is new, send out its rule. """
+    def select_character(self, row:int, col:int, clicked:bool=False) -> Optional[StenoRule]:
+        """ Find the node owning the character at (row, col) of the graph. If that node is new, send out its rule. """
         if self._locator is None:
             return None
         node = self._locator.select(row, col)
         if node is None or node is self._last_node:
             return None
-        # Store the new object reference so we can avoid repeated lookups.
-        self._last_node = node
-        # Also render and send the graph with this node highlighted. Don't allow the graph to scroll.
+        return self._display_selection(node)
+
+    @pipe("text_display_rule", "new_graph_selection")
+    def display_rule(self, rule:StenoRule) -> Optional[StenoRule]:
+        """ Find the first node created from <rule>, if any, and select it. """
+        if self._formatter is None:
+            return None
+        # The formatter is a dict of nodes; just run a quick search through its keys.
+        for node in self._formatter:
+            if node.rule is rule:
+                return self._display_selection(node)
+
+    def _display_selection(self, node:GraphNode) -> StenoRule:
+        """ Render and send the graph with <node> highlighted. Don't allow the graph to scroll. """
         text = self._formatter.make_graph_text(node)
         self.engine_call("new_interactive_text", text, html=True, mouse=True, scroll_to=None)
+        # Store the object reference so we can avoid repeated lookups and send the rule to the board diagram.
+        self._last_node = node
         return node.rule

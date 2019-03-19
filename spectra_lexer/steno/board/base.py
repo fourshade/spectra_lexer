@@ -36,9 +36,11 @@ class BoardRenderer(Component):
         # Send the raw SVG text data along with all element IDs to the GUI.
         return raw, ids
 
-    set_rules = on("new_rules")(delegate_to("_matcher"))
+    @on("new_rules")
+    def set_rules(self, d:dict):
+        self._captioner.set_rules(d)
+        self._matcher.set_rules(d)
 
-    set_rules_reversed = on("new_rules_reversed")(delegate_to("_captioner"))
     set_index = on("new_index")(delegate_to("_captioner"))
 
     @pipe("board_set_view", "new_board_layout")

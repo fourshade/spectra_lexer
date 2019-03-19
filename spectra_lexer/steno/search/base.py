@@ -1,5 +1,3 @@
-import random
-
 from .collection import SearchDictionary
 from .nexus import IndexNexus
 from spectra_lexer import Component
@@ -156,12 +154,14 @@ class SearchEngine(Component):
                 self.engine_call("new_search_mapping_selection", str(common_items.pop()))
 
     @on("search_examples")
-    def on_link(self, name:str, keys:str, letters:str) -> list:
+    def on_link(self, name:str, rule:StenoRule, keys:str, letters:str) -> list:
         """ When a link is clicked, search the index for examples of the named rule near the given keys/letters. """
         item = keys if self._mode_strokes else letters
         search_text = f"{IndexNexus.PREFIX}{name}{IndexNexus.DELIM}{item}"
         self.engine_call("new_search_input", search_text)
         matches = self.search(search_text)
-        if len(matches) > 1:
-            self._select_match(random.choice(matches))
+        # If we found matches, choose the original item and highlight the example rule in it.
+        if matches:
+            self._select_match(item)
+            self.engine_call("text_display_rule", rule)
         return matches

@@ -78,6 +78,15 @@ def memoize_one_arg(fn):
     return MemoDict().__getitem__
 
 
+def save_kwargs(fn):
+    """ Decorator to save and re-use keyword arguments from previous calls to a function. """
+    @functools.wraps(fn)
+    def call(*args, _fn=fn, _saved_kwargs={}, **kwargs):
+        _saved_kwargs.update(kwargs)
+        return _fn(*args, **_saved_kwargs)
+    return call
+
+
 def ensure_list(obj:object) -> list:
     # Ensure the output object is a list by wrapping the object in a list if it isn't one already.
     return obj if isinstance(obj, list) else [obj]

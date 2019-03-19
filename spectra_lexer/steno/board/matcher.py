@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Set
 
 from .element import DiagramElements
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
+from spectra_lexer.utils import save_kwargs
 
 # Format strings for creating SVG element IDs.
 _SVG_RULE_FORMAT = ":{}".format
@@ -14,24 +15,19 @@ class ElementMatcher:
     """ Generates lists of element IDs for stroke diagrams, each of which contains a basic background
         and a number of discrete graphical elements matched to raw keys and/or simple rules. """
 
-    _valid_rules: Dict[StenoRule, str] = {}  # Dict matching valid steno rules to possible element ID strings.
-    _valid_ids: Set[str] = set()             # Set of all valid SVG element ID strings.
-    _rule_ids: Dict[StenoRule, str] = {}     # Dict with valid pairs of rules and IDs from both of these.
+    _rule_ids: Dict[StenoRule, str] = {}     # Dict with valid pairs of rules and IDs.
 
     def set_rules(self, rules_dict:Dict[str, StenoRule]):
-        """ Load a dictionary with element ID names of each rule. """
-        self._valid_rules = {rule: _SVG_RULE_FORMAT(name) for name, rule in rules_dict.items()}
-        self._check()
+        """ Save a dictionary with element ID names of each valid steno rule. """
+        self._make_rule_ids(rules={rule: _SVG_RULE_FORMAT(name) for name, rule in rules_dict.items()})
 
     def set_ids(self, ids:Iterable[str]) -> None:
-        """ Load a set of element IDs for which graphics exist. """
-        self._valid_ids = set(ids)
-        self._check()
+        """ Save a set of element IDs for which graphics exist. """
+        self._make_rule_ids(ids=set(ids))
 
-    def _check(self) -> None:
+    @save_kwargs
+    def _make_rule_ids(self, *, rules:Dict[StenoRule, str]=None, ids:Set[str]=None) -> None:
         """ Narrow down the final dict to element IDs which exist and have a corresponding rule. """
-        rules = self._valid_rules
-        ids = self._valid_ids
         if rules and ids:
             self._rule_ids = {rule: name for rule, name in rules.items() if name in ids}
 

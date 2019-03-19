@@ -67,7 +67,7 @@ class IndexManager(Component):
             return len(rule.rulemap) > 1
         return (filter_in if size < 20 else None), filter_out
 
-    def _count_rules(self, results) -> Dict[str, list]:
+    def _count_rules(self, results:Iterable[StenoRule]) -> Dict[str, list]:
         """ From the lexer rulemaps, make lists of all translations that use each built-in rule at the top level. """
         rulecounter = defaultdict(list)
         for rs in results:
