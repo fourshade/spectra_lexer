@@ -53,3 +53,12 @@ class Component(metaclass=ComponentMeta):
     def engine_options(self) -> list:
         """ Return all options (dict values) on this class to the engine. """
         return list(self.opts.values())
+    def __getstate__(self) -> dict:
+        """ Each component has a reference to the engine through self.engine_call, which respectively has a reference
+            to almost everything else, Without intervention, if the pickler tries to pickle a component, it will
+            follow the reference and attempt to pickle the engine, which results in pickling the entire program.
+            Some parts are unavoidably unpickleable, so the reference chain must be stopped by removing engine_call.
+            Unfortunately, this means no engine calls may be made by components after unpickling. """
+        d = dict(vars(self))
+        d.pop("engine_call", None)
+        return d

@@ -2,4 +2,4 @@
 
 from .base import PloverGUI
 from .interface import PloverInterface
-from .translations import PloverTranslationsManager
+from .translations import PloverTranslationsParser

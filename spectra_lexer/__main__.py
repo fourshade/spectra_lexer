@@ -31,9 +31,9 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchProcessor, core, steno.data, steno.StenoLexer, cmd_args=["--operation=analyze"],
+    analyze = EntryPoint(BatchProcessor, core, steno.basic, cmd_args=["--operation=analyze"],
                          desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchProcessor, core, steno.data, steno.StenoLexer, cmd_args=["--operation=index"],
+    index = EntryPoint(BatchProcessor, core, steno.basic, cmd_args=["--operation=index"],
                        desc="analyze a translations file and index each translation by the rules it uses.")
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
     gui = EntryPoint(gui_qt, tools, core, steno,

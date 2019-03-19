@@ -9,7 +9,7 @@ import pytest
 
 from spectra_lexer.app import Application
 from spectra_lexer.core.file import FileHandler
-from spectra_lexer.plover import PloverTranslationsManager
+from spectra_lexer.plover import PloverTranslationsParser
 from spectra_lexer.plover.compat import PloverStenoDictCollection
 from spectra_lexer.steno import *
 from spectra_lexer.steno.rules import RuleFlags
@@ -146,7 +146,7 @@ def test_graph(result):
     assert all_nodes_set >= set(GRAPH._formatter)
 
 
-PLOVER = PloverTranslationsManager()
+PLOVER = PloverTranslationsParser()
 
 
 def test_plover():
