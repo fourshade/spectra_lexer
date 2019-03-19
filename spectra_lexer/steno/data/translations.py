@@ -4,31 +4,36 @@ from typing import Dict, List, Optional, Sequence
 from spectra_lexer import Component
 from spectra_lexer.utils import ensure_list, merge
 
+
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"
 _PLOVER_CFG_FILENAME = "plover.cfg"
+# By default, the sentinel value 'PLOVER' means 'try and find the files from Plover on start'.
+_PLOVER_SENTINEL = "PLOVER"
 
 
 class TranslationsManager(Component):
     """ Translation parser for the Spectra program. The structures are just string dicts
         that require no extra processing after conversion to/from JSON. """
 
-    # By default, an empty list and means 'try and find the files from Plover on start'.
-    files = Option("cmdline", "translations-files", [], "Glob patterns for JSON-based translations files to load.")
+    files = Option("cmdline", "translations-files", [_PLOVER_SENTINEL], "JSON translation files to load on startup.")
     out = Option("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
 
-    @pipe("start", "new_translations")
+    @pipe("load_resources", "new_translations")
     @pipe("translations_load", "new_translations")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, str]:
         """ Load and merge translations from disk. """
-        return merge(self.engine_call("file_load_all", *(filenames or self.files or self._default_files())))
+        patterns = filenames or self.files
+        if _PLOVER_SENTINEL in patterns:
+            patterns = self._plover_files()
+        return merge(self.engine_call("file_load_all", *patterns))
 
     @pipe("translations_save", "file_save")
     def save(self, d:Dict[str, str], filename:str="") -> tuple:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default. """
         return (filename or self.out), d
 
-    def _default_files(self) -> List[str]:
+    def _plover_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
             in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
         try:

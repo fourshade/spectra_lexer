@@ -32,11 +32,6 @@ class SearchEngine(Component):
     def _add_page_to_count(self) -> None:
         self._count += self.match_limit
 
-    @pipe("start", "new_search_state")
-    def start(self) -> bool:
-        """ Turn on the GUI panel once everything is set up here. """
-        return True
-
     set_index = on("new_index")(delegate_to("_dictionary.new", "index"))
     set_rules = on("new_rules")(delegate_to("_dictionary.new", "rules"))
     set_translations = on("new_translations")(delegate_to("_dictionary.new", "translations"))

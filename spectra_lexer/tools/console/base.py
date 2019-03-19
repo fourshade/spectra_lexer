@@ -12,7 +12,7 @@ class ConsoleTool(Component):
     console: InterpreterConsole = None  # Main interpreter console, run on a different thread.
     console_vars: dict = None           # Variables to load on interpreter startup.
 
-    @on("setup")
+    @on("set_options")
     def new_options(self, **options) -> None:
         """ Add all global options to the interpreter on setup. """
         self.console_vars = options

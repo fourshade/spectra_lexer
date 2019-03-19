@@ -15,19 +15,13 @@ class IndexManager(Component):
     size = Option("cmdline", "index-size", 12, "Determines the relative size of a generated index (range 1-20).")
 
     _rev_rules: Dict[StenoRule, str] = {}  # Reverse rules dict for rule -> name translation.
-    _translations: dict = {}  # Main translations dict to process.
 
     @on("new_rules_reversed")
     def set_rules_reversed(self, rd:Dict[StenoRule, str]) -> None:
         """ Set up the reverse rule dict. """
         self._rev_rules = rd
 
-    @on("new_translations")
-    def set_translations(self, d:dict) -> None:
-        """ Set the translations dict to be processed with lexer_query_all. """
-        self._translations = d
-
-    @pipe("start", "new_index")
+    @pipe("load_resources", "new_index")
     @pipe("index_load", "new_index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
@@ -44,19 +38,20 @@ class IndexManager(Component):
         return (filename or self.out), d
 
     @pipe("index_generate", "new_index")
-    def generate(self, translations:Iterable=None, *, size:int=None) -> Dict[str, dict]:
+    def generate(self, translations:Iterable=None, *, size:int=None, save=True) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every lexer translation that used it. """
-        if translations is None:
-            translations = self._translations
         if isinstance(translations, dict):
             translations = translations.items()
         if size is None:
             size = self.size
         filter_in, filter_out = self._make_filters(size)
-        results = self.engine_call("lexer_query_all", translations, filter_in, filter_out)
+        results = self.engine_call("lexer_query_all", translations, filter_in, filter_out, save=False)
         translation_lists = self._count_rules(results)
-        return self._sort_translations(translation_lists)
+        index = self._sort_translations(translation_lists)
+        if save:
+            self.engine_call("index_save", index)
+        return index
 
     def _make_filters(self, size:int):
         def filter_in(translation, max_length=size) -> bool:

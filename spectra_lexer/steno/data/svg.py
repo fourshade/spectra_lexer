@@ -8,7 +8,7 @@ class SVGManager(Component):
 
     file = Option("cmdline", "board-file", ":/board.svg", "SVG file with graphics for the steno board diagram.")
 
-    @pipe("start", "new_board")
+    @pipe("load_resources", "new_board")
     @pipe("board_load", "new_board")
     def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
         """ Load an SVG file and send the element ID names out with the raw XML string data. """

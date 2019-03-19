@@ -9,7 +9,7 @@ class ConfigManager(Component):
 
     file = Option("cmdline", "config-file", "~/config.cfg", "CFG or INI file with config settings to load at startup.")
 
-    @pipe("start", "new_config")
+    @pipe("load_resources", "new_config")
     @pipe("config_load", "new_config")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load all config options from disk. Ignore failures and convert strings using AST. """

@@ -14,6 +14,7 @@ class GUIQtWindow(Component):
     def start(self) -> None:
         """ Make the window, get all required widgets from it, send those to the components, and show it. """
         self.window = MainWindow()
+        self.engine_call(f"new_gui_window", self.window)
         for group, widgets in self.window.widget_groups().items():
             self.engine_call(f"new_gui_{group}", *widgets)
         self.window.show()

@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Generator, Iterable, List
+from typing import Generator, Iterable, List, Dict
 
 from .match import LexerRuleMatcher
 from .results import LexerResult
@@ -18,7 +18,8 @@ class StenoLexer(Component):
     need_all_keys = Option("config", "lexer:need_all_keys", False,
                            "Only return results that match every key in the stroke.")
 
-    _matcher: LexerRuleMatcher  # Master rule-matching dictionary.
+    _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
+    _translations: Dict[str, str] = {}  # Optional translation search dict for mass queries.
 
     def __init__(self) -> None:
         """ Set up the matcher with an empty rule dictionary. """
@@ -26,7 +27,11 @@ class StenoLexer(Component):
         self._matcher = LexerRuleMatcher()
 
     set_rules = on("new_rules")(delegate_to("_matcher"))
-    set_translations = on("new_translations")(delegate_to("_matcher"))
+
+    @on("new_translations")
+    def set_translations(self, d:dict):
+        self._translations = d
+        self._matcher.set_translations(d)
 
     @pipe("lexer_query", "new_output")
     def query(self, keys:str, word:str) -> StenoRule:
@@ -41,12 +46,20 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
-    @pipe("lexer_query_all", "new_analysis")
-    def query_all(self, items:Iterable[tuple], filter_in=None, filter_out=None) -> List[StenoRule]:
+    @pipe("lexer_query_all", "new analysis")
+    def query_all(self, items:Iterable[tuple]=None, filter_in=None, filter_out=None, save=True) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
-            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
+            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward.
+            If no items are provided, the last loaded set of translations is used. Results are saved afterwards. """
+        if items is None:
+            items = self._translations.items()
+        # Only keep results with all keys matched to reduce garbage.
+        self.need_all_keys = True
         results = self.engine_call("parallel_starmap", self.query, filter(filter_in, items))
-        return list(filter(filter_out, results))
+        results = list(filter(filter_out, results))
+        if save:
+            self.engine_call("rules_save", results)
+        return results
 
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """

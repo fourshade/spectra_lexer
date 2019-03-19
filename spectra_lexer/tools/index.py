@@ -37,10 +37,7 @@ class IndexDialogTool(Component):
             self.engine_call("index_save", {})
 
     def _send_index_commands(self, index_size:int=None) -> None:
-        """ When creating the index, the lexer should only keep results with all keys matched to reduce garbage.
-            Set the size, run the command, and show starting and finishing messages in the title field. """
+        """ Set the size, run the command, and show starting and finishing messages in the title field. """
         self.engine_call("new_status", "Making new index...")
-        self.engine_call(f"set_config_lexer:need_all_keys", True)
-        index = self.engine_call("index_generate", size=index_size)
-        self.engine_call("index_save", index)
+        self.engine_call("index_generate", size=index_size, save=True)
         self.engine_call("new_status", "Successfully created index!")

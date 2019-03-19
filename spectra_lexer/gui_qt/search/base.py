@@ -30,7 +30,7 @@ class GUIQtSearchPanel(Component):
         for signal, cmd_key in signals.items():
             signal.connect(partial(self.engine_call, cmd_key))
 
-    @on("new_search_state")
+    @on("gui_set_enabled")
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all search widgets. """
         self.w_input.clear()

@@ -33,7 +33,7 @@ class RulesManager(Component):
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    @pipe("start", "new_rules")
+    @pipe("load_resources", "new_rules")
     @pipe("rules_load", "new_rules")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """

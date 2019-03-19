@@ -30,18 +30,18 @@ class Application:
         """ Run the general lifecycle of the application. """
         # Process options such as command line arguments from sys.argv and add a component section for debug purposes.
         # This stage should be very quick. Engine calls are not allowed yet.
-        options = defaultdict(list, args=args, components=self.components)
+        options = defaultdict(list, components=self.components)
         for c in self.components:
             for src, opt in c.engine_options():
                 options[src].append(opt)
-        self.call("setup", **options)
+        self.call("set_options", **options)
         # Open engine communications and start resource loading.
-        self.call("start")
+        self.call("load_resources")
         # After everything else is ready, a component may run a task and return a single value to main().
         # A batch operation can run until complete, or a GUI event loop can run indefinitely.
         # Exceptions are caught one level lower to avoid crashing such an event loop.
         self._rlevel -= 1
-        return self.call("run")
+        return self.call("run", *args)
 
     def call(self, key:str, *args, **kwargs) -> object:
         """ Run all commands under this key (if any) and return the last value. """

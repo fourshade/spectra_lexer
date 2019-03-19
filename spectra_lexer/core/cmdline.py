@@ -13,7 +13,7 @@ class CmdlineParser(Component):
 
     _parser: ArgumentParser  # Temporarily holds command line option info from active components.
 
-    @on("setup")
+    @on("set_options")
     def parse_args(self, *, cmdline=(), **options) -> None:
         """ Create the parser and add all possible command line options from each component that has some. """
         # Suppress defaults from unused arguments (components have their own default settings).

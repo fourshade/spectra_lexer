@@ -100,7 +100,7 @@ class UserFile(File, prefix="~"):
         return File(os.path.join(directory, filename))
 
 
-class Null(Resource, prefix="@"):
+class Null(Resource, prefix="NUL"):
     """ A dummy class that reads nothing and writes to a black hole. """
 
     read = lambda self: ""

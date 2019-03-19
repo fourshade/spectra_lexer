@@ -12,7 +12,7 @@ class ConfigDialogTool(Component):
     _data: Dict[str, dict]  # Dict with config values from all components loaded from disk.
     _info: Dict[str, dict]  # Dict with detailed config info from active components (but not the values).
 
-    @on("setup")
+    @on("set_options")
     def new_options(self, *, config=(), **options) -> None:
         """ Store all info and default data values for active config settings. """
         info = self._info = defaultdict(dict)

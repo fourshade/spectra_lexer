@@ -15,8 +15,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def widget_groups(self) -> Dict[str, List[QWidget]]:
         """ Return a dict partitioning all widgets using dynamic Python code into sections. """
-        return {"window": [self],         # Top-level window (this object)
-                "menu":   [self.m_menu],  # Menu bar; must be initialized first to add items from other components.
+        return {"menu":   [self.m_menu],  # Menu bar; must be initialized first to add items from other components.
                 "search": [self.w_search_input, self.w_search_matches,  # Search-related GUI elements (left half)
                            self.w_search_mappings, self.w_search_type, self.w_search_regex],
                 "text":   [self.w_display_title, self.w_display_text],  # Text output GUI elements (top-right half)

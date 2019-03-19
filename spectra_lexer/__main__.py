@@ -1,6 +1,7 @@
 """ Master console script for the Spectra program. Contains all entry points. """
 
 import sys
+from functools import partial
 
 from spectra_lexer import Component, core, gui_qt, plover, steno, tools
 from spectra_lexer.app import Application
@@ -9,11 +10,12 @@ from spectra_lexer.batch import BatchProcessor
 
 class EntryPoint:
     """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes.
-        Arguments may include component classes, modules, and additional command line arguments.
+        Arguments may include component classes, modules, and additional normal and command line arguments.
         If a module has an unwanted component class, adding that class again will *remove* it. """
-    def __init__(self, *ep_args, cmd_args=(), **attrs):
+    def __init__(self, *ep_args, args=(), cmd_args=(), **attrs):
         self.__dict__ = attrs
         self.ep_args = ep_args
+        self.args = args
         self.cmd_args = cmd_args
 
     def __call__(self, *args):
@@ -21,7 +23,7 @@ class EntryPoint:
         sys.argv += self.cmd_args
         classes = [cls for m in self.ep_args for cls in (m, *vars(m).values())
                    if isinstance(cls, type) and issubclass(cls, Component)]
-        return Application(*classes).start(*args)
+        return Application(*classes).start(*self.args, *args)
 
 
 class Spectra:
@@ -31,15 +33,14 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchProcessor, core, steno.basic, cmd_args=["--operation=analyze"],
+    analyze = EntryPoint(core, steno.basic, BatchProcessor, args=["lexer_query_all"],
                          desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchProcessor, core, steno.basic, cmd_args=["--operation=index"],
+    index = EntryPoint(core, steno.basic, BatchProcessor, args=["index_generate"],
                        desc="analyze a translations file and index each translation by the rules it uses.")
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
-    gui = EntryPoint(gui_qt, tools, core, steno,
-                     desc="run the interactive GUI application by itself.")
+    gui = EntryPoint(core, steno, gui_qt, tools, desc="run the interactive GUI application by itself.")
     # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
-    plugin = EntryPoint(plover, gui_qt, tools, core, steno,
+    plugin = EntryPoint(core, steno, gui_qt, tools, plover, cmd_args=["--translations-files=NULL.json"],
                         desc="run the GUI application in Plover plugin mode.",
                         # Class constants required by Plover for toolbar.
                         __doc__='See the breakdown of words using steno rules.',
