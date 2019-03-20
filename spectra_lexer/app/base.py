@@ -15,8 +15,10 @@ class Application:
     _commands: Dict[str, list]   # Dict of commands from all components combined into a list for each key.
     _rlevel: int = 0             # Level of re-entrancy for exceptions, 0 = top of stack.
 
-    def __init__(self, *classes:type):
-        """ Create instances of all unique component classes that do not share an inheritance line. """
+    def __init__(self, *cls_or_mod):
+        """ Create instances of all unique component classes in modules that do not share an inheritance line. """
+        classes = [cls for m in cls_or_mod for cls in (m, *vars(m).values())
+                   if isinstance(cls, type) and issubclass(cls, Component)]
         # Only instantiate the most derived class of each line. Position in the list determines command execution order.
         self.components = [cls() for cls in classes if sum(issubclass(other, cls) for other in classes) == 1]
         # Add commands and set callbacks for all components.
@@ -28,20 +30,31 @@ class Application:
 
     def start(self, *args) -> object:
         """ Run the general lifecycle of the application. """
-        # Process options such as command line arguments from sys.argv and add a component section for debug purposes.
-        # This stage should be very quick. Engine calls are not allowed yet.
+        options = self.get_options()
+        self.set_options(**options)
+        self.load_resources()
+        return self.run(*args)
+
+    def get_options(self) -> dict:
+        """ Gather startup options from all components. Also add a component section for debug purposes. """
         options = defaultdict(list, components=self.components)
         for c in self.components:
             for src, opt in c.engine_options():
                 options[src].append(opt)
+        return options
+
+    def set_options(self, **options) -> None:
+        """ Process options such as command line arguments from sys.argv. Engine calls are not allowed yet. """
         self.call("set_options", **options)
-        # Open engine communications and start resource loading.
+
+    def load_resources(self) -> None:
+        """ Open engine communications and start resource loading. """
         self.call("load_resources")
-        # After everything else is ready, a component may run a task and return a single value to main().
-        # A batch operation can run until complete, or a GUI event loop can run indefinitely.
-        # Exceptions are caught one level lower to avoid crashing such an event loop.
-        self._rlevel -= 1
-        return self.call("run", *args)
+
+    def run(self, *args) -> object:
+        """ After everything else is ready, a primary task may be run. It may return a single value to main().
+            A batch operation can run until complete, or a GUI event loop can run indefinitely. """
+        raise NotImplementedError
 
     def call(self, key:str, *args, **kwargs) -> object:
         """ Run all commands under this key (if any) and return the last value. """

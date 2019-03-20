@@ -4,6 +4,7 @@ from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 import pkg_resources
 
+from spectra_lexer import Component
 from spectra_lexer.utils import nop
 
 # Minimum version of Plover required for plugin compatibility.
@@ -12,16 +13,6 @@ INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater re
 # Key constants and functions for Plover stroke strings.
 PLOVER_SEP = "/"
 join_strokes = PLOVER_SEP.join
-
-
-def compatibility_check() -> bool:
-    """ Return True only if a compatible version of Plover is found in the working set. """
-    try:
-        pkg_resources.working_set.require("plover>=" + _PLOVER_VERSION_REQUIRED)
-        return True
-    except pkg_resources.ResolutionError:
-        return False
-
 
 # Partial class structures that specify a minimum type interface for compatibility with Plover.
 # There is enough init code with default parameters to allow tests by creating a fake engine.
@@ -58,3 +49,24 @@ class PloverEngine:
     signal_connect: Callable[[str, Callable], None] = nop
     __enter__: Callable[[], None] = nop
     __exit__: Callable[..., None] = nop
+
+
+class PloverCompatibilityLayer(Component):
+    """ Simple component for specific compatibility checks and tests on Plover's version number and data types. """
+
+    @on("plover_test")
+    def test(self):
+        """ Make a fake Plover engine and run some simple tests. """
+        self.engine_call("new_plover_engine", PloverEngine())
+        self.engine_call("plover_new_translation", None, [PloverAction()])
+
+    @on("plover_compatibility_check")
+    def compatibility_check(self) -> bool:
+        """ Return True only if a compatible version of Plover is found in the working set. """
+        try:
+            pkg_resources.working_set.require("plover>=" + _PLOVER_VERSION_REQUIRED)
+            return True
+        except pkg_resources.ResolutionError:
+            # If the compatibility check fails, don't try to connect to Plover. Send an error.
+            self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
+            return False

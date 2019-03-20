@@ -2,17 +2,20 @@
 
 from time import time
 
-from spectra_lexer import Component
+from .base import Application
+from spectra_lexer import core, steno
 
 
-class BatchProcessor(Component):
+class BatchApplication(Application):
     """ Batch operations class for working with arbitrary engine commands. """
 
-    @on("run")
+    def __init__(self, *classes):
+        super().__init__(core, steno.basic, *classes)
+
     def run(self, *args) -> int:
         """ Run the engine command in the arguments and print the execution time. """
         s_time = time()
         print(f"Operation started.")
-        self.engine_call(*args)
+        self.call(*args)
         print(f"Operation done in {time() - s_time:.1f} seconds.")
         return 0

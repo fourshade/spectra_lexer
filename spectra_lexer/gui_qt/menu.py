@@ -8,7 +8,7 @@ class GUIQtMenu(Component):
 
     _items: list  # List of tuples describing menu items. Adding them must wait until the GUI sends the menu widget.
 
-    @on("gui_options")
+    @on("set_options")
     def new_options(self, *, menu=(), **options) -> None:
         """ Gather the menu items declared as options during setup and prepare the function calls. """
         self._items = [(opt.key.split(":", 1), lambda *xx, args=opt.default: self.engine_call(*args)) for opt in menu]
