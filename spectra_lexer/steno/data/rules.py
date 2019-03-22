@@ -26,15 +26,15 @@ class RulesManager(Component):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    files = Option("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
-    out = Option("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
+    files = Resource("cmdline", "rules-files", [":/*.cson"], "Glob patterns for JSON-based rules files to load.")
+    out = Resource("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
 
     _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    @pipe("load_resources", "new_rules")
-    @pipe("rules_load", "new_rules")
+    @on("cmdline_opts_done", pipe_to="new_rules")
+    @on("rules_load", pipe_to="new_rules")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
         # Load rules from each source dictionary and convert to namedtuple form.
@@ -101,7 +101,7 @@ class RulesManager(Component):
             m = _SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    @pipe("rules_save", "file_save")
+    @on("rules_save", pipe_to="file_save")
     def save(self, rules:Iterable[StenoRule], filename:str="") -> tuple:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
             using auto-generated reference names and substituting rules in each rulemap for their letters. """

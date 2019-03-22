@@ -9,8 +9,8 @@ from spectra_lexer import Component
 class ParallelExecutor(Component):
     """ Component to run operations in parallel using multiprocessing. """
 
-    processes = Option("cmdline", "processes", 0,
-                       "Number of processes to run in parallel. Default is one per CPU core.")
+    processes = Resource("cmdline", "processes", 0,
+                         "Number of processes to run in parallel. Default is one per CPU core.")
 
     @on("parallel_map")
     def map(self, func:Callable, *iterables:Iterable) -> list:

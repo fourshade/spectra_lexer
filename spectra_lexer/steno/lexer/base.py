@@ -15,7 +15,7 @@ class StenoLexer(Component):
     patterns it can find, then sorts among them to find what it considers the most likely to be correct.
     """
 
-    need_all_keys = Option("config", "lexer:need_all_keys", False,
+    need_all_keys = Resource("config", "lexer:need_all_keys", False,
                            "Only return results that match every key in the stroke.")
 
     _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
@@ -33,12 +33,12 @@ class StenoLexer(Component):
         self._translations = d
         self._matcher.set_translations(d)
 
-    @pipe("lexer_query", "new_output")
+    @on("lexer_query", pipe_to="new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
         return LexerResult.best_rule(self._gather_results(keys, word), default=(keys, word))
 
-    @pipe("lexer_query_product", "new_output")
+    @on("lexer_query_product", pipe_to="new_output")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
@@ -46,7 +46,7 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return LexerResult.best_rule(results, default=pairs[0])
 
-    @pipe("lexer_query_all", "new analysis")
+    @on("lexer_query_all", pipe_to="new analysis")
     def query_all(self, items:Iterable[tuple]=None, filter_in=None, filter_out=None, save=True) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward.

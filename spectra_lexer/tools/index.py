@@ -13,7 +13,7 @@ _STARTUP_MESSAGE = "In order to cross-reference examples of specific steno rules
 class IndexDialogTool(Component):
     """ Controls user-based index creation. """
 
-    make_index = Option("menu", "Tools:Make Index...", ["new_dialog", "index"])
+    make_index = Resource("menu", "Tools:Make Index...", ["new_dialog", "index"])
 
     @on("index_dialog_result")
     def new_custom(self, index_size:int) -> None:
@@ -21,7 +21,7 @@ class IndexDialogTool(Component):
         if index_size:
             self._send_index_commands(index_size)
 
-    @on("index_not_found", "new_dialog")
+    @on("index_not_found", pipe_to="new_dialog")
     def startup_dialog(self) -> tuple:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index. """
         title = "Make Index"
@@ -37,7 +37,14 @@ class IndexDialogTool(Component):
             self.engine_call("index_save", {})
 
     def _send_index_commands(self, index_size:int=None) -> None:
-        """ Set the size, run the command, and show starting and finishing messages in the title field. """
+        """ Set the size, run the command, and show a starting message in the title field.
+            This thread will be busy, so the GUI will not respond to user interaction. Disable it. """
+        self.engine_call("gui_set_enabled", False)
         self.engine_call("new_status", "Making new index...")
         self.engine_call("index_generate", size=index_size, save=True)
+
+    @on("index_save")
+    def index_finished(self, *args) -> None:
+        """ Once the save command has been received, we can send the success message and re-enable the GUI. """
         self.engine_call("new_status", "Successfully created index!")
+        self.engine_call("gui_set_enabled", True)

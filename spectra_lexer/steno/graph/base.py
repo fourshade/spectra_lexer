@@ -13,14 +13,14 @@ from spectra_lexer.steno.rules import StenoRule
 class GraphRenderer(Component):
     """ Component class for creating and formatting a monospaced text graph from a rule. """
 
-    recursive = Option("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
-    compressed = Option("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
+    recursive = Resource("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
+    compressed = Resource("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
 
     _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
 
-    @pipe("new_output", "new_interactive_text", html=True, mouse=True)
+    @on("new_output", pipe_to="new_interactive_text", html=True, mouse=True)
     def generate(self, rule:StenoRule) -> str:
         """ Generate text graph data (of either type) from an output rule based on config settings. """
         # Send the rule string to the GUI as a title message.
@@ -36,7 +36,7 @@ class GraphRenderer(Component):
         # The graph is new, so render it with no highlighting or boldface. It should scroll to the top by default.
         return self._formatter.make_graph_text()
 
-    @pipe("text_mouse_action", "new_graph_selection")
+    @on("text_mouse_action", pipe_to="new_graph_selection")
     def select_character(self, row:int, col:int, clicked:bool=False) -> Optional[StenoRule]:
         """ Find the node owning the character at (row, col) of the graph. If that node is new, send out its rule. """
         if self._locator is None:
@@ -46,7 +46,7 @@ class GraphRenderer(Component):
             return None
         return self._display_selection(node)
 
-    @pipe("text_display_rule", "new_graph_selection")
+    @on("text_display_rule", pipe_to="new_graph_selection")
     def display_rule(self, rule:StenoRule) -> Optional[StenoRule]:
         """ Find the first node created from <rule>, if any, and select it. """
         if self._formatter is None:

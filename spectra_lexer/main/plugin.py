@@ -1,3 +1,5 @@
+""" Main module and entry point for Spectra's Plover plugin application. """
+
 import sys
 
 from .gui import GUIQtApplication
@@ -23,7 +25,7 @@ class PloverPluginApplication(GUIQtApplication):
         self.show = lambda *args: self.call("gui_window_show")
         self.close = lambda *args: self.call("gui_window_close")
         # We get our translations from the Plover engine, so auto-loading of translations from disk must be suppressed.
-        sys.argv.append("--translations-files=NULL.json")
+        sys.argv.append("--translations-files=")
 
     def __getattr__(self, attr:str) -> object:
         """ As a proxy, we fake any attribute we don't want to handle to avoid incompatibility. """
@@ -35,8 +37,7 @@ class PloverPluginApplication(GUIQtApplication):
             # Plover is not running, so we need to make a fake engine and run some tests with our own event loop.
             self.call("plover_test")
             super().run(*args)
-        elif self.call("plover_compatibility_check"):
+        else:
             # The engine is always the first argument passed by Plover. Others are irrelevant.
-            self.call("new_plover_engine", plover_engine)
-            self.call("gui_set_enabled", True)
+            self.call("plover_connect", plover_engine)
         return self

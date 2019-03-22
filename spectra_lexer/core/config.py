@@ -7,10 +7,10 @@ from spectra_lexer.utils import str_eval
 class ConfigManager(Component):
     """ Configuration parser for the Spectra program. """
 
-    file = Option("cmdline", "config-file", "~/config.cfg", "CFG or INI file with config settings to load at startup.")
+    file = Resource("cmdline", "config-file", "~/config.cfg", "CFG or INI file with config settings to load at startup.")
 
-    @pipe("load_resources", "new_config")
-    @pipe("config_load", "new_config")
+    @on("cmdline_opts_done", pipe_to="new_config")
+    @on("config_load", pipe_to="new_config")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load all config options from disk. Ignore failures and convert strings using AST. """
         try:
@@ -25,7 +25,7 @@ class ConfigManager(Component):
         self._update_components(d)
         return d
 
-    @pipe("config_save", "file_save")
+    @on("config_save", pipe_to="file_save")
     def save(self, d:Dict[str, dict], filename:str="") -> tuple:
         """ Send a new set of config values to the components and save them to disk.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """

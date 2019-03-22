@@ -2,7 +2,7 @@
 
 import sys
 
-from .app import BatchApplication, GUIQtApplication, PloverPluginApplication
+from .main import BatchApplication, GUIQtApplication, PloverPluginApplication
 
 
 class EntryPoint:

@@ -1,13 +1,13 @@
-""" Module for the batch components of Spectra. These handle bulk data operations. """
+""" Main module and entry point for batch operations on Spectra. """
 
 from time import time
 
-from .base import Application
+from .app import Application
 from spectra_lexer import core, steno
 
 
 class BatchApplication(Application):
-    """ Batch operations class for working with arbitrary engine commands. """
+    """ Simple shell class for calling arbitrary engine commands from the command line. """
 
     def __init__(self, *classes):
         super().__init__(core, steno.basic, *classes)

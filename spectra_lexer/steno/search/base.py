@@ -11,7 +11,7 @@ _MORE_TEXT = "(more...)"
 class SearchEngine(Component):
     """ Provides GUI support services for search. """
 
-    match_limit = Option("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
+    match_limit = Resource("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
 
     _dictionary: SearchDictionary  # Runs the actual search queries
     _count: int                    # Limit on number of search results. May exceed <match_limit> on user action.

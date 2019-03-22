@@ -10,9 +10,9 @@ class IndexManager(Component):
         The structure is a dict of rule names, each mapped to a string dict of steno translations.
         Simple as it is, the structure is large and requires a lot of CPU load to process. """
 
-    file = Option("cmdline", "index-file", "~/index.json", "JSON index file to load at startup and/or write to.")
-    out = Option("cmdline", "index-out", "~/index.json", "Output file name for steno rule -> translation indices.")
-    size = Option("cmdline", "index-size", 12, "Determines the relative size of a generated index (range 1-20).")
+    file = Resource("cmdline", "index-file", "~/index.json", "JSON index file to load at startup and/or write to.")
+    out = Resource("cmdline", "index-out", "~/index.json", "Output file name for steno rule -> translation indices.")
+    size = Resource("cmdline", "index-size", 12, "Determines the relative size of a generated index (range 1-20).")
 
     _rev_rules: Dict[StenoRule, str] = {}  # Reverse rules dict for rule -> name translation.
 
@@ -21,8 +21,8 @@ class IndexManager(Component):
         """ Set up the reverse rule dict. """
         self._rev_rules = rd
 
-    @pipe("load_resources", "new_index")
-    @pipe("index_load", "new_index")
+    @on("cmdline_opts_done", pipe_to="new_index")
+    @on("index_load", pipe_to="new_index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:
@@ -31,13 +31,13 @@ class IndexManager(Component):
             self.engine_call("index_not_found")
             return
 
-    @pipe("index_save", "file_save")
+    @on("index_save", pipe_to="file_save")
     def save(self, d:Dict[str, dict], filename:str="") -> tuple:
         """ Save an index structure directly into JSON.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
         return (filename or self.out), d
 
-    @pipe("index_generate", "new_index")
+    @on("index_generate", pipe_to="new_index")
     def generate(self, translations:Iterable=None, *, size:int=None, save=True) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every lexer translation that used it. """

@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Dict
 
-from PyQt5.QtWidgets import QMainWindow, QDialog
+from PyQt5.QtWidgets import QDialog
 
 from .config_dialog import ConfigDialog
 from .index_dialog import IndexDialog
@@ -18,13 +18,13 @@ _DIALOG_TYPES = {"message": (MessageDialog, True),
 class GUIQtDialogManager(Component):
     """ Creates and manages dialogs from the GUI Qt window. """
 
-    window: QMainWindow = None    # Main window object. Must be the parent of any new dialogs.
+    window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
+
     _dialogs: Dict[str, QDialog]  # Dialog object tracker. Each one should persist while visible.
 
-    @on("new_gui_window")
-    def new_gui(self, window:QMainWindow) -> None:
-        """ Save the main window and start tracking dialogs. """
-        self.window = window
+    def __init__(self) -> None:
+        """ Start tracking dialogs. """
+        super().__init__()
         self._dialogs = {}
 
     @on("new_dialog")

@@ -16,19 +16,20 @@ class TranslationsManager(Component):
     """ Translation parser for the Spectra program. The structures are just string dicts
         that require no extra processing after conversion to/from JSON. """
 
-    files = Option("cmdline", "translations-files", [_PLOVER_SENTINEL], "JSON translation files to load on startup.")
-    out = Option("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
+    files = Resource("cmdline", "translations-files", [_PLOVER_SENTINEL], "JSON translation files to load on startup.")
+    out = Resource("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
 
-    @pipe("load_resources", "new_translations")
-    @pipe("translations_load", "new_translations")
+    @on("cmdline_opts_done", pipe_to="new_translations")
+    @on("translations_load", pipe_to="new_translations")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, str]:
         """ Load and merge translations from disk. """
         patterns = filenames or self.files
         if _PLOVER_SENTINEL in patterns:
             patterns = self._plover_files()
-        return merge(self.engine_call("file_load_all", *patterns))
+        if any(patterns):
+            return merge(self.engine_call("file_load_all", *patterns))
 
-    @pipe("translations_save", "file_save")
+    @on("translations_save", pipe_to="file_save")
     def save(self, d:Dict[str, str], filename:str="") -> tuple:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default. """
         return (filename or self.out), d

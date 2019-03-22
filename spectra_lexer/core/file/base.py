@@ -21,8 +21,6 @@ class FileHandler(Component):
         """ Attempt to encode and save a resource to a file given by name. """
         return self._encode(Resource.from_string(filename), d)
 
-    get_formats = on("file_get_extensions")(Codec.get_formats)
-
     def _decode(self, f:Resource) -> dict:
         """ Read and decode a string resource. """
         decoder = Codec.get_decoder(f)

@@ -55,18 +55,25 @@ class PloverCompatibilityLayer(Component):
     """ Simple component for specific compatibility checks and tests on Plover's version number and data types. """
 
     @on("plover_test")
-    def test(self):
+    def test(self) -> None:
         """ Make a fake Plover engine and run some simple tests. """
         self.engine_call("new_plover_engine", PloverEngine())
         self.engine_call("plover_new_translation", None, [PloverAction()])
 
-    @on("plover_compatibility_check")
-    def compatibility_check(self) -> bool:
-        """ Return True only if a compatible version of Plover is found in the working set. """
-        try:
-            pkg_resources.working_set.require("plover>=" + _PLOVER_VERSION_REQUIRED)
-            return True
-        except pkg_resources.ResolutionError:
+    @on("plover_connect")
+    def connect(self, plover_engine:PloverEngine) -> None:
+        """ Connect the Plover engine to ours only if a compatible version of Plover is found. """
+        if _compatibility_check():
+            self.engine_call("new_plover_engine", plover_engine)
+        else:
             # If the compatibility check fails, don't try to connect to Plover. Send an error.
             self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
-            return False
+
+
+def _compatibility_check() -> bool:
+    """ Return True only if a compatible version of Plover is found in the working set. """
+    try:
+        pkg_resources.working_set.require("plover>=" + _PLOVER_VERSION_REQUIRED)
+        return True
+    except pkg_resources.ResolutionError:
+        return False

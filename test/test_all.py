@@ -7,20 +7,23 @@ import re
 
 import pytest
 
-from spectra_lexer.app import Application
 from spectra_lexer.core.file import FileHandler
+from spectra_lexer.main.app.engine import MainEngine
 from spectra_lexer.plover import PloverTranslationsParser
 from spectra_lexer.plover.compat import PloverStenoDictCollection
-from spectra_lexer.steno import *
+from spectra_lexer.steno.board import BoardRenderer
+from spectra_lexer.steno.data import IndexManager, RulesManager, SVGManager, TranslationsManager
+from spectra_lexer.steno.graph import GraphRenderer
+from spectra_lexer.steno.lexer import StenoLexer
 from spectra_lexer.steno.rules import RuleFlags
+from spectra_lexer.steno.search import SearchEngine
 from test import get_test_filename
 
 
 # Create and connect components for the tests in order as we need them.
 # Some will need access to the file system. They only need to send engine commands for this, not receive them.
-FILE_ENGINE = Application(FileHandler)
-RULES = RulesManager()
-RULES.engine_connect(FILE_ENGINE.call)
+FILE_ENGINE = MainEngine(FileHandler)
+RULES = FILE_ENGINE.new_component(RulesManager)
 RULES_DICT = RULES.load()
 
 
@@ -46,8 +49,7 @@ def test_rules(r):
         assert not key_diff, f"Entry {r} has mismatched keys vs. its child rules: {key_diff}"
 
 
-TRANSLATIONS = TranslationsManager()
-TRANSLATIONS.engine_connect(FILE_ENGINE.call)
+TRANSLATIONS = FILE_ENGINE.new_component(TranslationsManager)
 TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename("translations")])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
@@ -63,8 +65,7 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-INDEX = IndexManager()
-INDEX.engine_connect(FILE_ENGINE.call)
+INDEX = FILE_ENGINE.new_component(IndexManager)
 INDEX_DICT = INDEX.load(get_test_filename("index"))
 TEST_INDEX = list(INDEX_DICT.items())
 SEARCH = SearchEngine()
@@ -111,8 +112,7 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-SVG = SVGManager()
-SVG.engine_connect(FILE_ENGINE.call)
+SVG = FILE_ENGINE.new_component(SVGManager)
 SVG_PARAMS = SVG.load()
 BOARD = BoardRenderer()
 BOARD.set_board(*SVG_PARAMS)

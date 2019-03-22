@@ -14,11 +14,10 @@ class PloverInterface(Component):
     _plover: PloverEngine = None              # Plover engine. Assumed not to change during run-time.
     _state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @pipe("new_plover_engine", "new_status")
+    @on("new_plover_engine", pipe_to="new_status")
     def start(self, plover_engine:PloverEngine) -> str:
         """ Perform initial engine connection and callback/dictionary setup. """
         self._plover = plover_engine
-        self.engine_call("new_status", "Loading dictionaries...")
         # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
         with plover_engine:
             # Connect Plover engine signals to Spectra commands and load all current dictionaries.
@@ -28,7 +27,7 @@ class PloverInterface(Component):
             self.engine_call("plover_load_dicts", plover_engine.dictionaries)
         return "Loaded dictionaries from Plover engine."
 
-    @pipe("plover_new_translation", "lexer_query")
+    @on("plover_new_translation", pipe_to="lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         # Lock the Plover engine thread to access its state.

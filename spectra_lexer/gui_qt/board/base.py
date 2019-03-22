@@ -1,7 +1,6 @@
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QLabel, QWidget
+from PyQt5.QtWidgets import QLabel
 
-from .steno_board_widget import StenoBoardWidget
 from spectra_lexer import Component
 from spectra_lexer.utils import delegate_to
 
@@ -9,16 +8,15 @@ from spectra_lexer.utils import delegate_to
 class GUIQtBoardDisplay(Component):
     """ Draws steno board diagram elements and the description for rules. """
 
-    w_desc: QLabel             # Displays rule description.
-    w_board: StenoBoardWidget  # Displays steno board diagram.
-    w_link: QLabel = None      # Displays rule hyperlink. Created dynamically.
+    w_desc = Resource("gui",  "w_display_desc",  None, "Displays rule description.")
+    w_board = Resource("gui", "w_display_board", None, "Displays steno board diagram.")
 
-    _last_link: tuple = ()     # Search parameters for last hyperlink.
+    w_link: QLabel = None   # Displays rule hyperlink. Created dynamically.
+    _last_link: tuple = ()  # Search parameters for last hyperlink.
 
-    @on("new_gui_board")
-    def new_gui(self, *widgets:QWidget) -> None:
+    @on("gui_opts_done")
+    def gui_opts_done(self) -> None:
         """ Save the required widgets and set the size change callback. """
-        self.w_desc, self.w_board = widgets
         # Set hyperlinks to search examples when clicked.
         self.w_link = QLabel(self.w_board)
         self.w_link.setVisible(False)

@@ -8,7 +8,7 @@ from spectra_lexer import Component
 class PloverTranslationsParser(Component):
     """ Translation parser for the Plover plugin. Plover's data structures behave *almost* like dicts but not quite. """
 
-    @pipe("plover_load_dicts", "new_translations")
+    @on("plover_load_dicts", pipe_to="new_translations")
     def load_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a single string dict for search.
             Plover dictionaries are not proper Python dicts and cannot be handled as such.

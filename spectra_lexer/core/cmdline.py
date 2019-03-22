@@ -13,8 +13,8 @@ class CmdlineParser(Component):
 
     _parser: ArgumentParser  # Temporarily holds command line option info from active components.
 
-    @on("set_options")
-    def parse_args(self, *, cmdline=(), **options) -> None:
+    @on("start")
+    def start(self, *, cmdline=(), **options) -> None:
         """ Create the parser and add all possible command line options from each component that has some. """
         # Suppress defaults from unused arguments (components have their own default settings).
         self._parser = ArgumentParser(description="Steno rule analyzer", argument_default=SUPPRESS)
@@ -25,10 +25,19 @@ class CmdlineParser(Component):
             self._parser.add_argument(f"--{opt.key}", **kwds)
         # Parse arguments from sys.argv using the gathered info.
         d = dict(vars(self._parser.parse_args()))
+        # The parser replaces hyphens with underscores, but our keys need the hyphens.
+        d = {underscored_key.replace("_", "-"): val for underscored_key, val in d.items()}
         # Immediately update all components with the new options. This is required before some of them can run.
-        for underscored_key, val in d.items():
-            # The parser replaces hyphens with underscores, but our keys need the hyphens.
-            key = underscored_key.replace("_", "-")
+        for key, val in d.items():
             self.engine_call(f"set_cmdline_{key}", val)
-        # The parser isn't pickleable due to strange internal state, so get rid of it at the end.
+        # The parser isn't pickleable due to strange internal state, so get rid of it.
         del self._parser
+        # Let components know the options are done so they can start loading resources.
+        self.engine_call("cmdline_opts_done")
+        # Assuming most heavy resource components are on this thread, by this line they should be done loading.
+        self.engine_call("cmdline_thread_done")
+
+    @on("new_status")
+    def display_status(self, msg:str) -> None:
+        """ Display engine status and general output messages in the console. """
+        print(f"SPECTRA: {msg}")

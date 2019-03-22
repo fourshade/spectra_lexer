@@ -1,27 +1,26 @@
-import sys
-from traceback import TracebackException
-
 from .main_window import MainWindow
 from spectra_lexer import Component
 
 
 class GUIQtWindow(Component):
-    """ GUI Qt operations class for the main window. Starts all other components and handles app-wide events. """
+    """ GUI Qt operations class for the main window. This component handles many app-wide events in general. """
 
     window: MainWindow = None  # Main GUI window. All GUI activity (including dialogs) is coupled to this window.
 
-    @on("gui_window_load")
-    def start(self) -> None:
-        """ Make the window, get all required widgets from it, send those to the components, and show it. """
+    @on("gui_start")
+    def gui_start(self, **options) -> None:
+        """ Make the window, get all required widgets from it, and send those to the components. """
         self.window = MainWindow()
-        self.engine_call(f"new_gui_window", self.window)
-        for group, widgets in self.window.widget_groups().items():
-            self.engine_call(f"new_gui_{group}", *widgets)
-        self.window.show()
+        for key, val in self.window.widgets().items():
+            self.engine_call(f"set_gui_{key}", val)
+        self.engine_call("gui_opts_done")
+        # Even once the window is done, the user shouldn't interact with it until files are done loading.
+        self.engine_call("new_status", "Loading...")
+        self.engine_call("gui_set_enabled", False)
 
     @on("gui_window_show")
     def show(self) -> None:
-        """ If closed, a plugin window should be able to re-open for its host application. """
+        """ This must be called on start, and also to re-open a plugin window for its host application. """
         if self.window is not None:
             self.window.show()
             self.window.activateWindow()
@@ -33,20 +32,8 @@ class GUIQtWindow(Component):
         if self.window is not None:
             self.window.close()
 
-    @on("new_status")
-    def display_status(self, msg:str) -> None:
-        """ Display engine status and general output messages in the console and title bar. """
-        print(f"SPECTRA: {msg}")
-        if self.window is not None:
-            self.engine_call("new_title_text", msg)
-
-    @on("new_exception")
-    def handle_exception(self, e:Exception) -> bool:
-        """ The stack trace for exceptions is displayed in the console and also the main window if loaded.
-            To avoid crashing Plover, exceptions are suppressed (by returning True) after display. """
-        tb_lines = TracebackException.from_exception(e).format()
-        tb_text = "".join(tb_lines)
-        sys.stderr.write(tb_text)
-        if self.window is not None:
-            self.engine_call("new_interactive_text", tb_text)
-        return True
+    @on("cmdline_thread_done")
+    def enable(self):
+        """ All files have command line options, so when this command is issued, everything must be done. """
+        self.engine_call("gui_set_enabled", True)
+        self.engine_call("new_status", "Loading complete.")

@@ -6,18 +6,19 @@ from spectra_lexer import Component
 class FileDialogTool(Component):
     """ Controls user-based file loading and window closing. """
 
-    load_rules = Option("menu", "File:Load Rules...", ["file_dialog_open", "rules"])
-    load_translations = Option("menu", "File:Load Translations...", ["file_dialog_open", "translations"])
-    load_index = Option("menu", "File:Load Index...", ["file_dialog_open", "index"])
-    sep = Option("menu", "File:")
-    close_window = Option("menu", "File:Close", ["gui_window_close"])
+    load_rules = Resource("menu", "File:Load Rules...", ["file_dialog_open", "rules"])
+    load_translations = Resource("menu", "File:Load Translations...", ["file_dialog_open", "translations"])
+    load_index = Resource("menu", "File:Load Index...", ["file_dialog_open", "index"])
+    sep = Resource("menu", "File:")
+    close_window = Resource("menu", "File:Close", ["gui_window_close"])
 
-    @on("file_dialog_open", "new_dialog")
+    @on("file_dialog_open", pipe_to="new_dialog")
     def open_dialog(self, res_type:str) -> tuple:
         """ Present a dialog for the user to select files of a specific resource type. """
         title_msg = f"Load {res_type.title()}"
-        fmts_msg = "Supported file formats"
-        fmts = self.engine_call("file_get_extensions")
+        # Currently only JSON-type files are supported for loading.
+        fmts_msg = "JSON files"
+        fmts = ".json", ".cson"
         return f"{res_type}-file", title_msg, fmts_msg, fmts
 
     @on("file_dialog_result")

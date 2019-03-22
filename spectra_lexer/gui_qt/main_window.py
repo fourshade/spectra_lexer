@@ -13,10 +13,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
 
-    def widget_groups(self) -> Dict[str, List[QWidget]]:
-        """ Return a dict partitioning all widgets using dynamic Python code into sections. """
-        return {"menu":   [self.m_menu],  # Menu bar; must be initialized first to add items from other components.
-                "search": [self.w_search_input, self.w_search_matches,  # Search-related GUI elements (left half)
-                           self.w_search_mappings, self.w_search_type, self.w_search_regex],
-                "text":   [self.w_display_title, self.w_display_text],  # Text output GUI elements (top-right half)
-                "board":  [self.w_display_desc, self.w_display_board]}  # Board diagram GUI elements (bottom-right half)
+    def widgets(self) -> Dict[str, List[QWidget]]:
+        """ Return a dict with all widgets using dynamic Python code. """
+        return {"window": self, **vars(self)}
