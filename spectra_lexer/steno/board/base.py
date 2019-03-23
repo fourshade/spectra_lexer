@@ -7,7 +7,7 @@ from .layout import ElementLayout
 from .matcher import ElementMatcher
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.utils import save_kwargs
 
 
 class BoardRenderer(Component):
@@ -23,25 +23,38 @@ class BoardRenderer(Component):
     _layout: ElementLayout = None    # Calculates drawing bounds for each element.
     _last_ids: List[List[str]] = []  # Last set of element IDs, saved in case of resizing.
 
-    def __init__(self) -> None:
+    def __init__(self):
         """ Set up the captioner and matcher with empty dictionaries. """
         super().__init__()
         self._captioner = CaptionGenerator()
         self._matcher = ElementMatcher()
 
-    @on("new_board", pipe_to="new_board_xml")
-    def set_board(self, raw:str, ids:Dict[str, dict]) -> Tuple[str, Dict[str, dict]]:
-        """ Save element ID names to the matcher. """
-        self._matcher.set_ids(ids)
-        # Send the raw SVG text data along with all element IDs to the GUI.
-        return raw, ids
+    @on("set_dict_board", pipe_to="new_board_xml")
+    def set_board(self, d:dict) -> Tuple[str, Dict[str, dict]]:
+        """ Send the raw SVG text data along with all element IDs to the GUI. """
+        self._load_matcher(ids=d["ids"])
+        return d["raw"], d["ids"]
 
-    @on("new_rules")
-    def set_rules(self, d:dict):
-        self._captioner.set_rules(d)
-        self._matcher.set_rules(d)
+    @on("set_dict_index")
+    def set_index(self, d:dict) -> None:
+        self._load_captioner(index=d)
 
-    set_index = on("new_index")(delegate_to("_captioner"))
+    @on("set_dict_rules")
+    def set_rules(self, d:dict) -> None:
+        self._load_captioner(rules=d)
+        self._load_matcher(rules=d)
+
+    @save_kwargs
+    def _load_captioner(self, rules:dict=None, index:dict=None) -> None:
+        """ Load the captioner when the rules and index are both ready. """
+        if rules and index:
+            self._captioner.set_examples(rules, index)
+
+    @save_kwargs
+    def _load_matcher(self, rules:dict=None, ids:dict=None) -> None:
+        """ Load the matcher when the rules and element IDs are both ready. """
+        if rules and ids:
+            self._matcher.set_rule_ids(rules, ids)
 
     @on("board_set_view", pipe_to="new_board_layout")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:

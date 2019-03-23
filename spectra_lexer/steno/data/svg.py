@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict
 
 from spectra_lexer import Component
 
@@ -8,9 +8,8 @@ class SVGManager(Component):
 
     file = Resource("cmdline", "board-file", ":/board.svg", "SVG file with graphics for the steno board diagram.")
 
-    @on("cmdline_opts_done", pipe_to="new_board")
-    @on("board_load", pipe_to="new_board")
-    def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
-        """ Load an SVG file and send the element ID names out with the raw XML string data. """
-        d = self.engine_call("file_load", filename or self.file)
-        return d["raw"], d["ids"]
+    @on("load_dicts", pipe_to="set_dict_board")
+    @on("board_load", pipe_to="set_dict_board")
+    def load(self, filename:str="") -> Dict[str, dict]:
+        """ Load an SVG file and send a dict with the raw XML string data and element ID names. """
+        return self.engine_call("file_load", filename or self.file)

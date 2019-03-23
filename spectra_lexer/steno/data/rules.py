@@ -33,8 +33,8 @@ class RulesManager(Component):
     _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
     _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
 
-    @on("cmdline_opts_done", pipe_to="new_rules")
-    @on("rules_load", pipe_to="new_rules")
+    @on("load_dicts", pipe_to="set_dict_rules")
+    @on("rules_load", pipe_to="set_dict_rules")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
         # Load rules from each source dictionary and convert to namedtuple form.
@@ -47,17 +47,20 @@ class RulesManager(Component):
         # Parse all rules from the source dictionary into the final one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         d = self._dst_dict = {}
-        for k in self._src_dict:
-            if k not in d:
-                self._parse(k)
+        try:
+            for k in self._src_dict:
+                if k not in d:
+                    self._parse(k)
+        except KeyError as e:
+            raise KeyError(f"Illegal reference descended from rule {k}") from e
         # The final dict must be reversed one-to-one to look up names given rules. Some components need this.
         self._rev_dict = {v: k for (k, v) in d.items()}
-        self.engine_call("new_rules_reversed", self._rev_dict)
+        self.engine_call("set_dict_rules_reversed", self._rev_dict)
         # Return the final rules dict. Components such as the lexer may throw away the names.
         return d
 
     def _parse(self, k:str) -> None:
-        """ Parse a source dictionary rule into a StenoRule object. """
+        """ Parse a source dictionary rule into a StenoRule object and store it. """
         raw = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
         letters, built_map = self._substitute(raw.pattern)
@@ -89,8 +92,6 @@ class RulesManager(Component):
             # Look up the child rule and parse it if it hasn't been yet. Even if we aren't using its letters,
             # we still need to parse it at this stage so that the correct reference goes in the rulemap.
             if rule_key not in self._dst_dict:
-                if rule_key not in self._src_dict:
-                    raise KeyError(f"Illegal reference: {rule_key} in {pattern}")
                 self._parse(rule_key)
             rule = self._dst_dict[rule_key]
             # Add the rule to the map and substitute in the letters if necessary.

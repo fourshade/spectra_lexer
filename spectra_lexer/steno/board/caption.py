@@ -2,7 +2,6 @@ import random
 from typing import Dict
 
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
-from spectra_lexer.utils import save_kwargs
 
 
 class CaptionGenerator:
@@ -10,19 +9,9 @@ class CaptionGenerator:
 
     _examples: Dict[StenoRule, tuple] = {}  # Index of example translations by rule object.
 
-    def set_rules(self, d:Dict[str, StenoRule]) -> None:
-        """ Save the rules dict in the examples constructor and run it once everything's there. """
-        self._make_examples(rules=d)
-
-    def set_index(self, index:Dict[str, dict]) -> None:
-        """ Save the index in the examples constructor and run it once everything's there. """
-        self._make_examples(index=index)
-
-    @save_kwargs
-    def _make_examples(self, *, rules:Dict[str, StenoRule]=None, index:Dict[str, dict]=None) -> None:
-        """ When both resources are loaded, set up the examples dict with rules as keys and names+lists as values. """
-        if rules and index:
-            self._examples = {rules.get(n): (n, list(d.items())) for n, d in index.items()}
+    def set_examples(self, rules:Dict[str, StenoRule], index:Dict[str, dict]) -> None:
+        """ Set up the examples dict with rules as keys and names+lists as values. """
+        self._examples = {rules.get(n): (n, list(d.items())) for n, d in index.items()}
 
     def get_text(self, rule:StenoRule) -> str:
         """ Generate a plaintext caption for a rule based on its position in the current tree. """

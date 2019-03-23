@@ -32,7 +32,7 @@ class GUIQtWindow(Component):
         if self.window is not None:
             self.window.close()
 
-    @on("cmdline_thread_done")
+    @on("resources_done")
     def enable(self):
         """ All files have command line options, so when this command is issued, everything must be done. """
         self.engine_call("gui_set_enabled", True)

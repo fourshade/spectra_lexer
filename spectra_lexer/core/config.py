@@ -9,8 +9,8 @@ class ConfigManager(Component):
 
     file = Resource("cmdline", "config-file", "~/config.cfg", "CFG or INI file with config settings to load at startup.")
 
-    @on("cmdline_opts_done", pipe_to="new_config")
-    @on("config_load", pipe_to="new_config")
+    @on("load_dicts", pipe_to="set_dict_config")
+    @on("config_load", pipe_to="set_dict_config")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load all config options from disk. Ignore failures and convert strings using AST. """
         try:

@@ -19,8 +19,8 @@ class TranslationsManager(Component):
     files = Resource("cmdline", "translations-files", [_PLOVER_SENTINEL], "JSON translation files to load on startup.")
     out = Resource("cmdline", "translations-out", "translations.json", "Output file name for steno translations.")
 
-    @on("cmdline_opts_done", pipe_to="new_translations")
-    @on("translations_load", pipe_to="new_translations")
+    @on("load_dicts", pipe_to="set_dict_translations")
+    @on("translations_load", pipe_to="set_dict_translations")
     def load(self, filenames:Sequence[str]=()) -> Dict[str, str]:
         """ Load and merge translations from disk. """
         patterns = filenames or self.files

@@ -112,9 +112,9 @@ def test_index_search(trial):
 
 
 SVG = FILE_ENGINE.new_component(SVGManager)
-SVG_PARAMS = SVG.load()
+SVG_DICT = SVG.load()
 BOARD = BoardRenderer()
-BOARD.set_board(*SVG_PARAMS)
+BOARD.set_board(SVG_DICT)
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 

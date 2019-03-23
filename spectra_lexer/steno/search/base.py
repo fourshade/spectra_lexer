@@ -32,9 +32,9 @@ class SearchEngine(Component):
     def _add_page_to_count(self) -> None:
         self._count += self.match_limit
 
-    set_index = on("new_index")(delegate_to("_dictionary.new", "index"))
-    set_rules = on("new_rules")(delegate_to("_dictionary.new", "rules"))
-    set_translations = on("new_translations")(delegate_to("_dictionary.new", "translations"))
+    set_index = on("set_dict_index")(delegate_to("_dictionary.new", "index"))
+    set_rules = on("set_dict_rules")(delegate_to("_dictionary.new", "rules"))
+    set_translations = on("set_dict_translations")(delegate_to("_dictionary.new", "translations"))
 
     @on("search_mode_strokes")
     def set_mode_strokes(self, enabled:bool) -> None:

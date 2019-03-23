@@ -30,6 +30,12 @@ class ConfigDialogTool(Component):
             info[sect][name] = (tp, label, desc)
             data[sect].setdefault(name, opt.default)
 
+    @on("set_dict_config")
+    def update_values(self, d:Dict[str, dict]) -> None:
+        """ Update our data dict with new config values from the given dict. """
+        for sect, page in d.items():
+            self._data[sect].update(page)
+
     @on("config_dialog_open", pipe_to="new_dialog")
     def open_dialog(self) -> tuple:
         """ Create GUI configuration manager dialog by combining info and data dict values. """
@@ -44,9 +50,3 @@ class ConfigDialogTool(Component):
         """ Update components with the new config values and save them. """
         self.update_values(d)
         return self._data
-
-    @on("new_config")
-    def update_values(self, d:Dict[str, dict]) -> None:
-        """ Update our data dict with new config values from the given dict. """
-        for sect, page in d.items():
-            self._data[sect].update(page)

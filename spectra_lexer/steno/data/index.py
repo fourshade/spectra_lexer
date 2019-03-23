@@ -16,13 +16,13 @@ class IndexManager(Component):
 
     _rev_rules: Dict[StenoRule, str] = {}  # Reverse rules dict for rule -> name translation.
 
-    @on("new_rules_reversed")
+    @on("set_dict_rules_reversed")
     def set_rules_reversed(self, rd:Dict[StenoRule, str]) -> None:
         """ Set up the reverse rule dict. """
         self._rev_rules = rd
 
-    @on("cmdline_opts_done", pipe_to="new_index")
-    @on("index_load", pipe_to="new_index")
+    @on("load_dicts", pipe_to="set_dict_index")
+    @on("index_load", pipe_to="set_dict_index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:
@@ -37,7 +37,7 @@ class IndexManager(Component):
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
         return (filename or self.out), d
 
-    @on("index_generate", pipe_to="new_index")
+    @on("index_generate", pipe_to="set_dict_index")
     def generate(self, translations:Iterable=None, *, size:int=None, save=True) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every lexer translation that used it. """

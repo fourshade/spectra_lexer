@@ -16,9 +16,8 @@ class StenoLexer(Component):
     """
 
     need_all_keys = Resource("config", "lexer:need_all_keys", False,
-                           "Only return results that match every key in the stroke.")
+                             "Only return results that match every key in the stroke.")
 
-    _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
     _translations: Dict[str, str] = {}  # Optional translation search dict for mass queries.
 
     def __init__(self) -> None:
@@ -26,9 +25,9 @@ class StenoLexer(Component):
         super().__init__()
         self._matcher = LexerRuleMatcher()
 
-    set_rules = on("new_rules")(delegate_to("_matcher"))
+    set_rules = on("set_dict_rules")(delegate_to("_matcher"))
 
-    @on("new_translations")
+    @on("set_dict_translations")
     def set_translations(self, d:dict):
         self._translations = d
         self._matcher.set_translations(d)

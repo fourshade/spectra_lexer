@@ -32,11 +32,11 @@ class CmdlineParser(Component):
             self.engine_call(f"set_cmdline_{key}", val)
         # The parser isn't pickleable due to strange internal state, so get rid of it.
         del self._parser
-        # Let components know the options are done so they can start loading resources.
-        self.engine_call("cmdline_opts_done")
+        # Let components know the options are done so they can start loading dict resources.
+        self.engine_call("load_dicts")
         # Assuming all resource-heavy components share this thread, they will be done loading by the time execution
         # gets back here, so we should let other components know that everything is done.
-        self.engine_call("cmdline_thread_done")
+        self.engine_call("resources_done")
 
     @on("new_status")
     def display_status(self, msg:str) -> None:
