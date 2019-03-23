@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 width="80px" height="80px" viewBox="0 0 80 80" enable-background="new 0 0 80 80" xml:space="preserve">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" width="80px" height="80px" viewBox="0 0 80 80" enable-background="new 0 0 80 80" xml:space="preserve">
 <g>
 	<polygon fill="#007FFF" points="2.226,39.943 8.667,13.058 15.107,39.943"/>
 	<polygon fill="#36AEFF" points="77.773,39.943 71.333,13.058 8.667,13.058 15.107,39.943"/>
@@ -36,37 +34,37 @@
 </g>
 <rect x="28.557" fill="#FFFFFF" width="22.887" height="16.058"/>
 <g>
-	<linearGradient id="C_1" gradientUnits="userSpaceOnUse" x1="46.5391" y1="27.75" x2="46.5391" y2="16.0576">
+	<linearGradient id="C_1" x1="46.5391" y1="27.75" x2="46.5391" y2="16.0576">
 		<stop offset="0" style="stop-color:#5000FF"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="44.904" y="16.058" fill="url(#C_1)" width="3.27" height="11.692"/>
-	<linearGradient id="C_2" gradientUnits="userSpaceOnUse" x1="49.8086" y1="27.75" x2="49.8086" y2="16.0576">
+	<linearGradient id="C_2" x1="49.8086" y1="27.75" x2="49.8086" y2="16.0576">
 		<stop offset="0" style="stop-color:#D300FF"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="48.174" y="16.058" fill="url(#C_2)" width="3.27" height="11.692"/>
-	<linearGradient id="C_3" gradientUnits="userSpaceOnUse" x1="30.1914" y1="27.75" x2="30.1914" y2="16.0576">
+	<linearGradient id="C_3" x1="30.1914" y1="27.75" x2="30.1914" y2="16.0576">
 		<stop offset="0" style="stop-color:#FF0000"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="28.557" y="16.058" fill="url(#C_3)" width="3.27" height="11.692"/>
-	<linearGradient id="C_4" gradientUnits="userSpaceOnUse" x1="33.4609" y1="27.75" x2="33.4609" y2="16.0576">
+	<linearGradient id="C_4" x1="33.4609" y1="27.75" x2="33.4609" y2="16.0576">
 		<stop offset="0" style="stop-color:#FFD400"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="31.826" y="16.058" fill="url(#C_4)" width="3.27" height="11.692"/>
-	<linearGradient id="C_5" gradientUnits="userSpaceOnUse" x1="36.7305" y1="27.75" x2="36.7305" y2="16.0576">
+	<linearGradient id="C_5" x1="36.7305" y1="27.75" x2="36.7305" y2="16.0576">
 		<stop offset="0" style="stop-color:#FFFF00"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="35.096" y="16.058" fill="url(#C_5)" width="3.27" height="11.692"/>
-	<linearGradient id="C_6" gradientUnits="userSpaceOnUse" x1="40.0005" y1="27.75" x2="40.0005" y2="16.0576">
+	<linearGradient id="C_6" x1="40.0005" y1="27.75" x2="40.0005" y2="16.0576">
 		<stop offset="0" style="stop-color:#00FF7F"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>
 	<rect x="38.365" y="16.058" fill="url(#C_6)" width="3.27" height="11.692"/>
-	<linearGradient id="C_7" gradientUnits="userSpaceOnUse" x1="43.2695" y1="27.75" x2="43.2695" y2="16.0576">
+	<linearGradient id="C_7" x1="43.2695" y1="27.75" x2="43.2695" y2="16.0576">
 		<stop offset="0" style="stop-color:#0086FF"/>
 		<stop offset="1" style="stop-color:#FFFFFF"/>
 	</linearGradient>

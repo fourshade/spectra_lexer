@@ -16,6 +16,7 @@ class GUIQtMenu(Component):
 
     @on("gui_opts_done")
     def gui_opts_done(self) -> None:
+        """ Save the menu bar widget. The menu items still have to come in before we can add them to the GUI. """
         self._make_menu(menu_bar=self.menu_bar)
 
     @save_kwargs
@@ -32,5 +33,5 @@ class GUIQtMenu(Component):
 
     @on("gui_set_enabled")
     def set_enabled(self, enabled:bool) -> None:
-        """ Enable or disable all menu items when blocking operations are being done. """
+        """ Enable or disable all menu items when GUI-blocking operations are being done. """
         self.menu_bar.setEnabled(enabled)

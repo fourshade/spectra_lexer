@@ -16,8 +16,7 @@ class GUIQtBoardDisplay(Component):
 
     @on("gui_opts_done")
     def gui_opts_done(self) -> None:
-        """ Save the required widgets and set the size change callback. """
-        # Set hyperlinks to search examples when clicked.
+        """ Set hyperlinks to search examples when clicked. """
         self.w_link = QLabel(self.w_board)
         self.w_link.setVisible(False)
         self.w_link.setText(f"<a href='unused'>More Examples</a>")

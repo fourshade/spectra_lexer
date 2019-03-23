@@ -1,7 +1,8 @@
 3.0.0
 -----
-* Added index and search for example translations by rule.
-* Added better support for parallel processing on large operations.
+* Added index support and search for example translations by rule
+* Added multi-threading to stop GUI from hanging at startup
+* Added better support for parallel processing on large operations
 
 2.1.0
 -----

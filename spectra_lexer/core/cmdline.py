@@ -34,10 +34,11 @@ class CmdlineParser(Component):
         del self._parser
         # Let components know the options are done so they can start loading resources.
         self.engine_call("cmdline_opts_done")
-        # Assuming most heavy resource components are on this thread, by this line they should be done loading.
+        # Assuming all resource-heavy components share this thread, they will be done loading by the time execution
+        # gets back here, so we should let other components know that everything is done.
         self.engine_call("cmdline_thread_done")
 
     @on("new_status")
     def display_status(self, msg:str) -> None:
-        """ Display engine status and general output messages in the console. """
+        """ Display engine status and general output messages in the console by default. """
         print(f"SPECTRA: {msg}")

@@ -14,5 +14,5 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
     def widgets(self) -> Dict[str, List[QWidget]]:
-        """ Return a dict with all widgets using dynamic Python code. """
+        """ Return a dict of all widgets created by the generated Python code, as well as the window itself. """
         return {"window": self, **vars(self)}

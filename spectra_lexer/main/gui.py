@@ -30,7 +30,7 @@ class GUIQtApplication(ThreadedApplication):
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
     def __init__(self, *classes):
-        """ To send commands to the GUI, the child engines send a simple Qt signal that activates main_call(). """
+        """ To send commands to the GUI, the child engines send a Qt signal that activates main_call(). """
         super().__init__([gui_qt, tools], [core, steno, *classes], parent_send=Connection(self.main_call).send)
 
     def load(self, **options) -> None:

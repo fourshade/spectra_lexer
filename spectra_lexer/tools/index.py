@@ -3,9 +3,9 @@ from spectra_lexer import Component
 _ACCEPT_LABEL = "OK"
 _REJECT_LABEL = "Cancel"
 _STARTUP_MESSAGE = "In order to cross-reference examples of specific steno rules, this program must create an index " \
-                   "using your Plover dictionary. The default size is around 10 MB, and can take anywhere between 5 " \
-                   "seconds and 5 minutes depending on the speed of your machine and hard disk. Would you like to " \
-                   "create one now? You will not be asked again.\n\n" \
+                   "using your Plover dictionary. The default file size is around 10 MB, and can take anywhere " \
+                   "between 5 seconds and 5 minutes depending on the speed of your machine and hard disk. Would you" \
+                   "like to create one now? You will not be asked again.\n\n" \
                    "(If you cancel, all other features will still work. You can always create the index later from " \
                    "the Tools menu, and can expand it from the default size as well if it is not sufficient)."
 
@@ -44,7 +44,7 @@ class IndexDialogTool(Component):
         self.engine_call("index_generate", size=index_size, save=True)
 
     @on("index_save")
-    def index_finished(self, *args) -> None:
+    def index_finished(self, d:dict, *args) -> None:
         """ Once the save command has been received, we can send the success message and re-enable the GUI. """
-        self.engine_call("new_status", "Successfully created index!")
+        self.engine_call("new_status", "Successfully created index!" if d else "Skipped index creation.")
         self.engine_call("gui_set_enabled", True)

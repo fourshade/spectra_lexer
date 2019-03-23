@@ -14,12 +14,12 @@ class ParallelExecutor(Component):
 
     @on("parallel_map")
     def map(self, func:Callable, *iterables:Iterable) -> list:
-        """ Map a function in parallel over all items in one or more iterables. """
+        """ Map a function in parallel over all items in one or more iterables. Order is not guaranteed. """
         return self.starmap(func, zip(*iterables))
 
     @on("parallel_starmap")
     def starmap(self, func:Callable, iterable:Iterable[tuple]) -> list:
-        """ Equivalent of itertools.starmap for a parallel map operation. Order is not guaranteed. """
+        """ Equivalent of itertools.starmap for a parallel map operation. """
         # The number of processes defaults to the number of CPU cores.
         processes = self.processes or cpu_count() or 1
         # To avoid consuming the iterable, it must be a list. multiprocessing internally makes a list from it anyway.

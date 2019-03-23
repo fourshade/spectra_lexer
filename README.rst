@@ -14,12 +14,14 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 Installation and Operation
 --------------------------
 
-Spectra is primarily designed as a plugin for Plover. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you. When opened from the main toolbar, Spectra will automatically load Plover's dictionaries for manual searching and will also attempt to analyze strokes sent from Plover as you type. Configuration is possible through the menu bar, although there are only a few options to change at this point.
+Spectra is primarily designed as a plugin for Plover. If you have installed the latest binary release of Plover (4.0.0.dev8 as of this writing), the plugins manager should be able to find this program in the PyPI database and set it up automatically for you. When opened from the main toolbar, Spectra will automatically load Plover's dictionaries for manual searching and will also attempt to analyze strokes sent from Plover as you type. Configuration of various features is possible through the menu bar.
+
+Perhaps the most interesting, yet resource-intensive part of this software is the index feature. On first start, you will be asked if you want to create an index of steno rules from your Plover dictionary. With an index, not only will you be able to see the rules that make up any given translation, but you will also be able to search for *other* translations that use the same rule from a link on the steno board diagram. The initial index is restricted in size in order to keep load times down, but if you want rule comparisons against more complicated words, you can create a larger index from the Tools menu if you want. Please be aware that this isn't without tradeoffs; a large index will increase startup time significantly.
+
+Advanced Installation
+---------------------
 
 If you have built and installed Plover from source, it is not likely to have the plugins manager by default. In this case it is possible to install Spectra through pip like any other Python package. Plover searches through all available Python paths to find plugins; so long as it ends up in the same general place that Plover looks for its other dependencies, it should find it just fine.
-
-Source Installation
--------------------
 
 To run this software on its own from source, you must have a correctly installed Python distribution (3.6 or greater). Download or clone the source into a free directory, change to this directory in a terminal and type:
 

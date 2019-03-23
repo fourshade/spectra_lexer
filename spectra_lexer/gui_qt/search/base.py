@@ -19,8 +19,8 @@ class GUIQtSearchPanel(Component):
         signals = {self.w_input.textEdited:      "search_input",
                    self.w_matches.itemSelected:  "search_choose_match",
                    self.w_mappings.itemSelected: "search_choose_mapping",
-                   self.w_strokes.toggled: "search_mode_strokes",
-                   self.w_regex.toggled: "search_mode_regex"}
+                   self.w_strokes.toggled:       "search_mode_strokes",
+                   self.w_regex.toggled:         "search_mode_regex"}
         for signal, cmd_key in signals.items():
             signal.connect(partial(self.engine_call, cmd_key))
 
