@@ -29,9 +29,10 @@ class GUIQtApplication(ThreadedApplication):
     # We can create the QApplication at class level since only one is ever allowed to run.
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
-    def __init__(self, *classes):
+    def __init__(self, main_classes=(), worker_classes=()):
         """ To send commands to the GUI, the child engines send a Qt signal that activates main_call(). """
-        super().__init__([gui_qt, tools], [core, steno, *classes], parent_send=Connection(self.main_call).send)
+        super().__init__([gui_qt, tools, *main_classes], [core, steno, *worker_classes],
+                         parent_send=Connection(self.main_call).send)
 
     def load(self, **options) -> None:
         """ The GUI components must start first to initialize the window and widgets before others use them. """

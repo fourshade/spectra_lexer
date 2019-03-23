@@ -1,63 +1,28 @@
 """ Module to hold all compatibility-related code for Plover, including partial class typedefs and version check. """
 
-from typing import Callable, Iterable, Optional, Sequence, Tuple
+from itertools import chain
+from typing import Dict
 
 import pkg_resources
 
+from .types import PloverAction, PloverEngine, PloverStenoDict, PloverStenoDictCollection
 from spectra_lexer import Component
-from spectra_lexer.utils import nop
 
 # Minimum version of Plover required for plugin compatibility.
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
-INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater required."
+_INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater required."
 # Key constants and functions for Plover stroke strings.
-PLOVER_SEP = "/"
-join_strokes = PLOVER_SEP.join
-
-# Partial class structures that specify a minimum type interface for compatibility with Plover.
-# There is enough init code with default parameters to allow tests by creating a fake engine.
-class PloverStenoDict:
-    enabled: bool = True
-    def __init__(self, d:dict):
-        self._dict = dict(zip(map(tuple, [k.split(PLOVER_SEP) for k in d]), d.values()))
-    def items(self) -> Iterable[tuple]:
-        return self._dict.items()
-    def __len__(self) -> int:
-        return len(self._dict)
-
-class PloverStenoDictCollection:
-    dicts: Iterable[PloverStenoDict] = [PloverStenoDict({"TEFT": "test", "TE*S": "test", "TEFGT": "testing"})]
-    def __init__(self, d:dict=None, split_count:int=1):
-        if d is not None:
-            d_list = list(d.items())
-            self.dicts = [PloverStenoDict(dict(d_list[i::split_count])) for i in range(split_count)]
-
-class PloverAction:
-    prev_attach: bool = True
-    text: Optional[str] = "Plover Test"
-
-class PloverTranslation:
-    rtfcre: Tuple[str] = ("PHROFR", "TEFT")
-    english: Optional[str] = "Plover Test"
-
-class PloverTranslatorState:
-    translations: Sequence[PloverTranslation] = [PloverTranslation()]
-
-class PloverEngine:
-    dictionaries: PloverStenoDictCollection = PloverStenoDictCollection()
-    translator_state: PloverTranslatorState = PloverTranslatorState()
-    signal_connect: Callable[[str, Callable], None] = nop
-    __enter__: Callable[[], None] = nop
-    __exit__: Callable[..., None] = nop
+_PLOVER_SEP = "/"
+join_strokes = _PLOVER_SEP.join
 
 
 class PloverCompatibilityLayer(Component):
-    """ Simple component for specific compatibility checks and tests on Plover's version number and data types. """
+    """ Component for specific conversions and compatibility checks on Plover's version number and data types. """
 
     @on("plover_test")
     def test(self) -> None:
         """ Make a fake Plover engine and run some simple tests. """
-        self.engine_call("new_plover_engine", PloverEngine())
+        self.engine_call("new_plover_engine", self.fake_engine({"TEFT": "test", "TE*S": "test", "TEFGT": "testing"}))
         self.engine_call("plover_new_translation", None, [PloverAction()])
 
     @on("plover_connect")
@@ -67,7 +32,38 @@ class PloverCompatibilityLayer(Component):
             self.engine_call("new_plover_engine", plover_engine)
         else:
             # If the compatibility check fails, don't try to connect to Plover. Send an error.
-            self.engine_call("new_status", INCOMPATIBLE_MESSAGE)
+            self.engine_call("new_status", _INCOMPATIBLE_MESSAGE)
+
+    @on("plover_convert_dicts", pipe_to="new_translations")
+    def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
+        """ When usable Plover dictionaries become available, parse their items into a single string dict.
+            Plover dictionaries are not proper Python dicts and cannot be handled as such.
+            They only have a subset of the normal dict methods. The fastest of these is d.items(). """
+        finished_dict = {}
+        for d in steno_dc.dicts:
+            if d and d.enabled:
+                if isinstance(next(iter(d.items())), tuple):
+                    # If strokes are in tuple form, they must be joined into strings.
+                    # The fastest method found in profiling uses a chained alternating iterator.
+                    kv_alt = chain.from_iterable(d.items())
+                    finished_dict.update(zip(map(join_strokes, kv_alt), kv_alt))
+                else:
+                    finished_dict.update(d.items())
+        return finished_dict
+
+    def fake_engine(self, d:dict, split_count:int=1) -> PloverEngine:
+        """ Create a fake engine for dictionary parse testing. """
+        fake = PloverEngine()
+        fake.dictionaries = PloverStenoDictCollection()
+        fake.dictionaries.dicts = []
+        d_list = list(d.items())
+        split_list = [dict(d_list[i::split_count]) for i in range(split_count)]
+        for split_d in split_list:
+            tuple_d = dict(zip(map(tuple, [k.split(_PLOVER_SEP) for k in split_d]), split_d.values()))
+            sd = PloverStenoDict()
+            sd.items = tuple_d.items
+            fake.dictionaries.dicts.append(sd)
+        return fake
 
 
 def _compatibility_check() -> bool:

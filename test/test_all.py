@@ -9,8 +9,7 @@ import pytest
 
 from spectra_lexer.core.file import FileHandler
 from spectra_lexer.main.app.engine import MainEngine
-from spectra_lexer.plover import PloverTranslationsParser
-from spectra_lexer.plover.compat import PloverStenoDictCollection
+from spectra_lexer.plover import PloverCompatibilityLayer
 from spectra_lexer.steno.board import BoardRenderer
 from spectra_lexer.steno.data import IndexManager, RulesManager, SVGManager, TranslationsManager
 from spectra_lexer.steno.graph import GraphRenderer
@@ -146,10 +145,10 @@ def test_graph(result):
     assert all_nodes_set >= set(GRAPH._formatter)
 
 
-PLOVER = PloverTranslationsParser()
+PLOVER = PloverCompatibilityLayer()
 
 
 def test_plover():
     """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
-    test_dc = PloverStenoDictCollection(TRANSLATIONS_DICT, split_count=3)
-    assert len(PLOVER.load_dicts(test_dc)) == len(TRANSLATIONS_DICT)
+    test_dc = PLOVER.fake_engine(TRANSLATIONS_DICT, split_count=3).dictionaries
+    assert len(PLOVER.convert_dicts(test_dc)) == len(TRANSLATIONS_DICT)

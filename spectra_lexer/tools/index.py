@@ -4,7 +4,7 @@ _ACCEPT_LABEL = "OK"
 _REJECT_LABEL = "Cancel"
 _STARTUP_MESSAGE = "In order to cross-reference examples of specific steno rules, this program must create an index " \
                    "using your Plover dictionary. The default file size is around 10 MB, and can take anywhere " \
-                   "between 5 seconds and 5 minutes depending on the speed of your machine and hard disk. Would you" \
+                   "between 5 seconds and 5 minutes depending on the speed of your machine and hard disk. Would you " \
                    "like to create one now? You will not be asked again.\n\n" \
                    "(If you cancel, all other features will still work. You can always create the index later from " \
                    "the Tools menu, and can expand it from the default size as well if it is not sufficient)."

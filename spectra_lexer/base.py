@@ -1,27 +1,28 @@
 """ Base module of the Spectra lexer core package. Contains the most fundamental components. Don't touch anything...
     There are no type hints here. No type checker would stand a chance against all the descriptor voodoo. """
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from functools import partial
 
 from spectra_lexer.utils import nop
 
 
-class Command(list):
+class Command:
     """ Disposable descriptor for recording component class commands. """
     on = classmethod(partial)  # Decorator for engine command methods.
     def __init__(self, key, func, pipe_to=None, **kwargs):
-        super().__init__([key, func, (pipe_to, kwargs)])
+        self.__dict__ = dict(locals())
     def __set_name__(self, owner, name):
         """ Add to the command dict, put the original function back, and chain the __set_name__ call if necessary. """
-        key, func, params = self
-        owner.cmds[key] = name, *params
-        setattr(owner, name, func)
-        getattr(func, "__set_name__", nop)(owner, name)
+        owner.cmds[self.key] = name, self.pipe_to, self.kwargs
+        setattr(owner, name, self.func)
+        getattr(self.func, "__set_name__", nop)(owner, name)
 
 
-class Resource(namedtuple("Option", "src key default desc", defaults=(None, ""))):
+class Resource:
     """ An external resource, configured before the application starts. """
+    def __init__(self, src, key, default=None, desc=""):
+        self.__dict__ = dict(locals())
     def __set_name__(self, owner, name):
         """ Add to the option dict, put the default value in its place, and make the command. """
         owner.RES[self.src].append(self)
@@ -47,7 +48,7 @@ class Component(metaclass=ComponentMeta):
     engine_call = nop  # Default engine callback is a no-op (useful for testing individual components).
     def __getstate__(self):
         """ Each component has a reference to the engine through self.engine_call, which respectively has a reference
-            to almost everything else, Without intervention, if the pickler tries to pickle a component, it will
+            to almost everything else. Without intervention, if the pickler tries to pickle a component, it will
             follow the reference and attempt to pickle the engine, which results in pickling the entire program.
             Some parts are unavoidably unpickleable, so the reference chain must be stopped by removing engine_call.
             Unfortunately, this means no engine calls may be made by components after unpickling. """

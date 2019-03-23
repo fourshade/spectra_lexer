@@ -1,8 +1,9 @@
 from functools import partial
 from typing import Optional, Sequence, Tuple
 
+from .compat import join_strokes
+from .types import PloverAction, PloverEngine, PloverTranslatorState, PloverStenoDictCollection
 from spectra_lexer import Component
-from .compat import join_strokes, PloverAction, PloverEngine, PloverTranslatorState
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")
@@ -14,18 +15,24 @@ class PloverInterface(Component):
     _plover: PloverEngine = None              # Plover engine. Assumed not to change during run-time.
     _state: Tuple[tuple, str] = _BLANK_STATE  # Current *immutable* set of contiguous strokes and text.
 
-    @on("new_plover_engine", pipe_to="new_status")
-    def start(self, plover_engine:PloverEngine) -> str:
+    @on("new_plover_engine")
+    def start(self, plover_engine:PloverEngine) -> None:
         """ Perform initial engine connection and callback/dictionary setup. """
         self._plover = plover_engine
         # Lock the engine thread to be sure the dictionaries aren't written while we're parsing them.
         with plover_engine:
-            # Connect Plover engine signals to Spectra commands and load all current dictionaries.
-            for signal, command in ("dictionaries_loaded", "plover_load_dicts"), \
+            # Connect Plover engine signals to Spectra commands and convert all current dictionaries.
+            for signal, command in ("dictionaries_loaded", "plover_new_dicts"), \
                                    ("translated",          "plover_new_translation"):
                 plover_engine.signal_connect(signal, partial(self.engine_call, command))
-            self.engine_call("plover_load_dicts", plover_engine.dictionaries)
-        return "Loaded dictionaries from Plover engine."
+            self.engine_call("plover_convert_dicts", plover_engine.dictionaries)
+
+    @on("plover_new_dicts")
+    def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> None:
+        """ When new Plover dictionaries are sent after startup, show loading messages. """
+        self.engine_call("new_status", "Found new Plover dictionaries...")
+        self.engine_call("plover_convert_dicts", steno_dc)
+        self.engine_call("new_status", "Loaded new dictionaries from Plover engine.")
 
     @on("plover_new_translation", pipe_to="lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:

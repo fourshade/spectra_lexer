@@ -18,10 +18,10 @@ class PloverPluginApplication(GUIQtApplication):
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
-    def __init__(self, *classes):
+    def __init__(self, main_classes=(), worker_classes=()):
         """ This component appears as a dialog to interface with Plover in proxy.
             It must translate some attributes into engine call methods and fake others. """
-        super().__init__(plover, *classes)
+        super().__init__([plover, *main_classes], worker_classes)
         self.show = lambda *args: self.call("gui_window_show")
         self.close = lambda *args: self.call("gui_window_close")
         # We get our translations from the Plover engine, so auto-loading of translations from disk must be suppressed.

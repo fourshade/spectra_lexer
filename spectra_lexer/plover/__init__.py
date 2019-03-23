@@ -2,4 +2,3 @@
 
 from .compat import PloverCompatibilityLayer
 from .interface import PloverInterface
-from .translations import PloverTranslationsParser
