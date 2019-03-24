@@ -8,7 +8,7 @@ from .resource import Resource
 class FileHandler:
     """ Base component class for for file I/O operations to convert between strings and dicts. """
 
-    _FORMATS: list = []  # Holds one instance of each codec class.
+    _FORMATS: list = []  # Holds each supported file extension.
 
     def __init_subclass__(cls, formats:Iterable[str]=()):
         """ Add each new supported file extension to the list. """

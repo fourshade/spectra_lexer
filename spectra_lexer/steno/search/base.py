@@ -153,6 +153,7 @@ class SearchEngine(Component):
         """ When a link is clicked, search the index for examples of the named rule near the given keys/letters. """
         item = keys if self._mode_strokes else letters
         search_text = f"{IndexNexus.PREFIX}{name}{IndexNexus.DELIM}{item}"
+        self._reset_count()
         self.engine_call("new_search_input", search_text)
         matches = self.search(search_text)
         # If we found matches, choose the original item and highlight the example rule in it.

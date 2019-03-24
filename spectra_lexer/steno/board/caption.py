@@ -1,5 +1,5 @@
 import random
-from typing import Dict
+from typing import Dict, Union
 
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
 
@@ -7,11 +7,16 @@ from spectra_lexer.steno.rules import RuleFlags, StenoRule
 class CaptionGenerator:
     """ Generates captions for the board diagram along with optional links to examples from an index. """
 
-    _examples: Dict[StenoRule, tuple] = {}  # Index of example translations by rule object.
+    _index: Dict[str, Union[list, dict]] = {}  # Index of example translations by rule name, in either form.
+    _rev_rules: Dict[StenoRule, str] = {}      # Dict of rule objects mapped to their reference names.
 
-    def set_examples(self, rules:Dict[str, StenoRule], index:Dict[str, dict]) -> None:
-        """ Set up the examples dict with rules as keys and names+lists as values. """
-        self._examples = {rules.get(n): (n, list(d.items())) for n, d in index.items()}
+    def set_index(self, index:Dict[str, dict]) -> None:
+        """ Make a shallow copy of the index so we can replace dicts with lists incrementally. """
+        self._index = dict(index)
+
+    def set_rules_reversed(self, rd:Dict[StenoRule, str]) -> None:
+        """ Set up a dict with rules as keys and their names as values. """
+        self._rev_rules = rd
 
     def get_text(self, rule:StenoRule) -> str:
         """ Generate a plaintext caption for a rule based on its position in the current tree. """
@@ -27,9 +32,17 @@ class CaptionGenerator:
         # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
         return f"{raw_keys} → {rule.letters}: {description}"
 
-    def get_link(self, rule:StenoRule) -> tuple:
-        """ Look for the current rule in the index. If there are examples, return one at random. """
-        name, seq = self._examples.get(rule, (None, None))
-        if not name:
-            return ()
-        return (name, rule, *random.choice(seq))
+    def get_link_ref(self, rule:StenoRule) -> str:
+        """ Look for the current rule's name. If there are examples in the index, return the name reference. """
+        name = self._rev_rules.get(rule)
+        if name in self._index:
+            return name
+        return ""
+
+    def get_random_example(self, name:str) -> tuple:
+        """ Find an index for a rule by name and return one translation from it at random.
+            The index must be a list to do this. If it isn't one, convert it and store it back. """
+        obj = self._index[name]
+        if isinstance(obj, dict):
+            obj = self._index[name] = list(obj.items())
+        return random.choice(obj)

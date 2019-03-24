@@ -1,3 +1,8 @@
+3.1.0
+-----
+* Dramatically improved index load time and memory usage at a slight cost on lookups
+* Moved interactive console tool into a separate dialog window
+
 3.0.0
 -----
 * Added index support and search for example translations by rule

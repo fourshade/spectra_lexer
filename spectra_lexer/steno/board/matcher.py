@@ -14,10 +14,10 @@ class ElementMatcher:
     """ Generates lists of element IDs for stroke diagrams, each of which contains a basic background
         and a number of discrete graphical elements matched to raw keys and/or simple rules. """
 
-    _rule_ids: Dict[StenoRule, str] = {}     # Dict with valid pairs of rules and IDs.
+    _rule_ids: Dict[StenoRule, str]  # Dict with valid pairs of rules and IDs.
 
-    def set_rule_ids(self, rules:Dict[str, StenoRule], ids:Iterable[str]) -> None:
-        """ Make the final dict using only element IDs which exist and have a corresponding rule. """
+    def __init__(self, rules:Dict[str, StenoRule], ids:Iterable[str]) -> None:
+        """ Make the dict using only element IDs which exist and have a corresponding rule. """
         svg_rules = zip(map(_SVG_RULE_FORMAT, rules), rules.values())
         id_set = set(ids)
         self._rule_ids = {rule: name for name, rule in svg_rules if name in id_set}

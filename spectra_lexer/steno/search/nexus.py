@@ -88,13 +88,14 @@ class IndexNexus(ResourceNexus, resource="index"):
     PREFIX = "//"     # This includes the rules prefix, so it must be checked first.
     DELIM: str = ";"  # Delimiter between rule name and translation.
 
-    _children: Dict[str, TranslationNexus]  # Dict containing a whole subnexus for every rule name.
-    _d: TranslationNexus                    # Current nexus used to redirect checks and commands.
+    _index: Dict[str, dict]  # Index dict from which to create subnexus objects for any rule name on demand.
+    _last_key: str = None    # Last valid rule key, to avoid creating a new search nexus on every query.
+    _d: TranslationNexus     # Current nexus used to redirect checks and commands.
 
     def __init__(self, d:Dict[str, dict]):
         """ Index search is a two-part search. The first part goes by rule name, and is very precise.
-            It is a key to a dict of child nexus objects, so only exact matches will work. """
-        self._children = {k: TranslationNexus(v) for k, v in d.items()}
+            It is a key to generate translation nexus objects, so only exact matches will work. """
+        self._index = d
         self._d = TranslationNexus({})
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
@@ -102,9 +103,13 @@ class IndexNexus(ResourceNexus, resource="index"):
         pattern = super().check(pattern)
         if pattern is not None:
             key, pattern = (pattern.split(self.DELIM, 1) + [""])[:2]
-            if key in self._children:
-                d = self._d = self._children[key]
-                return d.check(pattern, **mode_kwargs)
+            if key in self._index:
+                if key != self._last_key:
+                    # Search dicts are memory hogs, and users tend to look at many results under the same rule.
+                    # We generate each search nexus on demand only, and keep it until a new rule is requested.
+                    self._last_key = key
+                    self._d = TranslationNexus(self._index[key])
+                return self._d.check(pattern, **mode_kwargs)
 
     search = delegate_to("_d", prefix=False)
     command_args = delegate_to("_d")

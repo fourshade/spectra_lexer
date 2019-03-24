@@ -20,7 +20,8 @@ class ReverseDict(Dict[VT, List[KT]]):
     """
 
     def __init__(self, *args, match:dict=None, **kwargs):
-        """ Use the keyword argument (if given) as a source forward dict. """
+        """ Create a matching inverse to the forward dict in the keyword argument <match> if given.
+            Add items from other arguments normally to remain compatible with other dict constructors. """
         super().__init__(*args, **kwargs)
         if match is not None:
             self.match_forward(match)
