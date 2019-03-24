@@ -3,6 +3,7 @@ from typing import Sequence
 from PyQt5.QtWidgets import QFileDialog
 
 from spectra_lexer import Component
+from spectra_lexer.file import JSON
 
 
 def FileDialog(parent:QFileDialog, title:str, fmts_msg:str, fmts:Sequence[str]) -> Sequence[str]:
@@ -29,7 +30,7 @@ class FileDialogTool(Component):
         title_msg = f"Load {res_type.title()}"
         # Currently only JSON-type files are supported for loading.
         fmts_msg = "JSON files"
-        fmts = ".json", ".cson"
+        fmts = JSON.extensions()
         filenames = FileDialog(self.window, title_msg, fmts_msg, fmts)
         # Attempt to load the selected files (if any).
         if filenames:

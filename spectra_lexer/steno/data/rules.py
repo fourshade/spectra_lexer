@@ -3,6 +3,7 @@ from collections import Counter
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer import Component
+from spectra_lexer.file import CSON
 from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 
@@ -35,10 +36,10 @@ class RulesManager(Component):
 
     @on("load_dicts", pipe_to="set_dict_rules")
     @on("rules_load", pipe_to="set_dict_rules")
-    def load(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
+    def load_all(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
         # Load rules from each source dictionary and convert to namedtuple form.
-        dicts = self.engine_call("file_load_all", *(filenames or self.files))
+        dicts = CSON.load_all(*(filenames or self.files))
         self._src_dict = {k: _RawRule(*v) for d in dicts for (k, v) in d.items()}
         # If the size of the combined dict is less than the sum of its components, some rule names are identical.
         if len(self._src_dict) < sum(map(len, dicts)):
@@ -102,11 +103,11 @@ class RulesManager(Component):
             m = _SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    @on("rules_save", pipe_to="file_save")
-    def save(self, rules:Iterable[StenoRule], filename:str="") -> tuple:
+    @on("rules_save")
+    def save(self, rules:Iterable[StenoRule], filename:str="") -> None:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
             using auto-generated reference names and substituting rules in each rulemap for their letters. """
-        return (filename or self.out), {str(r): self._inv_parse(r) for r in rules}
+        CSON.save(filename or self.out, {str(r): self._inv_parse(r) for r in rules})
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """

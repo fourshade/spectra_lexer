@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, Optional
 
 from spectra_lexer import Component
+from spectra_lexer.file import JSON
 from spectra_lexer.steno.rules import StenoRule
 
 
@@ -26,16 +27,16 @@ class IndexManager(Component):
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:
-            return self.engine_call("file_load", filename or self.file)
+            return JSON.load(filename or self.file)
         except OSError:
             self.engine_call("index_not_found")
             return
 
-    @on("index_save", pipe_to="file_save")
-    def save(self, d:Dict[str, dict], filename:str="") -> tuple:
+    @on("index_save")
+    def save(self, d:Dict[str, dict], filename:str="") -> None:
         """ Save an index structure directly into JSON.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
-        return (filename or self.out), d
+        JSON.save(filename or self.out, d)
 
     @on("index_generate", pipe_to="set_dict_index")
     def generate(self, translations:Iterable=None, *, size:int=None, save=True) -> Dict[str, dict]:

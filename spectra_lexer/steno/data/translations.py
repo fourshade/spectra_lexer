@@ -2,6 +2,7 @@ import json
 from typing import Dict, List, Optional, Sequence
 
 from spectra_lexer import Component
+from spectra_lexer.file import CFG, JSON
 from spectra_lexer.utils import ensure_list, merge
 
 
@@ -21,27 +22,27 @@ class TranslationsManager(Component):
 
     @on("load_dicts", pipe_to="set_dict_translations")
     @on("translations_load", pipe_to="set_dict_translations")
-    def load(self, filenames:Sequence[str]=()) -> Dict[str, str]:
+    def load_all(self, filenames:Sequence[str]=()) -> Dict[str, str]:
         """ Load and merge translations from disk. """
         patterns = filenames or self.files
         if _PLOVER_SENTINEL in patterns:
             patterns = self._plover_files()
         if any(patterns):
-            return merge(self.engine_call("file_load_all", *patterns))
+            return merge(JSON.load_all(*patterns))
 
-    @on("translations_save", pipe_to="file_save")
-    def save(self, d:Dict[str, str], filename:str="") -> tuple:
+    @on("translations_save")
+    def save(self, d:Dict[str, str], filename:str="") -> None:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default. """
-        return (filename or self.out), d
+        JSON.save(filename or self.out, d)
 
     def _plover_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
             in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
         try:
-            cfg_dict = self.engine_call("file_load", _PLOVER_USER_DIR + _PLOVER_CFG_FILENAME)
+            cfg_dict = CFG.load(_PLOVER_USER_DIR + _PLOVER_CFG_FILENAME)
             dict_section = cfg_dict['System: English Stenotype']['dictionaries']
             # The section we need is read as a string, but it must be decoded as a JSON array.
-            return [_PLOVER_USER_DIR + e['path'] for e in reversed(json.loads(dict_section))]
+            return [_PLOVER_USER_DIR + e['path'] for e in reversed(JSON.decode(dict_section))]
         except OSError:
             # Catch-all for file loading errors. Just assume the required files aren't there and move on.
             pass

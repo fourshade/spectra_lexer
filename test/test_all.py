@@ -7,11 +7,9 @@ import re
 
 import pytest
 
-from spectra_lexer.core.file import FileHandler
-from spectra_lexer.main.app.engine import MainEngine
 from spectra_lexer.plover import PloverCompatibilityLayer
 from spectra_lexer.steno.board import BoardRenderer
-from spectra_lexer.steno.data import IndexManager, RulesManager, SVGManager, TranslationsManager
+from spectra_lexer.steno.data import IndexManager, RulesManager, TranslationsManager
 from spectra_lexer.steno.graph import GraphRenderer
 from spectra_lexer.steno.lexer import StenoLexer
 from spectra_lexer.steno.rules import RuleFlags
@@ -21,9 +19,8 @@ from test import get_test_filename
 
 # Create and connect components for the tests in order as we need them.
 # Some will need access to the file system. They only need to send engine commands for this, not receive them.
-FILE_ENGINE = MainEngine(FileHandler)
-RULES = FILE_ENGINE.new_component(RulesManager)
-RULES_DICT = RULES.load()
+RULES = RulesManager()
+RULES_DICT = RULES.load_all()
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -48,8 +45,8 @@ def test_rules(r):
         assert not key_diff, f"Entry {r} has mismatched keys vs. its child rules: {key_diff}"
 
 
-TRANSLATIONS = FILE_ENGINE.new_component(TranslationsManager)
-TRANSLATIONS_DICT = TRANSLATIONS.load([get_test_filename("translations")])
+TRANSLATIONS = TranslationsManager()
+TRANSLATIONS_DICT = TRANSLATIONS.load_all([get_test_filename("translations")])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_rules(RULES_DICT)
@@ -64,7 +61,7 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-INDEX = FILE_ENGINE.new_component(IndexManager)
+INDEX = IndexManager()
 INDEX_DICT = INDEX.load(get_test_filename("index"))
 TEST_INDEX = list(INDEX_DICT.items())
 SEARCH = SearchEngine()
@@ -111,10 +108,8 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-SVG = FILE_ENGINE.new_component(SVGManager)
-SVG_DICT = SVG.load()
 BOARD = BoardRenderer()
-BOARD.set_board(SVG_DICT)
+BOARD.load()
 BOARD.set_rules(RULES_DICT)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 

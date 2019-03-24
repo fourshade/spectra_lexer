@@ -2,10 +2,11 @@
 
 from typing import Dict, List, Tuple
 
+from spectra_lexer import Component
 from .caption import CaptionGenerator
 from .layout import ElementLayout
 from .matcher import ElementMatcher
-from spectra_lexer import Component
+from spectra_lexer.file import XML
 from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.utils import save_kwargs
 
@@ -13,6 +14,7 @@ from spectra_lexer.utils import save_kwargs
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
+    file = Resource("cmdline", "board-file", ":/board.svg", "SVG file with graphics for the steno board diagram.")
     show_compound = Resource("config", "board:show_compound_keys", True,
                              "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
     show_links = Resource("config", "board:show_example_links", True,
@@ -29,9 +31,11 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
         self._matcher = ElementMatcher()
 
-    @on("set_dict_board", pipe_to="new_board_xml")
-    def set_board(self, d:dict) -> Tuple[str, Dict[str, dict]]:
-        """ Send the raw SVG text data along with all element IDs to the GUI. """
+    @on("load_dicts", pipe_to="new_board_xml")
+    @on("board_load", pipe_to="new_board_xml")
+    def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
+        """ Load an SVG file and send the raw SVG text data along with all element IDs to the GUI. """
+        d = XML.load(filename or self.file)
         self._load_matcher(ids=d["ids"])
         return d["raw"], d["ids"]
 
