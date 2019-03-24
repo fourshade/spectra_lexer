@@ -8,16 +8,15 @@ from spectra_lexer.utils import delegate_to
 
 class GUIQtTextDisplay(Component):
     """ GUI operations class for displaying status, interactive text, and exceptions.
-        Also handles keyboard and mouse input to the text widget. """
+        Also handles mouse input to the text widget. """
 
     w_title = Resource("gui", "w_display_title", None, "Displays status messages and mapping of keys to word.")
     w_text = Resource("gui",  "w_display_text",  None, "Displays formatted rule graphs and other textual data.")
 
     @on("load_gui")
     def load(self) -> None:
-        """ Connect the keyboard and mouse signals to the main text window. """
+        """ Connect the mouse signal to the main text window. """
         self.w_text.textMouseAction.connect(partial(self.engine_call, "text_mouse_action"))
-        self.w_text.textKeyboardInput.connect(partial(self.engine_call, "text_keyboard_input"))
 
     set_title = on("new_status")(on("new_title_text")(delegate_to("w_title.setText")))
 

@@ -36,18 +36,6 @@ class SearchListWidget(QListView):
         self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)
         self.scrollTo(idx, QAbstractItemView.PositionAtCenter)
 
-    # Signals
-    itemSelected = pyqtSignal([str])
-
-    # Slots
-    def selectionChanged(self, selected:QItemSelection, deselected:QItemSelection) -> None:
-        """ Send signal on selection change with the first selected item (if any). """
-        super().selectionChanged(selected, deselected)
-        idxs = selected.indexes()
-        if idxs:
-            item = self.model().data(idxs[0], Qt.DisplayRole)
-            self.itemSelected.emit(item)
-
     def wheelEvent(self, event:QWheelEvent) -> None:
         """ Change the font size if Ctrl is held down, otherwise scroll the list as usual. """
         if not event.modifiers() & Qt.ControlModifier:
@@ -60,3 +48,14 @@ class SearchListWidget(QListView):
             font.setPointSize(new_size)
             self.setFont(font)
         event.accept()
+
+    # Signals
+    itemSelected = pyqtSignal([str])
+
+    def selectionChanged(self, selected:QItemSelection, deselected:QItemSelection) -> None:
+        """ Send signal on selection change with the first selected item (if any). """
+        super().selectionChanged(selected, deselected)
+        idxs = selected.indexes()
+        if idxs:
+            item = self.model().data(idxs[0], Qt.DisplayRole)
+            self.itemSelected.emit(item)

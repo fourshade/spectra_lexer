@@ -9,7 +9,6 @@ class ConfigDialogTool(Component):
     """ Config dialog manager; allows editing of config values for any component. """
 
     config_menu = Resource("menu", "Tools:Edit Configuration...", ["config_dialog_open"])
-
     window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
     _data: Dict[str, dict]  # Dict with config values from all components loaded from disk.

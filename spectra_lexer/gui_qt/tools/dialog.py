@@ -3,7 +3,7 @@
 from typing import Callable
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QWidget
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QVBoxLayout, QWidget
 
 
 def MessageDialog(parent:QMessageBox, title:str, message:str, main_button:str="OK", *other_buttons:str) -> str:
@@ -27,33 +27,52 @@ def MessageDialog(parent:QMessageBox, title:str, message:str, main_button:str="O
 class ToolDialog(QDialog):
     """ Base class for a Qt dialog window object used by a GUI tool. """
 
-    _submit_cb: Callable  # A callback to return any necessary output values to the parent.
+    TITLE: str = "Untitled"   # Dialog window title string.
+    SIZE: tuple = (200, 200)  # Dimensions in pixels: (width, height).
 
-    def __init__(self, parent:QWidget, submit_cb:Callable, title:str, width:int, height:int):
-        """ Create the root UI elements and set the callback. """
+    submit_cb: Callable  # A callback to return any necessary output to the parent.
+
+    def __init__(self, parent:QWidget, submit_cb:Callable):
+        """ Create the root UI dialog window and layout, then set the callback. """
         super().__init__(parent, Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        self.setWindowTitle(title)
-        self._submit_cb = submit_cb
-        self.resize(width, height)
-        self.setMinimumSize(width, height)
+        self.setWindowTitle(self.TITLE)
+        self.resize(*self.SIZE)
+        self.setMinimumSize(*self.SIZE)
         self.setSizeGripEnabled(False)
+        self.submit_cb = submit_cb
+        self.make_layout()
 
-    def make_buttons(self) -> QDialogButtonBox:
-        """ Make the standard buttons and connect basic signals. """
+    def make_layout(self) -> None:
+        """ Subclasses create and populate a layout with widgets here. """
+        raise NotImplementedError
+
+
+class FormDialog(ToolDialog):
+    """ A GUI tool dialog class for a submission form. Has standard buttons and returns useful output on accept. """
+
+    def make_layout(self) -> None:
+        """ Make a vertical layout, add the standard buttons at the bottom, and connect basic signals. """
+        layout = QVBoxLayout(self)
+        self.upper_layout(layout)
         w_buttons = QDialogButtonBox(self)
         w_buttons.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         w_buttons.setCenterButtons(True)
         w_buttons.accepted.connect(self.accept)
         w_buttons.rejected.connect(self.reject)
-        return w_buttons
+        layout.addWidget(w_buttons)
 
-    def accept(self) -> None:
-        """ Submit the return value to the parent via the saved callback (unless it is None). """
-        value = self.submit()
-        if value is not None:
-            self._submit_cb(value)
-            return super().accept()
+    def upper_layout(self, layout:QVBoxLayout) -> None:
+        """ Subclasses populate the top part of the layout with widgets here. """
+        raise NotImplementedError
 
     def submit(self):
         """ The callback returns one argument to the parent. Subclasses return that here, or None to cancel. """
         raise NotImplementedError
+
+    # Slots
+    def accept(self) -> None:
+        """ Submit the return value to the parent via the saved callback (unless it is None). """
+        value = self.submit()
+        if value is not None:
+            self.submit_cb(value)
+            return super().accept()

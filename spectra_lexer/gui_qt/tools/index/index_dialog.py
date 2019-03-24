@@ -1,9 +1,7 @@
-from typing import Callable
-
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLabel, QSlider, QToolTip, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QLabel, QSlider, QToolTip, QVBoxLayout
 
-from spectra_lexer.gui_qt.tools.dialog import ToolDialog
+from spectra_lexer.gui_qt.tools.dialog import FormDialog
 
 _HEADING_TEXT = """
 <p>Please choose the size for the new index. The relative size factor is a number between 1 and 20:</p>
@@ -20,11 +18,15 @@ index grows, so does the loading time, and past a certain point the garbage will
 There are few practical reasons to increase the index size beyond 15.</p>"""
 
 
-class IndexDialog(ToolDialog):
-    """ Qt index dialog window object. Contains relatively few elements. """
+class IndexDialog(FormDialog):
+    """ Qt index dialog window object. Contains labels and a single interactive slider. """
 
-    def __init__(self, parent:QWidget, submit_cb:Callable):
-        super().__init__(parent, submit_cb, "Choose Index Size", 360, 320)
+    TITLE = "Choose Index Size"
+    SIZE = (360, 320)
+
+    sizeSlider: QSlider = None  # Horizontal slider with range 1-20 for relative index size.
+
+    def upper_layout(self, layout:QVBoxLayout) -> None:
         heading_label = QLabel(self)
         heading_label.setWordWrap(True)
         heading_label.setText(_HEADING_TEXT)
@@ -39,16 +41,15 @@ class IndexDialog(ToolDialog):
         desc_label = QLabel(self)
         desc_label.setWordWrap(True)
         desc_label.setText(_BODY_TEXT)
-        layout_main = QVBoxLayout(self)
-        layout_main.addWidget(heading_label)
-        layout_main.addWidget(self.sizeSlider)
-        layout_main.addWidget(desc_label)
-        layout_main.addWidget(self.make_buttons())
+        layout.addWidget(heading_label)
+        layout.addWidget(self.sizeSlider)
+        layout.addWidget(desc_label)
 
     def submit(self) -> int:
         """ Return the size to the index creation component. """
         return self.sizeSlider.value()
 
+    # Slots
     def new_slider_value(self, value:int) -> None:
         """ Show a tooltip with the current numerical value when the slider is moved. """
         QToolTip.showText(self.pos() + self.sizeSlider.pos(), str(value), self.sizeSlider)

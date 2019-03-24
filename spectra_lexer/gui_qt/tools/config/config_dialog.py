@@ -3,7 +3,7 @@ from typing import Callable, Dict
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, QTabWidget, QVBoxLayout, \
     QWidget
 
-from spectra_lexer.gui_qt.tools.dialog import ToolDialog
+from spectra_lexer.gui_qt.tools.dialog import FormDialog
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -44,20 +44,26 @@ class OptionPage(QFrame):
         self.save = lambda: _save_dict(rows)
 
 
-class ConfigDialog(ToolDialog):
+class ConfigDialog(FormDialog):
     """ Outermost Qt config dialog window object. """
 
+    TITLE = "Spectra Configuration"
+    SIZE = (250, 300)
+
+    w_tabs: QTabWidget = None  # Central widget of the dialog window; holds every setting among multiple tabs.
+
     def __init__(self, parent:QWidget, submit_cb:Callable, info:Dict[str, dict]):
-        """ Create UI elements using info from the dict, connect basic signals, and set the callback. """
-        super().__init__(parent, submit_cb, "Spectra Configuration", 250, 300)
+        """ Create UI elements using info from the dict and set the save callback. """
+        super().__init__(parent, submit_cb)
         pages = {sect: OptionPage(info[sect]) for sect in sorted(info)}
-        w_tabs = QTabWidget(self)
         for sect, page in pages.items():
-            w_tabs.addTab(page, sect)
-        layout_main = QVBoxLayout(self)
-        layout_main.addWidget(w_tabs)
-        layout_main.addWidget(self.make_buttons())
+            self.w_tabs.addTab(page, sect)
         self.save = lambda: _save_dict(pages)
+
+    def upper_layout(self, layout:QVBoxLayout) -> None:
+        """ Make and add the central widget to the top of the layout. """
+        self.w_tabs = QTabWidget(self)
+        layout.addWidget(self.w_tabs)
 
     def submit(self) -> dict:
         """ Validate all config values from each page and widget. Show a popup if there are one or more errors.

@@ -16,7 +16,6 @@ class IndexDialogTool(Component):
     """ Controls user-based index creation. """
 
     index_menu = Resource("menu", "Tools:Make Index...", ["index_dialog_open"])
-
     window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
     @on("index_dialog_open")
