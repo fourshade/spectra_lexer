@@ -1,4 +1,4 @@
-""" Base package for specific user tools. Without a GUI (and specifically a menu bar), these components do no good. """
+""" Base package for specific GUI user tools. The ordering here determines the order on the menu bar. """
 
 from .file import FileDialogTool
 from .config import ConfigDialogTool

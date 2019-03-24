@@ -5,4 +5,4 @@ from .menu import GUIQtMenu
 from .search import GUIQtSearchPanel
 from .board import GUIQtBoardDisplay
 from .text import GUIQtTextDisplay
-from .dialog import GUIQtDialogManager
+from .tools import *

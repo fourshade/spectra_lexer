@@ -1,10 +1,9 @@
 from typing import Callable, Dict
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QGridLayout, QLabel, QLineEdit, QMessageBox, QTabWidget, \
+from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, QTabWidget, QVBoxLayout, \
     QWidget
 
-from .gui_dialog import Dialog
+from spectra_lexer.gui_qt.tools.dialog import ToolDialog
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -45,7 +44,7 @@ class OptionPage(QFrame):
         self.save = lambda: _save_dict(rows)
 
 
-class ConfigDialog(Dialog):
+class ConfigDialog(ToolDialog):
     """ Outermost Qt config dialog window object. """
 
     def __init__(self, parent:QWidget, submit_cb:Callable, info:Dict[str, dict]):
@@ -55,9 +54,9 @@ class ConfigDialog(Dialog):
         w_tabs = QTabWidget(self)
         for sect, page in pages.items():
             w_tabs.addTab(page, sect)
-        layout_main = QGridLayout(self)
-        layout_main.addWidget(w_tabs, 0, 0, 1, 1)
-        layout_main.addWidget(self.make_buttons(), 1, 0, 1, 1, Qt.AlignHCenter)
+        layout_main = QVBoxLayout(self)
+        layout_main.addWidget(w_tabs)
+        layout_main.addWidget(self.make_buttons())
         self.save = lambda: _save_dict(pages)
 
     def submit(self) -> dict:

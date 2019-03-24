@@ -6,7 +6,7 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 from .app import ThreadedApplication
-from spectra_lexer import core, gui_qt, steno, tools
+from spectra_lexer import core, gui_qt, steno
 
 
 class Connection(QObject):
@@ -31,14 +31,8 @@ class GUIQtApplication(ThreadedApplication):
 
     def __init__(self, main_classes=(), worker_classes=()):
         """ To send commands to the GUI, the child engines send a Qt signal that activates main_call(). """
-        super().__init__([gui_qt, tools, *main_classes], [core, steno, *worker_classes],
+        super().__init__([gui_qt, *main_classes], [core, steno, *worker_classes],
                          parent_send=Connection(self.main_call).send)
-
-    def load(self, **options) -> None:
-        """ The GUI components must start first to initialize the window and widgets before others use them. """
-        self.call("gui_start", **options)
-        self.call("gui_window_show")
-        super().load(**options)
 
     def run(self, *args) -> int:
         """ If no subclasses object, start the GUI event loop and run it indefinitely. """

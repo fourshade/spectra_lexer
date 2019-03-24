@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Dict
 
+from .config_dialog import ConfigDialog
 from spectra_lexer import Component
 
 
@@ -8,6 +9,8 @@ class ConfigDialogTool(Component):
     """ Config dialog manager; allows editing of config values for any component. """
 
     config_menu = Resource("menu", "Tools:Edit Configuration...", ["config_dialog_open"])
+
+    window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
     _data: Dict[str, dict]  # Dict with config values from all components loaded from disk.
     _info: Dict[str, dict]  # Dict with detailed config info from active components (but not the values).
@@ -36,17 +39,16 @@ class ConfigDialogTool(Component):
         for sect, page in d.items():
             self._data[sect].update(page)
 
-    @on("config_dialog_open", pipe_to="new_dialog")
-    def open_dialog(self) -> tuple:
-        """ Create GUI configuration manager dialog by combining info and data dict values. """
+    @on("config_dialog_open")
+    def open_dialog(self) -> None:
+        """ Create and show GUI configuration manager dialog by combining info and data dict values. """
         data = self._data
         d = {sect: {name: (data[sect][name], *opt)
                     for name, opt in page.items()}
              for sect, page in self._info.items()}
-        return "config", d
+        ConfigDialog(self.window, self.save, d).show()
 
-    @on("config_dialog_result", pipe_to="config_save")
-    def save(self, d:Dict[str, dict]) -> Dict[str, dict]:
+    def save(self, d:Dict[str, dict]) -> None:
         """ Update components with the new config values and save them. """
         self.update_values(d)
-        return self._data
+        self.engine_call("config_save", self._data)

@@ -1,4 +1,6 @@
+from .index_dialog import IndexDialog
 from spectra_lexer import Component
+from spectra_lexer.gui_qt.tools.dialog import MessageDialog
 
 _ACCEPT_LABEL = "OK"
 _REJECT_LABEL = "Cancel"
@@ -13,25 +15,26 @@ _STARTUP_MESSAGE = "In order to cross-reference examples of specific steno rules
 class IndexDialogTool(Component):
     """ Controls user-based index creation. """
 
-    make_index = Resource("menu", "Tools:Make Index...", ["new_dialog", "index"])
+    index_menu = Resource("menu", "Tools:Make Index...", ["index_dialog_open"])
 
-    @on("index_dialog_result")
-    def new_custom(self, index_size:int) -> None:
+    window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
+
+    @on("index_dialog_open")
+    def size_dialog(self) -> None:
+        """ Create and show index size choice dialog. """
+        IndexDialog(self.window, self.size_submit).show()
+
+    def size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted, so create the custom index. """
         if index_size:
             self._send_index_commands(index_size)
 
-    @on("index_not_found", pipe_to="new_dialog")
-    def startup_dialog(self) -> tuple:
+    @on("index_not_found")
+    def startup_dialog(self) -> None:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index. """
-        title = "Make Index"
-        msg = _STARTUP_MESSAGE
-        return "index-message", title, msg, _ACCEPT_LABEL, _REJECT_LABEL
-
-    @on("message_dialog_result")
-    def new_default(self, owner:str, choice:str) -> None:
-        """ Make the starting index on accept, otherwise save an empty one so the message doesn't appear again. """
-        if owner == "index" and choice == _ACCEPT_LABEL:
+        choice = MessageDialog(self.window, "Make Index", _STARTUP_MESSAGE, _ACCEPT_LABEL, _REJECT_LABEL)
+        # Make the starting index on accept, otherwise save an empty one so the message doesn't appear again.
+        if choice == _ACCEPT_LABEL:
             self._send_index_commands()
         else:
             self.engine_call("index_save", {})

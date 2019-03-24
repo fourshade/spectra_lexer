@@ -14,8 +14,8 @@ class GUIQtBoardDisplay(Component):
     w_link: QLabel = None   # Displays rule hyperlink. Created dynamically.
     _last_link: tuple = ()  # Search parameters for last hyperlink.
 
-    @on("gui_opts_done")
-    def gui_opts_done(self) -> None:
+    @on("load_gui")
+    def load(self) -> None:
         """ Set hyperlinks to search examples when clicked. """
         self.w_link = QLabel(self.w_board)
         self.w_link.setVisible(False)

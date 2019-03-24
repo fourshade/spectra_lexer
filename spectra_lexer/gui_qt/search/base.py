@@ -13,9 +13,9 @@ class GUIQtSearchPanel(Component):
     w_strokes = Resource("gui", "w_search_type",  None, "Check box to determine whether to use word or stroke search.")
     w_regex = Resource("gui",   "w_search_regex", None, "Check box to determine whether to use prefix or regex search.")
 
-    @on("gui_opts_done")
-    def gui_opts_done(self) -> None:
-        """ Connect all Qt signals on engine start. """
+    @on("load_gui")
+    def load(self) -> None:
+        """ Connect all Qt signals on GUI load. """
         signals = {self.w_input.textEdited:      "search_input",
                    self.w_matches.itemSelected:  "search_choose_match",
                    self.w_mappings.itemSelected: "search_choose_mapping",

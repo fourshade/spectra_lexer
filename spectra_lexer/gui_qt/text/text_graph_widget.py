@@ -70,6 +70,7 @@ class TextGraphWidget(QTextEdit):
     def mouseMoveEvent(self, event:QMouseEvent) -> None:
         """ If the mouse has moved over the text, try to find out where it is to display information. """
         if not self._mouse_enabled:
+            super().mouseMoveEvent(event)
             return
         # The mouse's position relative to the top-left corner of the text display is what we're interested in.
         # Take the position of the text display, minus an empirically determined offset based on the GUI layout.

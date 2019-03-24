@@ -1,9 +1,9 @@
 """ Base module for modal (one-shot) dialogs and a framework for more complicated ones with callbacks. """
 
-from typing import List, Callable
+from typing import Callable
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QFileDialog, QMessageBox, QWidget, QDialog, QDialogButtonBox
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QWidget
 
 
 def MessageDialog(parent:QMessageBox, title:str, message:str, main_button:str="OK", *other_buttons:str) -> str:
@@ -24,15 +24,8 @@ def MessageDialog(parent:QMessageBox, title:str, message:str, main_button:str="O
         return all_buttons[-1]
 
 
-def FileDialog(parent:QFileDialog, title:str, fmts_msg:str, fmts:list) -> List[str]:
-    """ Create a modal file open dialog and return multiple file selections in a list.
-        If the dialog is cancelled, return an empty list. """
-    filter_msg = f"{fmts_msg} (*{' *'.join(fmts)})"
-    return QFileDialog.getOpenFileNames(parent, title, ".", filter_msg)[0]
-
-
-class Dialog(QDialog):
-    """ Base class for generic Qt dialog window object. """
+class ToolDialog(QDialog):
+    """ Base class for a Qt dialog window object used by a GUI tool. """
 
     _submit_cb: Callable  # A callback to return any necessary output values to the parent.
 
@@ -45,7 +38,7 @@ class Dialog(QDialog):
         self.setMinimumSize(width, height)
         self.setSizeGripEnabled(False)
 
-    def make_buttons(self):
+    def make_buttons(self) -> QDialogButtonBox:
         """ Make the standard buttons and connect basic signals. """
         w_buttons = QDialogButtonBox(self)
         w_buttons.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
