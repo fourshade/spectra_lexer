@@ -30,9 +30,10 @@ class GUIQtApplication(ThreadedApplication):
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
     def __init__(self, main_classes=(), worker_classes=()):
-        """ To send commands to the GUI, the child engines send a Qt signal that activates main_call(). """
-        super().__init__([gui_qt, *main_classes], [core, steno, *worker_classes],
-                         parent_send=Connection(self.main_call).send)
+        """ Run the GUI on the main thread, and the standard steno components on a worker thread. """
+        classes = [gui_qt, *main_classes], [core, steno, *worker_classes]
+        # To send commands to the GUI, the child engines send a Qt signal that activates call_main().
+        super().__init__(*classes, parent_send=Connection(self.call_main).send)
 
     def run(self, *args) -> int:
         """ If no subclasses object, start the GUI event loop and run it indefinitely. """

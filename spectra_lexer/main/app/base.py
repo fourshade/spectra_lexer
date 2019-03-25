@@ -1,4 +1,5 @@
 from .engine import MainEngine, ThreadedEngine
+from .factory import ComponentFactory
 from spectra_lexer import Component
 
 
@@ -6,9 +7,16 @@ class Application(MainEngine):
     """ Base application class for the Spectra program. Routes messages and data structures between
         all constituent components using an engine. By default, it is a single-threaded type. """
 
+    factory: ComponentFactory  # Makes components out of classes found in modules and packages.
+
+    def __init__(self, *classes_or_modules):
+        """ Create instances of all component classes found in modules and add them to a new engine. """
+        self.factory = ComponentFactory()
+        super().__init__(self.factory(classes_or_modules))
+
     def start(self, *args) -> object:
         """ Start the pipeline by processing options such as command line arguments from sys.argv. """
-        self.load(components=self.components, **Component.RES)
+        self.load(app=self, components=self.factory.components, **Component.RES)
         return self.run(*args)
 
     def load(self, **options) -> None:
@@ -25,26 +33,26 @@ class ThreadedApplication(Application):
     """ Application class for components grouped into threads. Components within a single group can communicate freely;
         external communication is only allowed between the master and a child, and is strictly unidirectional. """
 
-    children: list  # List of child engine objects, each with its own thread and command queue.
+    child_engines: list  # List of child engine objects, each with its own thread and command queue.
 
     def __init__(self, main_classes, *worker_class_groups, **kwargs):
         """ Create the main engine, then create a child engine for each group of worker component classes. """
         super().__init__(*main_classes)
-        self.children = [ThreadedEngine(*c, **kwargs) for c in worker_class_groups]
-        # Add all components in children to our global list. Not exactly thread-safe, but it's for debug anyway.
-        self.components += [c for e in self.children for c in e.components]
-        # Start all child engine threads immediately.
-        for e in self.children:
+        self.child_engines = []
+        for g in worker_class_groups:
+            e = ThreadedEngine(self.factory(g), **kwargs)
+            self.child_engines.append(e)
+            # Start each child engine thread immediately.
             e.start()
 
     def call(self, key:str, *args, **kwargs) -> None:
         """ Call an application-wide command, first on the child engines, then a blocking call on ourselves. """
         cmd = key, args, kwargs
-        for e in self.children:
+        for e in self.child_engines:
             e.send(cmd)
-        self.main_call(cmd)
+        self.call_main(cmd)
 
-    def main_call(self, cmd:tuple) -> None:
-        """ Call a command on the main engine only. Only the MAIN thread should make it here. """
+    def call_main(self, cmd:tuple) -> None:
+        """ Call a command from a tuple on the main engine only. Only the MAIN thread should make it here. """
         key, args, kwargs = cmd
         super().call(key, *args, **kwargs)

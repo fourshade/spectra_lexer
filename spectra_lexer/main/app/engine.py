@@ -2,34 +2,25 @@ from collections import defaultdict
 from queue import Queue
 from threading import Thread
 
-from spectra_lexer import Component
 
-
-class Engine(defaultdict):
-    """ Base engine class for the Spectra program. Gets its commands by creating and connecting components.
+class Engine:
+    """ Base engine class for the Spectra program. Gets its commands by connecting components.
         Has mappings for every command to a list of component+method binding pairs to call.
         Commands and components should not change after initialization. """
 
-    components: list  # List of all connected components, mainly for introspection.
+    _commands: dict   # Dict of command keys, each mapped to a list of executable commands from components.
 
-    def __init__(self, *classes_or_modules):
-        """ Create instances of all component classes found in modules and add to the list. """
-        super().__init__(list)
-        self.components = [self.new_component(cls) for m in classes_or_modules for cls in (m, *vars(m).values())
-                           if isinstance(cls, type) and issubclass(cls, Component)]
-
-    def new_component(self, cls):
-        """ Add the instance to each command and set its callback to allow it to directly call other commands. """
-        c = cls()
-        for key, cmd in cls.cmds.items():
-            self[key].append((c, *cmd))
-        c.engine_call = self.call
-        return c
+    def __init__(self, components:list):
+        """ Connect each component by giving it the engine callback and adding the commands it returns to the dict. """
+        self._commands = defaultdict(list)
+        for c in components:
+            for key, cmd in c.engine_connect(self.call):
+                self._commands[key].append(cmd)
 
     def call(self, key, *args, **kwargs):
         """ Run all commands under this key and return the last value. """
         value = None
-        for cmp, attr, pipe_to, cmd_kwargs in self[key]:
+        for cmp, attr, pipe_to, cmd_kwargs in self._commands[key]:
             value = getattr(cmp, attr)(*args, **kwargs)
             # If there's a follow-up command to run and the output value wasn't None, run it with that value.
             if value is not None and pipe_to is not None:
@@ -48,7 +39,7 @@ class MainEngine(Engine):
 
     _rlevel: int = 0  # Level of re-entrancy for exceptions, 0 = top of stack.
 
-    def call(self, key, *args, **kwargs) -> object:
+    def call(self, key, *args, **kwargs):
         """ Run all commands under this key and catch any exceptions that make it to the top level. """
         with self:
             return super().call(key, *args, **kwargs)
@@ -70,12 +61,12 @@ class ThreadedEngine(Engine):
     _parent_send = None  # Callback to send commands to the parent engine.
     _queue: Queue        # Thread-safe queue to hold commands from other threads.
 
-    def __init__(self, *classes_or_modules, parent_send):
-        super().__init__(*classes_or_modules)
+    def __init__(self, components:list, parent_send):
+        super().__init__(components)
         self._parent_send = parent_send
         self._queue = Queue()
 
-    def start(self):
+    def start(self) -> None:
         """ Start a new thread to service this engine until program exit. Must be daemonic to die with the program. """
         Thread(target=self._loop, daemon=True).start()
 
@@ -89,11 +80,11 @@ class ThreadedEngine(Engine):
             except Exception as exc_value:
                 self.handle_exception(exc_value)
 
-    def call(self, key:str, *args, **kwargs) -> object:
+    def call(self, key:str, *args, **kwargs):
         """ Echo every command from our own components to the parent engine before calling it ourselves. """
         self._parent_send((key, args, kwargs))
         return super().call(key, *args, **kwargs)
 
     def send(self, cmd) -> None:
-        """ Add a command to this engine's queue. Called by other threads. """
+        """ Add a command to this engine's queue. Called by the main thread. """
         self._queue.put(cmd)

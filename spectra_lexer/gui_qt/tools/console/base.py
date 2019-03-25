@@ -3,6 +3,7 @@ import sys
 
 from .console_dialog import ConsoleDialog
 from spectra_lexer import Component
+from spectra_lexer.utils import str_prefix
 
 # Banner containing the Python version after formatting once, and the locals dict after formatting twice.
 _BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current global objects and options:\n{{}}\n"
@@ -19,9 +20,11 @@ class ConsoleTool(Component):
     console_vars: dict = {}             # Variables to load on interpreter startup.
 
     @on("start")
-    def start(self, **options) -> None:
-        """ Add all global options to the interpreter on setup. """
-        self.console_vars = options
+    def start(self, app=None, components=(), **options) -> None:
+        """ Sort and add all components (by module path) and all global options to the interpreter on setup. """
+        cvars = self.console_vars = {"app": app, "options": options}
+        cmp_list = [("_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]), c) for c in components]
+        cvars.update(sorted(cmp_list))
 
     @on("console_dialog_open")
     def open(self) -> None:
