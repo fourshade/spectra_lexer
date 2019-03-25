@@ -41,10 +41,10 @@ class ConsoleTextWidget(QTextEdit):
         self.textKeyboardInput.connect(input_cb)
         self._history = HistoryTracker()
 
-    def set_text(self, text:str) -> None:
-        """ Set the text content of the widget and reset the cursor to the end. """
-        self._set_content(text)
-        self._last_text_received = text
+    def add_text(self, text:str) -> None:
+        """ Add to the text content of the widget and reset the cursor to the end. """
+        self._last_text_received += text
+        self._set_content(self._last_text_received)
         # To keep up with scrolling text, the vertical scroll position is fixed at the bottom.
         sy = self.horizontalScrollBar()
         sy.setValue(sy.maximum())
@@ -90,4 +90,4 @@ class ConsoleDialog(ToolDialog):
         self.w_text = ConsoleTextWidget(self, self.submit_cb)
         layout.addWidget(self.w_text)
 
-    set_text = delegate_to("w_text")
+    add_text = delegate_to("w_text")
