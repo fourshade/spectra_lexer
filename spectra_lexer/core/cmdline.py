@@ -3,6 +3,8 @@ from argparse import ArgumentParser, SUPPRESS
 from spectra_lexer import Component
 from spectra_lexer.utils import str_suffix
 
+# Program description as seen in the command line help.
+CMDLINE_DESCRIPTION = "Steno rule analyzer"
 # Extra keywords for argument parsing based on the option's data type.
 _TYPE_KWDS = {int:  {"type": int},
               list: {"nargs": "+"}}
@@ -16,8 +18,8 @@ class CmdlineParser(Component):
     @on("start")
     def start(self, *, cmdline=(), **options) -> None:
         """ Create the parser and add all possible command line options from each component that has some. """
-        # Suppress defaults from unused arguments (components have their own default settings).
-        self._parser = ArgumentParser(description="Steno rule analyzer", argument_default=SUPPRESS)
+        # Suppress defaults from unused arguments (resources have their own default settings).
+        self._parser = ArgumentParser(description=CMDLINE_DESCRIPTION, argument_default=SUPPRESS)
         for opt in cmdline:
             # All options handled here must be parsed as long options connected by hyphens.
             kwds = {"help": opt.desc, "metavar": str_suffix(opt.key, "-").upper()}

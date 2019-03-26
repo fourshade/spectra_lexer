@@ -16,7 +16,9 @@ class Application(MainEngine):
 
     def start(self, *args) -> object:
         """ Start the pipeline by processing options such as command line arguments from sys.argv. """
-        self.load(app=self, components=self.factory.components, **Component.RES)
+        self.load(**Component.RES)
+        # Send global engine variables to any debug component that might be included.
+        self.call("debug_vars", app=self, components=self.factory.components)
         return self.run(*args)
 
     def load(self, **options) -> None:

@@ -9,9 +9,8 @@ from pkg_resources import resource_listdir, resource_string
 
 from spectra_lexer.utils import str_prefix
 
-# Universal path separator. Built-in asset names use this independently of OS path handling.
+# Universal path separator and package/resource paths. Built-in asset names use these independently of OS path handling.
 _PATH_SEP = "/"
-# Package and resource paths containing built-in assets.
 _PACKAGE_NAME = str_prefix(__package__, ".")
 _ASSETS_RESOURCE_PATH = "assets"
 _ASSET_LIST = resource_listdir(_PACKAGE_NAME, _ASSETS_RESOURCE_PATH)
@@ -80,7 +79,7 @@ class Asset(Resource, prefix=":/"):
     """ A built-in asset identifier, created by using pkg_resources. """
 
     def read(self) -> str:
-        """ Return a string with the UTF-8 text contents of a built-in asset as returned by assets_in_package. """
+        """ Return a string with the UTF-8 text contents of a built-in asset. """
         resource_name = _PATH_SEP.join((_ASSETS_RESOURCE_PATH, self))
         return resource_string(_PACKAGE_NAME, resource_name).decode('utf-8')
 

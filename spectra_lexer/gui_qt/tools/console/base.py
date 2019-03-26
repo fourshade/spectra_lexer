@@ -20,11 +20,17 @@ class ConsoleTool(Component):
     console_vars: dict = {}             # Variables to load on interpreter startup.
 
     @on("start")
-    def start(self, app=None, components=(), **options) -> None:
-        """ Sort and add all components (by module path) and all global options to the interpreter on setup. """
-        cvars = self.console_vars = {"app": app, "options": options}
-        cmp_list = [("_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]), c) for c in components]
-        cvars.update(sorted(cmp_list))
+    def start(self, **options) -> None:
+        """ Start the interpreter globals dict with all options on setup. """
+        self.console_vars = {"options": options}
+
+    @on("debug_vars")
+    def set_debug(self, *, components=(), **dvars) -> None:
+        """ Add debug variables such as the components (keyed by module path) to the interpreter globals.
+            Sort the entire list at the end. Make a new globals dict; it will remember the new insertion order. """
+        all_items = [*dvars.items(), *self.console_vars.items()]
+        all_items += [("_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]), c) for c in components]
+        self.console_vars = dict(sorted(all_items))
 
     @on("console_dialog_open")
     def open(self) -> None:
