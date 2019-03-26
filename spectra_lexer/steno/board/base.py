@@ -14,7 +14,7 @@ from spectra_lexer.utils import delegate_to, save_kwargs
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
-    file = Resource("cmdline", "board-file", ":/board.svg", "SVG file with graphics for the steno board diagram.")
+    file = Resource("cmdline", "board-file", ":/assets/board.svg", "SVG graphics file for the steno board diagram.")
     show_compound = Resource("config", "board:show_compound_keys", True,
                              "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
     show_links = Resource("config", "board:show_example_links", True,

@@ -9,11 +9,8 @@ from pkg_resources import resource_listdir, resource_string
 
 from spectra_lexer.utils import str_prefix
 
-# Universal path separator and package/resource paths. Built-in asset names use these independently of OS path handling.
-_PATH_SEP = "/"
+# Root package name for built-in assets.
 _PACKAGE_NAME = str_prefix(__package__, ".")
-_ASSETS_RESOURCE_PATH = "assets"
-_ASSET_LIST = resource_listdir(_PACKAGE_NAME, _ASSETS_RESOURCE_PATH)
 
 
 class Resource(str):
@@ -80,12 +77,14 @@ class Asset(Resource, prefix=":/"):
 
     def read(self) -> str:
         """ Return a string with the UTF-8 text contents of a built-in asset. """
-        resource_name = _PATH_SEP.join((_ASSETS_RESOURCE_PATH, self))
-        return resource_string(_PACKAGE_NAME, resource_name).decode('utf-8')
+        return resource_string(_PACKAGE_NAME, self).decode('utf-8')
 
     def search(self) -> list:
-        """ Return a list containing resources matching the identifier from the built-in assets directory. """
-        return self.from_list(fnmatch.filter(_ASSET_LIST, self))
+        """ Return a list containing resources matching the identifier from a built-in asset directory. """
+        pathname, pattern = os.path.split(self)
+        dir_list = resource_listdir(_PACKAGE_NAME, pathname)
+        asset_names = fnmatch.filter(dir_list, pattern)
+        return self.from_list([os.path.join(pathname, n) for n in asset_names])
 
 
 class UserFile(File, prefix="~"):
@@ -94,7 +93,7 @@ class UserFile(File, prefix="~"):
     def __new__(cls, s:str):
         """ If the prefix is ~appname/, it is a file from the user's application-specific data directory.
             If the prefix is ~/, it is specifically a file from THIS application's user data directory. """
-        app_prefix, filename = s.split(_PATH_SEP, 1)
+        app_prefix, filename = s.split("/", 1)
         directory = user_data_dir(app_prefix or _PACKAGE_NAME)
         return File(os.path.join(directory, filename))
 
