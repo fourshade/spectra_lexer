@@ -5,8 +5,7 @@ from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 from spectra_lexer import Component
 from spectra_lexer.file import CSON
 from spectra_lexer.steno.keys import StenoKeys
-from spectra_lexer.steno.rules import RuleMapItem, StenoRule
-
+from spectra_lexer.steno.rules import RuleMapItem, SpecialRules, StenoRule
 
 # Available bracket pairs for parsing rules.
 _LEFT_BRACKETS = r'\(\['
@@ -45,9 +44,10 @@ class RulesManager(Component):
         if len(self._src_dict) < sum(map(len, dicts)):
             conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
             raise KeyError(f"Found rule keys appearing in more than one file: {conflicts}")
+        # Start every rule dict with a copy of the special hard-coded rules.
+        d = self._dst_dict = dict(SpecialRules.ALL)
         # Parse all rules from the source dictionary into the final one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
-        d = self._dst_dict = {}
         try:
             for k in self._src_dict:
                 if k not in d:

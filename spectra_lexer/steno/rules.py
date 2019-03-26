@@ -1,6 +1,6 @@
 from typing import FrozenSet, NamedTuple
 
-from .keys import StenoKeys
+from .keys import KEY_SPECIAL, StenoKeys
 from spectra_lexer.utils import with_sets
 
 
@@ -13,7 +13,6 @@ class RuleFlags:
     RARE = "RARE"      # Rule applies to very few words and could specifically cause false positives.
     INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to the parent.
     UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
-    SEPARATOR = "SEP"  # Stroke separator. This one might not be truly considered a rule at all.
     GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
 
 
@@ -36,3 +35,24 @@ class RuleMapItem(NamedTuple):
     rule: StenoRule
     start: int
     length: int
+
+
+class SpecialRules:
+    """ Class with identifiers for various special rules so they can be handled individually in code.
+        These always go at the end of rule patterns (in regular parentheses ()) regardless of steno order. """
+
+    ALL = {}  # Special rules that have hard-coded behavior. Every rule dict will include these by default.
+
+    def _star_rule(name, desc:str, _d=ALL) -> StenoRule:
+        """ Make a new "star rule": one that does not correspond to any letters, and add it to the global dict. """
+        rule = StenoRule(StenoKeys(KEY_SPECIAL), "", frozenset({RuleFlags.SPECIAL}), desc, ())
+        _d[f"{KEY_SPECIAL}:{name}"] = rule
+        return rule
+
+    UNKNOWN = _star_rule("??",      "purpose unknown\nPossibly resolves a conflict")
+    CONFLICT = _star_rule("CF",     "resolves conflict between words")
+    PROPER = _star_rule("PR",       "indicates a proper noun\n(names, places, etc.)")
+    ABBREVIATION = _star_rule("AB", "indicates an abbreviation")
+    AFFIX = _star_rule("PS",        "indicates a prefix or suffix stroke")
+    FINGERSPELL = _star_rule("FS",  "indicates fingerspelling")
+    OBSCENE = _star_rule("OB",      "indicates an obscenity\nand makes it harder to be the result of a misstroke)")

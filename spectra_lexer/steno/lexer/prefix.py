@@ -61,7 +61,7 @@ class OrderedKeyPrefixTree(PrefixTree):
             Filter out the unordered keys in the first stroke that may be consumed at any time and return them too. """
         if not self._get_unordered_in(keys):
             return keys, _no_unordered
-        unordered = self._get_unordered_in(keys.first_stroke())
+        unordered = self._get_unordered_in(keys.strokes[0])
         if not unordered:
             return keys, _no_unordered
         return str_without(keys, unordered), unordered

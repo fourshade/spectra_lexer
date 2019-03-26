@@ -1,10 +1,9 @@
 from typing import Iterable, List
 
-from spectra_lexer.steno.keys import StenoKeys
+from spectra_lexer.steno.keys import KEY_SEP
 
 # Pre-made element IDs.
 _BACKGROUND_IDS = ["Base"]
-_SEP_ID = StenoKeys.separator()
 
 
 class DiagramElements(List[List[str]]):
@@ -16,7 +15,7 @@ class DiagramElements(List[List[str]]):
         elements = list(elements)
         start = 0
         for i, element in enumerate(elements):
-            if _SEP_ID in element:
+            if KEY_SEP in element:
                 self.append(_BACKGROUND_IDS + elements[start:i])
                 start = i + 1
         self.append(_BACKGROUND_IDS + elements[start:])

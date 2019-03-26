@@ -1,12 +1,12 @@
 from itertools import product
-from typing import Generator, Iterable, List, Dict
+from typing import Dict, Generator, Iterable, List
 
 from .match import LexerRuleMatcher
 from .results import LexerResult
 from spectra_lexer import Component
 from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.utils import delegate_to, str_without
 
 
 class StenoLexer(Component):
@@ -100,7 +100,7 @@ class StenoLexer(Component):
             space_left = len(test_word) - (best_letters - lc)
             # Get the rules that would work as the next match in order from fewest keys matched to most.
             # This helps us find dense maps first so we can eliminate later ones quickly on space.
-            for r in match_rules(test_keys, test_word, keys, word, rulemap):
+            for r in match_rules(test_keys, test_word, keys, word):
                 # Find the first index of each match. This is also how many characters were skipped.
                 i = test_word.find(r.letters)
                 # Filter out cases that no longer have enough space left to beat or tie the best map.
@@ -111,5 +111,5 @@ class StenoLexer(Component):
                 new_map = rulemap + [RuleMapItem(r, wordptr + i, word_len)]
                 # Push a stack item with the new map, and with the matched keys and letters removed.
                 word_inc = word_len + i
-                stack.append((test_keys.without(r.keys), test_word[word_inc:],
+                stack.append((StenoKeys(str_without(test_keys, r.keys)), test_word[word_inc:],
                               wordptr + word_inc, lc + word_len, new_map))

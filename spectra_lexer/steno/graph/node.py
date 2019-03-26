@@ -2,7 +2,7 @@
 
 from typing import Sequence
 
-from spectra_lexer.steno.keys import KEY_SPLIT
+from spectra_lexer.steno.keys import KEY_SEP, KEY_SPLIT
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse, traverse, with_sets
 
@@ -10,9 +10,9 @@ from spectra_lexer.utils import recurse, traverse, with_sets
 @with_sets
 class GraphNodeAppearance:
     """ Flags that indicate special behavior for drawing a node on a graph. """
-    SEPARATOR = RuleFlags.SEPARATOR  # Stroke separator. Unconnected; does not appear as direct text.
     UNMATCHED = RuleFlags.UNMATCHED  # Incomplete lexer result. Unmatched keys connect to question marks.
     INVERSION = RuleFlags.INVERSION  # Inversion of steno order. Connections appear different.
+    SEPARATOR = "SEP"                # Stroke separator. Unconnected; does not appear as direct text.
     ROOT = "ROOT"                    # Root node; has no parent.
     BRANCH = "BRANCH"                # Branch node; has one or more children.
     LEAF = "LEAF"                    # Leaf node; has no children.
@@ -57,8 +57,11 @@ class GraphNode:
             # Base rules (i.e. leaf nodes) show their keys instead of their letters.
             self.text = formatted_keys = keys.rtfcre
             # The bottom attach start is shifted one to the right if the keys start with a hyphen.
-            bstart = self.bottom_start = formatted_keys.startswith(KEY_SPLIT)
+            bstart = self.bottom_start = (formatted_keys[:1] == KEY_SPLIT)
             self.bottom_length = len(formatted_keys) - bstart
+            # Single separators have their own appearance.
+            if formatted_keys == KEY_SEP:
+                self.appearance = GraphNodeAppearance.SEPARATOR
         # If there are legal appearance flags on the rule, use the first one to override the tree-based appearance flag.
         if flags:
             for f in (flags & GraphNodeAppearance.values):

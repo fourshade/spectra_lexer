@@ -102,6 +102,11 @@ def _remove_char(s:str, c:str, _replace=str.replace) -> str:
 
 def str_without(s:str, chars:str, _reduce=functools.reduce) -> str:
     """ Return <s> with each of the characters in <chars> removed, starting from the left. """
+    # Fast path: if the characters are a direct prefix, just cut it off.
+    prefix_length = len(chars)
+    if s[:prefix_length] == chars:
+        return s[prefix_length:]
+    # Otherwise, each key must be removed individually.
     return _reduce(_remove_char, chars, s)
 
 
@@ -113,11 +118,6 @@ def str_prefix(s:str, sep:str=" ", _split=str.split) -> str:
 def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
     """ Return <s> from the end up to the last instance of <sep>. If <sep> is not present, return all of <s>. """
     return _split(s, sep, 1)[-1]
-
-
-def str_map(s:str, fn, sep:str=" ", _split=str.split, _map=map, _join=str.join) -> str:
-    """ Split the string on a delimiter, then map a str->str function to each piece and join it back together. """
-    return _join(sep, _map(fn, _split(s, sep)))
 
 
 def str_eval(val:str, _eval=ast.literal_eval) -> object:

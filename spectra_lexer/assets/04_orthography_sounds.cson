@@ -58,8 +58,10 @@
   ".sch":   ["-RB",  "[sch|.sh]",      [],       "combined consonant sounds"],
   ".tch":   ["-FP",  "[tch|.ch]",      [],       "combined consonant sounds"],
 
+  ".cean":  ["-GS",  "[cean|~shun]",   [],       "phonetic"],
   ".cian":  ["-GS",  "[cian|~shun]",   [],       "phonetic"],
   ".cion":  ["-GS",  "[cion|~shun]",   [],       "phonetic"],
+  ".sian":  ["-GS",  "[sian|~shun]",   [],       "phonetic"],
   ".sion":  ["-GS",  "[sion|~shun]",   [],       "phonetic"],
   ".tian":  ["-GS",  "[tian|~shun]",   [],       "phonetic"],
   ".tion":  ["-GS",  "[tion|~shun]",   [],       "phonetic"],
