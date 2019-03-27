@@ -2,5 +2,6 @@
 
 from .file import FileDialogTool
 from .config import ConfigDialogTool
-from .console import ConsoleTool
 from .index import IndexDialogTool
+from .console import ConsoleTool
+from .objtree import ObjectTreeTool

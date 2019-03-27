@@ -11,7 +11,7 @@ _BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current global 
 class ConsoleTool(Component):
     """ Component for interactive engine and system interpreter operations. """
 
-    console_menu = Resource("menu", "Tools:Open Console...", ["console_dialog_open"])
+    console_menu = Resource("menu", "Debug:Open Console...", ["console_dialog_open"])
     window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
     console: InteractiveConsole = None  # Main interpreter console.
