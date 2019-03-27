@@ -17,13 +17,18 @@ class Application(MainEngine):
     def start(self, *args) -> object:
         """ Start the pipeline by processing options such as command line arguments from sys.argv. """
         self.load(**Component.RES)
-        # Send global engine variables to any debug component that might be included.
-        self.call("debug_vars", app=self, components=self.factory.components)
         return self.run(*args)
 
     def load(self, **options) -> None:
         """ Perform initial loading of components. This may take a while depending on I/O. """
         self.call("start", **options)
+        self.send_debug_vars()
+
+    def send_debug_vars(self) -> None:
+        """ Send global variables such as components to debug components. """
+        cmp_dict = self.factory.make_debug_dict()
+        # Sort the components and send them as keywords in order.
+        self.call("debug_vars", app=self, **dict(sorted(cmp_dict.items())))
 
     def run(self, *args) -> object:
         """ After everything else is ready, a primary task may be run. It may return a single value to main().

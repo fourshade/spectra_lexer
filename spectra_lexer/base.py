@@ -50,6 +50,8 @@ class Component(metaclass=ComponentMeta):
         """ Set the engine callback and return each command from the class with the instance included. """
         self.engine_call = engine_cb
         return [(key, (self, *cmd)) for key, cmd in self.cmds.items()]
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} - {sorted(self.cmds)}>"
     def __getstate__(self):
         """ Each component has a reference to the engine through self.engine_call, which respectively has a reference
             to almost everything else. Without intervention, if the pickler tries to pickle a component, it will

@@ -1,6 +1,6 @@
 from typing import Callable
 
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
@@ -13,18 +13,25 @@ class HistoryTracker(list):
 
     _pointer: int = 0  # Pointer to current history line, 0 = earliest line.
 
-    def next(self, dir_back:bool=True) -> str:
-        """ Scroll the history backward or forward (within bounds) and return the next line. """
-        if not self:
-            return ""
-        self._pointer += -1 if dir_back else 1
-        self._pointer = min(max(self._pointer, 0), len(self) - 1)
-        return self[self._pointer]
-
     def add(self, s:str) -> None:
         """ Add a new line to the history and reset the pointer to just after the end. """
-        self.append(s.strip())
+        self.append(s)
         self._pointer = len(self)
+
+    def prev(self) -> str:
+        """ Scroll the history backward and return the next line. """
+        self._pointer -= 1
+        return self.get()
+
+    def next(self) -> str:
+        """ Scroll the history forward and return the next line. """
+        self._pointer += 1
+        return self.get()
+
+    def get(self) -> str:
+        """ Return the line at the pointer after bounds checking. """
+        self._pointer = min(max(self._pointer, 0), len(self) - 1)
+        return self[self._pointer] if self else ""
 
 
 class ConsoleTextWidget(QTextEdit):
@@ -57,20 +64,39 @@ class ConsoleTextWidget(QTextEdit):
         self.setTextCursor(c)
 
     def keyPressEvent(self, event:QKeyEvent) -> None:
-        """ If the text changed as the result of user input, make sure it didn't erase anything we started with. """
-        super().keyPressEvent(event)
-        text = self.toPlainText()
+        """ Check the input for special cases. Make sure the cursor can't erase anything we started with. """
+        self._set_cursor_valid()
         original = self._last_text_received
-        if not text.startswith(original):
-            self._set_content(original)
-        elif event.key() in (Qt.Key_Up, Qt.Key_Down):
-            # The arrow keys will scroll through the command history.
-            self._set_content(original + self._history.next(event.key() == Qt.Key_Up))
-        elif event.key() in (Qt.Key_Return, Qt.Key_Enter) and text.endswith("\n"):
+        # Up/down arrow keys will scroll through the command history.
+        if event.key() == Qt.Key_Up:
+            self._set_content(original + self._history.prev())
+        elif event.key() == Qt.Key_Down:
+            self._set_content(original + self._history.next())
+        elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
             # If a newline is entered, send only the user-provided text in a signal.
-            user_str = text[len(original):]
+            user_str = self.toPlainText()[len(original):]
             self._history.add(user_str)
             self.textKeyboardInput.emit(user_str)
+        else:
+            # In any other case, pass the keypress as normal and re-validate the cursor.
+            super().keyPressEvent(event)
+            self._set_cursor_valid()
+
+    def insertFromMimeData(self, data:QMimeData):
+        """ On a paste attempt, reset the cursor if necessary and paste only the plaintext content. """
+        if data.hasText():
+            self._set_cursor_valid()
+            plaintext = QMimeData()
+            plaintext.setText(data.text())
+            super().insertFromMimeData(plaintext)
+
+    def _set_cursor_valid(self):
+        """ If the cursor is not within the current prompt, move it there. """
+        min_position = len(self._last_text_received)
+        c = self.textCursor()
+        if c.position() < min_position:
+            c.setPosition(min_position)
+            self.setTextCursor(c)
 
     # Signals
     textKeyboardInput = pyqtSignal([str])

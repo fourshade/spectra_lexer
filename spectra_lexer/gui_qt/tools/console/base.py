@@ -3,7 +3,6 @@ import sys
 
 from .console_dialog import ConsoleDialog
 from spectra_lexer import Component
-from spectra_lexer.utils import str_prefix
 
 # Banner containing the Python version after formatting once, and the locals dict after formatting twice.
 _BANNER_FORMAT = f"Python {sys.version}\nSPECTRA DEBUG CONSOLE - Current global objects and options:\n{{}}\n"
@@ -19,18 +18,10 @@ class ConsoleTool(Component):
     dialog: ConsoleDialog = None        # Currently active interpreter dialog window.
     console_vars: dict = {}             # Variables to load on interpreter startup.
 
-    @on("start")
-    def start(self, **options) -> None:
-        """ Start the interpreter globals dict with all options on setup. """
-        self.console_vars = {"options": options}
-
     @on("debug_vars")
-    def set_debug(self, *, components=(), **dvars) -> None:
-        """ Add debug variables such as the components (keyed by module path) to the interpreter globals.
-            Sort the entire list at the end. Make a new globals dict; it will remember the new insertion order. """
-        all_items = [*dvars.items(), *self.console_vars.items()]
-        all_items += [("_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]), c) for c in components]
-        self.console_vars = dict(sorted(all_items))
+    def set_debug(self, **dvars) -> None:
+        """ Initialize the interpreter globals dict with all debug variables. """
+        self.console_vars = dvars
 
     @on("console_dialog_open")
     def open(self) -> None:
@@ -42,7 +33,7 @@ class ConsoleTool(Component):
             self.console = InteractiveConsole(self.console_vars)
             self.console.write = self.dialog.add_text
             self.console.write(_BANNER_FORMAT.format(list(self.console_vars)))
-            sys.displayhook = lambda v: self.console.write(f"{v!r}\n")
+            sys.displayhook = self.output
             self.send()
         self.dialog.show()
 
@@ -50,9 +41,14 @@ class ConsoleTool(Component):
         """ When the dialog sends a new line of input, push to the console. """
         more = 0
         try:
-            self.console.write(text_in)
+            self.console.write(text_in + "\n")
             more = self.console.push(text_in)
         except KeyboardInterrupt:
             self.console.write("\nKeyboardInterrupt\n")
             self.console.resetbuffer()
         self.console.write("... " if more else ">>> ")
+
+    def output(self, value) -> None:
+        """ Like the normal console, show the repr of any return value on a new line, or nothing at all for None. """
+        if value is not None:
+            self.console.write(f"{value!r}\n")
