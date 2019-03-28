@@ -22,13 +22,13 @@ class Application(MainEngine):
     def load(self, **options) -> None:
         """ Perform initial loading of components. This may take a while depending on I/O. """
         self.call("start", **options)
-        self.send_debug_vars()
+        self.send_debug_vars(options)
 
-    def send_debug_vars(self) -> None:
+    def send_debug_vars(self, options:dict) -> None:
         """ Send global variables such as components to debug components. """
         cmp_dict = self.factory.make_debug_dict()
         # Sort the components and send them as keywords in order.
-        self.call("debug_vars", app=self, **dict(sorted(cmp_dict.items())))
+        self.call("debug_vars", app=self, options=options, **dict(sorted(cmp_dict.items())))
 
     def run(self, *args) -> object:
         """ After everything else is ready, a primary task may be run. It may return a single value to main().

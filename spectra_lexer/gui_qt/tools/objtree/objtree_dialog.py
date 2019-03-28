@@ -1,45 +1,35 @@
-from operator import methodcaller
 from typing import Callable
 
 from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QWidget
 
-from .node import NodeData
+from .node import MappingNode, NodeData
 from spectra_lexer.gui_qt.tools.dialog import ToolDialog
-
-
-class ValueItem(QStandardItem):
-    """ Editable value field. Sends info to its parent to accomplish the editing task. """
-
-    def __init__(self, key:str, v_str:str, edit_callback:Callable):
-        super().__init__(v_str)
-        self._key = key
-        self._edit_callback = edit_callback
-
-    def edit_value(self):
-        """ Change the value of the underlying object by sending a request to the node data. """
-        edited_value = self.data(Qt.DisplayRole)
-        new_v_str = self._edit_callback(self._key, edited_value)
-        self.setData(new_v_str, Qt.DisplayRole)
 
 
 class NodeItem(QStandardItem):
     """ GUI object for a row in a object tree. Does not actually contain children until expansion is attempted. """
 
-    sub_items: list  # Extra items for fields in other columns.
+    type_item: QStandardItem  # Contains the type of object and/or item count, column 1.
+    value_item: QStandardItem # Contains the string value of the object, column 2.
+    original_value: str       # Original value string at initialization, in case an edit fails.
+    edit_callback: Callable   # Callback for when the user edits the object's value.
 
     def __init__(self, node:NodeData):
         """ Create a primary node item with the name and add standard items for other fields. """
+        self.edit_callback = node.set_value
         name, dtype, dvalue, self.children = node.fields()
         super().__init__(name)
         self.setEditable(False)
-        items = self.sub_items = [QStandardItem(dtype), ValueItem(name, dvalue, node.set_value)]
-        items[0].setEditable(False)
+        self.type_item = QStandardItem(dtype)
+        self.type_item.setEditable(False)
+        self.value_item = QStandardItem(dvalue)
+        self.value_item.setEditable(node.editable)
+        self.original_value = dvalue
         if self.children:
             # Add a dummy item to make the row expandable and make the value uneditable.
             self.appendRow(QStandardItem("dummy"))
-            items[1].setEditable(False)
 
     def expand(self):
         """ When the user expands the row, remove the previous items and add a row for each child. """
@@ -47,7 +37,34 @@ class NodeItem(QStandardItem):
         for node in self.children:
             # The first item in each column is the main node with children; the rest are just strings.
             item = NodeItem(node)
-            self.appendRow([item, *item.sub_items])
+            self.appendRow([item, item.type_item, item.value_item])
+
+
+class ObjectTreeModel(QStandardItemModel):
+    def __init__(self, root:NodeItem):
+        """ Fill out the root level of the tree and set the edit callback. """
+        super().__init__()
+        # We can't swap out the model's root item, so we expand the given one and steal all of its rows.
+        root.expand()
+        for i in range(root.rowCount()):
+            self.invisibleRootItem().appendRow(root.takeRow(0))
+        self.setHorizontalHeaderLabels(["Name", "Type", "Value/Item Count"])
+        self.itemChanged.connect(self.edit_value)
+
+    def edit_value(self, item:QStandardItem):
+        """ Change the value of a row's underlying object by sending a request to the node data. """
+        row = item.row()
+        parent = item.parent()
+        primary = parent.child(row, 0)
+        edited_value = item.data(Qt.DisplayRole)
+        new_node = primary.edit_callback(edited_value)
+        if new_node is None:
+            # If the new value was not a valid Python expression, reset it.
+            item.setData(primary.original_value, Qt.DisplayRole)
+        else:
+            # We have no idea what properties/children changed. Add the new node and re-expand the parent to be safe.
+            parent.children[row] = new_node
+            parent.expand()
 
 
 class ObjectTreeWidget(QTreeView):
@@ -56,14 +73,7 @@ class ObjectTreeWidget(QTreeView):
     def __init__(self, parent:ToolDialog, root_data:NodeData):
         super().__init__(parent)
         self.setFont(QFont("Segoe UI", 9))
-        model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["Name", "Type", "Value/Item Count"])
-        root_item = NodeItem(root_data)
-        root_item.expand()
-        for i in range(root_item.rowCount()):
-            model.invisibleRootItem().appendRow(root_item.takeRow(0))
-        model.itemChanged.connect(methodcaller("edit_value"))
-        self.setModel(model)
+        self.setModel(ObjectTreeModel(NodeItem(root_data)))
         self.header().setDefaultSectionSize(120)
         self.header().resizeSection(0, 200)
         self.expanded.connect(self.on_expand)
@@ -82,8 +92,8 @@ class ObjectTreeDialog(ToolDialog):
     root: NodeData = {}              # Dict of variables at the top level of the tree.
 
     def __init__(self, parent:QWidget, submit_cb:Callable, root_vars:dict):
-        """ Create the initial tree structure. """
-        self.root = NodeData("ROOT", root_vars)
+        """ Create the initial tree structure from a dict. """
+        self.root = MappingNode("ROOT", root_vars)
         super().__init__(parent, submit_cb)
 
     def make_layout(self) -> None:
