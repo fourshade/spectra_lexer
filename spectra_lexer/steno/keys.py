@@ -32,13 +32,13 @@ R_KEYS = "FRPBLGTSDZ"
 SHIFT_TABLE = {"#": {"0": "O", "1": "S", "2": "T", "3": "P", "4": "H",
                      "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
 
-# Pre-computed key containers for fast membership testing.
+# Pre-computed character sets for fast membership testing.
 _C_KEYS_SET = set(C_KEYS)
 _R_KEYS_SET = set(R_KEYS.lower())
+_ALIAS_SET = {k for table in SHIFT_TABLE.values() for k in table}
 # Tables and functions for translating and cleansing RTFCRE steno strings of unknown origin.
-_ALIASES_IN = {k for table in SHIFT_TABLE.values() for k in table}.intersection
 _ALIAS_TABLE = {s: {ord(k): v for k, v in d.items()} for s, d in SHIFT_TABLE.items()}
-_VALID_CHAR_SET = set().union(KEY_SEP, KEY_SPLIT, L_KEYS, C_KEYS, R_KEYS)
+_VALID_CHAR_SET = _ALIAS_SET.union(KEY_SEP, KEY_SPLIT, L_KEYS, C_KEYS, R_KEYS)
 _VALID_TABLE = defaultdict(lambda: None, {ord(k): k for k in _VALID_CHAR_SET})
 
 
@@ -69,16 +69,8 @@ class StenoKeys(str):
     @classmethod
     def cleanse_from_rtfcre(cls, s:str):
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
-            Cleanse the RTFCRE string of abnormalities before parsing it as usual. """
-        if _ALIASES_IN(s):
-            # Translate literal numbers by replacing them with their raw key equivalents and adding a number key.
-            for k, d in _ALIAS_TABLE.items():
-                rep = s.translate(d)
-                if rep != s:
-                    s = k + rep
-        # Remove all characters that are considered invalid in steno strings and continue with RTFCRE parsing.
-        s = s.translate(_VALID_TABLE)
-        return cls.from_rtfcre(s)
+            Remove all characters that are considered invalid in steno strings before parsing it as usual. """
+        return cls.from_rtfcre(s.translate(_VALID_TABLE))
 
     def __repr__(self) -> str:
         return repr(self.rtfcre)
@@ -97,8 +89,14 @@ def _stroke_stenokeys_to_rtfcre(s:str) -> str:
 
 
 def _stroke_rtfcre_to_stenokeys(s:str) -> str:
-    """ Attempt to split each stroke into LC/R keys, either with a hyphen or the position of center keys. """
-    # If there is a hyphen, split the string into left and right sides on it.
+    """ Perform alias substitution, split each stroke into left and right sides, and convert the case. """
+    if _ALIAS_SET.intersection(s):
+        # Translate literal numbers by replacing them with their raw key equivalents and adding a number key.
+        for k, d in _ALIAS_TABLE.items():
+            rep = s.translate(d)
+            if rep != s:
+                s = k + rep
+    # Attempt to split each stroke into LC/R keys, If there's a hyphen, split the string there.
     if KEY_SPLIT in s:
         left, right = s.rsplit(KEY_SPLIT, 1)
         return _lowercase_right_and_join(left, right)

@@ -18,7 +18,6 @@ from test import get_test_filename
 
 
 # Create and connect components for the tests in order as we need them.
-# Some will need access to the file system. They only need to send engine commands for this, not receive them.
 RULES = RulesManager()
 RULES_DICT = RULES.load_all()
 

@@ -1,4 +1,4 @@
-from functools import partial
+from html import escape, unescape
 
 from PyQt5.QtWidgets import QLabel
 
@@ -19,7 +19,7 @@ class GUIQtBoardDisplay(Component):
         """ Set hyperlinks to search examples when clicked. """
         self.w_link = QLabel(self.w_board)
         self.w_link.setVisible(False)
-        self.w_link.linkActivated.connect(partial(self.engine_call, "board_find_examples"))
+        self.w_link.linkActivated.connect(lambda s: self.engine_call("board_find_examples", unescape(s)))
         # Send the SVG view box and the size of the board on resize.
         self.w_board.resize_callback = self.on_resize
 
@@ -28,7 +28,7 @@ class GUIQtBoardDisplay(Component):
         """ Show a caption above the board and optionally a link in the bottom-right corner. """
         self.w_desc.setText(caption)
         # Set reference to show examples of the displayed rule if examples exist.
-        self.w_link.setText(f"<a href='{link_ref}'>More Examples</a>")
+        self.w_link.setText(f"<a href='{escape(link_ref)}'>More Examples</a>")
         self.w_link.setVisible(bool(link_ref))
 
     set_xml = on("new_board_xml")(delegate_to("w_board"))
