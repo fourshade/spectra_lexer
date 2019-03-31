@@ -36,9 +36,7 @@ def _make_tree(src:dict, delim:str=".", root_name:str="__init__") -> dict:
         for f in first:
             nd = d.get(f)
             if type(nd) is not dict:
-                if nd is not None:
-                    d[root_name] = nd
-                d[f] = nd = {}
+                d[f] = nd = ({} if nd is None else {root_name: nd})
             d = nd
         d[last] = src[k]
     return dest

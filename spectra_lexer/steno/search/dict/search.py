@@ -117,8 +117,7 @@ class SimilarKeyDict(Dict[KT, VT]):
         """ Fill the dict from empty and remake the list using items from the given arguments. """
         assert not self
         super().update(*args, **kwargs)
-        self._list = list(zip(self._mapfn(self), self))
-        self._list.sort()
+        self._list = sorted(zip(self._mapfn(self), self))
 
     def copy(self):
         """ Make a shallow copy of the dict. The list will simply be reconstructed in the new copy. """

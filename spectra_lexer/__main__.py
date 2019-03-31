@@ -6,7 +6,7 @@ from .main import BatchApplication, GUIQtApplication, PloverPluginApplication
 
 
 class EntryPoint:
-    """ Wrapper for a console script entry point. Keywords are assigned to the entry point object as attributes.
+    """ Wrapper for a console script entry point. Appears as the app class by copying its attributes.
         Positional arguments will be added to those passed to run() by the caller. """
     def __init__(self, app_cls, args=(), desc=""):
         self.__dict__ = dict(app_cls.__dict__)

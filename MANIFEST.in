@@ -1,6 +1,6 @@
 # Root plaintext files (license, changelog, etc.)
 include *.txt
-# Built-in assets such as rules dictionaries and board graphics.
-include spectra_lexer/assets/*.*
+# Built-in assets such as rules dictionaries and board graphics for each system.
+recursive-include spectra_lexer/assets *
 # setuptools is unpredictable with test scripts - just skip them.
 exclude test/*

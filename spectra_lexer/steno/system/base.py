@@ -70,16 +70,16 @@ class SystemManager(Component):
             return KeyLayout({k.upper: v for k, v in keys.items()})
         return KeyLayout({})
 
-    def load_rules(self, filename:str="") -> tuple:
-        dicts = CSON.load_all(filename or self.RULES)
+    def load_rules(self) -> tuple:
+        dicts = CSON.load_all(self.RULES)
         rules = self._rule_parser.parse(dicts)
         return rules, self._rule_parser.invert(rules)
 
-    def load_board(self, filename:str="") -> dict:
+    def load_board(self) -> dict:
         """ Load an SVG file and keep the raw SVG text data along with all element IDs.
             The board is not necessary to run the lexer; skip it if can't be loaded. """
         try:
-            return XML.load(filename or self.BOARD)
+            return XML.load(self.BOARD)
         except OSError:
             return {"raw": "", "ids": {}}
 

@@ -1,3 +1,4 @@
+from types import MappingProxyType
 from typing import Callable
 
 from PyQt5.QtCore import QModelIndex, Qt
@@ -11,30 +12,32 @@ from spectra_lexer.gui_qt.tools.dialog import ToolDialog
 class NodeItem(QStandardItem):
     """ GUI object for a row in a object tree. Does not actually contain children until expansion is attempted. """
 
-    type_item: QStandardItem  # Contains the type of object and/or item count, column 1.
-    value_item: QStandardItem # Contains the string value of the object, column 2.
-    original_value: str       # Original value string at initialization, in case an edit fails.
-    edit_callback: Callable   # Callback for when the user edits the object's value.
+    type_item: QStandardItem   # Contains the type of object and/or item count, column 1.
+    value_item: QStandardItem  # Contains the string value of the object, column 2.
+    original_value: str        # Original value string at initialization, in case an edit fails.
+    get_children: Callable     # Callback for when the user expands this item.
+    edit: Callable             # Callback for when the user edits the object's value.
 
     def __init__(self, node:NodeData):
         """ Create a primary node item with the name and add standard items for other fields. """
-        self.edit_callback = node.set_value
-        name, dtype, dvalue, editable, self.children = node.info()
+        name, dtype, dvalue = node.info()
         super().__init__(name)
         self.setEditable(False)
         self.type_item = QStandardItem(dtype)
         self.type_item.setEditable(False)
         self.value_item = QStandardItem(dvalue)
-        self.value_item.setEditable(editable)
+        self.value_item.setEditable(node.is_editable())
         self.original_value = dvalue
-        if self.children:
-            # Add a dummy item to make the row expandable.
+        self.get_children = node.children
+        self.edit = node.set_value
+        if node:
+            # If there are children, add a dummy item to make the row expandable.
             self.appendRow(QStandardItem("dummy"))
 
     def expand(self):
         """ When the user expands the row, remove the previous items and add a row for each child. """
         self.removeRows(0, self.rowCount())
-        for node in self.children:
+        for node in self.get_children():
             # The first item in each column is the main node with children; the rest are just strings.
             item = NodeItem(node)
             self.appendRow([item, item.type_item, item.value_item])
@@ -59,13 +62,14 @@ class ObjectTreeModel(QStandardItemModel):
         parent = item.parent()
         primary = parent.child(row, 0)
         edited_value = item.data(Qt.DisplayRole)
-        new_node = primary.edit_callback(edited_value)
+        if edited_value == primary.original_value:
+            return
+        new_node = primary.edit(edited_value)
         if new_node is None:
             # If the new value was not a valid Python expression, reset it.
             item.setData(primary.original_value, Qt.DisplayRole)
         else:
-            # We have no idea what properties changed. Add the new node and re-expand the parent to be safe.
-            parent.children[row] = new_node
+            # We have no idea what properties changed. Re-expand the parent to be safe.
             parent.expand()
 
     def on_expand(self, idx:QModelIndex) -> None:
@@ -96,8 +100,8 @@ class ObjectTreeDialog(ToolDialog):
     root: NodeData                   # Dict of variables at the top level of the tree.
 
     def __init__(self, parent:QWidget, submit_cb:Callable, root_vars:dict):
-        """ Create the initial tree structure from a dict. """
-        self.root = NodeData("ROOT", root_vars)
+        """ Create the initial tree structure from a dict. Make it read-only to prevent top-level editing. """
+        self.root = NodeData("ROOT", MappingProxyType(root_vars))
         super().__init__(parent, submit_cb)
 
     def make_layout(self) -> None:

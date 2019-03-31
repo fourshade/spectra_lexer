@@ -1,3 +1,9 @@
+4.0.0
+-----
+* Added user-configurable file for other steno systems/languages
+* Added Python object tree dialog for debugging
+* Improved lexer performance moderately
+
 3.1.0
 -----
 * Dramatically improved index load time and memory usage at a slight cost on lookups

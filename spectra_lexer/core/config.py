@@ -2,7 +2,6 @@ from typing import Dict, Optional
 
 from spectra_lexer import Component
 from spectra_lexer.file import CFG
-from spectra_lexer.utils import str_eval
 
 
 class ConfigManager(Component):

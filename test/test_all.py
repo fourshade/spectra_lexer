@@ -42,7 +42,7 @@ def test_rules(r):
 
 
 TRANSLATIONS = TranslationsManager()
-TRANSLATIONS_DICT = TRANSLATIONS.load_all([get_test_filename("translations")])
+TRANSLATIONS_DICT = TRANSLATIONS.load_all(get_test_filename("translations"))
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_system(SYSTEM_OBJ)

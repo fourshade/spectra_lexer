@@ -22,7 +22,7 @@ class TranslationsManager(Component):
 
     @on("load_dicts", pipe_to="set_dict_translations")
     @on("translations_load", pipe_to="set_dict_translations")
-    def load_all(self, filenames:Sequence[str]=()) -> Dict[str, str]:
+    def load_all(self, *filenames:str) -> Dict[str, str]:
         """ Load and merge translations from disk. """
         patterns = filenames or self.files
         if _PLOVER_SENTINEL in patterns:
