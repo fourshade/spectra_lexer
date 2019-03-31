@@ -4,7 +4,7 @@ from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QWidget
 
-from .node import MappingNode, NodeData
+from .node import NodeData
 from spectra_lexer.gui_qt.tools.dialog import ToolDialog
 
 
@@ -19,16 +19,16 @@ class NodeItem(QStandardItem):
     def __init__(self, node:NodeData):
         """ Create a primary node item with the name and add standard items for other fields. """
         self.edit_callback = node.set_value
-        name, dtype, dvalue, self.children = node.fields()
+        name, dtype, dvalue, editable, self.children = node.info()
         super().__init__(name)
         self.setEditable(False)
         self.type_item = QStandardItem(dtype)
         self.type_item.setEditable(False)
         self.value_item = QStandardItem(dvalue)
-        self.value_item.setEditable(node.editable)
+        self.value_item.setEditable(editable)
         self.original_value = dvalue
         if self.children:
-            # Add a dummy item to make the row expandable and make the value uneditable.
+            # Add a dummy item to make the row expandable.
             self.appendRow(QStandardItem("dummy"))
 
     def expand(self):
@@ -41,6 +41,8 @@ class NodeItem(QStandardItem):
 
 
 class ObjectTreeModel(QStandardItemModel):
+    """ Basic tree item model. Contains the callbacks for both expansion and editing. """
+
     def __init__(self, root:NodeItem):
         """ Fill out the root level of the tree and set the edit callback. """
         super().__init__()
@@ -48,7 +50,7 @@ class ObjectTreeModel(QStandardItemModel):
         root.expand()
         for i in range(root.rowCount()):
             self.invisibleRootItem().appendRow(root.takeRow(0))
-        self.setHorizontalHeaderLabels(["Name", "Type", "Value/Item Count"])
+        self.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
         self.itemChanged.connect(self.edit_value)
 
     def edit_value(self, item:QStandardItem):
@@ -62,24 +64,26 @@ class ObjectTreeModel(QStandardItemModel):
             # If the new value was not a valid Python expression, reset it.
             item.setData(primary.original_value, Qt.DisplayRole)
         else:
-            # We have no idea what properties/children changed. Add the new node and re-expand the parent to be safe.
+            # We have no idea what properties changed. Add the new node and re-expand the parent to be safe.
             parent.children[row] = new_node
             parent.expand()
+
+    def on_expand(self, idx:QModelIndex) -> None:
+        self.itemFromIndex(idx).expand()
 
 
 class ObjectTreeWidget(QTreeView):
     """ Formatted text widget meant to display plaintext interpreter input and output. """
 
     def __init__(self, parent:ToolDialog, root_data:NodeData):
+        """ Create the item model and connect the expansion signal (only the widget can detect this). """
         super().__init__(parent)
         self.setFont(QFont("Segoe UI", 9))
-        self.setModel(ObjectTreeModel(NodeItem(root_data)))
+        model = ObjectTreeModel(NodeItem(root_data))
+        self.setModel(model)
         self.header().setDefaultSectionSize(120)
         self.header().resizeSection(0, 200)
-        self.expanded.connect(self.on_expand)
-
-    def on_expand(self, idx:QModelIndex) -> None:
-        self.model().itemFromIndex(idx).expand()
+        self.expanded.connect(model.on_expand)
 
 
 class ObjectTreeDialog(ToolDialog):
@@ -88,12 +92,12 @@ class ObjectTreeDialog(ToolDialog):
     TITLE = "Python Object Tree View"
     SIZE = (600, 450)
 
-    w_tree: ObjectTreeWidget = None  # The only window content; a giant tree view
-    root: NodeData = {}              # Dict of variables at the top level of the tree.
+    w_tree: ObjectTreeWidget = None  # The only window content; a giant tree view.
+    root: NodeData                   # Dict of variables at the top level of the tree.
 
     def __init__(self, parent:QWidget, submit_cb:Callable, root_vars:dict):
         """ Create the initial tree structure from a dict. """
-        self.root = MappingNode("ROOT", root_vars)
+        self.root = NodeData("ROOT", root_vars)
         super().__init__(parent, submit_cb)
 
     def make_layout(self) -> None:

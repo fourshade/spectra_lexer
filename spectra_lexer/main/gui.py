@@ -36,5 +36,9 @@ class GUIQtApplication(ThreadedApplication):
         super().__init__(*classes, parent_send=Connection(self.call_main).send)
 
     def run(self, *args) -> int:
-        """ If no subclasses object, start the GUI event loop and run it indefinitely. """
-        return self.QT_APP.exec_()
+        """ Start the GUI event loop and run it indefinitely. Record uncaught exceptions before quitting. """
+        try:
+            return self.QT_APP.exec_()
+        except Exception as e:
+            self.handle_exception(e)
+            return -1

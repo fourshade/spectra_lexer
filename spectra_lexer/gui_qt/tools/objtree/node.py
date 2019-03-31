@@ -1,144 +1,154 @@
+from io import TextIOWrapper
 from itertools import islice
 import reprlib
-from typing import AbstractSet, Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence
+from typing import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet
 
-# Default maximum number of items to put in a value string.
-VALUE_LIMIT = 10
+REPR = reprlib.Repr()
+REPR.maxlevel = 2
+REPR.maxstring = 100
+
 # Default maximum number of child nodes to generate.
-CHILD_LIMIT = 100
+CHILD_LIMIT = 200
 
 
 class NodeData:
     """ Node containing an arbitrary Python object and the information needed to display it in a GUI tree.
-        It may have child objects which are attributes or container contents. By default, they have none.
-        The children should only be created or updated when needed. """
+        It may have child objects which are attributes or container contents. By default, they have none. """
 
     def __init__(self, key, obj, parent=None):
         self._key = key
-        self._obj = obj
         self._parent = parent
-        self.editable = bool(getattr(parent, "set_child", None))
+        self._containers = _get_containers(obj)
+        self._type_str = " - ".join(filter(None, map(str, [type(obj).__name__, *self._containers])))
+        self._value_str = REPR.repr(obj)
 
-    @classmethod
-    def from_object(cls, key, obj:object, parent=None):
-        """ Determine the node type for an object and make one. """
-        return _get_node_type(obj)(key, obj, parent)
-
-    def fields(self) -> tuple:
-        """ Return a list of display fields for this node, including name, type, value, and children. """
-        return str(self._key), self.type_str(), reprlib.repr(self._obj), self.children()
-
-    def type_str(self) -> str:
-        """ Return a string for the object that will go in the 'type' field of the table. """
-        return type(self._obj).__name__
+    def info(self) -> tuple:
+        """ Return a list of display info for this node, including name, type, value, editability, and children. """
+        return str(self._key), self._type_str, self._value_str, hasattr(self._parent, "set"), self.children()
 
     def children(self) -> list:
         """ Return a list of child nodes for this object if it has any. """
-        return []
+        return [NodeData(k, v, c) for c in self._containers for k, v in islice(c, CHILD_LIMIT)]
 
     def set_value(self, value:str):
         """ Replace a node's value on its parent from a value string. Return its replacement node if successful. """
-        if self.editable:
-            try:
-                # Since only strings can be entered, we must evaluate them as Python expressions.
-                # Anything could happen there, so just abort on any exception.
-                obj = eval(value)
-                key = self._parent.set_child(self._key, obj)
-                return NodeData.from_object(key, obj, self._parent)
-            except Exception:
-                return None
-        return None
+        try:
+            # Since only strings can be entered, we must evaluate them as Python expressions.
+            # Any exception is possible; just abort if one occurs.
+            obj = eval(value)
+            c = self._parent
+            return NodeData(c.set(self._key, obj), obj, c)
+        except Exception:
+            return None
 
 
-class ContainerNode(NodeData):
+class ChildContainer:
+    """ A container of child objects in some manner, such as iterable contents or attributes. """
 
-    def type_str(self) -> str:
-        """ Add the number of items to the type field. """
-        return super().type_str() + f" - {len(self._obj)} items"
+    def __init__(self, obj):
+        self._obj = obj
 
-    def children(self) -> Iterable:
-        """ Create a node for each child, up to a predetermined limit. """
-        return [NodeData.from_object(k, v, self) for k, v in islice(self.contents(), CHILD_LIMIT)]
+    def __str__(self) -> str:
+        return ""
 
-    def contents(self) -> Iterable[tuple]:
-        """ Whatever contents we have, they must be keyed in some way. """
-        return []
+    def __iter__(self) -> Iterable[tuple]:
+        """ Whatever contents we have, they must be keyed in some way to return (k, v) tuples.
+            Keep in mind that there could be thousands of items, or it could even be an infinite iterator.
+            To be safe, return a lazy iterator so the program only evaluates items up to the child limit. """
+        raise NotImplementedError
 
 
-class SequenceNode(ContainerNode):
+class ItemContainer:
+    """ An iterable item container. """
 
-    def contents(self) -> Iterable[tuple]:
-        """ For sequences, automatically generate index numbers as the keys. """
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __str__(self) -> str:
+        """ Add the number of items to the type field if countable. """
+        try:
+            n = len(self._obj)
+            return f"{n} item" + "s" * (n != 1)
+        except TypeError:
+            return ""
+
+    def __iter__(self) -> Iterable[tuple]:
+        """ For iterables such as sequences, automatically generate index numbers as the keys. """
         return enumerate(iter(self._obj))
 
 
-class MutableSequenceNode(SequenceNode):
+class MutableContainer(ItemContainer):
 
-    def set_child(self, key, child):
+    def set(self, key, child):
+        """ A container only has this method if it is mutable. """
         self._obj[key] = child
         return key
 
 
-class MappingNode(ContainerNode):
+class MappingContainer(ItemContainer):
 
-    def contents(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterable[tuple]:
         """ A mapping is shown in purest form with keys and values. """
-        return self._obj.items()
+        return iter(self._obj.items())
 
 
-class MutableMappingNode(MappingNode):
+class MutableMappingContainer(MappingContainer, MutableContainer):
+    pass
 
-    set_child = MutableSequenceNode.set_child
 
+class SetContainer(ItemContainer):
 
-class SetNode(ContainerNode):
-
-    def contents(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterable[tuple]:
         """ Sets behave mostly like sequences but are unordered. Use the hashes as indices to avoid confusion. """
         return zip(map(hash, self._obj), self._obj)
 
 
-class MutableSetNode(SetNode):
+class MutableSetContainer(SetContainer):
 
-    def set_child(self, key, child):
-        for item in self._obj:
-            if hash(item) == key:
-                self._obj.remove(item)
+    def set(self, key, child):
+        """ The keys are hashes, so iterate through the items and replace the item with that hash. """
+        for h, v in self:
+            if h == key:
+                self._obj.remove(v)
                 self._obj.add(child)
-                break
-        return hash(child)
+                return hash(child)
 
 
-class AttributeNode(ContainerNode):
+class AttrContainer(ChildContainer):
 
-    type_str = NodeData.type_str
+    def __iter__(self) -> Iterable[tuple]:
+        """ Include an entry for the class (unless the object *is* a class) along with the instance attributes. """
+        tp = type(self._obj)
+        if tp is not type and hasattr(tp, "__dict__"):
+            yield ("__class__", tp)
+        yield from self._obj.__dict__.items()
 
-    def contents(self) -> Iterable[tuple]:
-        return [(k, v) for k, v in vars(self._obj).items() if not k.startswith("__")]
-
-    def set_child(self, key, child):
+    def set(self, key, child):
+        """ setattr will fail on attributes such as data descriptors, but so will modifying __dict__ directly. """
         setattr(self._obj, key, child)
         return key
 
 
-# Data types to parse as one unit (i.e. display them as strings instead of looking for children)
-_UNIT_TYPES = (type(None), bool, int, float, str)
-# Data types/tuples and their corresponding nodes. Mutability matters
-_TYPE_TABLE = {_UNIT_TYPES:     NodeData,
-               MutableSequence: MutableSequenceNode,
-               Sequence:        SequenceNode,
-               MutableMapping:  MutableMappingNode,
-               Mapping:         MappingNode,
-               MutableSet:      MutableSetNode,
-               AbstractSet:     SetNode}
+# Data types to treat as atomic (base types only). Do not look for children; display them as strings only.
+_ATOMIC_TYPES = {type(None), bool, int, float, str, classmethod, staticmethod, type(NodeData.__init__), TextIOWrapper}
+# Data types and their corresponding containers.
+# Mutability matters; only classes with a "set" method will be editable.
+_TYPE_TABLE = {MutableSequence: MutableContainer,
+               MutableMapping:  MutableMappingContainer,
+               Mapping:         MappingContainer,
+               MutableSet:      MutableSetContainer,
+               Iterable:        ItemContainer}
 
 
-def _get_node_type(obj:object) -> type:
-    """ Determine the right node type based on the object's type. """
-    for t, n in _TYPE_TABLE.items():
-        if isinstance(obj, t):
-            return n
-    # If all else fails, let the contents be non-dunder attributes in the instance dict.
-    if hasattr(obj, "__dict__"):
-        return AttributeNode
-    return NodeData
+def _get_containers(obj):
+    """ Determine the right container type based on the object's type. """
+    tp = type(obj)
+    containers = []
+    if tp not in _ATOMIC_TYPES:
+        for t, c in _TYPE_TABLE.items():
+            if issubclass(tp, t):
+                containers.append(c(obj))
+                break
+        if hasattr(obj, "__dict__"):
+            containers.append(AttrContainer(obj))
+    return containers
