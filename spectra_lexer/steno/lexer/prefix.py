@@ -1,7 +1,4 @@
-from typing import Callable, Iterable, Sequence, Tuple
-
-from spectra_lexer.steno.keys import StenoKeys
-from spectra_lexer.utils import str_without
+from typing import Callable, Sequence, Tuple
 
 
 class PrefixTree:
@@ -37,31 +34,21 @@ class PrefixTree:
 class OrderedKeyPrefixTree(PrefixTree):
     """ Prefix search tree that returns rules matching a prefix of ORDERED keys only. """
 
-    _get_unordered_in: Callable  # Alias for intersection with unordered keys.
+    _filter_keys: Callable[[str], Tuple[str, frozenset]]  # Callback to split keys into ordered and unordered sets.
 
-    def __init__(self, unordered:Iterable[str]):
-        """ Make the tree given a subset of keys that are to be treated as invisible to prefixes. """
+    def __init__(self, unordered_filter:Callable[[str],Tuple[str,frozenset]]):
+        """ Make the tree given a filter that returns the keys that will be and won't be tested in prefixes. """
         super().__init__()
-        self._get_unordered_in = frozenset(unordered).intersection
+        self._filter_keys = unordered_filter
 
-    def add_entry(self, keys:StenoKeys, letters:str, r:object) -> None:
+    def add_entry(self, skeys:str, letters:str, r:object) -> None:
         """ Separate the given set of keys into ordered and unordered keys,
             Index the rule itself and the unordered keys under the ordered keys (which contain any prefix). """
-        ordered, unordered = self._filter_ordered(keys)
+        ordered, unordered = self._filter_keys(skeys)
         self.add(ordered, (r, letters, unordered))
 
-    def prefix_match(self, keys:StenoKeys, letters:str) -> list:
+    def prefix_match(self, skeys:str, letters:str) -> list:
         """ The rule must match a prefix of the given ordered keys,
             a subset of the given letters, and a subset of the given unordered keys. """
-        ordered, unordered = self._filter_ordered(keys)
+        ordered, unordered = self._filter_keys(skeys)
         return [r for (r, rl, ru) in self.match(ordered) if rl in letters and ru <= unordered]
-
-    def _filter_ordered(self, keys:StenoKeys, _no_unordered=frozenset()) -> Tuple[str, frozenset]:
-        """ Create and return an ordered string of normal keys that must be consumed starting from the left.
-            Filter out the unordered keys in the first stroke that may be consumed at any time and return them too. """
-        if not self._get_unordered_in(keys):
-            return keys, _no_unordered
-        unordered = self._get_unordered_in(keys.strokes[0])
-        if not unordered:
-            return keys, _no_unordered
-        return str_without(keys, unordered), unordered

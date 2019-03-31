@@ -1,41 +1,47 @@
 from itertools import product
-from typing import Dict, Generator, Iterable, List
+from typing import Dict, Generator, Iterable, List, Callable
 
 from .match import LexerRuleMatcher
-from .results import LexerResult
+from .results import LexerResult, LexerResultRanker
 from spectra_lexer import Component
-from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
-from spectra_lexer.utils import delegate_to, str_without
+from spectra_lexer.steno.system import StenoSystem
+from spectra_lexer.utils import str_without
 
 
 class StenoLexer(Component):
-    """
-    The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
-    patterns it can find, then sorts among them to find what it considers the most likely to be correct.
-    """
+    """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
+        patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
 
     need_all_keys = Resource("config", "lexer:need_all_keys", False,
                              "Only return results that match every key in the stroke.")
 
+    _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
+    _ranker: LexerResultRanker          # Ranks lexer results according to approximate "correctness".
+    _cleanse: Callable[[str], str]      # Performs thorough conversions on RTFCRE steno strings.
     _translations: Dict[str, str] = {}  # Optional translation search dict for mass queries.
 
-    def __init__(self) -> None:
+    def __init__(self):
         """ Set up the matcher with an empty rule dictionary. """
         super().__init__()
         self._matcher = LexerRuleMatcher()
+        self._ranker = LexerResultRanker()
 
-    set_rules = on("set_dict_rules")(delegate_to("_matcher"))
+    @on("set_system")
+    def set_system(self, system:StenoSystem) -> None:
+        self._cleanse = system.cleanse_from_rtfcre
+        self._matcher.load(system)
+        self._ranker.set_converter(system.to_rtfcre)
 
     @on("set_dict_translations")
-    def set_translations(self, d:dict):
-        self._translations = d
+    def set_translations(self, d:dict) -> None:
         self._matcher.set_translations(d)
+        self._translations = d
 
     @on("lexer_query", pipe_to="new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
-        return LexerResult.best_rule(self._gather_results(keys, word), default=(keys, word))
+        return self._ranker.best_rule(self._gather_results(keys, word), default=(keys, word))
 
     @on("lexer_query_product", pipe_to="new_output")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
@@ -43,7 +49,7 @@ class StenoLexer(Component):
             Return and send out the best rule out of all combinations. """
         pairs = list(product(keys, words))
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
-        return LexerResult.best_rule(results, default=pairs[0])
+        return self._ranker.best_rule(results, default=pairs[0])
 
     @on("lexer_query_all", pipe_to="new analysis")
     def query_all(self, items:Iterable[tuple]=None, filter_in=None, filter_out=None, save=True) -> List[StenoRule]:
@@ -62,15 +68,15 @@ class StenoLexer(Component):
 
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """
-        # Thoroughly cleanse and parse the key string first (user strokes cannot be trusted).
-        keys = StenoKeys.cleanse_from_rtfcre(keys)
+        # Thoroughly cleanse and parse the key string into s-keys format first (user strokes cannot be trusted).
+        skeys = self._cleanse(keys)
         # Collect all valid rulemaps (that aren't optimized away) for the translation keys -> word.
-        r_iter = self._generate_maps(keys, word)
-        return [LexerResult(rulemap, test_keys, keys, word) for rulemap, test_keys in r_iter]
+        r_iter = self._generate_maps(skeys, word)
+        return [LexerResult(rulemap, test_skeys, skeys, word) for rulemap, test_skeys in r_iter]
 
-    def _generate_maps(self, keys:StenoKeys, word:str) -> Generator:
+    def _generate_maps(self, skeys:str, word:str) -> Generator:
         """
-        Given a string of parsed steno keys and a matching translation, use steno rules to match keys to printed
+        Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed
         characters in order to generate a series of complete rule maps that could possibly produce the translation.
         A "complete" map is one that matches every one of the given keys to a rule.
 
@@ -82,15 +88,15 @@ class StenoLexer(Component):
         match_rules = self._matcher.match
         # Initialize the stack with the start position ready at the bottom and start processing.
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
-        stack = [(keys, word.lower(), 0, 0, [])]
+        stack = [(skeys, word.lower(), 0, 0, [])]
         while stack:
             # Take the next search path off the stack and yield the rulemap if it's not empty.
-            test_keys, test_word, wordptr, lc, rulemap = stack.pop()
+            test_skeys, test_word, wordptr, lc, rulemap = stack.pop()
             if rulemap:
                 # If we need all keys to be matched, don't yield incomplete maps.
-                if not test_keys or not self.need_all_keys:
-                    yield rulemap, test_keys
-            if not test_keys:
+                if not test_skeys or not self.need_all_keys:
+                    yield rulemap, test_skeys
+            if not test_skeys:
                 # If no keys are left, we finished a complete mapping that could be better than anything we've got.
                 # Save the best letter count (so we can reject bad maps early) and continue up the stack.
                 best_letters = max(best_letters, lc)
@@ -100,16 +106,16 @@ class StenoLexer(Component):
             space_left = len(test_word) - (best_letters - lc)
             # Get the rules that would work as the next match in order from fewest keys matched to most.
             # This helps us find dense maps first so we can eliminate later ones quickly on space.
-            for r in match_rules(test_keys, test_word, keys, word):
+            for (r, rskeys, rletters) in match_rules(test_skeys, test_word, skeys, word):
                 # Find the first index of each match. This is also how many characters were skipped.
-                i = test_word.find(r.letters)
+                i = test_word.find(rletters)
                 # Filter out cases that no longer have enough space left to beat or tie the best map.
                 if space_left < i:
                     continue
                 # Make a copy of the current map and add the new rule + its location in the complete word.
-                word_len = len(r.letters)
+                word_len = len(rletters)
                 new_map = rulemap + [RuleMapItem(r, wordptr + i, word_len)]
                 # Push a stack item with the new map, and with the matched keys and letters removed.
                 word_inc = word_len + i
-                stack.append((StenoKeys(str_without(test_keys, r.keys)), test_word[word_inc:],
+                stack.append((str_without(test_skeys, rskeys), test_word[word_inc:],
                               wordptr + word_inc, lc + word_len, new_map))

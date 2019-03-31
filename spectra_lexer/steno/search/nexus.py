@@ -3,7 +3,7 @@
 from typing import Dict, Optional
 
 from .dict import ReverseStripCaseSearchDict, StripCaseSearchDict
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.utils import delegate_to, ensure_list
 
 
 class ResourceNexus:
@@ -44,7 +44,6 @@ class TranslationNexus(ResourceNexus, resource="translations"):
     """ A hybrid forward+reverse steno translation nexus. Used when nothing else matches. """
 
     PRIORITY = 1  # Has low priority. It must outrank the default nexus only.
-    _CMD_KEY: str = "show_translation"
 
     _forward: StripCaseSearchDict         # Forward translations dict (strokes -> English words).
     _reverse: ReverseStripCaseSearchDict  # Reverse translations dict (English words -> strokes).
@@ -62,7 +61,11 @@ class TranslationNexus(ResourceNexus, resource="translations"):
     def command_args(self, match:str, mapping:object) -> tuple:
         """ The order of strokes/word in the lexer command is reversed for a reverse dict. """
         args = (match, mapping) if self._d is self._forward else (mapping, match)
-        return (self._CMD_KEY, *args)
+        # We must send a lexer query to show a translation.
+        if all(isinstance(i, str) for i in args):
+            return ("lexer_query", *args)
+        # If there is more than one of either input, make a product query to select the best combination.
+        return ("lexer_query_product", *map(ensure_list, args))
 
 
 class RulesNexus(ResourceNexus, resource="rules"):
@@ -70,7 +73,6 @@ class RulesNexus(ResourceNexus, resource="rules"):
 
     PRIORITY = 2  # Has medium priority. It must outrank the translations nexus.
     PREFIX = "/"  # A basic slash which is also a prefix of *other*, higher priority prefixes.
-    _CMD_KEY: str = "new_output"
 
     def __init__(self, d:dict, strip:str=" .+-~"):
         """ To search the rules dictionary by name, prefix and suffix reference symbols should be stripped. """
@@ -78,7 +80,7 @@ class RulesNexus(ResourceNexus, resource="rules"):
 
     def command_args(self, match:str, mapping:object) -> tuple:
         """ If the mapping is a rule, send it as direct output just like the lexer would and return. """
-        return self._CMD_KEY, mapping
+        return "new_output", mapping
 
 
 class IndexNexus(ResourceNexus, resource="index"):

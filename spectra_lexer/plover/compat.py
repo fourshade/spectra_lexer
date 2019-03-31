@@ -12,6 +12,7 @@ from spectra_lexer import Component
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
 _INCOMPATIBLE_MESSAGE = f"ERROR: Plover v{_PLOVER_VERSION_REQUIRED} or greater required."
 # Key constants and functions for Plover stroke strings.
+# TODO: Import Plover steno system?
 _PLOVER_SEP = "/"
 join_strokes = _PLOVER_SEP.join
 

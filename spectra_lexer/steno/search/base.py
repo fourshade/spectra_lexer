@@ -2,6 +2,7 @@ from .collection import SearchDictionary
 from .nexus import IndexNexus
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
+from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.utils import delegate_to
 
 # Text displayed as the final list item, allowing the user to expand the search.
@@ -13,7 +14,7 @@ class SearchEngine(Component):
 
     match_limit = Resource("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
 
-    _dictionary: SearchDictionary  # Runs the actual search queries
+    _dictionary: SearchDictionary  # Runs the actual search queries.
     _count: int                    # Limit on number of search results. May exceed <match_limit> on user action.
     _mode_strokes: bool = False    # If True, search for strokes instead of translations.
     _mode_regex: bool = False      # If True, perform search using regex characters.
@@ -33,8 +34,11 @@ class SearchEngine(Component):
         self._count += self.match_limit
 
     set_index = on("set_dict_index")(delegate_to("_dictionary.new", "index"))
-    set_rules = on("set_dict_rules")(delegate_to("_dictionary.new", "rules"))
     set_translations = on("set_dict_translations")(delegate_to("_dictionary.new", "translations"))
+
+    @on("set_system")
+    def set_system(self, system:StenoSystem) -> None:
+        self._dictionary.new("rules", system.rules)
 
     @on("search_mode_strokes")
     def set_mode_strokes(self, enabled:bool) -> None:
@@ -144,7 +148,7 @@ class SearchEngine(Component):
     def on_output(self, rule:StenoRule) -> None:
         """ Choose a relevant mapping (if any) from the given rule if our last search had several choices. """
         if self._last_mapping:
-            common_items = {rule.keys.rtfcre, rule.letters, rule}.intersection(self._last_mapping)
+            common_items = {rule.keys, rule.letters, rule}.intersection(self._last_mapping)
             if common_items:
                 self.engine_call("new_search_mapping_selection", str(common_items.pop()))
 

@@ -100,7 +100,7 @@ def _remove_char(s:str, c:str, _replace=str.replace) -> str:
     return _replace(s, c, "", 1)
 
 
-def str_without(s:str, chars:str, _reduce=functools.reduce) -> str:
+def str_without(s:str, chars, _reduce=functools.reduce) -> str:
     """ Return <s> with each of the characters in <chars> removed, starting from the left. """
     # Fast path: if the characters are a direct prefix, just cut it off.
     prefix_length = len(chars)

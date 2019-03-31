@@ -67,6 +67,7 @@
   ".e~":   ["KWR",    "[e|y.]",           ["SPEC"], "phonetic `y`"],
   ".ea":   ["KWRA",   "(.e~)(a)",         [],       "left side `y` connects strokes"],
   ".eo":   ["KWRO",   "(.e~)(o)",         [],       "left side `y` connects strokes"],
+  ".eO":   ["KWROE",  "(.e~)(O)",         [],       "left side `y` connects strokes"],
 
   ".i~":   ["KWR",    "[i|y.]",           ["SPEC"], "phonetic `y`"],
   ".ia":   ["KWRA",   "(.i~)(a)",         [],       "left side `y` connects strokes"],
@@ -91,6 +92,7 @@
   "-ually":["WAEL",   "(.u~)(-ally)",     [],       "standalone suffix stroke"],
   ".ui":   ["WEU",    "(.u~)(i)",         [],       "left side `w` connects strokes"],
   ".uo":   ["WO",     "(.u~)(o)",         [],       "left side `w` connects strokes"],
+  ".uO":   ["WOE",    "(.u~)(O)",         [],       "left side `w` connects strokes"],
   "-uous": ["WOUS",   "(.u~)(-ous)",      [],       "standalone suffix stroke"],
 
   "y~":    ["KWR",    "",                 ["SPEC"], "left side `y` blended into another vowel"],

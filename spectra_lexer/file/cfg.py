@@ -1,6 +1,7 @@
 from configparser import ConfigParser
 from io import StringIO
 
+from spectra_lexer.utils import str_eval
 from .base import FileHandler
 
 
@@ -12,7 +13,14 @@ class CFG(FileHandler, formats=[".cfg", ".ini"]):
         """ Decode CFG file contents into a nested dict. A two-level copy must be made to eliminate the proxies. """
         cfg = ConfigParser()
         cfg.read_string(contents)
-        return {sect: dict(prox) for (sect, prox) in cfg.items()}
+        # Try to convert Python literal strings to objects. This fixes crap like bool('False') = True.
+        d = {}
+        for sect, prox in cfg.items():
+            page = d[sect] = dict(prox)
+            for (opt, val) in page.items():
+                if isinstance(val, str):
+                    page[opt] = str_eval(val)
+        return d
 
     @classmethod
     def encode(cls, d:dict) -> str:

@@ -2,24 +2,28 @@
 
 """ Main test module for the Spectra steno lexer. Currently handles all major components except the GUI. """
 
+from collections import Counter
 from itertools import starmap
 import re
 
 import pytest
 
 from spectra_lexer.plover import PloverCompatibilityLayer
+from spectra_lexer.steno import IndexManager, TranslationsManager
 from spectra_lexer.steno.board import BoardRenderer
-from spectra_lexer.steno.data import IndexManager, RulesManager, TranslationsManager
 from spectra_lexer.steno.graph import GraphRenderer
 from spectra_lexer.steno.lexer import StenoLexer
 from spectra_lexer.steno.rules import RuleFlags
 from spectra_lexer.steno.search import SearchEngine
+from spectra_lexer.steno.system import SystemManager
 from test import get_test_filename
 
 
 # Create and connect components for the tests in order as we need them.
-RULES = RulesManager()
-RULES_DICT = RULES.load_all()
+SYSTEM = SystemManager()
+SYSTEM_OBJ = SYSTEM.load_system()
+RULES_DICT = SYSTEM_OBJ.rules
+IGNORED_KEYS = Counter({"/": 999, "-": 999})
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -29,26 +33,19 @@ def test_rules(r):
     if r.flags:
         bad_flags = r.flags - RuleFlags.values
         assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
-    # A rule with children in a rulemap must conform to strict rules for successful parsing.
-    # These tests only work for rules that do not allow the same key to appear in two different strokes.
+    # Make sure the child rules contain all the keys of the parent between them, and no extras.
     if r.rulemap:
-        child_key_sets = [set(cr.rule.keys) for cr in r.rulemap]
-        combined_child_keys = set()
-        # Make sure none of the child rules have overlapping keys.
-        for s in child_key_sets:
-            conflicts = combined_child_keys & s
-            assert not conflicts, f"Entry {r} has child rules with overlapping keys: {conflicts}"
-            combined_child_keys |= s
-        # Make sure the child rules contain all the keys of the parent between them (and no extras).
-        key_diff = set(r.keys) ^ combined_child_keys
-        assert not key_diff, f"Entry {r} has mismatched keys vs. its child rules: {key_diff}"
+        keys = Counter(r.keys)
+        keys.subtract(Counter([k for cr in r.rulemap for k in cr.rule.keys]))
+        keys -= IGNORED_KEYS
+        assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
 
 
 TRANSLATIONS = TranslationsManager()
 TRANSLATIONS_DICT = TRANSLATIONS.load_all([get_test_filename("translations")])
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
-LEXER.set_rules(RULES_DICT)
+LEXER.set_system(SYSTEM_OBJ)
 LEXER.need_all_keys = True
 TEST_RESULTS = list(starmap(LEXER.query, TEST_TRANSLATIONS))
 
@@ -64,7 +61,7 @@ INDEX = IndexManager()
 INDEX_DICT = INDEX.load(get_test_filename("index"))
 TEST_INDEX = list(INDEX_DICT.items())
 SEARCH = SearchEngine()
-SEARCH.set_rules(RULES_DICT)
+SEARCH.set_system(SYSTEM_OBJ)
 SEARCH.set_translations(TRANSLATIONS_DICT)
 SEARCH.set_index(INDEX_DICT)
 
@@ -103,13 +100,12 @@ def test_index_search(trial):
     SEARCH.set_mode_strokes(True)
     kresults = SEARCH.search(f"//{rname}")
     SEARCH.set_mode_strokes(False)
-    all_keys = set(rule.keys.rtfcre) - set("/-")
+    all_keys = set(rule.keys) - set("/-")
     assert all_keys == all_keys.intersection(*kresults)
 
 
 BOARD = BoardRenderer()
-BOARD.load()
-BOARD.set_rules(RULES_DICT)
+BOARD.set_system(SYSTEM_OBJ)
 BOARD.set_layout((0, 0, 100, 100), 100, 100)
 
 

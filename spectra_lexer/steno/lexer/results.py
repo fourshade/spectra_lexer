@@ -1,13 +1,12 @@
-from operator import attrgetter, methodcaller
-from typing import List, Generator, NamedTuple, Tuple
+from operator import attrgetter
+from typing import Callable, Generator, List, NamedTuple, Tuple
 
-from spectra_lexer.steno.keys import StenoKeys
 from spectra_lexer.steno.rules import RuleFlags, RuleMapItem, StenoRule
 
 # Flag constants for rule generation.
 _RARE_FLAG = RuleFlags.RARE
-_UNMATCHED_FLAG_SET = frozenset({RuleFlags.UNMATCHED})
-_GENERATED_FLAG_SET = frozenset({RuleFlags.GENERATED})
+_UNMATCHED_FLAGS = frozenset({RuleFlags.UNMATCHED})
+_GENERATED_FLAGS = frozenset({RuleFlags.GENERATED})
 
 
 class LexerResult(NamedTuple):
@@ -15,72 +14,83 @@ class LexerResult(NamedTuple):
         The list must be frozen before inclusion in a rule. """
 
     rulemap: List[RuleMapItem]  # Rulemap from the lexer.
-    leftover_keys: StenoKeys    # Unmatched keys left in the map.
-    keys: StenoKeys             # Full key string.
+    leftover_skeys: str         # Unmatched lexer keys left in the map.
+    skeys: str                  # Full lexer key string.
     letters: str                # Full English text of the word.
 
-    def letters_matched(self, _get_letters=attrgetter("rule.letters")) -> int:
+    def _letters_matched(self, _get_letters=attrgetter("rule.letters")) -> int:
         """ Get the number of characters matched by mapped rules. """
         return sum(map(len, map(_get_letters, self.rulemap)))
 
-    def letters_matchable(self) -> int:
+    def _letters_matchable(self) -> int:
         """ Get the number of characters possible to match (i.e. not spaces). """
         return sum([c != ' ' for c in self.letters])
 
     def letters_matched_ratio(self) -> float:
         """ Find total characters matched divided by total characters possible to match (i.e. not spaces). """
-        matched = self.letters_matched()
-        matchable = self.letters_matchable()
-        # All whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
-        return matched / matchable if matchable else 0
+        matched = self._letters_matched()
+        matchable = self._letters_matchable()
+        # All-whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
+        return matchable and matched / matchable
 
-    def rare_count(self, _get_flags=attrgetter("rule.flags"), _rare_in=methodcaller("__contains__", _RARE_FLAG)) -> int:
+    def _rare_count(self) -> int:
         """ Get the number of rare rules in the map. """
-        return sum(map(_rare_in, map(_get_flags, self.rulemap)))
+        return sum([_RARE_FLAG in i.rule.flags for i in self.rulemap])
 
-    def rank_diff(self, other) -> Generator:
+    def _rank_diff(self, other) -> Generator:
         """ Generator to find the difference in "rank value" between two lexer-generated rulemaps.
             Used as a lazy sequence-based comparison, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate maps have smaller values. """
-        yield -len(self.leftover_keys) + len(other.leftover_keys)  # Fewest keys unmatched
-        yield self.letters_matched()   - other.letters_matched()   # Most letters matched
-        yield -self.rare_count()       + other.rare_count()        # Fewest rare rules
-        yield -len(self.keys)          + len(other.keys)           # Fewest total keys
-        yield -len(self.rulemap)       + len(other.rulemap)        # Fewest child rules
+        yield -len(self.leftover_skeys) + len(other.leftover_skeys)  # Fewest keys unmatched
+        yield self._letters_matched()   - other._letters_matched()   # Most letters matched
+        yield -self._rare_count()       + other._rare_count()        # Fewest rare rules
+        yield -len(self.skeys)          + len(other.skeys)           # Fewest total keys
+        yield -len(self.rulemap)        + len(other.rulemap)         # Fewest child rules
 
     def __gt__(self, other) -> bool:
         """ Operator for ranking results using max(). Each criterion is lazily evaluated to increase performance. """
-        for diff in self.rank_diff(other):
+        for diff in self._rank_diff(other):
             if diff:
                 return diff > 0
         return False
 
-    def to_rule(self) -> StenoRule:
-        """ Make a rule out of this map, with a description and possibly a final rule depending on unmatched keys. """
-        if not self.leftover_keys:
-            desc = f"Found {self.letters_matched_ratio():.0%} match."
-        else:
-            # If nothing was matched at all, make the description different from a partial failure.
-            if not self.rulemap:
-                desc = "No matches found."
-                last_match_end = 0
-            else:
-                desc = "Incomplete match. Not reliable."
-                last_match = self.rulemap[-1]
-                last_match_end = last_match.start + last_match.length
-            # Make a special rule with the unmatched keys to cover everything after the last match.
-            bad_rule = StenoRule(self.leftover_keys, "", _UNMATCHED_FLAG_SET, "unmatched keys", ())
-            self.rulemap.append(RuleMapItem(bad_rule, last_match_end, len(self.letters) - last_match_end))
-        # Freeze the rulemap and mark this rule as lexer-generated.
-        return StenoRule(self.keys, self.letters, _GENERATED_FLAG_SET, desc, tuple(self.rulemap))
+    def append(self, rule:StenoRule) -> None:
+        """ Add a rule to the end of the map. """
+        last_match = self.rulemap[-1]
+        last_match_end = last_match.start + last_match.length
+        self.rulemap.append(RuleMapItem(rule, last_match_end, len(self.letters) - last_match_end))
 
-    @classmethod
-    def best_rule(cls, results:list, *, default:Tuple[str,str]=("", "")) -> StenoRule:
+
+class LexerResultRanker:
+    """ Takes a set of results from the lexer, finds the best one (if any), converts the keys back to RTFCRE format,
+        and creates a new rule with the correct caption and flags. """
+
+    _convert_keys: Callable[[str], str] = str  # Conversion function from s-keys to RTFCRE.
+
+    def set_converter(self, key_converter:Callable[[str],str]):
+        self._convert_keys = key_converter
+
+    def best_rule(self, results:List[LexerResult], *, default:Tuple[str,str]=("", "")) -> StenoRule:
         """ Find the best out of a list of results based on the rank value of each and build a rule from it. """
-        if results:
-            return max(results).to_rule()
-        elif default is not None:
-            # Make an empty rule with the default pair (after cleansing) if no valid rule maps were added by the lexer.
-            keys, word = default
-            keys = StenoKeys.cleanse_from_rtfcre(keys)
-            return cls([], keys, keys, word).to_rule()
+        if not results:
+            # Make a fully unmatched rule with the default pair if no valid rule maps were added by the lexer.
+            keys, letters = default
+            desc = "No matches found."
+            bad_rule = StenoRule(keys, "", _UNMATCHED_FLAGS, "unmatched keys", ())
+            rulemap = (RuleMapItem(bad_rule, 0, len(letters)),)
+        else:
+            best = max(results)
+            keys = self._convert_keys(best.skeys)
+            letters = best.letters
+            unmatched = best.leftover_skeys
+            if unmatched:
+                # Add a special rule with the unmatched keys to cover everything after the last match.
+                bad_rule = StenoRule(self._convert_keys(unmatched), "", _UNMATCHED_FLAGS, "unmatched keys", ())
+                best.append(bad_rule)
+                desc = "Incomplete match. Not reliable."
+            else:
+                # The caption only shows a percentage if all of the keys were matched.
+                desc = f"Found {best.letters_matched_ratio():.0%} match."
+            rulemap = tuple(best.rulemap)
+        # Freeze the rulemap and make a new rule marked as lexer-generated.
+        return StenoRule(keys, letters, _GENERATED_FLAGS, desc, rulemap)

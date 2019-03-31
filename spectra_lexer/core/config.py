@@ -18,11 +18,6 @@ class ConfigManager(Component):
             d = CFG.load(filename or self.file)
         except OSError:
             return None
-        # Try to convert Python literal strings to objects. This fixes crap like bool('False') = True.
-        for page in d.values():
-            for (opt, val) in page.items():
-                if isinstance(val, str):
-                    page[opt] = str_eval(val)
         self._update_components(d)
         return d
 

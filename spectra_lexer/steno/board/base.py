@@ -6,15 +6,14 @@ from .caption import CaptionGenerator
 from .layout import ElementLayout
 from .matcher import ElementMatcher
 from spectra_lexer import Component
-from spectra_lexer.file import XML
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.utils import delegate_to, save_kwargs
+from spectra_lexer.steno.system import StenoSystem
+from spectra_lexer.utils import delegate_to
 
 
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
-    file = Resource("cmdline", "board-file", ":/assets/board.svg", "SVG graphics file for the steno board diagram.")
     show_compound = Resource("config", "board:show_compound_keys", True,
                              "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
     show_links = Resource("config", "board:show_example_links", True,
@@ -31,25 +30,13 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
 
     set_index = on("set_dict_index")(delegate_to("_captioner"))
-    set_rules_reversed = on("set_dict_rules_reversed")(delegate_to("_captioner"))
 
-    @on("load_dicts", pipe_to="new_board_xml")
-    @on("board_load", pipe_to="new_board_xml")
-    def load(self, filename:str="") -> Tuple[str, Dict[str, dict]]:
-        """ Load an SVG file and send the raw SVG text data along with all element IDs to the GUI. """
-        d = XML.load(filename or self.file)
-        self._load_matcher(ids=d["ids"])
-        return d["raw"], d["ids"]
-
-    @on("set_dict_rules")
-    def set_rules(self, d:dict) -> None:
-        self._load_matcher(rules=d)
-
-    @save_kwargs
-    def _load_matcher(self, rules:dict=None, ids:dict=None) -> None:
-        """ Create the matcher when the rules and element IDs are both ready. """
-        if rules and ids:
-            self._matcher = ElementMatcher(rules, ids)
+    @on("set_system", pipe_to="new_board_xml")
+    def set_system(self, system:StenoSystem) -> Tuple[str, Dict[str, dict]]:
+        """ Create the matcher with the system and send the raw SVG text data along with all element IDs to the GUI. """
+        self._captioner.set_rules_reversed(system.rev_rules)
+        self._matcher = ElementMatcher(system)
+        return system.board["raw"], system.board["ids"]
 
     @on("board_set_view", pipe_to="new_board_layout")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:

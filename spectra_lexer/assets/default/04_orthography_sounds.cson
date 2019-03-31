@@ -3,11 +3,17 @@
 {
   # left bank
   "Ch.":    ["SH",       "(C.)(h.)",   ["RARE"], "`ch` as in `chandelier`"],
+  "ce.":    ["SH",       "[ce|sh.]",   ["RARE"], "phonetic"],
+  "ci.":    ["SH",       "[ci|sh.]",   ["RARE"], "phonetic"],
+  "si.":    ["SH",       "[si|sh.]",   ["RARE"], "phonetic"],
+  "ti.":    ["SH",       "[ti|sh.]",   ["RARE"], "phonetic"],
+
   "ge.":    ["SKWRE",    "(G.)(e)",    [],       "soft `g` onset is usually followed by `e` or `i`"],
   "gi.":    ["SKWRAOEU", "(G.)(I)",    [],       "soft `g` onset is usually followed by `e` or `i`"],
 
   "ph.":    ["TP",       "[ph|f.]",    [],       "`ph`onetic"],
   "qu.":    ["KW",       "(q.)(.u~)",  [],       "phonetic"],
+  "c.+":    ["KH",       "[c|ch.]",    ["RARE"], "phonetic"],
   "t.+":    ["KH",       "[t|ch.]",    ["RARE"], "phonetic"],
 
   "exc.":   ["KP",       "[exc|ex.]",  [],       "combined consonant sounds"],

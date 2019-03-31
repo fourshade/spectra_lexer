@@ -1,11 +1,8 @@
-import re
 from collections import Counter
+import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer import Component
-from spectra_lexer.file import CSON
-from spectra_lexer.steno.keys import StenoKeys
-from spectra_lexer.steno.rules import RuleMapItem, SpecialRules, StenoRule
+from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
 _LEFT_BRACKETS = r'\(\['
@@ -22,42 +19,31 @@ class _RawRule(NamedTuple):
     description: str = ""    # Optional description for when the rule is displayed in the GUI.
 
 
-class RulesManager(Component):
+class RuleParser:
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
-    files = Resource("cmdline", "rules-files", [":/assets/*.cson"], "Glob patterns for JSON-based rules files to load.")
-    out = Resource("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
+    _src_dict: Dict[str, _RawRule] = {}   # Keep the source dict in the instance to avoid passing it everywhere.
+    _dst_dict: Dict[str, StenoRule] = {}  # Same case for the destination dict.
+    _rev_dict: Dict[StenoRule, str] = {}  # Same case for the reverse reference dict when converting back to JSON form.
 
-    _src_dict: Dict[str, _RawRule]   # Keep the source dict in the instance to avoid passing it everywhere.
-    _dst_dict: Dict[str, StenoRule]  # Same case for the destination dict. This one needs to be kept as a reference.
-    _rev_dict: Dict[StenoRule, str]  # Same case for the reverse reference dict when converting back to JSON form.
-
-    @on("load_dicts", pipe_to="set_dict_rules")
-    @on("rules_load", pipe_to="set_dict_rules")
-    def load_all(self, filenames:Sequence[str]=()) -> Dict[str, StenoRule]:
+    def parse(self, dicts:Iterable[dict]) -> Dict[str, StenoRule]:
         """ Top level loading method. Goes through source JSON dicts and parses every entry using mutual recursion. """
         # Load rules from each source dictionary and convert to namedtuple form.
-        dicts = CSON.load_all(*(filenames or self.files))
         self._src_dict = {k: _RawRule(*v) for d in dicts for (k, v) in d.items()}
         # If the size of the combined dict is less than the sum of its components, some rule names are identical.
         if len(self._src_dict) < sum(map(len, dicts)):
             conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
             raise KeyError(f"Found rule keys appearing in more than one file: {conflicts}")
-        # Start every rule dict with a copy of the special hard-coded rules.
-        d = self._dst_dict = dict(SpecialRules.ALL)
         # Parse all rules from the source dictionary into the final one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
+        d = self._dst_dict = {}
         try:
             for k in self._src_dict:
                 if k not in d:
                     self._parse(k)
         except KeyError as e:
             raise KeyError(f"Illegal reference descended from rule {k}") from e
-        # The final dict must be reversed one-to-one to look up names given rules. Some components need this.
-        self._rev_dict = {v: k for (k, v) in d.items()}
-        self.engine_call("set_dict_rules_reversed", self._rev_dict)
-        # Return the final rules dict. Components such as the lexer may throw away the names.
         return d
 
     def _parse(self, k:str) -> None:
@@ -65,10 +51,10 @@ class RulesManager(Component):
         raw = self._src_dict[k]
         # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
         letters, built_map = self._substitute(raw.pattern)
-        # The keys must be converted from RTFCRE form into lexer form.
-        keys = StenoKeys.from_rtfcre(raw.keys)
         # The flags and built rulemap must be frozen before final inclusion in an immutable rule.
-        self._dst_dict[k] = StenoRule(keys, letters, frozenset(raw.flag_list), raw.description, tuple(built_map))
+        flags = frozenset(raw.flag_list)
+        rulemap = tuple(built_map)
+        self._dst_dict[k] = StenoRule(raw.keys, letters, flags, raw.description, rulemap)
 
     def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
         """
@@ -103,20 +89,22 @@ class RulesManager(Component):
             m = _SUBRULE_RX.search(pattern)
         return pattern, built_map
 
-    @on("rules_save")
-    def save(self, rules:Iterable[StenoRule], filename:str="") -> None:
-        """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON
-            using auto-generated reference names and substituting rules in each rulemap for their letters. """
-        CSON.save(filename or self.out, {str(r): self._inv_parse(r) for r in rules})
+    def invert(self, d:Dict[str, StenoRule]) -> Dict[StenoRule, str]:
+        """ The final dict must be reversed one-to-one to look up names given rules. Some components need this. """
+        self._rev_dict = {v: k for (k, v) in d.items()}
+        return self._rev_dict
+
+    def inv_parse(self, rules:Iterable[StenoRule]) -> dict:
+        """ From a bare iterable of rules (generally from the lexer), make a new raw dict using auto-generated
+            reference names and substituting rules in each rulemap for their letters. """
+        return {str(r): self._inv_parse(r) for r in rules}
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """
-        # The keys must be converted to RTFCRE form.
-        keys = r.keys.rtfcre
         # The pattern must be deduced from the letters, the rulemap, and the reference dict.
         pattern = self._inv_substitute(r.letters, r.rulemap)
-        # Put the flags into a list. The description is copied verbatim.
-        return _RawRule(keys, pattern, list(r.flags), r.desc)
+        # Put the flags into a list. The keys and description are copied verbatim.
+        return _RawRule(r.keys, pattern, list(r.flags), r.desc)
 
     def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
         """ For each mapped rule with a name reference, replace the mapped letters with the reference. """

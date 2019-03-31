@@ -2,7 +2,6 @@
 
 from typing import Sequence
 
-from spectra_lexer.steno.keys import KEY_SEP, KEY_SPLIT
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse, traverse, with_sets
 
@@ -12,7 +11,7 @@ class GraphNodeAppearance:
     """ Flags that indicate special behavior for drawing a node on a graph. """
     UNMATCHED = RuleFlags.UNMATCHED  # Incomplete lexer result. Unmatched keys connect to question marks.
     INVERSION = RuleFlags.INVERSION  # Inversion of steno order. Connections appear different.
-    SEPARATOR = "SEP"                # Stroke separator. Unconnected; does not appear as direct text.
+    SEPARATOR = RuleFlags.SEPARATOR  # Stroke separator. Unconnected; does not appear as direct text.
     ROOT = "ROOT"                    # Root node; has no parent.
     BRANCH = "BRANCH"                # Branch node; has one or more children.
     LEAF = "LEAF"                    # Leaf node; has no children.
@@ -26,7 +25,7 @@ class GraphNode:
     RECURSION_LIMIT = 10     # Default limit on number of recursion steps to allow for rules that contain other rules.
 
     rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
-    text: str                # Display text of the node (either letters or RTFCRE keys).
+    text: str                # Display text of the node (either letters or keys).
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
     bottom_start: int = 0    # Start of the bottom attach point. Is only non-zero if there is an uncovered prefix.
@@ -41,30 +40,28 @@ class GraphNode:
             maxdepth = 0 only displays the root node.
             maxdepth = 1 displays the root node and all of the rules that make it up.
             maxdepth = 2 also displays the rules that make up each of those, and so on. """
-        keys, letters, flags, _, rulemap = self.rule = rule
+        self.rule = rule
         self.attach_start = start
         self.attach_length = length
-        if rulemap and maxdepth:
+        if rule.rulemap and maxdepth:
             # Derived rules (i.e. non-leaf nodes) show their letters.
-            self.text = letters
+            self.text = letters = rule.letters
             self.bottom_length = len(letters)
-            nodes = [self.__class__(i.rule, i.start, i.length, maxdepth - 1) for i in rulemap]
+            nodes = [self.__class__(i.rule, i.start, i.length, maxdepth - 1) for i in rule.rulemap]
             for n in nodes:
                 n.parent = self
             self.children = nodes
             self.appearance = GraphNodeAppearance.BRANCH
         else:
             # Base rules (i.e. leaf nodes) show their keys instead of their letters.
-            self.text = formatted_keys = keys.rtfcre
-            # The bottom attach start is shifted one to the right if the keys start with a hyphen.
-            bstart = self.bottom_start = (formatted_keys[:1] == KEY_SPLIT)
-            self.bottom_length = len(formatted_keys) - bstart
-            # Single separators have their own appearance.
-            if formatted_keys == KEY_SEP:
-                self.appearance = GraphNodeAppearance.SEPARATOR
+            self.text = keys = rule.keys
+            key_length = len(keys)
+            # The bottom attach start is shifted one to the right if the keys start with a non-alphanumeric character.
+            bstart = self.bottom_start = (key_length > 1 and not keys[0].isalnum())
+            self.bottom_length = key_length - bstart
         # If there are legal appearance flags on the rule, use the first one to override the tree-based appearance flag.
-        if flags:
-            for f in (flags & GraphNodeAppearance.values):
+        if rule.flags:
+            for f in (rule.flags & GraphNodeAppearance.values):
                 self.appearance = f
                 break
 

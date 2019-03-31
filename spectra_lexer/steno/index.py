@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Optional
 from spectra_lexer import Component
 from spectra_lexer.file import JSON
 from spectra_lexer.steno.rules import StenoRule
+from spectra_lexer.steno.system import StenoSystem
 
 
 class IndexManager(Component):
@@ -17,10 +18,10 @@ class IndexManager(Component):
 
     _rev_rules: Dict[StenoRule, str] = {}  # Reverse rules dict for rule -> name translation.
 
-    @on("set_dict_rules_reversed")
-    def set_rules_reversed(self, rd:Dict[StenoRule, str]) -> None:
+    @on("set_system")
+    def set_system(self, system:StenoSystem) -> None:
         """ Set up the reverse rule dict. """
-        self._rev_rules = rd
+        self._rev_rules = system.rev_rules
 
     @on("load_dicts", pipe_to="set_dict_index")
     @on("index_load", pipe_to="set_dict_index")
@@ -69,7 +70,7 @@ class IndexManager(Component):
         for rs in results:
             for item in rs.rulemap:
                 rule = item.rule
-                rulecounter[rule].append((rs.keys.rtfcre, rs.letters))
+                rulecounter[rule].append((rs.keys, rs.letters))
         return rulecounter
 
     def _sort_translations(self, translation_lists:Dict[str, list]) -> Dict[str, dict]:

@@ -26,11 +26,11 @@ class CaptionGenerator:
         if RuleFlags.GENERATED in rule.flags:
             return description
         # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
-        raw_keys = rule.keys.rtfcre
+        keys = rule.keys
         if not rule.rulemap:
-            return f"{raw_keys}: {description}"
+            return f"{keys}: {description}"
         # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
-        return f"{raw_keys} → {rule.letters}: {description}"
+        return f"{keys} → {rule.letters}: {description}"
 
     def get_link_ref(self, rule:StenoRule) -> str:
         """ Look for the current rule's name. If there are examples in the index, return the name reference. """

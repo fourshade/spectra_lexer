@@ -2,6 +2,14 @@
 # These always go at the end of rule patterns (in regular parentheses ()) regardless of steno order.
 
 {
+  # star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk
+  "*:CF":   ["*",   "", ["SPEC"], "resolves a conflict between words"],
+  "*:PR":   ["*",   "", ["SPEC"], "indicates a proper noun\n(names, places, etc.)"],
+  "*:AB":   ["*",   "", ["SPEC"], "indicates an abbreviation"],
+  "*:PS":   ["*",   "", ["SPEC"], "indicates a prefix or suffix stroke"],
+  "*:FS":   ["*",   "", ["SPEC"], "indicates fingerspelling"],
+  "*:OB":   ["*",   "", ["SPEC"], "indicates an obscenity\n(and makes it harder to be the result of a misstroke)"],
+
   # number modifiers
   "-P:FS":  ["-P",  "", ["SPEC"], "use to capitalize fingerspelled letters"],
   "#:NM":   ["#",   "", ["SPEC"], "use to shift to number mode"],
