@@ -110,10 +110,10 @@ class ConsoleDialog(ToolDialog):
 
     w_text: ConsoleTextWidget = None  # The only window content; a giant console text box.
 
-    def make_layout(self) -> None:
+    def make_layout(self, input_cb:Callable) -> None:
         """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        self.w_text = ConsoleTextWidget(self, self.submit_cb)
+        self.w_text = ConsoleTextWidget(self, input_cb)
         layout.addWidget(self.w_text)
 
     add_text = delegate_to("w_text")

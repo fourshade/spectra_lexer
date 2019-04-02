@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLabel, QSlider, QToolTip, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QLayout, QSlider, QToolTip, QVBoxLayout
 
 from spectra_lexer.gui_qt.tools.dialog import FormDialog
 
@@ -26,7 +26,8 @@ class IndexDialog(FormDialog):
 
     sizeSlider: QSlider = None  # Horizontal slider with range 1-20 for relative index size.
 
-    def upper_layout(self, layout:QVBoxLayout) -> None:
+    def new_layout(self) -> QLayout:
+        layout = QVBoxLayout(self)
         heading_label = QLabel(self)
         heading_label.setWordWrap(True)
         heading_label.setText(_HEADING_TEXT)
@@ -44,6 +45,7 @@ class IndexDialog(FormDialog):
         layout.addWidget(heading_label)
         layout.addWidget(self.sizeSlider)
         layout.addWidget(desc_label)
+        return layout
 
     def submit(self) -> int:
         """ Return the size to the index creation component. """

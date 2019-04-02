@@ -1,9 +1,8 @@
-from types import MappingProxyType
 from typing import Callable
 
 from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
-from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QTreeView, QVBoxLayout
 
 from .node import NodeData
 from spectra_lexer.gui_qt.tools.dialog import ToolDialog
@@ -46,13 +45,14 @@ class NodeItem(QStandardItem):
 class ObjectTreeModel(QStandardItemModel):
     """ Basic tree item model. Contains the callbacks for both expansion and editing. """
 
-    def __init__(self, root:NodeItem):
+    def __init__(self, root:NodeData):
         """ Fill out the root level of the tree and set the edit callback. """
         super().__init__()
-        # We can't swap out the model's root item, so we expand the given one and steal all of its rows.
-        root.expand()
-        for i in range(root.rowCount()):
-            self.invisibleRootItem().appendRow(root.takeRow(0))
+        # We can't swap out the model's root item, so we make one of our own and steal all of its rows.
+        temp_root = NodeItem(root)
+        temp_root.expand()
+        for i in range(temp_root.rowCount()):
+            self.invisibleRootItem().appendRow(temp_root.takeRow(0))
         self.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
         self.itemChanged.connect(self.edit_value)
 
@@ -63,6 +63,7 @@ class ObjectTreeModel(QStandardItemModel):
         primary = parent.child(row, 0)
         edited_value = item.data(Qt.DisplayRole)
         if edited_value == primary.original_value:
+            # If the value didn't change, nothing else needs to happen.
             return
         new_node = primary.edit(edited_value)
         if new_node is None:
@@ -76,36 +77,20 @@ class ObjectTreeModel(QStandardItemModel):
         self.itemFromIndex(idx).expand()
 
 
-class ObjectTreeWidget(QTreeView):
-    """ Formatted text widget meant to display plaintext interpreter input and output. """
-
-    def __init__(self, parent:ToolDialog, root_data:NodeData):
-        """ Create the item model and connect the expansion signal (only the widget can detect this). """
-        super().__init__(parent)
-        self.setFont(QFont("Segoe UI", 9))
-        model = ObjectTreeModel(NodeItem(root_data))
-        self.setModel(model)
-        self.header().setDefaultSectionSize(120)
-        self.header().resizeSection(0, 200)
-        self.expanded.connect(model.on_expand)
-
-
 class ObjectTreeDialog(ToolDialog):
     """ Qt tree dialog window object. """
 
     TITLE = "Python Object Tree View"
     SIZE = (600, 450)
 
-    w_tree: ObjectTreeWidget = None  # The only window content; a giant tree view.
-    root: NodeData                   # Dict of variables at the top level of the tree.
-
-    def __init__(self, parent:QWidget, submit_cb:Callable, root_vars:dict):
-        """ Create the initial tree structure from a dict. Make it read-only to prevent top-level editing. """
-        self.root = NodeData("ROOT", MappingProxyType(root_vars))
-        super().__init__(parent, submit_cb)
-
-    def make_layout(self) -> None:
-        """ Create and add the sole widget to a vertical layout. """
+    def make_layout(self, root:NodeData) -> None:
+        """ Create the tree widget and item model and connect the expansion signal. """
         layout = QVBoxLayout(self)
-        self.w_tree = ObjectTreeWidget(self, self.root)
-        layout.addWidget(self.w_tree)
+        w_tree = QTreeView(self)
+        w_tree.setFont(QFont("Segoe UI", 9))
+        model = ObjectTreeModel(root)
+        w_tree.setModel(model)
+        w_tree.expanded.connect(model.on_expand)
+        w_tree.header().setDefaultSectionSize(120)
+        w_tree.header().resizeSection(0, 200)
+        layout.addWidget(w_tree)

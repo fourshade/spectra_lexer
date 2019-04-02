@@ -1,5 +1,7 @@
 import sys
+from types import MappingProxyType
 
+from .node import NodeData
 from .objtree_dialog import ObjectTreeDialog
 from spectra_lexer import Component
 
@@ -20,9 +22,11 @@ class ObjectTreeTool(Component):
 
     @on("tree_dialog_open")
     def open(self) -> None:
-        """ Start the tree with the current root node dict unless already visible. """
+        """ Start the tree using the current root vars dict unless already visible. """
         if self.dialog is None:
-            self.dialog = ObjectTreeDialog(self.window, None, self.root_vars)
+            # Make the root node read-only to prevent top-level editing.
+            root = NodeData("ROOT", MappingProxyType(self.root_vars))
+            self.dialog = ObjectTreeDialog(self.window, root)
         self.dialog.show()
 
 
