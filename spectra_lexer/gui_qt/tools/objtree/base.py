@@ -1,14 +1,15 @@
 import sys
-from types import MappingProxyType
 
-from .node import NodeData
+from .node import Node
 from .objtree_dialog import ObjectTreeDialog
 from spectra_lexer import Component
+from spectra_lexer.file import SVG
 
 
 class ObjectTreeTool(Component):
     """ Component for interactive tree operations. """
 
+    file = Resource("cmdline", "objtree-icons", ":/assets/treeicons.svg", "File with all object tree icons")
     console_menu = Resource("menu", "Debug:View Object Tree...", ["tree_dialog_open"])
     window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
@@ -22,11 +23,11 @@ class ObjectTreeTool(Component):
 
     @on("tree_dialog_open")
     def open(self) -> None:
-        """ Start the tree using the current root vars dict unless already visible. """
+        """ Start the dialog using the current root vars dict unless already visible. """
         if self.dialog is None:
-            # Make the root node read-only to prevent top-level editing.
-            root = NodeData("ROOT", MappingProxyType(self.root_vars))
-            self.dialog = ObjectTreeDialog(self.window, root)
+            # Load the object type icons. On failure, don't use icons.
+            icon_dict = SVG.load(self.file, ignore_missing=True)
+            self.dialog = ObjectTreeDialog(self.window, Node(self.root_vars), icon_dict)
         self.dialog.show()
 
 
