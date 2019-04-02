@@ -36,7 +36,7 @@ class BoardRenderer(Component):
         """ Create the matcher with the system and send the raw SVG text data along with all element IDs to the GUI. """
         self._captioner.set_rules_reversed(system.rev_rules)
         self._matcher = ElementMatcher(system)
-        return system.board["raw"], system.board["ids"]
+        return system.board["raw"], system.board["id"]
 
     @on("board_set_view", pipe_to="new_board_layout")
     def set_layout(self, view_box:tuple, width:int, height:int) -> List[tuple]:

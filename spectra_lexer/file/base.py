@@ -15,26 +15,36 @@ class FileHandler:
         cls._FORMATS = [*cls._FORMATS, *formats]
 
     @classmethod
-    def load(cls, filename:str) -> dict:
+    def load(cls, filename:str, **kwargs) -> dict:
         """ Attempt to load and decode a single resource (no patterns) given by name. """
-        return cls.decode(Resource.from_string(filename).read())
+        return cls._read(Resource.from_string(filename), **kwargs)
 
     @classmethod
-    def load_all(cls, *patterns:str) -> list:
+    def load_all(cls, *patterns:str, **kwargs) -> list:
         """ Attempt to expand all patterns and decode all files in the arguments and return a list. """
-        return [cls.decode(rs.read()) for p in patterns for rs in Resource.from_pattern(p)]
+        return [cls._read(rs, **kwargs) for p in patterns for rs in Resource.from_pattern(p)]
 
     @classmethod
-    def save(cls, filename:str, d:dict) -> None:
+    def save(cls, filename:str, d:dict, **kwargs) -> None:
         """ Attempt to encode and save a resource to a file given by name. """
-        return Resource.from_string(filename).write(cls.encode(d))
+        return Resource.from_string(filename).write(cls.encode(d, **kwargs))
 
     @classmethod
-    def decode(cls, contents:str) -> dict:
+    def _read(cls, rs:Resource, *, ignore_missing:bool=False, **kwargs) -> dict:
+        """ Read and decode a resource into a dict. Missing files may return an empty dict instead of raising. """
+        try:
+            return cls.decode(rs.read(), **kwargs)
+        except OSError:
+            if ignore_missing:
+                return {}
+            raise
+
+    @classmethod
+    def decode(cls, contents:str, **kwargs) -> dict:
         raise TypeError("Decoding of this file type is not supported.")
 
     @classmethod
-    def encode(cls, d:dict) -> str:
+    def encode(cls, d:dict, **kwargs) -> str:
         raise TypeError("Encoding of this file type is not supported.")
 
     @classmethod

@@ -22,7 +22,7 @@ class ElementMatcher:
 
     def __init__(self, system:StenoSystem) -> None:
         """ Make the dict using only element IDs which exist and have a corresponding rule. """
-        id_set = set(system.board["ids"])
+        id_set = set(system.board["id"])
         self._rule_ids = {r: _SVG_RULE_PREFIX + n for n, r in system.rules.items() if _SVG_RULE_PREFIX + n in id_set}
         self._convert_to_skeys = system.from_rtfcre
         self._key_sep = system.keys.SEP

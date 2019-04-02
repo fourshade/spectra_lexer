@@ -12,11 +12,8 @@ class ConfigManager(Component):
     @on("load_dicts", pipe_to="set_dict_config")
     @on("config_load", pipe_to="set_dict_config")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
-        """ Load all config options from disk. Ignore failures and convert strings using AST. """
-        try:
-            d = CFG.load(filename or self.file)
-        except OSError:
-            return None
+        """ Load all config options from disk. Ignore missing files and convert strings using AST. """
+        d = CFG.load(filename or self.file, ignore_missing=True)
         self._update_components(d)
         return d
 

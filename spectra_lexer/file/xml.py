@@ -3,23 +3,35 @@ from xml.parsers.expat import ParserCreate
 from .base import FileHandler
 
 
-class XML(FileHandler, formats=[".svg", ".xml"]):
-    """ Codec to parse a raw XML string into an ID-oriented element dict. """
+class XML(FileHandler, formats=[".xml"]):
+    """ Codec to parse a raw XML string into a dict of elements by specific attributes. """
 
     @classmethod
-    def decode(cls, contents:str) -> dict:
-        """ Return a dict of attributes for each element with a unique ID along with the raw XML string. """
-        id_dict = {}
-        def start_element(name, attrs):
-            if "id" in attrs:
+    def decode(cls, contents:str, filter_by:str="", **kwargs) -> dict:
+        """ Return a dict of attributes for a specifically filtered element along with the raw XML string. """
+        d = {"raw": contents}
+        if not filter_by:
+            return d
+        d[filter_by] = filter_dict = {}
+        def start_element(name:str, attrs:dict) -> None:
+            if filter_by in attrs:
                 attrs["name"] = name
-                id_dict[attrs["id"]] = attrs
-        p = ParserCreate()
+                filter_dict[attrs[filter_by]] = attrs
+        p = ParserCreate(**kwargs)
         p.StartElementHandler = start_element
         p.Parse(contents)
-        return {"raw": contents, "ids": id_dict}
+        return d
 
     @classmethod
-    def encode(cls, d:dict) -> str:
+    def encode(cls, d:dict, **kwargs) -> str:
         """ We originally saved the string contents under 'raw', so just return that. """
         return d["raw"]
+
+
+class SVG(XML, formats=[".svg"]):
+    """ Codec to parse an SVG XML string into an ID-oriented element dict. """
+
+    @classmethod
+    def decode(cls, contents:str, **kwargs) -> dict:
+        """ Return a dict of attributes for each element with a unique ID along with the raw XML string. """
+        return super().decode(contents, filter_by="id", **kwargs)
