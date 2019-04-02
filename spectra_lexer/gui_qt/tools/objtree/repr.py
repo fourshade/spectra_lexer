@@ -10,12 +10,12 @@ class NodeRepr(Repr):
         self.maxother = 50
         self.maxstring = 100
 
-    def repr_instance(self, x, level) -> str:
+    def repr_instance(self, obj, level) -> str:
         """ Simpler version of reprlib.repr for arbitrary objects that doesn't cut out in the middle. """
         try:
-            s = repr(x)
+            s = repr(obj)
         except Exception:
             s = None
         if s is None or len(s) > self.maxother:
-            return '<%s object at %#x>' % (x.__class__.__name__, id(x))
+            return '<%s object at %#x>' % (obj.__class__.__name__, id(obj))
         return s

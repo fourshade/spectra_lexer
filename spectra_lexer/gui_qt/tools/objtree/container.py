@@ -54,7 +54,7 @@ class Container:
 
 class MutableContainer(Container):
 
-    def set(self, key, value):
+    def set(self, key, value) -> None:
         """ A container only has this method if it is mutable. """
         raise NotImplementedError
 
@@ -81,10 +81,9 @@ class ItemContainer(Container, tp=Iterable):
 
 class MutableItemContainer(ItemContainer, MutableContainer, tp=MutableSequence):
 
-    def set(self, key, value):
+    def set(self, key, value) -> None:
         """ Set a container item by index/key. """
         self._obj[key] = value
-        return key
 
 
 class MappingContainer(ItemContainer, tp=Mapping):
@@ -107,13 +106,13 @@ class SetContainer(ItemContainer, tp=AbstractSet):
 
 class MutableSetContainer(SetContainer, MutableContainer, tp=MutableSet):
 
-    def set(self, key, value):
+    def set(self, key, value) -> None:
         """ The keys are hashes, so iterate through the items and replace the item with that hash. """
         for hs, item in self:
             if hs == key:
                 self._obj.remove(item)
                 self._obj.add(value)
-                return hash(value)
+                return
 
 
 class AttrContainer(MutableContainer, attr="__dict__"):
@@ -128,7 +127,6 @@ class AttrContainer(MutableContainer, attr="__dict__"):
             yield ("__class__", tp)
         yield from self._obj.__dict__.items()
 
-    def set(self, key, value):
+    def set(self, key, value) -> None:
         """ setattr will fail on attributes such as data descriptors, but so will modifying __dict__ directly. """
         setattr(self._obj, key, value)
-        return key

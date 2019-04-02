@@ -1,67 +1,96 @@
+from itertools import islice
+from typing import Callable
+
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QIcon, QStandardItem, QStandardItemModel
+from PyQt5.QtGui import QColor, QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout
 
+from .container import Container, MutableContainer
 from .icon import IconFinder
-from .node import Node
+from .repr import NodeRepr
 from spectra_lexer.gui_qt.tools.dialog import ToolDialog
 
+# Font color for data items in immutable containers.
+COLOR_UNEDITABLE = QColor(96, 64, 64)
+# Default maximum number of child nodes to generate.
+CHILD_LIMIT = 200
 
-class ObjectTreeItem(QStandardItem):
-    """ Basic tree item. Holds a string value and can reset to its original value if edited. """
 
-    def __init__(self, data:str, is_editable:bool, icon:QIcon=None):
-        args = (data,) if icon is None else (icon, data)
+class RowConstructor:
+    """ Uses several classes to construct an entire tree row for display. """
+
+    get_children: Callable   # Creates "containers" which handle the iterable contents or attributes of an object.
+    get_icon: Callable       # Contains icons for each supported object type.
+    get_value_str: Callable  # Custom repr function for displaying node values.
+
+    def __init__(self, icon_dict:dict):
+        self.get_children = Container.from_type
+        self.get_icon = IconFinder(icon_dict).get_icon
+        self.get_value_str = NodeRepr().repr
+
+    def create_row(self, obj:object, key:object="ROOT", parent:Container=None):
+        """ Create a new row containing info about an arbitrary Python object. It may have contents that expand. """
+        # The first item (column 0) is the primary tree item with the key. Only it has an icon.
+        children = self.get_children(obj)
+        key_item = KeyItem(children, self.get_icon(obj), str(key))
+        # The second item contains the type of object and/or item count (column 1).
+        type_item = TypeItem(" - ".join([type(obj).__name__, *filter(None, map(str, children))]))
+        # The third item contains the string value of the object (column 2).
+        value_item = ValueItem(self.get_value_str(obj), key, parent)
+        return [key_item, type_item, value_item]
+
+
+class KeyItem(QStandardItem):
+    """ Tree item for showing an object's name/key. May be expanded if the object has contents. """
+
+    def __init__(self, children:list, *args):
+        """ If there are children, add a dummy item to make the row expandable. """
         super().__init__(*args)
+        self.children = children
+        self.setEditable(False)
+        if any(children):
+            self.appendRow(QStandardItem("dummy"))
+
+    def expand(self, constructor:RowConstructor) -> None:
+        """ Remove any previous rows and expand this item, adding a row for each child. """
+        self.removeRows(0, self.rowCount())
+        for c in self.children:
+            for key, obj in islice(c, CHILD_LIMIT):
+                self.appendRow(constructor.create_row(obj, key, c))
+
+
+class TypeItem(QStandardItem):
+    """ Basic tree item for showing an object's type. """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setEditable(False)
+
+
+class ValueItem(QStandardItem):
+    """ Tree item for showing an object's value. The value may be edited if mutable. """
+
+    def __init__(self, s:str, key:object, container:MutableContainer):
+        super().__init__(s)
+        self.original_data = s
+        self.key = key
+        self.container = container
+        is_editable = isinstance(container, MutableContainer)
         self.setEditable(is_editable)
-        self.reset = lambda: self.setData(data, Qt.DisplayRole)
+        if not is_editable:
+            self.setForeground(COLOR_UNEDITABLE)
 
-
-class ObjectTreeModel(QStandardItemModel):
-    """ Basic tree item model. Contains the callbacks for both expansion and editing. """
-
-    icon_finder: IconFinder  # Returns an icon depending on an object's type.
-
-    def __init__(self, root:Node, icon_dict:dict):
-        """ Fill out the root level of the tree and set the value edit callback. """
-        super().__init__()
-        self.icon_finder = IconFinder(icon_dict)
-        item = self.invisibleRootItem()
-        item.expand = root.expand
-        self.expand(item)
-        self.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
-        self.itemChanged.connect(self.edit)
-
-    def expand(self, item:ObjectTreeItem) -> None:
-        """ Remove any previous rows and expand an item, adding a row for each child. """
-        if item.expand is not None:
-            item.removeRows(0, item.rowCount())
-            for node in item.expand():
-                self._add_row(item, node)
-
-    def _add_row(self, parent:ObjectTreeItem, node:Node) -> None:
-        """ The first item (column 0) is the primary node item. Only it has an icon.
-            If there are children, add a dummy item to make the row expandable. """
-        icon = self.icon_finder[node.icon_id]
-        primary_item = ObjectTreeItem(node.key_str, False, icon)
-        primary_item.expand = node.expand
-        if node.expand is not None:
-            primary_item.appendRow(QStandardItem("dummy"))
-        # Contains the type of object and/or item count (column 1).
-        type_item = ObjectTreeItem(node.type_str, False)
-        # Contains the string value of the object (column 2).
-        value_item = ObjectTreeItem(node.value_str, node.edit is not None)
-        value_item.edit = node.edit
-        parent.appendRow([primary_item, type_item, value_item])
-
-    def edit(self, item:ObjectTreeItem) -> None:
-        """ Change the value of a row's underlying object. """
-        if item.edit is None or item.edit(item.data(Qt.DisplayRole)) is None:
+    def edit(self, constructor:RowConstructor) -> None:
+        """ Attempt to change the value of a row's underlying object by editing its container. """
+        try:
+            # Since only strings can be entered, we must evaluate them as Python expressions.
+            # Any exception is possible; just abort if one occurs.
+            self.container.set(self.key, eval(self.data(Qt.DisplayRole)))
+            # We have no idea what properties changed. Re-expand the parent item to be safe.
+            self.parent().expand(constructor)
+        except Exception:
             # If the new value was not a valid Python expression or editing failed another way, reset it.
-            item.reset()
-        else:
-            # We have no idea what properties changed. Re-expand the parent to be safe.
-            self.expand(item.parent() or self.invisibleRootItem())
+            self.setData(self.original_data, Qt.DisplayRole)
 
 
 class ObjectTreeDialog(ToolDialog):
@@ -70,14 +99,23 @@ class ObjectTreeDialog(ToolDialog):
     TITLE = "Python Object Tree View"
     SIZE = (600, 450)
 
-    def make_layout(self, *args) -> None:
-        """ Create the tree widget and item model and connect the expansion signal. """
-        layout = QVBoxLayout(self)
+    def make_layout(self, root_dict:dict, icon_dict:dict) -> None:
+        """ Create the row constructor and item model and set the value edit callback. """
+        constructor = RowConstructor(icon_dict)
+        model = QStandardItemModel()
+        model.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
+        model.itemChanged.connect(lambda item: item.edit(constructor))
+        # Fill out the root level of the tree by changing the class on the existing root item.
+        r_item = model.invisibleRootItem()
+        r_item.__class__ = KeyItem
+        r_item.children = constructor.get_children(root_dict)
+        r_item.expand(constructor)
+        # Create the tree widget and connect the expansion signal.
         w_tree = QTreeView(self)
         w_tree.setFont(QFont("Segoe UI", 9))
-        model = ObjectTreeModel(*args)
         w_tree.setModel(model)
-        w_tree.expanded.connect(lambda idx: model.expand(model.itemFromIndex(idx)))
+        w_tree.expanded.connect(lambda idx: model.itemFromIndex(idx).expand(constructor))
         w_tree.header().setDefaultSectionSize(120)
         w_tree.header().resizeSection(0, 200)
+        layout = QVBoxLayout(self)
         layout.addWidget(w_tree)

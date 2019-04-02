@@ -1,6 +1,5 @@
 import sys
 
-from .node import Node
 from .objtree_dialog import ObjectTreeDialog
 from spectra_lexer import Component
 from spectra_lexer.file import SVG
@@ -14,11 +13,11 @@ class ObjectTreeTool(Component):
     window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
 
     dialog: ObjectTreeDialog = None  # Currently active tree dialog window.
-    root_vars: dict = {}             # Dict with root variables to load on startup.
+    root_vars: dict = {}             # Dict with variables to load to the root node on dialog open.
 
     @on("debug_vars")
     def set_debug(self, **dvars) -> None:
-        """ Initialize the root node's dict with a tree-based listing of all modules and the debug variables. """
+        """ Initialize the root vars dict with a tree-based listing of all modules and the debug variables. """
         self.root_vars = {"<modules>": _make_tree(sys.modules), **dvars}
 
     @on("tree_dialog_open")
@@ -27,7 +26,7 @@ class ObjectTreeTool(Component):
         if self.dialog is None:
             # Load the object type icons. On failure, don't use icons.
             icon_dict = SVG.load(self.file, ignore_missing=True)
-            self.dialog = ObjectTreeDialog(self.window, Node(self.root_vars), icon_dict)
+            self.dialog = ObjectTreeDialog(self.window, self.root_vars, icon_dict)
         self.dialog.show()
 
 
