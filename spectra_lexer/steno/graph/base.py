@@ -5,7 +5,7 @@ from typing import Optional
 from .formatter import HTMLFormatter
 from .generator import CascadedTextGenerator, CompressedTextGenerator
 from .locator import GridLocator
-from .node import GraphNode
+from .node import GraphNode, NodeOrganizer
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
 
@@ -26,7 +26,7 @@ class GraphRenderer(Component):
         # Send the rule string to the GUI as a title message.
         self.engine_call("new_title_text", str(rule))
         # Make a node tree layout out of the given rule.
-        root = GraphNode.for_display(rule, self.recursive)
+        root = NodeOrganizer(self.recursive).make_tree(rule)
         # Generate and render all text objects into standard strings and node grids indexed by position.
         generator_type = CompressedTextGenerator if self.compressed else CascadedTextGenerator
         lines, nodes = generator_type(root).render()

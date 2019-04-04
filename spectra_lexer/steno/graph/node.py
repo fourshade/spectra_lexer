@@ -22,8 +22,6 @@ class GraphNode:
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
 
-    RECURSION_LIMIT = 10     # Default limit on number of recursion steps to allow for rules that contain other rules.
-
     rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
     text: str                # Display text of the node (either letters or keys).
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
@@ -32,9 +30,9 @@ class GraphNode:
     bottom_length: int       # Length of the bottom attach point. Is the length of the text unless start is !=0.
     parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
     children: Sequence = ()  # Direct children of the node. If empty, it is considered a leaf node.
-    appearance: str = GraphNodeAppearance.LEAF  # Special appearance flag for formatting. Default is a base (leaf) node.
+    appearance: str          # Special appearance flag for formatting.
 
-    def __init__(self, rule:StenoRule, start:int, length:int, maxdepth:int=RECURSION_LIMIT):
+    def __init__(self, rule:StenoRule, start:int, length:int, parent, maxdepth:int):
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
             maxdepth is the maximum recursion depth to draw nodes out to.
             maxdepth = 0 only displays the root node.
@@ -43,22 +41,22 @@ class GraphNode:
         self.rule = rule
         self.attach_start = start
         self.attach_length = length
+        self.parent = parent
         if rule.rulemap and maxdepth:
             # Derived rules (i.e. non-leaf nodes) show their letters.
             self.text = letters = rule.letters
             self.bottom_length = len(letters)
-            nodes = [self.__class__(i.rule, i.start, i.length, maxdepth - 1) for i in rule.rulemap]
-            for n in nodes:
-                n.parent = self
-            self.children = nodes
+            self.children = [GraphNode(i.rule, i.start, i.length, self, maxdepth - 1) for i in rule.rulemap]
             self.appearance = GraphNodeAppearance.BRANCH
         else:
             # Base rules (i.e. leaf nodes) show their keys instead of their letters.
             self.text = keys = rule.keys
             key_length = len(keys)
-            # The bottom attach start is shifted one to the right if the keys start with a non-alphanumeric character.
-            bstart = self.bottom_start = (key_length > 1 and not keys[0].isalnum())
+            # The bottom attach start is shifted one to the right if the keys start with a hyphen.
+            # TODO: Make dependent on system split key?
+            bstart = self.bottom_start = (key_length > 1 and keys[0] == "-")
             self.bottom_length = key_length - bstart
+            self.appearance = GraphNodeAppearance.LEAF
         # If there are legal appearance flags on the rule, use the first one to override the tree-based appearance flag.
         if rule.flags:
             for f in (rule.flags & GraphNodeAppearance.values):
@@ -76,14 +74,21 @@ class GraphNode:
     def __str__(self):
         return f"{self.rule} → {self.children}"
 
-    @classmethod
-    def for_display(cls, rule:StenoRule, recursive:bool=False):
-        """ Special method to generate a full output tree starting with the given rule as root.
+
+class NodeOrganizer:
+
+    _maxdepth: int = 10  # Default limit on number of recursion steps to allow for rules that contain other rules.
+
+    def __init__(self, recursive:bool=True):
+        if not recursive:
+            self._maxdepth = 1
+
+    def make_tree(self, rule:StenoRule) -> GraphNode:
+        """ Method to generate a full output tree starting with the given rule as root.
             The root node has no parent; its "attach interval" is arbitrarily defined as starting
             at 0 and being the length of its letters, and its appearance flag overrides all others.
             The root node's text always shows letters no matter what. """
-        maxdepth = 1 if not recursive else cls.RECURSION_LIMIT
-        self = cls(rule, 0, len(rule.letters), maxdepth)
-        self.text = rule.letters
-        self.appearance = GraphNodeAppearance.ROOT
-        return self
+        root = GraphNode(rule, 0, len(rule.letters), None, self._maxdepth)
+        root.text = rule.letters
+        root.appearance = GraphNodeAppearance.ROOT
+        return root
