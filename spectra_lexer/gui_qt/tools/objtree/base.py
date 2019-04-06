@@ -1,5 +1,6 @@
 import sys
 
+from .collection import ContainerCollection
 from .objtree_dialog import ObjectTreeDialog
 from spectra_lexer import Component
 from spectra_lexer.file import SVG
@@ -26,7 +27,8 @@ class ObjectTreeTool(Component):
         if self.dialog is None:
             # Load the object type icons. On failure, don't use icons.
             icon_dict = SVG.load(self.file, ignore_missing=True)
-            self.dialog = ObjectTreeDialog(self.window, self.root_vars, icon_dict)
+            root = ContainerCollection(self.root_vars)
+            self.dialog = ObjectTreeDialog(self.window, root, icon_dict)
         self.dialog.show()
 
 

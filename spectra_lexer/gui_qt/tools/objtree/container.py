@@ -1,39 +1,8 @@
-from io import TextIOWrapper
-from typing import AbstractSet, Iterable, Mapping, MutableMapping, MutableSequence, MutableSet
-
-# Data types to treat as atomic (base types only). Do not look for children; display them as strings only.
-_ATOMIC_TYPES = {type(None), bool, int, float, str, classmethod, staticmethod, type(lambda: None), TextIOWrapper}
+from typing import AbstractSet, Iterable, Iterator, List, Mapping, MutableMapping, MutableSequence, MutableSet
 
 
 class Container:
     """ A container of child objects in some manner, such as iterable contents or attributes. """
-
-    # Data types/attributes and their corresponding containers.
-    _TYPE_TABLE = []
-    _ATTR_TABLE = []
-
-    class TypeTuple(tuple):
-        """ Tuple to sort classes by ancestry: child -> parent -> grandparent -> ... -> object. """
-        def __lt__(self, other):
-            return issubclass(self[0], other[0])
-
-    def __init_subclass__(cls, tp:type=None, attr:str=None):
-        """ Add each container under its type or attribute. Make sure subtypes are tested before base types. """
-        if tp is not None:
-            cls._TYPE_TABLE.append(cls.TypeTuple((tp, cls)))
-            cls._TYPE_TABLE.sort()
-        if attr is not None:
-            cls._ATTR_TABLE.append((attr, cls))
-
-    @classmethod
-    def from_type(cls, obj) -> list:
-        """ Determine the right container types based on an object's type and/or attributes and make a list of them. """
-        if type(obj) in _ATOMIC_TYPES:
-            return []
-        for t, c in cls._TYPE_TABLE:
-            if isinstance(obj, t):
-                return [c(obj)]
-        return [c(obj) for a, c in cls._ATTR_TABLE if hasattr(obj, a)]
 
     def __init__(self, obj):
         self._obj = obj
@@ -45,11 +14,13 @@ class Container:
     def __str__(self) -> str:
         return ""
 
-    def __iter__(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterator[tuple]:
         """ Whatever contents we have, they must be keyed in some way to return (k, v) tuples.
             Keep in mind that there could be thousands of items, or it could even be an infinite iterator.
             To be safe, return a lazy iterator so the program only evaluates items up to the child limit. """
         raise NotImplementedError
+
+    set = None
 
 
 class MutableContainer(Container):
@@ -59,7 +30,48 @@ class MutableContainer(Container):
         raise NotImplementedError
 
 
-class ItemContainer(Container, tp=Iterable):
+class for_type:
+    """ Decorator for classes that access items in a container of a specific data type. """
+
+    _TABLE = []  # Data types and their corresponding containers.
+
+    def __init__(self, tp:type):
+        self.tp = tp
+
+    def __lt__(self, other) -> bool:
+        """ Sort classes by ancestry: child -> parent -> grandparent -> ... -> object. """
+        return issubclass(self.tp, other.tp)
+
+    def __call__(self, cls:type) -> type:
+        """ Add each container under its type. Make sure subtypes are tested before base types. """
+        self._TABLE.append((self, cls))
+        self._TABLE.sort()
+        return cls
+
+    @classmethod
+    def get_children(cls, obj) -> List[Container]:
+        """ Return the first container in order that matches the object type, if any. """
+        return next(([c(obj)] for t, c in cls._TABLE if isinstance(obj, t.tp)), [])
+
+
+class for_attr(str):
+    """ Decorator for classes that access items in a container held on a specific attribute. """
+
+    _TABLE = []  # Data attributes and their corresponding containers.
+
+    def __call__(self, cls:type) -> type:
+        """ Add each container under its attribute. """
+        self._TABLE.append((self, cls))
+        return cls
+
+    @classmethod
+    def get_children(cls, obj) -> List[Container]:
+        """ Return each container in order that matches the object type, if any. """
+        return [c(obj) for a, c in cls._TABLE if hasattr(obj, a)]
+
+
+@for_type(Iterable)
+class ItemContainer(Container):
     """ An iterable item container. """
 
     def __len__(self) -> int:
@@ -74,37 +86,42 @@ class ItemContainer(Container, tp=Iterable):
         n = len(self)
         return f"{n} item" + "s" * (n != 1)
 
-    def __iter__(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterator[tuple]:
         """ For iterables such as sequences, automatically generate index numbers as the keys. """
         return enumerate(iter(self._obj))
 
 
-class MutableItemContainer(ItemContainer, MutableContainer, tp=MutableSequence):
+@for_type(MutableSequence)
+class MutableItemContainer(ItemContainer, MutableContainer):
 
     def set(self, key, value) -> None:
         """ Set a container item by index/key. """
         self._obj[key] = value
 
 
-class MappingContainer(ItemContainer, tp=Mapping):
+@for_type(Mapping)
+class MappingContainer(ItemContainer):
 
-    def __iter__(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterator[tuple]:
         """ A mapping is shown in purest form with keys and values. """
         return iter(self._obj.items())
 
 
-class MutableMappingContainer(MappingContainer, MutableItemContainer, tp=MutableMapping):
+@for_type(MutableMapping)
+class MutableMappingContainer(MappingContainer, MutableItemContainer):
     pass
 
 
-class SetContainer(ItemContainer, tp=AbstractSet):
+@for_type(AbstractSet)
+class SetContainer(ItemContainer):
 
-    def __iter__(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterator[tuple]:
         """ Sets behave mostly like sequences but are unordered. Use the hashes as indices to avoid confusion. """
         return zip(map(hash, self._obj), self._obj)
 
 
-class MutableSetContainer(SetContainer, MutableContainer, tp=MutableSet):
+@for_type(MutableSet)
+class MutableSetContainer(SetContainer, MutableContainer):
 
     def set(self, key, value) -> None:
         """ The keys are hashes, so iterate through the items and replace the item with that hash. """
@@ -115,12 +132,13 @@ class MutableSetContainer(SetContainer, MutableContainer, tp=MutableSet):
                 return
 
 
-class AttrContainer(MutableContainer, attr="__dict__"):
+@for_attr("__dict__")
+class AttrContainer(MutableContainer):
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._obj.__dict__)
 
-    def __iter__(self) -> Iterable[tuple]:
+    def __iter__(self) -> Iterator[tuple]:
         """ Include an entry for the class (unless the object *is* a class) along with the instance attributes. """
         tp = type(self._obj)
         if tp is not type and hasattr(tp, "__dict__"):
