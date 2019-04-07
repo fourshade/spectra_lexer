@@ -11,7 +11,6 @@ class RuleFlags:
     WORD = "WORD"      # Exact match for a single word. These rules do not adversely affect lexer performance.
     RARE = "RARE"      # Rule applies to very few words and could specifically cause false positives.
     INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to the parent.
-    SEPARATOR = "SEP"  # Single stroke separator. Has no direct text associated with it.
     UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
     GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
 

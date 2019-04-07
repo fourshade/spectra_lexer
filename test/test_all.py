@@ -116,6 +116,7 @@ def test_board(result):
 
 
 GRAPH = GraphRenderer()
+GRAPH.set_system(SYSTEM_OBJ)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
