@@ -4,8 +4,7 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
-from spectra_lexer.gui_qt.tools.dialog import ToolDialog
-from spectra_lexer.utils import delegate_to
+from .dialog import ToolDialog
 
 
 class HistoryTracker(list):
@@ -108,12 +107,10 @@ class ConsoleDialog(ToolDialog):
     TITLE = "Python Console"
     SIZE = (600, 400)
 
-    w_text: ConsoleTextWidget = None  # The only window content; a giant console text box.
-
-    def make_layout(self, input_cb:Callable) -> None:
-        """ Create and add the sole widget to a vertical layout. """
+    def make_layout(self) -> None:
+        """ Create and add the sole widget to a vertical layout, then tell the console it's ready. """
         layout = QVBoxLayout(self)
-        self.w_text = ConsoleTextWidget(self, input_cb)
-        layout.addWidget(self.w_text)
-
-    add_text = delegate_to("w_text")
+        w_text = ConsoleTextWidget(self, self.callback)
+        layout.addWidget(w_text)
+        self.receive = w_text.add_text
+        self.callback("")

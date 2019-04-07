@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QLayout, QSlider, QToolTip, QVBoxLayout
 
-from spectra_lexer.gui_qt.tools.dialog import FormDialog
+from .dialog import FormDialog
 
 _HEADING_TEXT = """
 <p>Please choose the size for the new index. The relative size factor is a number between 1 and 20:</p>

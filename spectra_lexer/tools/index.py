@@ -1,6 +1,4 @@
-from .index_dialog import IndexDialog
 from spectra_lexer import Component
-from spectra_lexer.gui_qt.tools.dialog import MessageDialog
 
 _ACCEPT_LABEL = "OK"
 _REJECT_LABEL = "Cancel"
@@ -12,27 +10,26 @@ _STARTUP_MESSAGE = "In order to cross-reference examples of specific steno rules
                    "the Tools menu, and can expand it from the default size as well if it is not sufficient)."
 
 
-class IndexDialogTool(Component):
+class IndexTool(Component):
     """ Controls user-based index creation. """
 
-    index_menu = Resource("menu", "Tools:Make Index...", ["index_dialog_open"])
-    window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
+    # Create and show index size choice dialog.
+    index_menu = Resource("menu", "Tools:Make Index...", ["new_dialog", "index", ["index_tool_size_send"]])
 
-    @on("index_dialog_open")
-    def size_dialog(self) -> None:
-        """ Create and show index size choice dialog. """
-        IndexDialog(self.window, self.size_submit).show()
-
+    @on("index_tool_size_send")
     def size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted, so create the custom index. """
         if index_size:
             self._send_index_commands(index_size)
 
-    @on("index_not_found")
-    def startup_dialog(self) -> None:
+    @on("index_not_found", pipe_to="new_dialog")
+    def startup_dialog(self) -> tuple:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index. """
-        choice = MessageDialog(self.window, "Make Index", _STARTUP_MESSAGE, _ACCEPT_LABEL, _REJECT_LABEL)
-        # Make the starting index on accept, otherwise save an empty one so the message doesn't appear again.
+        return "message_index", ["index_tool_start_send"], "Make Index", _STARTUP_MESSAGE, _ACCEPT_LABEL, _REJECT_LABEL
+
+    @on("index_tool_start_send")
+    def startup_result(self, choice:str) -> None:
+        """ Make the starting index on accept, otherwise save an empty one so the message doesn't appear again. """
         if choice == _ACCEPT_LABEL:
             self._send_index_commands()
         else:

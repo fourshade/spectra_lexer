@@ -6,7 +6,7 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 from .app import ThreadedApplication
-from spectra_lexer import core, gui_qt, steno
+from spectra_lexer import core, gui_qt, steno, tools
 
 
 class Connection(QObject):
@@ -31,7 +31,7 @@ class GUIQtApplication(ThreadedApplication):
 
     def __init__(self, main_classes=(), worker_classes=()):
         """ Run the GUI on the main thread, and the standard steno components on a worker thread. """
-        classes = [gui_qt, *main_classes], [core, steno, *worker_classes]
+        classes = [gui_qt, *main_classes], [core, steno, tools, *worker_classes]
         # To send commands to the GUI, the child engines send a Qt signal that activates call_main().
         super().__init__(*classes, parent_send=Connection(self.call_main).send)
 

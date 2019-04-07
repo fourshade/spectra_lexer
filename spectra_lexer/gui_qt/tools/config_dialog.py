@@ -3,7 +3,7 @@ from typing import Dict
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout
 
-from spectra_lexer.gui_qt.tools.dialog import FormDialog
+from .dialog import FormDialog
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
