@@ -1,3 +1,8 @@
+4.1.0
+-----
+* Improved SVG rendering code
+* Improved object tree dialog appearance and capabilities
+
 4.0.0
 -----
 * Added user-configurable file for other steno systems/languages

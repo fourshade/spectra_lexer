@@ -8,8 +8,8 @@ class XML(FileHandler, formats=[".xml"]):
 
     @classmethod
     def decode(cls, contents:str, filter_by:str="", **kwargs) -> dict:
-        """ Return a dict of attributes for a specifically filtered element along with the raw XML string. """
-        d = {"raw": contents}
+        """ Return a dict of attributes for a specifically filtered element along with the raw XML byte string. """
+        d = {"raw": contents.encode('utf-8')}
         if not filter_by:
             return d
         d[filter_by] = filter_dict = {}
@@ -24,8 +24,8 @@ class XML(FileHandler, formats=[".xml"]):
 
     @classmethod
     def encode(cls, d:dict, **kwargs) -> str:
-        """ We originally saved the string contents under 'raw', so just return that. """
-        return d["raw"]
+        """ We originally saved the string as bytes under 'raw', so just decode and return that. """
+        return d["raw"].decode('utf-8')
 
 
 class SVG(XML, formats=[".svg"]):

@@ -11,7 +11,7 @@ class ElementLayout(NamedTuple):
     width: int      # Total width of the diagram widget in pixels.
     height: int     # Total height of the diagram widget in pixels.
 
-    def make_draw_list(self, ids:List[List[str]]) -> List[tuple]:
+    def make_draw_list(self, ids:List[List[str]]) -> Tuple[float, List[Tuple[float, float, list]]]:
         """ Compute the offset and scale for each element ID in each stroke on the board diagram.
             Complete strokes are tiled in a grid layout, scaled to the maximum area of the widget. """
         draw_list = []
@@ -22,15 +22,13 @@ class ElementLayout(NamedTuple):
         sx, sy, sw, sh = [c * scale for c in self.viewbox]
         ox = -sx + (self.width - (sw * cols)) / 2
         oy = -sy + (self.height - (sh * rows)) / 2
-        # Subdiagrams are tiled left-to-right, top-to-bottom. Find the top-left corner of each one.
+        # Subdiagrams are tiled left-to-right, top-to-bottom. Find the top-left corner of each one and add the stroke.
         for i, stroke in enumerate(ids):
             steps_y, steps_x = divmod(i, cols)
             offset_x = ox + sw * steps_x
             offset_y = oy + sh * steps_y
-            # Place each element within its scaled, offset-adjusted bounds.
-            for k in stroke:
-                draw_list.append((k, offset_x, offset_y, scale))
-        return draw_list
+            draw_list.append((offset_x, offset_y, stroke))
+        return scale, draw_list
 
 
 def _arrange(w_ratio:float, h_ratio:float, count:int) -> Tuple[int, int, float]:

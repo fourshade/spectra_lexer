@@ -77,9 +77,9 @@ class SystemManager(Component):
         return rules, self._rule_parser.invert(rules)
 
     def load_board(self) -> dict:
-        """ Load an SVG file and keep the raw SVG text data along with all element IDs.
+        """ Load an SVG file and keep the raw XML data along with all element IDs.
             The board is not necessary to run the lexer; return empty fields if it can't be loaded. """
-        return SVG.load(self.BOARD, ignore_missing=True) or {"raw": "", "id": {}}
+        return SVG.load(self.BOARD, ignore_missing=True) or {"raw": b"", "id": {}}
 
     @on("rules_save")
     def save_rules(self, rules:Iterable[StenoRule], filename:str="") -> None:

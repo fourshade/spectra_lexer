@@ -1,7 +1,7 @@
 """ Module controlling the general appearance of text graph patterns and character sets. """
 
 from .primitive import Primitive
-from spectra_lexer.utils import memoize_one_arg
+from spectra_lexer.utils import memoize
 
 
 class Symbols:
@@ -9,7 +9,7 @@ class Symbols:
 
     def __new__(cls, primitive:type, single:str, sides:str, middle:str):
         """ Return a memoized version of a symbol generator for a specific symbol set and primitive type.  """
-        @memoize_one_arg
+        @memoize
         def constructor(length:int) -> str:
             """ Return a variable-length pattern string with unique ends based on a set of construction symbols.
                 single - A single character used when (and only when) the pattern is length 1.

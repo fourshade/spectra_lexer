@@ -20,8 +20,8 @@ class GUIQtBoardDisplay(Component):
         self.w_link = QLabel(self.w_board)
         self.w_link.setVisible(False)
         self.w_link.linkActivated.connect(lambda s: self.engine_call("board_find_examples", unescape(s)))
-        # Send the SVG view box and the size of the board on resize.
-        self.w_board.resize_callback = self.on_resize
+        # Connect the signal to get the sizes of the SVG view box and board widget on resize.
+        self.w_board.onResize.connect(self.on_resize)
 
     @on("new_board_caption")
     def set_link(self, caption:str, link_ref:str= "") -> None:

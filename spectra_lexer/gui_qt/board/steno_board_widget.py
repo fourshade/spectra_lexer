@@ -1,37 +1,45 @@
-from typing import Callable, Iterable
+from typing import List, Tuple
 
-from PyQt5.QtGui import QPaintEvent
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QPainter, QTransform
+from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
-
-from spectra_lexer.gui_qt.svg import LayoutRenderer
 
 
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _gfx_board: LayoutRenderer                   # Main renderer of SVG steno board graphics.
-    resize_callback: Callable[..., None] = None  # Callback to send board size changes to the main component.
+    _renderer: QSvgRenderer       # Main renderer of SVG steno board graphics.
+    _draw_list: List[tuple] = []  # List of strokes, each with a transform and graphical element IDs with bounds.
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._gfx_board = LayoutRenderer()
+        self._renderer = QSvgRenderer()
 
-    def set_xml(self, xml_text:str, ids:Iterable[str]) -> None:
+    def set_xml(self, *args) -> None:
         """ Load the board graphics and send a resize event to update the main component. """
-        self._gfx_board.load_str(xml_text)
-        self._gfx_board.load_ids(ids)
+        self._renderer.load(*args)
         self.resizeEvent()
 
-    def set_layout(self, element_info:Iterable[tuple]) -> None:
-        """ Update the draw list with the new elements and immediately repaint the board. """
-        self._gfx_board.set_elements(element_info)
+    def set_layout(self, scale:float, element_info:List[Tuple[float, float, list]]) -> None:
+        """ Load the draw list with new elements and bounds, including transforms for scaling and offsetting. """
+        self._draw_list = [(QTransform(scale, 0, 0, scale, ox, oy),
+                            [(e_id, self._renderer.boundsOnElement(e_id)) for e_id in stroke])
+                           for (ox, oy, stroke) in element_info]
+        # Immediately repaint the board.
         self.update()
 
-    def paintEvent(self, event:QPaintEvent) -> None:
+    def paintEvent(self, *args) -> None:
         """ Display the current steno key set on the board diagram when GUI repaint occurs. """
-        self._gfx_board.paint(self)
+        with QPainter(self) as p:
+            for trfm, stroke in self._draw_list:
+                p.setTransform(trfm)
+                for e_id, bounds in stroke:
+                    self._renderer.render(p, e_id, bounds)
 
     def resizeEvent(self, *args) -> None:
         """ Send new properties of the board widget on any size change. """
-        if self.resize_callback is not None:
-            self.resize_callback(self._gfx_board.viewbox_tuple(), self.width(), self.height())
+        self.onResize.emit(self._renderer.viewBox().getRect(), self.width(), self.height())
+
+    # Signals
+    onResize = pyqtSignal([tuple, int, int])

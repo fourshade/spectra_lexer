@@ -5,6 +5,7 @@ Most are ruthlessly optimized, with attribute lookups and globals cached in defa
 
 import ast
 import functools
+import inspect
 import operator
 
 
@@ -69,13 +70,27 @@ def with_sets(cls:type) -> type:
     return cls
 
 
-def memoize_one_arg(fn):
-    """ Decorator for the fastest possible method of memoizing a function with one hashable argument. """
-    class MemoDict(dict):
-        def __missing__(self, key:str, _fn=fn):
-            ret = self[key] = _fn(key)
-            return ret
-    return MemoDict().__getitem__
+def memoize(fn, arg_count=None, _pos_kind=(inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)):
+    """ Memoize a function using the best method possible for unlimited size.
+        The number of positional args may be explicitly passed, or determined from the signature. """
+    if arg_count is None:
+        for f_obj in (fn, fn.__call__):
+            try:
+                params = inspect.signature(f_obj).parameters
+            except (TypeError, ValueError):
+                continue
+            if all(p.kind in _pos_kind for p in params.values()):
+                arg_count = len(params)
+                break
+    if arg_count == 1:
+        class MemoDict(dict):
+            """ The fastest possible method of memoizing a function with one hashable positional argument. """
+            def __missing__(self, key:str, _fn=fn):
+                ret = self[key] = _fn(key)
+                return ret
+        return MemoDict().__getitem__
+    # lru_cache is a good fallback for any case not handled above.
+    return functools.lru_cache(maxsize=None)(fn)
 
 
 def save_kwargs(fn):

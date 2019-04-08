@@ -1,8 +1,8 @@
-from functools import lru_cache
 from typing import List, Tuple
 
 from . import TextFormatter
 from spectra_lexer.steno.graph.node import GraphNode, GraphNodeAppearance
+from spectra_lexer.utils import memoize
 
 # RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
 _ROOT_COLOR = (255, 64, 64)
@@ -30,7 +30,7 @@ def _rgb_color(level:int, row:int) -> Tuple[int, int, int]:
     return r, g, b
 
 
-@lru_cache(maxsize=None)
+@memoize
 def _color_format(level:int, row:int) -> str:
     """ Return an HTML color format string for a specific position. """
     r, g, b = _rgb_color(level, row)

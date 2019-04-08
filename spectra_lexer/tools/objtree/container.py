@@ -20,10 +20,18 @@ class Container:
             To be safe, return a lazy iterator so the program only evaluates items up to the child limit. """
         raise NotImplementedError
 
+    def color(self) -> tuple:
+        """ Immutable containers have a light color. """
+        return 96, 64, 64
+
     set = None
 
 
 class MutableContainer(Container):
+
+    def color(self) -> tuple:
+        """ Mutable containers are the default color of black. """
+        return 0, 0, 0
 
     def set(self, key, value) -> None:
         """ A container only has this method if it is mutable. """
