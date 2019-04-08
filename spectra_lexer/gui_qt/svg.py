@@ -1,7 +1,8 @@
-from typing import Dict, Iterable, List
+from functools import lru_cache
+from typing import Callable, Dict, Iterable, List
 
-from PyQt5.QtCore import QXmlStreamReader, QRectF
-from PyQt5.QtGui import QColor, QIcon, QImage, QPainter, QPixmap, QPaintDevice
+from PyQt5.QtCore import QRectF, QXmlStreamReader
+from PyQt5.QtGui import QColor, QIcon, QImage, QPainter, QPaintDevice, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 
 
@@ -18,22 +19,28 @@ class _SvgRenderer(QSvgRenderer):
 
 
 class IconRenderer(_SvgRenderer):
-    """ SVG renderer that renders static icons on transparent bitmap images when called. """
+    """ SVG renderer that renders static icons on transparent bitmap images and returns these when called. """
 
     _RENDER_HINTS = QPainter.Antialiasing | QPainter.SmoothPixmapTransform  # Icons are small; render in best quality.
 
-    _blank: QImage  # Transparent template image.
+    _blank: QImage      # Transparent template image.
+    _ifinder: Callable  # Finds a valid icon element ID corresponding to an object.
 
-    def __init__(self, xml_string:str):
+    def __init__(self, xml_string:str, ifinder:Callable):
         """ Load an SVG XML string and create a blank template image with the viewbox dimensions. """
         super().__init__()
         self.load_str(xml_string)
-        x, y, w, h = self.viewbox_tuple()
-        self._blank = QImage(w, h, QImage.Format_ARGB32)
+        self._blank = QImage(*self.viewbox_tuple()[2:], QImage.Format_ARGB32)
         self._blank.fill(QColor.fromRgb(255, 255, 255, 0))
+        self._ifinder = ifinder
 
-    def __call__(self, k:str) -> QIcon:
-        """ Make a copy of the template, draw the SVG element on it, and convert it to an icon. """
+    def __call__(self, obj:object) -> QIcon:
+        """ Return a cached copy of the required icon, or if it doesn't exist yet, draw it. """
+        return self._get_icon(self._ifinder(obj))
+
+    @lru_cache(maxsize=None)
+    def _get_icon(self, k:str) -> QIcon:
+        """ Make a copy of the template, draw the SVG element on it, convert it to an icon, and cache it. """
         im = QImage(self._blank)
         p = QPainter(im)
         p.setRenderHints(self._RENDER_HINTS)

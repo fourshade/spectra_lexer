@@ -1,6 +1,5 @@
-from functools import partial
 from itertools import islice
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List
 
 from PyQt5.QtCore import Qt, QModelIndex
 from PyQt5.QtGui import QColor, QFont, QStandardItem, QStandardItemModel
@@ -15,51 +14,30 @@ CHILD_LIMIT = 200
 COLOR_UNEDITABLE = QColor(96, 64, 64)
 
 
-class _Item(QStandardItem):
+class RowItem(QStandardItem):
     """ Basic tree item. """
 
-    def __init__(self, edit_cb:Callable, *args):
+    _children: Iterable[tuple]  # Iterable container that creates children on expansion.
+    _original_data: str = ""  # Original value string set on first expansion.
+    _edit_cb: Callable = None   # Callable to set a value on a container, or None if immutable.
+
+    def __init__(self, *args, color=None, children=(), edit_cb=None):
         super().__init__(*args)
-        self.setEditable(False)
-        if edit_cb is None:
-            self.setForeground(COLOR_UNEDITABLE)
-
-
-class KeyItem(_Item):
-    """ Tree item for showing an object's name/key. May be expanded if the object has contents. """
-
-    children: Iterable[tuple]  # Iterable container that creates children on expansion.
-
-    def __init__(self, ifinder:Callable, key, obj, children, edit_cb):
-        """ Column 0: the primary tree item with the key. Only it has an icon. """
-        super().__init__(edit_cb, ifinder(obj), str(key))
-        self.children = children
+        if color is not None:
+            self.setForeground(color)
         # If there are children, add a dummy item to make the row expandable.
+        self._children = children
         if children:
             self.appendRow(QStandardItem("dummy"))
-
-
-class TypeItem(_Item):
-    """ Basic tree item for showing an object's type. """
-
-    def __init__(self, tfinder:Callable, key, obj, children, edit_cb):
-        """ Column 1: contains the type of object and/or item count. Has a tooltip detailing the MRO. """
-        super().__init__(edit_cb, str(children))
-        self.setToolTip(tfinder(obj))
-
-
-class ValueItem(_Item):
-    """ Tree item for showing an object's value. The value may be edited if mutable. """
-
-    _original_data: str   # Original value string set on first expansion.
-    _edit_cb: Callable    # Callable to set a value on a container, or None if immutable.
-
-    def __init__(self, vfinder:Callable, key, obj, children, edit_cb):
-        """ Column 2: contains the string value of the object. Must be resettable to original value on creation. """
-        s = self._original_data = vfinder(obj)
-        super().__init__(edit_cb, s)
+        # If the item is editable, there will be a callback. Save the original data.
         self._edit_cb = edit_cb
-        self.setEditable(bool(edit_cb))
+        if edit_cb is None:
+            self.setEditable(False)
+        else:
+            self._original_data = self.data(Qt.DisplayRole)
+
+    def get_children(self) -> Iterable[tuple]:
+        return self._children
 
     def write_value(self) -> bool:
         """ Attempt to change the underlying object to the current value by editing its container. """
@@ -74,45 +52,64 @@ class ValueItem(_Item):
             return False
 
 
+def create_row(key:object, obj:object, children:Iterable[tuple], edit_cb:Callable,
+               irenderer:Callable, tfinder:Callable, vfinder:Callable) -> List[RowItem]:
+    color = COLOR_UNEDITABLE if edit_cb is None else None
+    # Column 0: the primary tree item with the key. Only it has an icon.
+    primary = RowItem(irenderer(obj), str(key), color=color, children=children)
+    # Column 1: contains the type of object and/or item count. Has a tooltip detailing the MRO.
+    t_item = RowItem(str(children), color=color)
+    t_item.setToolTip(tfinder(obj))
+    # Column 2: contains the string value of the object. The value may be edited if mutable.
+    v_item = RowItem(vfinder(obj), color=color, edit_cb=edit_cb)
+    return [primary, t_item, v_item]
+
+
+class ObjectTreeModel(QStandardItemModel):
+
+    _item_parsers: Iterable[Callable]  # Contains icons for each supported object type and a custom repr function.
+
+    def __init__(self, root:Iterable[tuple], *item_parsers:Callable):
+        """ Fill out the root level of the tree and set the value edit callback. """
+        super().__init__()
+        self._item_parsers = item_parsers
+        self.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
+        self.itemChanged.connect(self.write)
+        self._expand(self.invisibleRootItem(), root)
+
+    def expand(self, idx:QModelIndex) -> None:
+        """ Expand the row found at this index to show its children. """
+        self._expand_row(self.itemFromIndex(idx))
+
+    def write(self, item:RowItem) -> None:
+        """ Attempt to change an object's value. Re-expand the parent row if successful. """
+        if item.write_value():
+            # parent() returns None for direct children of the root item. This must be explicitly overridden.
+            self._expand_row(item.parent() or self.invisibleRootItem())
+
+    def _expand_row(self, item:RowItem) -> None:
+        self._expand(item, item.get_children())
+
+    def _expand(self, item:QStandardItem, children:Iterable[tuple]) -> None:
+        """ Replace all child rows on the item containing info about arbitrary Python objects. """
+        item.removeRows(0, item.rowCount())
+        for args in islice(children, CHILD_LIMIT):
+            item.appendRow(create_row(*args, *self._item_parsers))
+
+
 class ObjectTreeView(QTreeView):
 
-    _item_constructors: list  # Contains icons for each supported object type and a custom repr function.
-
-    def __init__(self, parent, *, root:Iterable[tuple], ifinder:Callable, tfinder:Callable, vfinder:Callable):
-        """ Create the constructors and item model and set the value edit callback. """
+    def __init__(self, parent:ToolDialog, *, root:Iterable[tuple], xml_string:str,
+                 ifinder:Callable, tfinder:Callable, vfinder:Callable):
+        """ Create the constructors and item model. """
         super().__init__(parent)
-        self._item_constructors = [partial(KeyItem, ifinder(IconRenderer)),
-                                   partial(TypeItem, tfinder),
-                                   partial(ValueItem, vfinder)]
         self.setFont(QFont("Segoe UI", 9))
-        model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["Name", "Type/Item Count", "Value"])
-        model.itemChanged.connect(self.write)
-        # Fill out the root level of the tree by populating the existing root item.
-        r_item = model.invisibleRootItem()
-        r_item.children = root
-        self._expand(r_item)
+        model = ObjectTreeModel(root, IconRenderer(xml_string, ifinder), tfinder, vfinder)
         self.setModel(model)
         # Format the header and connect the expansion signal.
         self.header().setDefaultSectionSize(120)
         self.header().resizeSection(0, 200)
-        self.expanded.connect(self.expand)
-
-    def expand(self, idx:QModelIndex) -> None:
-        """ Expand the item found at this index to show its children. """
-        self._expand(self.model().itemFromIndex(idx))
-
-    def write(self, item:ValueItem) -> None:
-        """ Attempt to change an object's value. Re-expand the parent item if successful. """
-        if item.write_value():
-            # parent() returns None for direct children of the root item. This must be explicitly overridden.
-            self._expand(item.parent() or self.model().invisibleRootItem())
-
-    def _expand(self, item:KeyItem) -> None:
-        """ Replace all child rows on the item containing info about arbitrary Python objects. """
-        item.removeRows(0, item.rowCount())
-        for args in islice(item.children, CHILD_LIMIT):
-            item.appendRow([c(*args) for c in self._item_constructors])
+        self.expanded.connect(model.expand)
 
 
 class ObjectTreeDialog(ToolDialog):

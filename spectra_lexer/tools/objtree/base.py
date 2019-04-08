@@ -27,9 +27,8 @@ class ObjectTreeTool(Component):
         if self.resources is None:
             # Load the SVG icons and other resources. On failure, don't use icons.
             xml_dict = SVG.load(self.file, ignore_missing=True)
-            ifinder = _svg_adapter(xml_dict["raw"], xml_dict["id"])
-            self.resources = {"root": ContainerCollection(self.root_vars),
-                              "ifinder": ifinder, "tfinder": MroTree(), "vfinder": NodeRepr().repr}
+            self.resources = {"root": ContainerCollection(self.root_vars), "xml_string": xml_dict["raw"],
+                              "ifinder": IconFinder(xml_dict["id"]), "tfinder": MroTree(), "vfinder": NodeRepr().repr}
         return "objtree", [""], self.resources
 
 
@@ -47,15 +46,3 @@ def _make_tree(src:dict, delim:str=".", root_name:str="__init__") -> dict:
             d = nd
         d[last] = src[k]
     return dest
-
-
-def _svg_adapter(xml_string:str, ids:list) -> Callable:
-    """ Keeps a set of SVG data and creates an icon finder dict when a GUI renderer becomes available. """
-    def create_ifinder(renderer_type:type) -> IconFinder:
-        """ Load an icon finder with all icon graphics by ID from an SVG renderer. """
-        renderer = renderer_type(xml_string)
-        # Each element ID without a starting underline is a valid icon.
-        pairs = [(k, renderer(k)) for k in ids if not k.startswith("_")]
-        # The types each icon corresponds to are separated by + characters.
-        return IconFinder({tp_name: icon for k, icon in pairs for tp_name in k.split("+")})
-    return create_ifinder

@@ -5,35 +5,34 @@ class TypeDict(dict):
     """ Holds a cache of display information related to object types. Only computes new information when required. """
 
     def __call__(self, obj:object):
-        tp = type(obj)
-        if tp not in self:
-            self.compute(tp)
-        return self[tp]
-
-    def compute(self, tp:type) -> None:
-        """ Subclasses must compute the required information and save it under the type's key. """
-        raise NotImplementedError
+        return self[type(obj)]
 
 
 class IconFinder(TypeDict):
-    """ Returns the closest available icon to the object's type. """
+    """ Returns the closest available icon ID to the object's type. """
 
-    def compute(self, tp:type) -> None:
-        """ Search for icons matching each type in the MRO by both reference and name.
+    def __init__(self, ids:list):
+        """ Each element ID without a starting underline is a valid icon.
+            The types each icon corresponds to are separated by + characters. """
+        super().__init__({tp_name: k for k in ids if not k.startswith("_") for tp_name in k.split("+")})
+
+    def __missing__(self, tp:type) -> str:
+        """ Search for icon IDs matching each type in the MRO by both reference and name.
             Once a match is found (`object` must always match), save it under each type traversed. """
         for i, cls in enumerate(tp.__mro__):
-            icon = self.get(cls) or self.get(cls.__name__)
-            if icon is not None:
-                self.update(dict.fromkeys(tp.__mro__[:i+1], icon))
-                return
+            icon_id = self.get(cls) or self.get(cls.__name__)
+            if icon_id is not None:
+                self.update(dict.fromkeys(tp.__mro__[:i+1], icon_id))
+                return icon_id
 
 
 class MroTree(TypeDict):
     """ Displays the MRO tree for object types. """
 
-    def compute(self, tp:type) -> None:
+    def __missing__(self, tp:type) -> str:
         """ Compute and cache a string representation of a type's MRO. """
-        self[tp] = "\n".join([("--" * i) + cls.__name__ for i, cls in enumerate(tp.__mro__[::-1])])
+        s = self[tp] = "\n".join([("--" * i) + cls.__name__ for i, cls in enumerate(tp.__mro__[::-1])])
+        return s
 
 
 class NodeRepr(Repr):

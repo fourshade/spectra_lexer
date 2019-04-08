@@ -23,6 +23,9 @@ class ContainerCollection(Iterable):
     def __bool__(self) -> bool:
         return any(self._seq)
 
+    def __len__(self) -> int:
+        return sum(map(len, self._seq))
+
     def __str__(self) -> str:
         return " - ".join([self._tp.__name__, *filter(None, map(str, self._seq))])
 

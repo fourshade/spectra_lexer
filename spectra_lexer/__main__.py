@@ -2,7 +2,7 @@
 
 import sys
 
-from .main import BatchApplication, GUIQtApplication, PloverPluginApplication
+from spectra_lexer.main import BatchApplication, GUIQtApplication, PloverPluginApplication
 
 
 class EntryPoint:
