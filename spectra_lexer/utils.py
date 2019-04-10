@@ -1,13 +1,13 @@
-"""
-Module for generic utility functions that could be useful in many applications.
-Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments.
-"""
+""" Module for generic utility functions that could be useful in many applications.
+    Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments. """
 
 import ast
 import functools
 import inspect
 import operator
 
+
+# ---------------------------PURE UTILITY FUNCTIONS---------------------------
 
 def nop(*args, **kwargs) -> None:
     """ ... """
@@ -64,44 +64,6 @@ def merge(d_iter) -> dict:
     return merged
 
 
-def with_sets(cls:type) -> type:
-    """ Decorator for a constants class to add sets of all legal keys and values for membership testing. """
-    cls.keys, cls.values = map(set, zip(*vars(cls).items()))
-    return cls
-
-
-def memoize(fn, arg_count=None, _pos_kind=(inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)):
-    """ Memoize a function using the best method possible for unlimited size.
-        The number of positional args may be explicitly passed, or determined from the signature. """
-    if arg_count is None:
-        for f_obj in (fn, fn.__call__):
-            try:
-                params = inspect.signature(f_obj).parameters
-            except (TypeError, ValueError):
-                continue
-            if all(p.kind in _pos_kind for p in params.values()):
-                arg_count = len(params)
-                break
-    if arg_count == 1:
-        class MemoDict(dict):
-            """ The fastest possible method of memoizing a function with one hashable positional argument. """
-            def __missing__(self, key:str, _fn=fn):
-                ret = self[key] = _fn(key)
-                return ret
-        return MemoDict().__getitem__
-    # lru_cache is a good fallback for any case not handled above.
-    return functools.lru_cache(maxsize=None)(fn)
-
-
-def save_kwargs(fn):
-    """ Decorator to save and re-use keyword arguments from previous calls to a function. """
-    @functools.wraps(fn)
-    def call(*args, _fn=fn, _saved_kwargs={}, **kwargs):
-        _saved_kwargs.update(kwargs)
-        return _fn(*args, **_saved_kwargs)
-    return call
-
-
 def ensure_list(obj:object) -> list:
     # Ensure the output object is a list by wrapping the object in a list if it isn't one already.
     return obj if isinstance(obj, list) else [obj]
@@ -144,6 +106,47 @@ def str_eval(val:str, _eval=ast.literal_eval) -> object:
         return val
 
 
+# ------------------------DECORATORS/NESTED FUNCTIONS-------------------------
+
+def save_kwargs(fn):
+    """ Decorator to save and re-use keyword arguments from previous calls to a function. """
+    @functools.wraps(fn)
+    def call(*args, _fn=fn, _saved_kwargs={}, **kwargs):
+        _saved_kwargs.update(kwargs)
+        return _fn(*args, **_saved_kwargs)
+    return call
+
+
+def with_sets(cls:type) -> type:
+    """ Decorator for a constants class to add sets of all legal keys and values for membership testing. """
+    cls.keys, cls.values = map(set, zip(*vars(cls).items()))
+    return cls
+
+
+def memoize(fn, arg_count=None, _pos_kind=(inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)):
+    """ Memoize a function using the best method possible for unlimited size.
+        The number of positional args may be explicitly passed, or determined from the signature. """
+    if arg_count is None:
+        for f_obj in (fn, fn.__call__):
+            try:
+                params = inspect.signature(f_obj).parameters
+            except (TypeError, ValueError):
+                continue
+            if all(p.kind in _pos_kind for p in params.values()):
+                arg_count = len(params)
+                break
+    if arg_count == 1:
+        class MemoDict(dict):
+            """ The fastest possible method of memoizing a function with one hashable positional argument. """
+            def __missing__(self, key:str, _fn=fn):
+                ret = self[key] = _fn(key)
+                return ret
+        return MemoDict().__getitem__
+    # lru_cache is a good fallback for any case not handled above.
+    return functools.lru_cache(maxsize=None)(fn)
+
+
+# --------------------------GENERAL PURPOSE CLASSES---------------------------
 # These classes are used to modify the behavior of attributes and methods on other classes.
 # They are used like functions, so their names are all lowercase.
 
@@ -172,11 +175,3 @@ class delegate_to:
                     return _func(*p_args, *args, **p_kwargs, **kwargs)
                 return p_call
         self.getter = getter
-
-
-class nondata_property:
-    """ Non-data descriptor version of a property. Instances can override this in their dictionary. """
-    def __init__(self, fn):
-        self.fn = fn
-    def __get__(self, instance:object, owner:type):
-        return self.fn(instance)

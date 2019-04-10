@@ -68,6 +68,8 @@
   "for-":    ["TPAUR",  "(f.)(o~)(.r)",    [], "standalone prefix stroke"],
   "over-":   ["AUFR",   "(o~)(.v)e(.r)",   [], "standalone prefix stroke"],
   "under-":  ["UPBD",   "(u)(.n)(.d)er",   [], "standalone prefix stroke"],
+  "ex-":     ["EBGS",   "(e)(.x)",         [], "standalone prefix stroke"],
+  "extra-":  ["ERBGS",  "(e)(.xtr)a",      [], "standalone prefix stroke"],
 
   "~ou":     ["OU",     "ou",        ["SPEC"], "alternative vowel combo for `ou` when used in suffix"],
   "-ous":    ["OUS",    "(~ou)(.s)",       [], "standalone suffix stroke"],

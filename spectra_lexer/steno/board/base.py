@@ -1,6 +1,6 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
-from typing import List, Tuple
+from typing import List
 
 from .caption import CaptionGenerator
 from .layout import ElementLayout
@@ -20,35 +20,38 @@ class BoardRenderer(Component):
                           "Show hyperlinks to other examples of a selected rule. Requires an index.")
 
     _captioner: CaptionGenerator     # Generates the caption text above the board diagram.
+    _layout: ElementLayout           # Calculates drawing bounds for each element.
     _matcher: ElementMatcher = None  # Generates the list of element IDs for each stroke of a rule.
-    _layout: ElementLayout = None    # Calculates drawing bounds for each element.
     _last_rule: StenoRule = None     # Last diagrammed rule, saved in case of resizing or example requests.
 
     def __init__(self):
-        """ Set up the captioner and matcher with empty dictionaries. """
+        """ Set up an empty captioner and layout. """
         super().__init__()
         self._captioner = CaptionGenerator()
+        self._layout = ElementLayout()
 
     set_index = on("set_dict_index")(delegate_to("_captioner"))
 
     @on("set_system", pipe_to="new_board_xml")
     def set_system(self, system:StenoSystem) -> bytes:
-        """ Create the matcher with the system and send the raw SVG XML data to the GUI. """
-        self._captioner.set_rules_reversed(system.rev_rules)
+        """ The first SVG element with an ID and a viewbox is the root element. Set the layout's viewbox from this. """
+        root = next(d for d in system.board["id"].values() if "viewBox" in d)
+        self._layout.set_view(tuple(map(int, root["viewBox"].split())))
+        # Create the matcher with the system and send the raw SVG XML data to the GUI.
         self._matcher = ElementMatcher(system)
+        self._captioner.set_rules_reversed(system.rev_rules)
         return system.board["raw"]
 
-    @on("board_set_view", pipe_to="new_board_layout")
-    def set_layout(self, view_box:tuple, width:int, height:int) -> Tuple[float, List[Tuple[float, float, list]]]:
-        """ Set the viewbox and the layout's max bounds if non-zero. Recompute the current layout and send it. """
-        if all(view_box[2:3]) and width and height:
-            self._layout = ElementLayout(view_box, width, height)
-            if self._last_rule is not None:
-                return self.get_info(self._last_rule)
+    @on("board_set_size", pipe_to="new_board_layout")
+    def set_size(self, width:int, height:int) -> List[tuple]:
+        """ Set the layout's maximum dimensions. Recompute the current layout and send it. """
+        self._layout.set_size(width, height)
+        if self._last_rule is not None:
+            return self.get_info(self._last_rule)
 
     @on("new_output", pipe_to="new_board_layout")
     @on("new_graph_selection", pipe_to="new_board_layout")
-    def get_info(self, rule:StenoRule) -> Tuple[float, List[Tuple[float, float, list]]]:
+    def get_info(self, rule:StenoRule) -> List[tuple]:
         """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
             The task is identical whether the rule is from a new output or a user graph selection. """
         self._last_rule = rule
@@ -56,7 +59,7 @@ class BoardRenderer(Component):
         link_ref = self._captioner.get_link_ref(rule) if self.show_links else ""
         self.engine_call("new_board_caption", caption, link_ref)
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
-        if self._layout is not None and self._matcher is not None:
+        if self._matcher is not None:
             ids = self._matcher.get_element_ids(rule, self.show_compound)
             return self._layout.make_draw_list(ids)
 

@@ -106,7 +106,7 @@ def test_index_search(trial):
 
 BOARD = BoardRenderer()
 BOARD.set_system(SYSTEM_OBJ)
-BOARD.set_layout((0, 0, 100, 100), 100, 100)
+BOARD.set_size(100, 100)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)

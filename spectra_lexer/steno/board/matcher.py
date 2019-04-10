@@ -47,6 +47,9 @@ class ElementMatcher:
             elements = []
             for item in rule.rulemap:
                 elements += self._elements_from_rule(item.rule)
+            # Rules using inversions may be drawn with arrows, but only if there are exactly two display elements.
+            if RuleFlags.INVERSION in rule.flags and len(elements) == 2:
+                elements.append("INVERSION")
             return elements
         # If the rule is for unmatched keys, display question marks instead of the key names.
         skeys = self._convert_to_skeys(rule.keys)
