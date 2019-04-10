@@ -15,6 +15,7 @@
         .rule_bg    {fill: #00AFFF;}
         .star_bg    {fill: #7F7FFF;}
         .rare_bg    {fill: #7FCFFF;}
+        .letter_bg  {fill: #FF7F7F;}
         .number_bg  {fill: #00BFBF;}
         <!-- Key shapes with text offset definitions -->
         .key_number {transform: matrix(0.8, 0, 0, 0.8, 135, -1.5);}
@@ -146,8 +147,9 @@
         <path id="_?" class="font" d="M242,-232C238,-256 239,-277 245,-296C251,-315 260,-332 272,-347C283,-362 296,-377 311,-390C326,-403 340,-417 353,-430C366,-443 376,-456 385,-470C394,-484 398,-500 398,-517C398,-545 389,-568 371,-587C352,-605 325,-614 288,-614C263,-614 239,-609 218,-599C196,-588 176,-574 158,-556l-49,-45C132,-624 158,-644 189,-659C220,-674 254,-682 293,-682C321,-682 346,-678 369,-671C392,-664 411,-653 428,-640C444,-626 457,-610 466,-591C475,-572 479,-550 479,-526C479,-503 475,-483 466,-466C457,-449 446,-433 433,-418C420,-403 406,-390 391,-377C376,-364 362,-350 350,-336C337,-321 328,-306 321,-289C314,-272 312,-253 315,-232M286,12C266,12 249,5 235,-9C220,-23 213,-42 213,-66C213,-89 220,-108 235,-122C249,-135 266,-142 286,-142C306,-142 323,-135 338,-122C352,-108 359,-89 359,-66C359,-42 352,-23 338,-9C323,5 306,12 286,12z"/>
         <g    id="_:" class="font"><circle cx="300" cy="-550" r="80"/><circle cx="300" cy="-150" r="80"/></g>
     </g>
-    <path id="_arrows" class="char" d="M-9,8h44zM31,4l4,4l-4,4zM-9,18h44zM-5,14l-4,4l4,4z"/>
     <!-- Special symbols -->
+    <path id="_uparrow" class="char" d="M13,3v19zM13,3l-5,5zM13,3l5,5z"/>
+    <path id="_lrarrows" class="char" d="M-9,8h44zM31,4l4,4l-4,4zM-9,18h44zM-5,14l-4,4l4,4z"/>
     <g id="_bar">
         <use x="-120" href="#_#"/>
         <use x="-60"  href="#_#"/>
@@ -267,9 +269,9 @@
 <!-- Normal rules. Only make labels for rules that are NOT strictly phonetic with respect to their keys. -->
 <g class="rule_bg">
     <!-- Single keys -->
-    <g id=":C."     class="pos_S"><use href="#key_tall"  /><g class="key_tall"  ><use href="#_c"/></g></g>
-    <g id=":c."     class="pos_K"><use href="#key_round" /><g class="key_round" ><use href="#_c"/></g></g>
-    <g id=":q."     class="pos_K"><use href="#key_round" /><g class="key_round" ><use href="#_q"/></g></g>
+    <!-- <g id=":C."     class="pos_S"><use href="#key_tall"  /><g class="key_tall"  ><use href="#_c"/></g></g> -->
+    <!-- <g id=":c."     class="pos_K"><use href="#key_round" /><g class="key_round" ><use href="#_c"/></g></g> -->
+    <!-- <g id=":q."     class="pos_K"><use href="#key_round" /><g class="key_round" ><use href="#_q"/></g></g> -->
     <g id=":com."   class="pos_K"><use href="#key_round" /><g class="key_round" ><g class="mini"><use class="txt31" href="#_c"/><use class="txt32" href="#_o"/><use class="txt33" href="#_m"/></g></g></g>
     <g id=":con."   class="pos_K"><use href="#key_round" /><g class="key_round" ><g class="mini"><use class="txt31" href="#_c"/><use class="txt32" href="#_o"/><use class="txt33" href="#_n"/></g></g></g>
     <g id=":.v"     class="pos_f"><use href="#key_square"/><g class="key_square"><use href="#_v"/></g></g>
@@ -278,7 +280,7 @@
     <g id=":.ly"    class="pos_l"><use href="#key_square"/><g class="key_square"><g class="tiny"><use class="txt21" href="#_l"/><use class="txt22" href="#_y"/></g></g></g>
     <g id=":.ing"   class="pos_g"><use href="#key_round" /><g class="key_round" ><g class="mini"><use class="txt31" href="#_i"/><use class="txt32" href="#_n"/><use class="txt33" href="#_g"/></g></g></g>
     <g id=":.ty"    class="pos_t"><use href="#key_square"/><g class="key_square"><g class="tiny"><use class="txt21" href="#_t"/><use class="txt22" href="#_y"/></g></g></g>
-    <g id=":.s+"    class="pos_z"><use href="#key_round" /><g class="key_round" ><use href="#_s"/></g></g>
+    <!-- <g id=":.s+"    class="pos_z"><use href="#key_round" /><g class="key_round" ><use href="#_s"/></g></g> -->
     <!-- Double-wide horizontal compound keys -->
     <g id=":f."     class="pos_T"><use href="#key_rect"  /><g class="key_rect"  ><use href="#_f"/></g></g>
     <g id=":m."     class="pos_P"><use href="#key_rect"  /><g class="key_rect"  ><use href="#_m"/></g></g>
@@ -329,7 +331,6 @@
     <g id=":C.+"    class="pos_K"><use href="#key_r_r"   /><g class="key_round" ><use href="#_c"/></g></g>
     <g id=":x."     class="pos_T"><use href="#key_diag"  /><g class="key_diag"  ><g class="small"><use href="#_x"/></g></g></g>
     <g id=":.xt"    class="pos_l"><use href="#key_diag"  /><g class="key_diag"  ><g class="mini"><use class="txt21" href="#_x"/><use class="txt22" href="#_t"/></g></g></g>
-
 </g>
 <!-- Rules using the asterisk -->
 <g class="star_bg">
@@ -344,8 +345,38 @@
     <g id=":z.+"    class="pos_S"><use href="#key_3x2"   /><g class="key_3x2"   ><use href="#_z"/></g></g>
     <g id=":.v."    class="pos_W"><use href="#key_round" /><g class="key_round" ><use href="#_v"/></g></g>
     <g id=":.m."    class="pos_f"><use href="#key_tall"  /><g class="key_tall"  ><use href="#_m"/></g></g>
-    <g id=":.gion"  class="pos_g"><use href="#key_wide"  /><g class="key_wide"  ><g class="small"><use class="txt31" href="#_G"/><use class="txt32" href="#_E"/><use class="txt33" href="#_N"/></g></g></g>
     <g id=":.nch+"  class="pos_f"><use href="#key_3x2"   /><g class="key_3x2"   ><use class="txt31" href="#_n"/><use class="txt32" href="#_c"/><use class="txt33" href="#_h"/></g></g>
+    <g id=":.gion"  class="pos_g"><use href="#key_wide"  /><g class="key_wide"  ><g class="small"><use class="txt31" href="#_G"/><use class="txt32" href="#_E"/><use class="txt33" href="#_N"/></g></g></g>
+</g>
+<!-- Fingerspelling rules -->
+<g class="letter_bg">
+    <g id=":a*"><use href="#*"/><g class="pos_A" ><use href="#key_round" /><g class="key_round" ><use href="#_a"/></g></g></g>
+    <g id=":b*"><use href="#*"/><g class="pos_P" ><use href="#key_tall"  /><g class="key_tall"  ><use href="#_b"/></g></g></g>
+    <g id=":c*"><use href="#*"/><g class="pos_K" ><use href="#key_r_r"   /><g class="key_round" ><use href="#_c"/></g></g></g>
+    <g id=":d*"><use href="#*"/><g class="pos_T" ><use href="#key_tall"  /><g class="key_tall"  ><use href="#_d"/></g></g></g>
+    <g id=":e*"><use href="#*"/><g class="pos_E" ><use href="#key_round" /><g class="key_round" ><use href="#_e"/></g></g></g>
+    <g id=":f*"><use href="#*"/><g class="pos_T" ><use href="#key_rect"  /><g class="key_rect"  ><use href="#_f"/></g></g></g>
+    <g id=":g*"><use href="#*"/><g class="pos_T" ><use href="#key_2x2"   /><g class="key_2x2"   ><use href="#_g"/></g></g></g>
+    <g id=":h*"><use href="#*"/><g class="pos_H" ><use href="#key_square"/><g class="key_square"><use href="#_h"/></g></g></g>
+    <g id=":i*"><use href="#*"/><g class="pos_E" ><use href="#key_wide"  /><g class="key_wide"  ><use href="#_i"/></g></g></g>
+    <g id=":j*"><use href="#*"/><g class="pos_S2"><use href="#key_4wide" /><g class="key_4wide" ><use href="#_j"/></g></g></g>
+    <g id=":k*"><use href="#*"/><g class="pos_K" ><use href="#key_round" /><g class="key_round" ><use href="#_k"/></g></g></g>
+    <g id=":l*"><use href="#*"/><g class="pos_H" ><use href="#key_tall"  /><g class="key_tall"  ><use href="#_l"/></g></g></g>
+    <g id=":m*"><use href="#*"/><g class="pos_P" ><use href="#key_rect"  /><g class="key_rect"  ><use href="#_m"/></g></g></g>
+    <g id=":n*"><use href="#*"/><g class="pos_T" ><use href="#key_3rect" /><g class="key_3rect" ><use href="#_n"/></g></g></g>
+    <g id=":o*"><use href="#*"/><g class="pos_O" ><use href="#key_round" /><g class="key_round" ><use href="#_o"/></g></g></g>
+    <g id=":p*"><use href="#*"/><g class="pos_P" ><use href="#key_square"/><g class="key_square"><use href="#_p"/></g></g></g>
+    <g id=":q*"><use href="#*"/><g class="pos_K" ><use href="#key_wide"  /><g class="key_wide"  ><use href="#_q"/></g></g></g>
+    <g id=":r*"><use href="#*"/><g class="pos_R" ><use href="#key_round" /><g class="key_round" ><use href="#_r"/></g></g></g>
+    <g id=":s*"><use href="#*"/><g class="pos_S" ><use href="#key_tall"  /><g class="key_tall"  ><use href="#_s"/></g></g></g>
+    <g id=":t*"><use href="#*"/><g class="pos_T" ><use href="#key_square"/><g class="key_square"><use href="#_t"/></g></g></g>
+    <g id=":u*"><use href="#*"/><g class="pos_U" ><use href="#key_round" /><g class="key_round" ><use href="#_u"/></g></g></g>
+    <g id=":v*"><use href="#*"/><g class="pos_S2"><use href="#key_r__r"  /><g class="key_round" ><use href="#_v"/></g></g></g>
+    <g id=":w*"><use href="#*"/><g class="pos_W" ><use href="#key_round" /><g class="key_round "><use href="#_w"/></g></g></g>
+    <g id=":x*"><use href="#*"/><g class="pos_T" ><use href="#key_diag"  /><g class="key_diag"  ><g class="small"><use href="#_x"/></g></g></g></g>
+    <g id=":y*"><use href="#*"/><g class="pos_K" ><use href="#key_3wide" /><g class="key_3wide" ><use href="#_y"/></g></g></g>
+    <g id=":z*"><use href="#*"/><g class="pos_S" ><use href="#key_2x2"   /><g class="key_2x2"   ><use href="#_z"/></g></g></g>
+    <g id=":-P:FS" class="pos_p"><use href="#key_square"/><g class="key_square"><use href="#_uparrow"/></g></g>
 </g>
 <!-- Number keys and specific number-based modifiers -->
 <g class="number_bg">
@@ -356,7 +387,7 @@
     <g id=":4"      class="pos_H"><use href="#key_square"/><g class="key_square"><use href="#_4"/></g></g>
     <g id=":5"      class="pos_A"><use href="#key_round" /><g class="key_round" ><use href="#_5"/></g></g>
     <g id=":0"      class="pos_O"><use href="#key_round" /><g class="key_round" ><use href="#_0"/></g></g>
-    <g id=":EU:NM"  class="pos_E"><use href="#key_wide"  /><g class="key_wide"  ><use href="#_arrows"/></g></g>
+    <g id=":EU:NM"  class="pos_E"><use href="#key_wide"  /><g class="key_wide"  ><use href="#_lrarrows"/></g></g>
     <g id=":6"      class="pos_f"><use href="#key_square"/><g class="key_square"><use href="#_6"/></g></g>
     <g id=":7"      class="pos_p"><use href="#key_square"/><g class="key_square"><use href="#_7"/></g></g>
     <g id="::00"    class="pos_b"><use href="#key_wide"  /><g class="key_wide"  ><use href="#_oclock"/></g></g>

@@ -80,6 +80,8 @@ flag        ::=  string
 ; "STRK" = only matches a full stroke (i.e. fingerspelling)
 ; "WORD" = only matches a full word (i.e. common briefs)
 ; "RARE" = rarely found in practice and/or may cause false positives, matches are less reliable
+; "OPT" = optional/redundant/strict combination of other rules. May be omitted with little consequence.
+; "INV" = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
 
 desc        ::=  string
 ; Contains an English description of the rule and its application.
