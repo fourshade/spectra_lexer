@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import partial
 
 
 class KeyLayout:
@@ -40,25 +41,16 @@ class KeyLayout:
         self._alias_table = {s: {ord(k): v for k, v in d.items()} for s, d in self.SHIFT_TABLE.items()}
         valid_chars = aliases.union(self.SEP, self.SPLIT, self.LEFT, self.CENTER, self.RIGHT)
         self._valid_table = defaultdict(type(None), {ord(k): k for k in valid_chars})
+        # Create optimized map functions to convert every stroke in a string between forms.
         # Transform an s-keys string back to RTFCRE.
-        self.to_rtfcre = self._stroke_map(self._stroke_s_keys_to_rtfcre)
+        self.to_rtfcre = partial(_stroke_map, self._stroke_s_keys_to_rtfcre, self.SEP)
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
-        self.from_rtfcre = self._stroke_map(self._stroke_rtfcre_to_s_keys)
+        self.from_rtfcre = partial(_stroke_map, self._stroke_rtfcre_to_s_keys, self.SEP)
 
     def cleanse_from_rtfcre(self, s:str) -> str:
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
             Remove all characters that are considered invalid in steno strings before parsing it as usual. """
         return self.from_rtfcre(s.translate(self._valid_table))
-
-    def _stroke_map(self, fn):
-        """ Create an optimized map function to apply an operation to every stroke in a string. """
-        def exec_stroke_map(s:str, _fn=fn, sep=self.SEP, _join=self.SEP.join, _split=str.split) -> str:
-            """ Split a set of keys, apply a string function to every stroke, and join them back together.
-                If there is only one stroke, skip the string carving and apply the function directly. """
-            if sep in s:
-                return _join(map(_fn, _split(s, sep)))
-            return _fn(s)
-        return exec_stroke_map
 
     def _stroke_s_keys_to_rtfcre(self, s:str) -> str:
         """ Find the first right-side key (if there is one).
@@ -98,3 +90,11 @@ class KeyLayout:
 def _lowercase_right_and_join(left:str, right:str) -> str:
     """ Rejoin string with right side lowercase. If there are no right side keys, just return the left. """
     return left + right.lower() if right else left
+
+
+def _stroke_map(fn, sep, s:str, _split=str.split) -> str:
+    """ Split a set of keys, apply a string function to every stroke, and join them back together.
+        If there is only one stroke, skip the string carving and apply the function directly. """
+    if sep in s:
+        return sep.join(map(fn, _split(s, sep)))
+    return fn(s)

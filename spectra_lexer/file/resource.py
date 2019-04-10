@@ -40,10 +40,10 @@ class Resource(str):
         """ Given a list of strings, make a list of resources from *this* class and return it. """
         return [cls(s) for s in str_list]
 
-    def read(self) -> str:
+    def read(self) -> bytes:
         raise TypeError("Reading of this resource type is not supported.")
 
-    def write(self, contents:str) -> None:
+    def write(self, contents:bytes) -> None:
         raise TypeError("Writing of this resource type is not supported.")
 
     def search(self) -> list:
@@ -53,19 +53,18 @@ class Resource(str):
 class File(Resource):
     """ A file identifier, created from an ordinary file path. """
 
-    def read(self) -> str:
-        """ Open and read an entire text file as a UTF-8 encoded string. """
+    def read(self) -> bytes:
+        """ Open and read an entire text file as a byte string. """
         with open(self, 'rb') as fp:
-            contents = fp.read().decode('utf-8')
-        return contents
+            return fp.read()
 
-    def write(self, contents:str) -> None:
-        """ Write the given string as the sole contents of a UTF-8 text file.
+    def write(self, contents:bytes) -> None:
+        """ Write the given byte string as the sole contents of a file.
             If the directory path doesn't exist, create it. """
         directory = os.path.dirname(self) or "."
         os.makedirs(directory, exist_ok=True)
         with open(self, 'wb') as fp:
-            fp.write(contents.encode('utf-8'))
+            fp.write(contents)
 
     def search(self) -> list:
         """ Return a list containing resources matching the identifier from the filesystem. """
@@ -75,9 +74,9 @@ class File(Resource):
 class Asset(Resource, prefix=":/"):
     """ A built-in asset identifier, created by using pkg_resources. """
 
-    def read(self) -> str:
-        """ Return a string with the UTF-8 text contents of a built-in asset. """
-        return resource_string(_PACKAGE_NAME, self).decode('utf-8')
+    def read(self) -> bytes:
+        """ Return a byte string representation of a built-in asset. """
+        return resource_string(_PACKAGE_NAME, self)
 
     def search(self) -> list:
         """ Return a list containing resources matching the identifier from a built-in asset directory. """
@@ -101,5 +100,5 @@ class UserFile(File, prefix="~"):
 class Null(Resource, prefix="NUL"):
     """ A dummy class that reads nothing and writes to a black hole. """
 
-    read = lambda self: ""
+    read = lambda self: b""
     write = lambda *args: None

@@ -1,4 +1,4 @@
-""" Module for encoding/decoding dictionaries and other data types from strings. """
+""" Module for encoding/decoding dictionaries from various file formats. """
 
 from typing import Iterable
 
@@ -6,13 +6,13 @@ from .resource import Resource
 
 
 class FileHandler:
-    """ Base component class for for file I/O operations to convert between strings and dicts. """
+    """ Base component class for for file I/O operations to convert between byte strings and dicts. """
 
-    _FORMATS: list = []  # Holds each supported file extension.
+    _FORMATS: tuple = ()  # Holds supported file extensions on each subclass.
 
     def __init_subclass__(cls, formats:Iterable[str]=()):
-        """ Add each new supported file extension to the list. """
-        cls._FORMATS = [*cls._FORMATS, *formats]
+        """ Supported file extensions include all of those on the base class plus any new ones. """
+        cls._FORMATS = (*cls._FORMATS, *formats)
 
     @classmethod
     def load(cls, filename:str, **kwargs) -> dict:
@@ -40,14 +40,16 @@ class FileHandler:
             raise
 
     @classmethod
-    def decode(cls, contents:str, **kwargs) -> dict:
-        raise TypeError("Decoding of this file type is not supported.")
+    def decode(cls, contents:bytes, **kwargs) -> dict:
+        """ By default, the bytes are not decoded at all, just wrapped in a dict. """
+        return {"raw": contents}
 
     @classmethod
-    def encode(cls, d:dict, **kwargs) -> str:
-        raise TypeError("Encoding of this file type is not supported.")
+    def encode(cls, d:dict, **kwargs) -> bytes:
+        """ We saved the original bytes in the dict under 'raw', so just return that. """
+        return d["raw"]
 
     @classmethod
-    def extensions(cls):
+    def extensions(cls) -> tuple:
         """ Return the extensions of all supported files, including the dot. """
         return cls._FORMATS

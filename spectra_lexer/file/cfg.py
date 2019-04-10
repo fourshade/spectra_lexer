@@ -9,10 +9,10 @@ class CFG(FileHandler, formats=[".cfg", ".ini"]):
     """ Codec to convert a nested Python dict to/from a config/INI formatted string. """
 
     @classmethod
-    def decode(cls, contents:str, **kwargs) -> dict:
+    def decode(cls, contents:bytes, **kwargs) -> dict:
         """ Decode CFG file contents into a nested dict. A two-level copy must be made to eliminate the proxies. """
         cfg = ConfigParser(**kwargs)
-        cfg.read_string(contents)
+        cfg.read_string(contents.decode('utf-8'))
         d = {}
         for sect, prox in cfg.items():
             page = d[sect] = dict(prox)
@@ -23,10 +23,10 @@ class CFG(FileHandler, formats=[".cfg", ".ini"]):
         return d
 
     @classmethod
-    def encode(cls, d:dict, **kwargs) -> str:
+    def encode(cls, d:dict, **kwargs) -> bytes:
         """ Encode a dict into a CFG file. Readability may or may not be preserved. """
         cfg = ConfigParser(**kwargs)
         cfg.read_dict(d)
         stream = StringIO()
         cfg.write(stream)
-        return stream.getvalue()
+        return stream.getvalue().encode('utf-8')
