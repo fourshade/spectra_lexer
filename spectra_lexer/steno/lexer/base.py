@@ -59,9 +59,11 @@ class StenoLexer(Component):
         if items is None:
             items = self._translations.items()
         # Only keep results with all keys matched to reduce garbage.
+        # Delete the attribute when finished to re-expose the class config setting.
         self.need_all_keys = True
         results = self.engine_call("parallel_starmap", self.query, filter(filter_in, items))
         results = list(filter(filter_out, results))
+        del self.need_all_keys
         if save:
             self.engine_call("rules_save", results)
         return results

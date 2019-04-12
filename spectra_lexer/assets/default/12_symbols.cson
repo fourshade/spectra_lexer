@@ -1,8 +1,8 @@
 # Rules that actively involve symbols. Still must include at least one alphanumeric character.
 
 {
-  "'":   ["AE",    "'",  [], "single quote `'`"],
-  "'s":  ["AES",   "'s", [], "possessive suffix `'s`"],
-  "s'":  ["AES",   "s'", [], "plural possessive suffix `s'`"],
-  ".":   ["-FPLT", ".",  [], "period for abbreviation"]
+  "'":   ["AE",    "'",       [],       "single quote `'`"],
+  "-'s": ["AES",   "(')(.s)", ["STRK"], "possessive suffix `'s`"],
+  ".":   ["-FPLT", ".",       [],       "period"],
+  ",":   ["-RBGS", ",",       [],       "comma"]
 }

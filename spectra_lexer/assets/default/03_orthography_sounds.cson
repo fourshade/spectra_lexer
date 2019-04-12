@@ -10,8 +10,8 @@
   "c.+":    ["KH",       "[c|ch.]",    ["RARE"], "phonetic"],
   "t.+":    ["KH",       "[t|ch.]",    ["RARE"], "phonetic"],
 
-  "u.":     ["W",        "[u|w.]",     ["RARE"], "phonetic `w` onset"],
-  "qu.":    ["KW",       "(q.)[u|w.])",[],       "phonetic"],
+  "u.":     ["W",        "[u|w.]",     [],       "phonetic `w` onset"],
+  "qu.":    ["KW",       "(q.)[u|w.]", [],       "phonetic"],
   "ph.":    ["TP",       "[ph|f.]",    [],       "`ph`onetic"],
 
   ".bb":    ["PW",       "[bb|b.]",    [],       "doubled consonant"],

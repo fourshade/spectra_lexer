@@ -13,7 +13,7 @@
   ".tious": ["-RBS","[t|.sh]iou(.s)", [], "drop unstressed vowels"],
 
   # vowels
-  ".othe.": ["OE",  "(o)th(e)",       [], "drop middle `th` (PHOER → mother)"],
+  "oth":    ["O",   "(o)th",          [], "drop middle `th` (PHOER → mother)"],
 
   # specific shortenings used in the most common words
   "some.":  ["S",   "some",           [], "prefix `some` in common compound words"],

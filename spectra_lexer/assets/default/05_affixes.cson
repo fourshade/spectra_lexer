@@ -9,13 +9,13 @@
   "exc.": ["KP",   "[exc|x.]",    [],      "combined consonant sounds"],
   "ext.": ["KP",   "(ex.)t",      [],      "shortening of `ext`; must not conflict with other words using KP"],
   "ex+":  ["S",    "[ex|s.]",     [],      "slurred short form of `ex` (SABGT → exact)"],
-  "exp.": ["SP",   "(ex+)(p.)",   ["OPT"], "slurred short form of `exp`"],
+  "exp.": ["SP",   "(ex+)(p.)",   [],      "slurred short form of `exp`"],
 
   "con.": ["K",    "(c.)on",      [],      "shortening of `con`; must not conflict with other words using K"],
   "cons.":["K",    "(con.)s",     [],      "shortening of `cons`; must not conflict with other words using K"],
   "cont.":["K",    "(con.)t",     [],      "shortening of `cont`; must not conflict with other words using K"],
   "com.": ["K",    "(c.)om",      [],      "shortening of `com`; must not conflict with other words using K (K-FRT → comfort)"],
-  "comp.":["KP",   "(com.)(p.)",  ["OPT"], "usually overrides `ex` in conflicts (KPABGT → compact)"],
+  "comp.":["KP",   "(com.)(p.)",  [],      "usually overrides `ex` in conflicts (KPABGT → compact)"],
 
   # right bank
   ".ing": ["-G",   "in(.g)",      [],      "common suffix; must not conflict with other words using -G"],

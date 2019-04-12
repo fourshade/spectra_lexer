@@ -7,6 +7,8 @@
   "dec.":  ["STK",  "(d.)e(C.)",    ["INV"], "c/d inversion"],
   "ins.":  ["STPH", "(in.)(s.)",    ["INV"], "s/n inversion (STPHERT → insert)"],
   "inc.":  ["STPH", "(in.)(C.)",    ["INV"], "c/n inversion"],
+  "bes.":  ["SPW",  "(b.)e(s.)",    ["INV"], "s/b inversion"],
+  "mis.":  ["SPH",  "(m.)i(s.)",    ["INV"], "s/m inversion"],
 
   # right bank
   ".rf":   ["-FR",  "(.r)(.f)",     ["INV"], "f/r inversion"],
