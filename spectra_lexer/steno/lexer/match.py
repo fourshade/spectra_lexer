@@ -40,9 +40,10 @@ class LexerRuleMatcher:
 
     def load(self, system:StenoSystem) -> None:
         """ Construct constants and a specially-structured series of dictionaries from a steno system. """
-        sep = self._key_sep = system.keys.SEP
-        star = self._key_star = system.keys.SPECIAL
-        self._convert_keys = system.to_rtfcre
+        sep = self._key_sep = system.layout.SEP
+        star = self._key_star = system.layout.SPECIAL
+        self._convert_keys = system.layout.to_rtfcre
+        to_skeys = system.layout.from_rtfcre
         # The separator rule constant is specifically matched on its own.
         r_sep = StenoRule(sep, "", frozenset(), "Stroke separator", ())
         self._rule_sep = LexerRule(r_sep, sep, "")
@@ -61,7 +62,7 @@ class LexerRuleMatcher:
         match_word = RuleFlags.WORD
         for (n, r) in system.rules.items():
             # All rules must have their keys parsed into the case-unique s-keys format.
-            skeys = system.from_rtfcre(r.keys)
+            skeys = to_skeys(r.keys)
             letters = r.letters
             flags = r.flags
             lr = LexerRule(r, skeys, letters)

@@ -24,8 +24,8 @@ class ElementMatcher:
         """ Make the dict using only element IDs which exist and have a corresponding rule. """
         id_set = set(system.board["id"])
         self._rule_ids = {r: _SVG_RULE_PREFIX + n for n, r in system.rules.items() if _SVG_RULE_PREFIX + n in id_set}
-        self._convert_to_skeys = system.from_rtfcre
-        self._key_sep = system.keys.SEP
+        self._convert_to_skeys = system.layout.from_rtfcre
+        self._key_sep = system.layout.SEP
 
     def get_element_ids(self, rule:StenoRule, use_dict:bool=True) -> List[List[str]]:
         """ Generate board diagram element IDs for a steno rule recursively. """

@@ -1,12 +1,16 @@
 from itertools import product
-from typing import Dict, Generator, Iterable, List, Callable
+from typing import Callable, Dict, Generator, Iterable, List
 
+from .index import LexerIndexCompiler
 from .match import LexerRuleMatcher
 from .results import LexerResult, LexerResultRanker
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.utils import str_without
+
+# Default size of generated indices (maximum word size).
+_DEFAULT_INDEX_SIZE = 12
 
 
 class StenoLexer(Component):
@@ -18,6 +22,7 @@ class StenoLexer(Component):
 
     _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
     _ranker: LexerResultRanker          # Ranks lexer results according to approximate "correctness".
+    _indexer: LexerIndexCompiler        # Compiles results into an index based on which built-in rules they use.
     _cleanse: Callable[[str], str]      # Performs thorough conversions on RTFCRE steno strings.
     _translations: Dict[str, str] = {}  # Optional translation search dict for mass queries.
 
@@ -26,12 +31,14 @@ class StenoLexer(Component):
         super().__init__()
         self._matcher = LexerRuleMatcher()
         self._ranker = LexerResultRanker()
+        self._indexer = LexerIndexCompiler()
 
     @on("set_system")
     def set_system(self, system:StenoSystem) -> None:
-        self._cleanse = system.cleanse_from_rtfcre
+        self._cleanse = system.layout.cleanse_from_rtfcre
         self._matcher.load(system)
-        self._ranker.set_converter(system.to_rtfcre)
+        self._ranker.set_converter(system.layout.to_rtfcre)
+        self._indexer.set_rev_rules(system.rev_rules)
 
     @on("set_dict_translations")
     def set_translations(self, d:dict) -> None:
@@ -51,22 +58,29 @@ class StenoLexer(Component):
         results = [result for keys, word in pairs for result in self._gather_results(keys, word)]
         return self._ranker.best_rule(results, default=pairs[0])
 
-    @on("lexer_query_all", pipe_to="new analysis")
-    def query_all(self, items:Iterable[tuple]=None, filter_in=None, filter_out=None, save=True) -> List[StenoRule]:
+    @on("lexer_query_all", pipe_to="new_analysis")
+    def query_all(self, items:Iterable=None, filter_in=None, filter_out=None) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward.
-            If no items are provided, the last loaded set of translations is used. Results are saved afterwards. """
+            If no items are provided, the last loaded set of translations is used. """
         if items is None:
-            items = self._translations.items()
+            items = self._translations
+        if isinstance(items, dict):
+            items = items.items()
         # Only keep results with all keys matched to reduce garbage.
         # Delete the attribute when finished to re-expose the class config setting.
         self.need_all_keys = True
         results = self.engine_call("parallel_starmap", self.query, filter(filter_in, items))
-        results = list(filter(filter_out, results))
         del self.need_all_keys
-        if save:
-            self.engine_call("rules_save", results)
-        return results
+        return list(filter(filter_out, results))
+
+    @on("lexer_make_index", pipe_to="new_index")
+    def make_index(self, translations:Iterable=None, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
+        """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
+            Make a index for each built-in rule containing a dict of every lexer translation that used it. """
+        filter_in, filter_out = self._indexer.make_filters(size)
+        results = self.query_all(translations, filter_in, filter_out)
+        return self._indexer.compile_results(results)
 
     def _gather_results(self, keys:str, word:str) -> List[LexerResult]:
         """ Generate a list of results for a translation with all required parameters for ranking. """

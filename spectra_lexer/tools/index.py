@@ -33,17 +33,19 @@ class IndexTool(Component):
         if choice == _ACCEPT_LABEL:
             self._send_index_commands()
         else:
-            self.engine_call("index_save", {})
+            self.engine_call("new_index", {})
 
     def _send_index_commands(self, index_size:int=None) -> None:
         """ Set the size, run the command, and show a starting message in the title field.
             This thread will be busy, so the GUI will not respond to user interaction. Disable it. """
         self.engine_call("gui_set_enabled", False)
         self.engine_call("new_status", "Making new index...")
-        self.engine_call("index_generate", size=index_size, save=True)
+        self.engine_call("lexer_make_index", size=index_size)
 
-    @on("index_save")
-    def index_finished(self, d:dict, *args) -> None:
-        """ Once the save command has been received, we can send the success message and re-enable the GUI. """
+    @on("new_index", pipe_to="index_save")
+    def index_finished(self, d:dict) -> dict:
+        """ Once the new index has been received, we can load it, send the success message, and re-enable the GUI. """
+        self.engine_call("set_dict_index", d)
         self.engine_call("new_status", "Successfully created index!" if d else "Skipped index creation.")
         self.engine_call("gui_set_enabled", True)
+        return d

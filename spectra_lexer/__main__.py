@@ -25,9 +25,9 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchApplication, args=["lexer_query_all"],
+    analyze = EntryPoint(BatchApplication, args=[["lexer_query_all"], ("new_analysis", "rules_save")],
                          desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchApplication, args=["index_generate"],
+    index = EntryPoint(BatchApplication, args=[["lexer_make_index"], ("new_index", "index_save")],
                        desc="analyze a translations file and index each translation by the rules it uses.")
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
     gui = EntryPoint(GUIQtApplication, desc="run the interactive GUI application by itself.")
@@ -35,7 +35,7 @@ class Spectra:
     plugin = EntryPoint(PloverPluginApplication, desc="run the GUI application in Plover plugin mode.")
 
 
-def main():
+def main() -> int:
     """ Main console entry point for the Spectra steno lexer. """
     script, *args = sys.argv
     # The first argument determines the entry point/mode to run.
@@ -46,14 +46,14 @@ def main():
     matches = Spectra.get_ep_matches(mode)
     if not matches:
         print(f'No matches for operation "{mode}"')
-        return
+        return -1
     if len(matches) > 1:
         print(f'Multiple matches for operation "{mode}". Use more characters.')
-        return
+        return -1
     # Reassign the remaining arguments to sys.argv and run the entry point.
     sys.argv = [script, *cmd_opts]
-    matches[0]()
+    return matches[0]()
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

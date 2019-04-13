@@ -1,31 +1,20 @@
 import os
-from typing import Dict, Iterable
+from typing import Dict, Iterable, NamedTuple
 
+from .rules import RuleParser
 from spectra_lexer import Component
 from spectra_lexer.file import CFG, CSON, SVG
+from spectra_lexer.steno.keys import KeyLayout
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.system.keys import KeyLayout
-from spectra_lexer.steno.system.rules import RuleParser
-from spectra_lexer.utils import delegate_to
 
 
-class StenoSystem:
+class StenoSystem(NamedTuple):
     """ Description of a complete steno system, including key layout, rules, and (optional) board graphics. """
 
-    keys: KeyLayout
+    layout: KeyLayout
     rules: Dict[str, StenoRule]
     rev_rules: Dict[StenoRule, str]
-    board: dict = {}
-
-    def __init__(self, keys:KeyLayout, rules:Dict[str,StenoRule], rev_rules:Dict[StenoRule,str], board:dict):
-        self.keys = keys
-        self.rules = rules
-        self.rev_rules = rev_rules
-        self.board = board
-
-    to_rtfcre = delegate_to("keys")
-    from_rtfcre = delegate_to("keys")
-    cleanse_from_rtfcre = delegate_to("keys")
+    board: dict
 
 
 class SystemManager(Component):
@@ -65,9 +54,9 @@ class SystemManager(Component):
         if files:
             f = {k.upper(): os.path.join(folder, v) for k, v in files.items()}
             self.__dict__.update(f)
-        keys = cfg.get("keys")
-        if keys:
-            return KeyLayout({k.upper: v for k, v in keys.items()})
+        layout = cfg.get("keys")
+        if layout:
+            return KeyLayout({k.upper: v for k, v in layout.items()})
         return KeyLayout({})
 
     def load_rules(self) -> tuple:

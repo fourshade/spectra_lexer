@@ -14,8 +14,12 @@ class Engine:
         """ Connect each component by giving it the engine callback and adding the commands it returns to the dict. """
         self._commands = defaultdict(list)
         for c in components:
-            for key, cmd in c.engine_connect(self.call):
-                self._commands[key].append(cmd)
+            self.connect(c)
+
+    def connect(self, cmp):
+        """ Connect the engine callback to a component and add its commands. Components cannot be disconnected. """
+        for key, cmd in cmp.engine_connect(self.call):
+            self._commands[key].append(cmd)
 
     def call(self, key, *args, **kwargs):
         """ Run all commands under this key and return the last value. """

@@ -29,4 +29,5 @@ class ComponentFactory:
 
     def make_debug_dict(self) -> dict:
         """ Make a global component dict indexed by module path to send to debug components. """
-        return {"_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]): c for c in self._components}
+        paths = ["_".join(str_prefix(type(c).__module__, ".base").rsplit(".", 2)[-2:]) for c in self._components]
+        return dict(sorted(zip(paths, self._components), key=lambda x: x[0]))

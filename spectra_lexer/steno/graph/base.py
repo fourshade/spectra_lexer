@@ -25,7 +25,7 @@ class GraphRenderer(Component):
     @on("set_system")
     def set_system(self, system:StenoSystem) -> None:
         """ Make a node organizer that can parse the current key set. """
-        self._organizer = NodeOrganizer(system.keys.SEP, system.keys.SPLIT)
+        self._organizer = NodeOrganizer(system.layout.SEP, system.layout.SPLIT)
 
     @on("new_output", pipe_to="new_interactive_text", html=True, mouse=True)
     def generate(self, rule:StenoRule) -> Optional[str]:
