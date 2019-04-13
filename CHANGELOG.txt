@@ -1,6 +1,7 @@
 4.1.0
 -----
 * Added steno order inversions to the board diagram
+* Exceptions no longer crash the program if stderr is unavailable
 * Improved SVG rendering code
 * Improved object tree dialog appearance and capabilities
 
