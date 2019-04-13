@@ -2,6 +2,12 @@
 
 {
   # left bank
+  "con.":   ["K",   "(c.)on",         [], "shortening of `con`; must not conflict with other words using K"],
+  "cons.":  ["K",   "(con.)s",        [], "shortening of `cons`; must not conflict with other words using K"],
+  "cont.":  ["K",   "(con.)t",        [], "shortening of `cont`; must not conflict with other words using K"],
+  "com.":   ["K",   "(c.)om",         [], "shortening of `com`; must not conflict with other words using K (K-FRT → comfort)"],
+  "comp.":  ["KP",  "(com.)(p.)",     [], "usually overrides `ex` in conflicts (KPABGT → compact)"],
+
   "rep.":   ["R",   "(r.)ep",         [], "drop `e` and consonant for common `re` words"],
   "ret.":   ["R",   "(r.)et",         [], "drop `e` and consonant for common `re` words"],
 

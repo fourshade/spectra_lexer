@@ -16,6 +16,9 @@
   "EU:NM":  ["EU",  "", ["SPEC"], "use to invert the order of two digits"],
   "-D:NM":  ["-D",  "", ["SPEC"], "use to double a digit"],
 
+  # common modifiers
+  "KWR:SF": ["KWR", "", ["SPEC"], "suffix modifier"],
+
   # uncommon modifiers
   "A*U:SP": ["A*U", "", ["STRK"], "ending stroke to indicate international spelling"],
   "SP-S:FS":["SP-S","", ["STRK"], "explicit space"],

@@ -38,12 +38,12 @@ class RuleParser:
         # Parse all rules from the source dictionary into the final one, indexed by name.
         # This will parse entries in a semi-arbitrary order, so make sure not to redo any.
         d = self._dst_dict = {}
-        try:
-            for k in self._src_dict:
+        for k in self._src_dict:
+            try:
                 if k not in d:
                     self._parse(k)
-        except KeyError as e:
-            raise KeyError(f"Illegal reference descended from rule {k}") from e
+            except KeyError as e:
+                raise KeyError(f"Illegal reference descended from rule {k}") from e
         return d
 
     def _parse(self, k:str) -> None:

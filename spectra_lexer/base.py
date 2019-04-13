@@ -28,16 +28,16 @@ class Resource:
         owner.RES[self.src].append(self)
         setattr(owner, name, self.default)
         cmdkey = f"set_{self.src}_{self.key}"
-        Command.on(cmdkey)(partial(setattr, owner, name)).__set_name__(owner, cmdkey)
+        owner.on(cmdkey)(partial(setattr, owner, name)).__set_name__(owner, cmdkey)
 
 
 class ComponentMeta(type):
     """ Metaclass for all subclasses of Component. """
     RES = defaultdict(list)  # Dict of options from all classes combined into a list for each source.
-    def __prepare__(name, bases, _cmd=Command, _res=Resource):
+    def __prepare__(name, bases):
         """ Merge commands from all bases in order so that this class inherits from and overrides all of its parents.
             Add references to the command decorator and resource class for every component. """
-        return {"cmds": {k: v for b in bases for k, v in b.cmds.items()}, "on": _cmd.on, "Resource": _res}
+        return {"cmds": {k: v for b in bases for k, v in b.cmds.items()}, "on": Command.on, "Resource": Resource}
 
 
 class Component(metaclass=ComponentMeta):

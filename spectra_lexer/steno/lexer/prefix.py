@@ -31,24 +31,25 @@ class PrefixTree:
         return lst
 
 
-class OrderedKeyPrefixTree(PrefixTree):
-    """ Prefix search tree that returns rules matching a prefix of ORDERED keys only. """
+class PrefixFinder:
+    """ Search engine that returns rules matching a prefix of ORDERED keys only. """
 
-    _filter_keys: Callable[[str], Tuple[str, frozenset]]  # Callback to split keys into ordered and unordered sets.
+    _tree: PrefixTree         # Primary search tree.
+    _filtered_keys: Callable  # Callback to split keys into ordered and unordered sets.
 
     def __init__(self, unordered_filter:Callable[[str],Tuple[str,frozenset]]):
-        """ Make the tree given a filter that returns the keys that will be and won't be tested in prefixes. """
-        super().__init__()
-        self._filter_keys = unordered_filter
+        """ Make the tree and memoize the filter that returns which keys will be and won't be tested in prefixes. """
+        self._tree = PrefixTree()
+        self._filtered_keys = unordered_filter
 
-    def add_entry(self, skeys:str, letters:str, r:object) -> None:
+    def add(self, skeys:str, letters:str, r:object) -> None:
         """ Separate the given set of keys into ordered and unordered keys,
             Index the rule itself and the unordered keys under the ordered keys (which contain any prefix). """
-        ordered, unordered = self._filter_keys(skeys)
-        self.add(ordered, (r, letters, unordered))
+        ordered, unordered = self._filtered_keys(skeys)
+        self._tree.add(ordered, (r, letters, unordered))
 
-    def prefix_match(self, skeys:str, letters:str) -> list:
-        """ The rule must match a prefix of the given ordered keys,
+    def find(self, skeys:str, letters:str) -> list:
+        """ Return a list of all rules that match a prefix of the given ordered keys,
             a subset of the given letters, and a subset of the given unordered keys. """
-        ordered, unordered = self._filter_keys(skeys)
-        return [r for (r, rl, ru) in self.match(ordered) if rl in letters and ru <= unordered]
+        ordered, unordered = self._filtered_keys(skeys)
+        return [r for (r, rl, ru) in self._tree.match(ordered) if rl in letters and ru <= unordered]
