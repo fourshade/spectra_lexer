@@ -27,7 +27,6 @@ class LexerRule(NamedTuple):
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component dict maps strings to steno rules in some way. """
 
-    _to_rtfcre: Callable[[str], str]     # Conversion function from s-keys to RTFCRE.
     _key_sep: str                        # Steno key used as stroke separator in both stroke formats.
     _key_star: str                       # Steno key used for special translation-wide matches.
     _rule_sep: LexerRule                 # Separator rule constant.
@@ -37,14 +36,12 @@ class LexerRuleMatcher:
     _stroke_dict: Dict[str, LexerRule] = None   # Rules that match by full stroke only.
     _word_dict: Dict[str, LexerRule] = None     # Rules that match by exact word only (whitespace-separated).
     _prefix_finder: PrefixFinder = None         # Rules that match by starting with certain keys in order.
-    _translations: Dict[str, str] = {}          # Optional translation search dict for stroke conflicts.
 
     def load(self, system:StenoSystem) -> None:
         """ Construct constants and a specially-structured series of dictionaries from a steno system. """
         sep = self._key_sep = system.layout.SEP
         star = self._key_star = system.layout.SPECIAL
         from_rtfcre = system.layout.from_rtfcre
-        self._to_rtfcre = system.layout.to_rtfcre
         # The separator rule constant is specifically matched on its own.
         r_sep = StenoRule(sep, "", frozenset(), "Stroke separator", ())
         self._rule_sep = LexerRule(r_sep, sep)
@@ -78,10 +75,6 @@ class LexerRuleMatcher:
             # Everything else gets added to the tree-based prefix dictionary.
             else:
                 prefix_tree.add(skeys, letters, lr)
-
-    def set_translations(self, d:dict) -> None:
-        """ Set up an optional translations dict for finding asterisk conflicts. """
-        self._translations = d
 
     def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerRule]:
         """ Return a list of rules that match the given keys and letters in any of the dictionaries.
@@ -125,10 +118,6 @@ class LexerRuleMatcher:
         splits_left, all_splits = skeys.count(self._key_sep), all_skeys.count(self._key_sep)
         if all_splits and (not splits_left or splits_left == all_splits):
             return SpecialRuleTypes.AFFIX
-        # If we loaded a translations dict, we can check if there's an entry with every key *except* the star.
-        # If there is, the star is probably there because of a conflict.
-        if self._translations.get(str_without(self._to_rtfcre(all_skeys), self._key_star)):
-            return SpecialRuleTypes.CONFLICT
 
     def _star_filter(self, sk:str, _empty=frozenset()) -> tuple:
         """ Filter out asterisks in the first stroke that may be consumed at any time and return them.

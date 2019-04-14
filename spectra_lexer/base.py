@@ -11,7 +11,7 @@ class Command:
     """ Disposable descriptor for recording component class commands. """
     on = classmethod(partial)  # Decorator for engine command methods.
     def __init__(self, key, func, pipe_to=None, **kwargs):
-        self.__dict__ = dict(locals())
+        self.__dict__ = dict(key=key, func=func, pipe_to=pipe_to, kwargs=kwargs)
     def __set_name__(self, owner, name):
         """ Add to the command dict, put the original function back, and chain the __set_name__ call if necessary. """
         owner.cmds[self.key] = name, self.pipe_to, self.kwargs
@@ -22,7 +22,7 @@ class Command:
 class Resource:
     """ An external resource, configured before the application starts. """
     def __init__(self, src, key, default=None, desc=""):
-        self.__dict__ = dict(locals())
+        self.__dict__ = dict(src=src, key=key, default=default, desc=desc)
     def __set_name__(self, owner, name):
         """ Add to the option dict, put the default value in its place, and make the command. """
         owner.RES[self.src].append(self)

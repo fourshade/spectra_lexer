@@ -39,8 +39,6 @@ class StenoLexer(Component):
         self._rulemaker.set_converter(system.layout.to_rtfcre)
         self._indexer.set_rev_rules(system.rev_rules)
 
-    set_translations = on("set_dict_translations")(delegate_to("_matcher"))
-
     @on("lexer_query", pipe_to="new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """

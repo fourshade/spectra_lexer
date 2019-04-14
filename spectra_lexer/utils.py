@@ -123,31 +123,10 @@ def with_sets(cls:type) -> type:
     return cls
 
 
-def memodict(fn):
-    """ The fastest possible method of memoizing a function with one hashable positional argument. """
-    class MemoDict(dict):
-        def __missing__(self, key:str, _fn=fn):
-            ret = self[key] = _fn(key)
-            return ret
-    return MemoDict()
-
-
-def memoize(fn, *, arg_count=None):
-    """ Memoize a function using the best method possible for unlimited size.
-        The number of positional args may be explicitly passed, or determined from the signature. """
-    if arg_count is None:
-        for f_obj in (fn, fn.__call__):
-            try:
-                params = inspect.signature(f_obj).parameters
-            except (TypeError, ValueError):
-                continue
-            valid_kinds = {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
-            if all(p.kind in valid_kinds for p in params.values()):
-                arg_count = len(params)
-                break
-    if arg_count == 1:
-        return memodict(fn).__getitem__
-    # lru_cache is a good fallback for any case not handled above.
+def memoize(fn):
+    """ Decorator to memoize a function using the fastest method possible for unlimited size.
+        There used to be Python tricks for fast caching, but functools.lru_cache now has a C implementation.
+        The unbounded (non-LRU) case outperforms any cache system written in pure Python now. """
     return functools.lru_cache(maxsize=None)(fn)
 
 
