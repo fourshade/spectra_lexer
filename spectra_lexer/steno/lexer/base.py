@@ -7,7 +7,7 @@ from .results import LexerRuleMaker
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 from spectra_lexer.steno.system import StenoSystem
-from spectra_lexer.utils import str_without
+from spectra_lexer.utils import delegate_to, str_without
 
 # Default size of generated indices (maximum word size).
 _DEFAULT_INDEX_SIZE = 12
@@ -24,7 +24,6 @@ class StenoLexer(Component):
     _rulemaker: LexerRuleMaker          # Makes rules from lexer results.
     _indexer: LexerIndexCompiler        # Compiles results into an index based on which built-in rules they use.
     _cleanse: Callable[[str], str]      # Performs thorough conversions on RTFCRE steno strings.
-    _translations: Dict[str, str] = {}  # Optional translation search dict for mass queries.
 
     def __init__(self):
         """ Set up the matcher with an empty rule dictionary. """
@@ -40,10 +39,7 @@ class StenoLexer(Component):
         self._rulemaker.set_converter(system.layout.to_rtfcre)
         self._indexer.set_rev_rules(system.rev_rules)
 
-    @on("set_dict_translations")
-    def set_translations(self, d:dict) -> None:
-        self._matcher.set_translations(d)
-        self._translations = d
+    set_translations = on("set_dict_translations")(delegate_to("_matcher"))
 
     @on("lexer_query", pipe_to="new_output")
     def query(self, keys:str, word:str) -> StenoRule:
@@ -58,12 +54,9 @@ class StenoLexer(Component):
         return self._rulemaker.best_rule([r for p in pairs for r in self._process(*p)], *pairs[0])
 
     @on("lexer_query_all", pipe_to="new_analysis")
-    def query_all(self, items:Iterable=None, filter_in=None, filter_out=None) -> List[StenoRule]:
+    def query_all(self, items:Iterable, filter_in=None, filter_out=None) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
-            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward.
-            If no items are provided, the last loaded set of translations is used. """
-        if items is None:
-            items = self._translations
+            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
         if isinstance(items, dict):
             items = items.items()
         # Only keep results with all keys matched to reduce garbage.
@@ -74,7 +67,7 @@ class StenoLexer(Component):
         return list(filter(filter_out, results))
 
     @on("lexer_make_index", pipe_to="new_index")
-    def make_index(self, translations:Iterable=None, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
+    def make_index(self, translations:Iterable, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """
         filter_in, filter_out = self._indexer.make_filters(size)

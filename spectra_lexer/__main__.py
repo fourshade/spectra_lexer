@@ -2,37 +2,33 @@
 
 import sys
 
-from spectra_lexer.main import BatchApplication, GUIQtApplication, PloverPluginApplication
+from spectra_lexer.main import BatchAnalyzeApplication, BatchIndexApplication, GUIQtApplication, PloverPluginApplication
 
 
 class EntryPoint:
-    """ Wrapper for a console script entry point. Appears as the app class by copying its attributes.
-        Positional arguments will be added to those passed to run() by the caller. """
-    def __init__(self, app_cls, args=(), desc=""):
-        self.__dict__ = dict(app_cls.__dict__)
+    """ Wrapper for a console script entry point. Appears as the app class by copying its attributes. """
+    def __init__(self, app_cls):
+        self.__dict__ = dict(vars(app_cls))
         self.app_cls = app_cls
-        self.args = args
 
     def __call__(self, *args):
-        """ Add arguments and start the application. """
-        return self.app_cls().start(*self.args, *args)
+        """ Create and start the application. """
+        return self.app_cls().start(*args)
 
 
 class Spectra:
     """ Container class for all entry points to the Spectra program, and the top-level class in the hierarchy. """
     @classmethod
-    def get_ep_matches(cls, key:str) -> list:
+    def get_ep_matches(cls, key):
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchApplication, args=[["lexer_query_all"], ("new_analysis", "rules_save")],
-                         desc="run the lexer on every item in a JSON steno translations dictionary.")
-    index = EntryPoint(BatchApplication, args=[["lexer_make_index"], ("new_index", "index_save")],
-                       desc="analyze a translations file and index each translation by the rules it uses.")
+    analyze = EntryPoint(BatchAnalyzeApplication)
+    index = EntryPoint(BatchIndexApplication)
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
-    gui = EntryPoint(GUIQtApplication, desc="run the interactive GUI application by itself.")
+    gui = EntryPoint(GUIQtApplication)
     # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
-    plugin = EntryPoint(PloverPluginApplication, desc="run the GUI application in Plover plugin mode.")
+    plugin = EntryPoint(PloverPluginApplication)
 
 
 def main() -> int:

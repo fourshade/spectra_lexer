@@ -26,6 +26,8 @@ class Connection(QObject):
 class GUIQtApplication(ThreadedApplication):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
+    DESCRIPTION = "Run the interactive GUI application by itself."
+
     # We can create the QApplication at class level since only one is ever allowed to run.
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 

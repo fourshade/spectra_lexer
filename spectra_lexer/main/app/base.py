@@ -7,6 +7,8 @@ class Application(MainEngine):
     """ Base application class for the Spectra program. Routes messages and data structures between
         all constituent components using an engine. By default, it is a single-threaded type. """
 
+    DESCRIPTION: str = "Subclasses state their purpose here."
+
     factory: ComponentFactory  # Makes components out of classes found in modules and packages.
 
     def __init__(self, *classes_or_modules):
