@@ -20,8 +20,8 @@ class Application(MainEngine):
         """ Perform initial loading of components. This may take a while depending on I/O. """
         options = Component.RES
         self.call("start", **options)
-        # Send the app, options, and a dict of components to debug tools, then run the app.
-        self.call("debug_vars", app=self, options=options, **self.factory.make_debug_dict())
+        # Send the app, options, and components in a dict to debug tools, then run the app.
+        self.call("set_dict_debug", self.factory.make_debug_dict(app=self, options=options))
         return self.run(*args)
 
     def run(self, *args) -> object:

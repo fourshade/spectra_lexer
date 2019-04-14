@@ -15,12 +15,7 @@ class IndexTool(Component):
 
     # Create and show index size choice dialog.
     index_menu = Resource("menu", "Tools:Make Index...", ["new_dialog", "index", ["index_tool_size_send"]])
-
-    _translations: dict = {}  # Translations dict for mass queries.
-
-    @on("set_dict_translations")
-    def set_translations(self, d:dict) -> None:
-        self._translations = d
+    translations = Resource("dict", "translations", {})  # Translations dict for mass queries.
 
     @on("index_tool_size_send")
     def size_submit(self, index_size:int) -> None:
@@ -46,7 +41,7 @@ class IndexTool(Component):
             This thread will be busy, so the GUI will not respond to user interaction. Disable it. """
         self.engine_call("gui_set_enabled", False)
         self.engine_call("new_status", "Making new index...")
-        self.engine_call("lexer_make_index", self._translations, size=index_size)
+        self.engine_call("lexer_make_index", self.translations, size=index_size)
 
     @on("new_index", pipe_to="index_save")
     def index_finished(self, d:dict) -> dict:

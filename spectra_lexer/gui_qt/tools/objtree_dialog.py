@@ -45,21 +45,20 @@ class IconRenderer(dict):
 
 class ItemFormatter:
 
-    _flags: int             # Bit field of default item flags. Items are black and selectable.
+    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
     _role_map: List[tuple]  # Maps string keys to Qt roles, with a formatting function applied to the data.
 
     def __init__(self, **kwargs):
-        """ Create the flags and role data map with the [caching] color generator and icon finder. """
-        self._flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        """ Create the role data map with the [caching] color generator and icon finder. """
         self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
                           ("tooltip",      Qt.ToolTipRole,    lambda x: x),
                           ("icon_choices", Qt.DecorationRole, IconRenderer(**kwargs)),
                           ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
 
-    def __call__(self, parent:QModelIndex, data:dict):
+    def __call__(self, data:dict):
         """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """
-        data.update({r: f(data[k]) for k, r, f in self._role_map if k in data}, parent=parent, flags=self._flags)
-        if "edit" in data:
+        data.update({r: f(data[k]) for k, r, f in self._role_map if k in data}, flags=Qt.ItemFlags(self._FLAGS))
+        if data.get("edit"):
             data["flags"] |= Qt.ItemIsEditable
 
 
@@ -132,7 +131,8 @@ class ObjectTreeModel(QAbstractItemModel):
             # Format every item in each new row with flags and Qt roles for display.
             for row in new_rows:
                 for item in row:
-                    self._format_item(idx, item)
+                    item["parent"] = idx
+                    self._format_item(item)
             # Add every new row at once.
             self.beginInsertRows(idx, 0, len(new_rows))
             rows += new_rows

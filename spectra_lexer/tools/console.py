@@ -43,15 +43,10 @@ class DialogConsole(InteractiveConsole):
 class ConsoleTool(Component):
     """ Component for interactive engine and system interpreter operations. """
 
-    console_menu = Resource("menu", "Debug:Open Console...", ["console_tool_open"])
+    m_console = Resource("menu", "Debug:Open Console...", ["console_tool_open"])
+    debug_vars = Resource("dict", "debug", {})  # Variables to load on interpreter startup as globals.
 
     _console: DialogConsole = None  # Main interpreter console.
-    _console_vars: dict = {}        # Variables to load on interpreter startup.
-
-    @on("debug_vars")
-    def set_debug(self, **dvars) -> None:
-        """ Initialize the interpreter globals dict with all debug variables. """
-        self._console_vars = dvars
 
     @on("console_tool_open", pipe_to="new_dialog")
     def open(self) -> tuple:
@@ -59,7 +54,7 @@ class ConsoleTool(Component):
             If it already is started, just show the dialog again with the current text contents. """
         if self._console is None:
             output_cb = partial(self.engine_call, "new_dialog_message", "console")
-            self._console = DialogConsole(self._console_vars, output_cb)
+            self._console = DialogConsole(self.debug_vars, output_cb)
         return "console", ["console_tool_send"]
 
     send = on("console_tool_send")(delegate_to("_console"))
