@@ -74,7 +74,7 @@ class HTMLFormatter(TextFormatter):
         start = node.attach_start + _ATTACH_COL_OFFSET
         length = node.attach_length
         # Highlight the full ancestry line of the selected node.
-        nodes = node.get_ancestors()
+        nodes = list(node.ancestors())
         level = len(nodes)
         for n in nodes:
             level -= 1

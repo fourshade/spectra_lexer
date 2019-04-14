@@ -1,5 +1,4 @@
-import json
-from typing import Dict, List, Sequence
+from typing import Dict, List
 
 from spectra_lexer import Component
 from spectra_lexer.file import CFG, JSON
@@ -48,6 +47,6 @@ class TranslationsManager(Component):
             pass
         except KeyError:
             print("Could not find dictionaries in plover.cfg.")
-        except json.decoder.JSONDecodeError:
+        except ValueError:
             print("Problem decoding JSON in plover.cfg.")
         return []

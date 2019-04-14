@@ -127,7 +127,7 @@ def test_graph(result):
     root = GRAPH._locator.select(0, 0)
     assert root.parent is None
     # Every other node descends from it and is unique.
-    all_nodes_list = root.get_descendents()
+    all_nodes_list = list(root.descendents())
     all_nodes_set = set(all_nodes_list)
     assert len(all_nodes_list) == len(all_nodes_set)
     # Going the other direction, all nodes except the root must have its parent in the set.

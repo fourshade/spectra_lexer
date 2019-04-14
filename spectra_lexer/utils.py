@@ -3,7 +3,6 @@
 
 import ast
 import functools
-import inspect
 import operator
 
 
@@ -145,17 +144,24 @@ class delegate_to:
     """ Descriptor to delegate method calls on the assigned name to an instance member.
         If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
         If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>.
-        Partial function arguments may also be added, though the performance cost is considerable. """
+        Partial function arguments may also be added, though the performance cost is considerable.
+        Some special methods may be called implicitly. For these, call the respective builtin or operator. """
+    _BUILTINS = [bool, int, float, str, repr, format, iter, next, reversed, len, hash, dir, getattr, setattr, delattr]
+    SPECIAL_METHODS = dict(vars(operator), **{f"__{fn.__name__}__": fn for fn in _BUILTINS})
     def __init__(self, attr:str, *partial_args, **partial_kwargs):
         self.params = attr, partial_args, partial_kwargs
-    def __get__(self, instance:object, owner:type):
-        return self.getter(instance)
     def __set_name__(self, owner:type, name:str) -> None:
-        attr, partial_args, partial_kwargs = self.params
-        getter = operator.attrgetter(attr if "." in attr else ".".join([attr, name]))
-        if partial_args or partial_kwargs:
-            def getter(instance:object, _agetter=getter, p_args=partial_args, p_kwargs=partial_kwargs):
-                def p_call(*args, _func=_agetter(instance), **kwargs):
-                    return _func(*p_args, *args, **p_kwargs, **kwargs)
-                return p_call
-        self.getter = getter
+        attr, p_args, p_kwargs = self.params
+        special = self.SPECIAL_METHODS.get(name)
+        if special is not None:
+            def delegate(instance, *args, _call=special, _attr=attr, **kwargs):
+                return _call(getattr(instance, _attr), *args, **kwargs)
+            if p_args or p_kwargs:
+                raise ValueError("Partial arguments are not allowed when delegating special methods.")
+        else:
+            getter = operator.attrgetter(attr if "." in attr else f"{attr}.{name}")
+            def delegate(instance, *args, _get=getter, **kwargs):
+                return _get(instance)(*args, **kwargs)
+            if p_args or p_kwargs:
+                delegate = functools.partialmethod(delegate, *p_args, **p_kwargs)
+        setattr(owner, name, delegate)

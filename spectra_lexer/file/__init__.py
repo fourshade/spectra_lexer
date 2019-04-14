@@ -3,4 +3,4 @@
 from .base import FileHandler
 from .cfg import CFG
 from .json import CSON, JSON
-from .xml import SVG, XML
+from .xml import XML

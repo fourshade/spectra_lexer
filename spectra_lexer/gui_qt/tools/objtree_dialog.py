@@ -14,7 +14,8 @@ from spectra_lexer.utils import memoize
 # Default maximum number of child objects to show for each object.
 CHILD_LIMIT = 200
 # Captions and height for the header at the top of the window.
-HEADER_DATA = {Qt.DisplayRole: ["Name", "Type/Item Count", "Value"], Qt.SizeHintRole: [QSize(0, 25)] * 3}
+HEADINGS = ["Name", "Type/Item Count", "Value"]
+HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
 class IconRenderer(dict):
@@ -98,23 +99,24 @@ class ObjectTreeModel(QAbstractItemModel):
         return len(self._d[idx])
 
     def columnCount(self, idx:QModelIndex=None, *args) -> int:
-        return 3
+        return len(HEADINGS)
 
     def headerData(self, section:int, orientation:int, role:int=None):
         if orientation == Qt.Horizontal and role in HEADER_DATA:
             return HEADER_DATA[role][section]
 
     def setData(self, idx:QModelIndex, new_data:str, *args) -> bool:
-        """ Attempt to change an object's value. Return True on success. """
-        try:
-            # Since only strings can be entered, we must evaluate them as Python expressions.
-            # Any exception is possible; just abort if one occurs. Re-expand the parent if successful.
-            self.data(idx, "edit")(eval(new_data))
-            self.expand(self.parent(idx))
-            return True
-        except Exception:
-            # If the current value was not a valid Python expression or editing failed another way, do nothing.
+        """ Attempt to change an object's value. Re-expand the parent on success, otherwise turn the item red. """
+        # A blank field will not evaluate to anything; the user just clicked off of the field.
+        if not new_data:
             return False
+        # Either the value or the color will change, and either will affect the display, so return True.
+        if self.data(idx, "edit")(new_data):
+            self.expand(self.parent(idx))
+        else:
+            # The item will return to the normal color after re-expansion.
+            self._idx_to_item[idx][Qt.ForegroundRole] = QColor(192, 0, 0)
+        return True
 
     def expand(self, idx:QModelIndex) -> None:
         """ Add (or replace) all children on the item found at this index from internal object data. """

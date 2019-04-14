@@ -53,9 +53,10 @@ class MainEngine(Engine):
         self._rlevel += 1
 
     def __exit__(self, exc_type:type, exc_value:Exception, traceback:object) -> bool:
-        """ The caller may depend on exceptions, so don't catch them here unless this is the top level. """
+        """ The caller may depend on exceptions, so don't catch them here unless this is the top level.
+            When handling an exception, do it as the parent class to avoid recursion in call(). """
         self._rlevel -= 1
-        return exc_value is not None and self._rlevel <= 0 and self.handle_exception(exc_value)
+        return exc_value is not None and self._rlevel <= 0 and Engine.handle_exception(super(), exc_value)
 
 
 class ThreadedEngine(Engine):

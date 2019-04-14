@@ -34,9 +34,10 @@ class BoardRenderer(Component):
 
     @on("set_system", pipe_to="new_board_xml")
     def set_system(self, system:StenoSystem) -> bytes:
-        """ The first SVG element with an ID and a viewbox is the root element. Set the layout's viewbox from this. """
-        root = next(d for d in system.board["id"].values() if "viewBox" in d)
-        self._layout.set_view(tuple(map(int, root["viewBox"].split())))
+        """ The first <svg> element with a viewbox is the root element. Set the layout's viewbox to match it. """
+        root = system.board["name"]["svg"]
+        if root:
+            self._layout.set_view(tuple(map(int, root[0]["viewBox"].split())))
         # Create the matcher with the system and send the raw SVG XML data to the GUI.
         self._matcher = ElementMatcher(system)
         self._captioner.set_rules_reversed(system.rev_rules)

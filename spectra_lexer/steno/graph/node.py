@@ -1,5 +1,6 @@
 """ Module for graph nodes. Contains enough information for text operations. """
 
+from functools import partialmethod
 from typing import Sequence
 
 from spectra_lexer.steno.rules import RuleFlags, StenoRule
@@ -32,13 +33,10 @@ class GraphNode:
     children: Sequence = ()  # Direct children of the node. If empty, it is considered a leaf node.
     appearance: str          # Special appearance flag for formatting.
 
-    def get_ancestors(self) -> list:
-        """ Get a list of all ancestors of this node (starting with itself) up to the root. """
-        return list(traverse(self, next_attr="parent"))
-
-    def get_descendents(self) -> list:
-        """ Get a list of all descendents of this node (starting with itself) searching depth-first. """
-        return list(recurse(self, iter_attr="children"))
+    # Get all ancestors of this node (starting with itself) up to the root.
+    ancestors = partialmethod(traverse, "parent")
+    # Get all descendents of this node (starting with itself) searching depth-first.
+    descendents = partialmethod(recurse, "children")
 
     def __str__(self):
         return f"{self.rule} → {self.children}"

@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple
 
 from .prefix import PrefixFinder
 from spectra_lexer.steno.rules import RuleFlags, StenoRule

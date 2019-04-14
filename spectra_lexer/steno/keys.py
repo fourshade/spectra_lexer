@@ -43,9 +43,13 @@ class KeyLayout:
         self._valid_table = defaultdict(type(None), {ord(k): k for k in valid_chars})
         # Create optimized map functions to convert every stroke in a string between forms.
         # Transform an s-keys string back to RTFCRE.
-        self.to_rtfcre = partial(_stroke_map, self._stroke_s_keys_to_rtfcre, self.SEP)
+        self.to_rtfcre = self._stroke_operation(self._stroke_s_keys_to_rtfcre)
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
-        self.from_rtfcre = partial(_stroke_map, self._stroke_rtfcre_to_s_keys, self.SEP)
+        self.from_rtfcre = self._stroke_operation(self._stroke_rtfcre_to_s_keys)
+
+    def _stroke_operation(self, fn):
+        """ Create a partial function to apply a string operation to every stroke in a key string. """
+        return partial(_stroke_map, fn, self.SEP)
 
     def cleanse_from_rtfcre(self, s:str) -> str:
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.

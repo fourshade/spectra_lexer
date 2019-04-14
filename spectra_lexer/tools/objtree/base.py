@@ -1,6 +1,6 @@
 from .collection import ContainerCollection
 from spectra_lexer import Component
-from spectra_lexer.file import SVG
+from spectra_lexer.file import XML
 
 
 class ObjectTreeTool(Component):
@@ -20,10 +20,10 @@ class ObjectTreeTool(Component):
             # Rows of item data are produced upon iterating over the contents. Take the first item from the only row.
             container = ContainerCollection((self.debug_vars,))
             root = next(iter(container))[0]
-            # Load the SVG icons and other resources. On failure, don't use icons.
-            xml_dict = SVG.load(self.file, ignore_missing=True)
+            # Load the SVG XML icons. On failure, don't use icons.
+            xml_dict = XML.load(self.file, ignore_missing=True)
             # Each element ID without a starting underline is a valid icon.
-            # Aliases for each icon are separated by + characters in the ID.
-            icon_ids = {k: k.split("+") for k in xml_dict["id"] if not k.startswith("_")}
+            # Optional aliases for each icon may be present, separated by spaces.
+            icon_ids = {d["id"]: k.split() for k, v in xml_dict["spectra_types"].items() for d in v}
             self.resources = {"root_item": root, "xml_bytes": xml_dict["raw"], "icon_ids": icon_ids}
         return "objtree", [""], self.resources
