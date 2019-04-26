@@ -1,8 +1,10 @@
-# Rules that actively involve symbols. Still must include at least one alphanumeric character.
+# Rules that actively involve symbols. A full translation still must include at least one alphanumeric character.
 
 {
-  "'":   ["AE",    "'",       [],       "single quote `'`"],
-  "-'s": ["AES",   "(')(.s)", ["STRK"], "possessive suffix `'s`"],
-  ".":   ["-FPLT", ".",       [],       "period"],
-  ",":   ["-RBGS", ",",       [],       "comma"]
+  "'":   ["AE",     "'",       [],       "' (single quote)"],
+  "-'s": ["AES",    "(')(.s)", ["STRK"], "possessive suffix `'s`"],
+  "+":   ["PHR*US", "+",       ["STRK"], "+ (plus sign)"],
+  "*":   ["STA*R",  "*",       ["STRK"], "* (asterisk)"],
+  ".":   ["-FPLT",  ".",       [],       ". (period)"],
+  ",":   ["-RBGS",  ",",       [],       ", (comma)"]
 }

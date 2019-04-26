@@ -48,9 +48,9 @@
   ".tian":  ["-GS",  "[tian|~shun]",   [],       "phonetic"],
   ".tion":  ["-GS",  "[tion|~shun]",   [],       "phonetic"],
   ".ction": ["-BGS", "[ction|~kshun]", [],       "phonetic"],
-  ".ction+":["*BGS", "(.ction)(*:CF)", [],       "used to disambiguate `kshun` vs. `x` (A*BGS → action)"],
+  ".ction+":["*BGS", "(.ction)(*:CF)", [],       "used to disambiguate 'KSHUN' sound vs. `x` (A*BGS → action)"],
   ".xion":  ["-BGS", "[xion|~kshun]",  [],       "phonetic"],
-  ".xion+": ["*BGS", "(.xion)(*:CF)",  [],       "used to disambiguate `kshun` vs. `x`"],
+  ".xion+": ["*BGS", "(.xion)(*:CF)",  [],       "used to disambiguate 'KSHUN' sound vs. `x`"],
 
   ".ck":    ["-BG",  "[ck|.k]",        [],       "combined consonant sounds"],
   ".dj":    ["-PBLG","[dj|.G]",        [],       "combined consonant sounds"],
@@ -105,28 +105,31 @@
   "eau": ["OE",   "[eau|O]", ["RARE"], "`eau` as in `tableau`"],
 
   # full board
-  "e~":  ["KWR",      "[e|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
-  "ea.": ["KWRA",     "(e~)(a)",     [],       "KWR vowel combo"],
-  "eo.": ["KWRO",     "(e~)(o)",     [],       "KWR vowel combo"],
-  "eO.": ["KWROE",    "(e~)(O)",     [],       "KWR vowel combo"],
+  "e~":    ["KWR",      "[e|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
+  "ea.":   ["KWRA",     "(e~)(a)",     [],       "KWR vowel combo"],
+  "eo.":   ["KWRO",     "(e~)(o)",     [],       "KWR vowel combo"],
+  "eO.":   ["KWROE",    "(e~)(O)",     [],       "KWR vowel combo"],
 
-  "i~":  ["KWR",      "[i|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
-  "ia.": ["KWRA",     "(i~)(a)",     [],       "KWR vowel combo"],
-  "iA.": ["KWRAEU",   "(i~)(A)",     [],       "KWR vowel combo"],
-  "ie.": ["KWRE",     "(i~)(e)",     [],       "KWR vowel combo"],
-  "io.": ["KWRO",     "(i~)(o)",     [],       "KWR vowel combo"],
-  "iO.": ["KWROE",    "(i~)(O)",     [],       "KWR vowel combo"],
-  "iu.": ["KWRU",     "(i~)(u)",     [],       "KWR vowel combo"],
+  "i~":    ["KWR",      "[i|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
+  "ia.":   ["KWRA",     "(i~)(a)",     [],       "KWR vowel combo"],
+  "iA.":   ["KWRAEU",   "(i~)(A)",     [],       "KWR vowel combo"],
+  "ie.":   ["KWRE",     "(i~)(e)",     [],       "KWR vowel combo"],
+  "io.":   ["KWRO",     "(i~)(o)",     [],       "KWR vowel combo"],
+  "iO.":   ["KWROE",    "(i~)(O)",     [],       "KWR vowel combo"],
+  "iu.":   ["KWRU",     "(i~)(u)",     [],       "KWR vowel combo"],
 
-  "u~":  ["KWR",      "[u|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
-  "ua.": ["KWRA",     "(u~)(a)",     [],       "KWR vowel combo"],
+  "u~":    ["KWR",      "[u|y.]",      ["SPEC"], "phonetic `y` onset; usually connects strokes."],
+  "ua.":   ["KWRA",     "(u~)(a)",     [],       "KWR vowel combo"],
 
-  "s~":  ["SH",       "s",           ["SPEC"], "`sh` sound"],
-  "su.": ["SHU",      "(s~)(u)",     ["RARE"], "unique `sh` sound as in `sure` and `sugar`"],
+  "s~":    ["SH",       "s",           ["SPEC"], "`sh` sound"],
+  "su.":   ["SHU",      "(s~)(u)",     ["RARE"], "unique `sh` sound as in `sure` and `sugar`"],
 
-  "wu~": ["WU",       "(w.)(u)",     ["SPEC"], "`wu` sound"],
-  "on.": ["WUPB",     "[o|wu~](.n)", ["RARE"], "unique `w` sound as in `one` and `once`"],
+  "wu~":   ["WU",       "(w.)(u)",     ["SPEC"], "`wu` sound"],
+  "on.":   ["WUPB",     "[o|wu~](.n)", ["RARE"], "unique `w` sound as in `one` and `once`"],
 
-  "ge.": ["SKWRE",    "(G.)(e)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"],
-  "gi.": ["SKWRAOEU", "(G.)(I)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"]
+  "ge.":   ["SKWRE",    "(G.)(e)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"],
+  "gi.":   ["SKWRAOEU", "(G.)(I)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"],
+
+  "sion.": ["SHUPB", "(si.)[o|u](.n)", [],       "left side 'SHUN' sound"],
+  "tion.": ["SHUPB", "(ti.)[o|u](.n)", [],       "left side 'SHUN' sound"]
 }

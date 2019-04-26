@@ -8,67 +8,68 @@
                      font-family: SourceCodePro-Custom;
                      font-size: 24;
                      text-anchor: middle;
-                     transform: matrix(1, 0, 0, 1, 13, 20);}
+                     transform: translate(13, 20);}
         .base_bg    {fill: #7F7F7F;}
         .key_bg     {fill: #007FFF;}
         .unknown_bg {fill: #DFDFDF;}
         .rule_bg    {fill: #00AFFF;}
         .star_bg    {fill: #7F7FFF;}
-        .rare_bg    {fill: #7FCFFF;}
+        .rare_bg    {fill: #9FCFFF;}
+        .connect_bg {fill: #3FAFAF;}
         .number_bg  {fill: #00BFBF;}
         .symbol_bg  {fill: #AFAF00;}
         <!-- Key shapes with text offset definitions -->
-        .key_number {transform: matrix(0.8, 0, 0, 0.8, 135, -1.5);}
-        .key_square {transform: matrix(1, 0, 0, 1, 0, 1);}
-        .key_round  {transform: matrix(1, 0, 0, 1, 0, 0);}
-        .key_tall   {transform: matrix(1, 0, 0, 1, 0, 15);}
-        .key_rect   {transform: matrix(1, 0, 0, 1, 15, 0);}
-        .key_wide   {transform: matrix(1, 0, 0, 1, 15, 0);}
-        .key_3rect  {transform: matrix(1, 0, 0, 1, 30, 0);}
-        .key_3wide  {transform: matrix(1, 0, 0, 1, 30, 0);}
-        .key_4rect  {transform: matrix(1, 0, 0, 1, 45, 0);}
-        .key_4wide  {transform: matrix(1, 0, 0, 1, 45, 0);}
-        .key_2x2    {transform: matrix(1, 0, 0, 1, 15, 15);}
-        .key_L      {transform: matrix(1, 0, 0, 1, 15, 30);}
-        .key_3x2    {transform: matrix(1, 0, 0, 1, 30, 15);}
-        .key_vA     {transform: matrix(1, 0, 0, 1, 0, 0);}
-        .key_vO     {transform: matrix(1, 0, 0, 1, 0, 0);}
-        .key_vE     {transform: matrix(1, 0, 0, 1, 70, 0);}
-        .key_vU     {transform: matrix(1, 0, 0, 1, 100, 0);}
-        .key_vI     {transform: matrix(1, 0, 0, 1, 85, 0);}
-        .key_vOI    {transform: matrix(1, 0, 0, 1, 55, 0);}
-        .key_v_v    {transform: matrix(1, 0, 0, 1, 55, 0);}
-        .key_diag   {transform: matrix(1, 0, 0, 1, 15, 14);}
+        .key_number {transform: translate(153, -3.5);}
+        .key_square {transform: translate(0,   1);}
+        .key_round  {transform: translate(0,   0);}
+        .key_tall   {transform: translate(0,   15);}
+        .key_rect   {transform: translate(15,  0);}
+        .key_wide   {transform: translate(15,  0);}
+        .key_3rect  {transform: translate(30,  0);}
+        .key_3wide  {transform: translate(30,  0);}
+        .key_4rect  {transform: translate(45,  0);}
+        .key_4wide  {transform: translate(45,  0);}
+        .key_2x2    {transform: translate(15,  15);}
+        .key_L      {transform: translate(15,  30);}
+        .key_3x2    {transform: translate(30,  15);}
+        .key_vA     {transform: translate(0,   0);}
+        .key_vO     {transform: translate(0,   0);}
+        .key_vE     {transform: translate(70,  0);}
+        .key_vU     {transform: translate(100, 0);}
+        .key_vI     {transform: translate(85,  0);}
+        .key_vOI    {transform: translate(55,  0);}
+        .key_v_v    {transform: translate(55,  0);}
+        .key_diag   {transform: translate(15,  14);}
         <!-- Key locations (upper-right) -->
-        .pos_\#   {transform: matrix(1, 0, 0, 1, 0,  -20);}
-        .pos_S    {transform: matrix(1, 0, 0, 1, 0,   0);}
-        .pos_S2   {transform: matrix(1, 0, 0, 1, 0,   30);}
-        .pos_T    {transform: matrix(1, 0, 0, 1, 30,  0);}
-        .pos_K    {transform: matrix(1, 0, 0, 1, 30,  30);}
-        .pos_P    {transform: matrix(1, 0, 0, 1, 60,  0);}
-        .pos_W    {transform: matrix(1, 0, 0, 1, 60,  30);}
-        .pos_H    {transform: matrix(1, 0, 0, 1, 90,  0);}
-        .pos_R    {transform: matrix(1, 0, 0, 1, 90,  30);}
-        .pos_A    {transform: matrix(1, 0, 0, 1, 70,  60);}
-        .pos_O    {transform: matrix(1, 0, 0, 1, 100, 60);}
-        .pos_\*   {transform: matrix(1, 0, 0, 1, 120, 0);}
-        .pos_\*2  {transform: matrix(1, 0, 0, 1, 120, 30);}
-        .pos_E    {transform: matrix(1, 0, 0, 1, 140, 60);}
-        .pos_U    {transform: matrix(1, 0, 0, 1, 170, 60);}
-        .pos_f    {transform: matrix(1, 0, 0, 1, 150, 0);}
-        .pos_r    {transform: matrix(1, 0, 0, 1, 150, 30);}
-        .pos_p    {transform: matrix(1, 0, 0, 1, 180, 0);}
-        .pos_b    {transform: matrix(1, 0, 0, 1, 180, 30);}
-        .pos_l    {transform: matrix(1, 0, 0, 1, 210, 0);}
-        .pos_g    {transform: matrix(1, 0, 0, 1, 210, 30);}
-        .pos_t    {transform: matrix(1, 0, 0, 1, 240, 0);}
-        .pos_s    {transform: matrix(1, 0, 0, 1, 240, 30);}
-        .pos_d    {transform: matrix(1, 0, 0, 1, 270, 0);}
-        .pos_z    {transform: matrix(1, 0, 0, 1, 270, 30);}
+        .pos_\#     {transform: translate(0,  -20);}
+        .pos_S      {transform: translate(0,   0);}
+        .pos_S2     {transform: translate(0,   30);}
+        .pos_T      {transform: translate(30,  0);}
+        .pos_K      {transform: translate(30,  30);}
+        .pos_P      {transform: translate(60,  0);}
+        .pos_W      {transform: translate(60,  30);}
+        .pos_H      {transform: translate(90,  0);}
+        .pos_R      {transform: translate(90,  30);}
+        .pos_A      {transform: translate(70,  60);}
+        .pos_O      {transform: translate(100, 60);}
+        .pos_\*     {transform: translate(120, 0);}
+        .pos_\*2    {transform: translate(120, 30);}
+        .pos_E      {transform: translate(140, 60);}
+        .pos_U      {transform: translate(170, 60);}
+        .pos_f      {transform: translate(150, 0);}
+        .pos_r      {transform: translate(150, 30);}
+        .pos_p      {transform: translate(180, 0);}
+        .pos_b      {transform: translate(180, 30);}
+        .pos_l      {transform: translate(210, 0);}
+        .pos_g      {transform: translate(210, 30);}
+        .pos_t      {transform: translate(240, 0);}
+        .pos_s      {transform: translate(240, 30);}
+        .pos_d      {transform: translate(270, 0);}
+        .pos_z      {transform: translate(270, 30);}
         <!-- Transforms for font sizes -->
-        .small    {transform: matrix(.80, 0, 0, .80, 13, 18)}
-        .smaller  {transform: matrix(.70, 0, 0, .70, 13, 16);}
-        .smallest {transform: matrix(.55, 0, 0, .55, 13, 14);}
+        .small      {transform: matrix(.80, 0, 0, .80, 13, 18);}
+        .smaller    {transform: matrix(.70, 0, 0, .70, 13, 16);}
+        .smallest   {transform: matrix(.55, 0, 0, .55, 13, 14);}
     </style>
     <!-- Font paths -->
     <font horiz-adv-x="600">
@@ -151,7 +152,6 @@
         <glyph unicode="/" d="M99,-60l328,670l74,0l-328,-670z"/>
         <glyph unicode="\" d="M427,-60l-328,670l74,0l328,-670z"/>
         <glyph unicode="*" d="M180,111l-42,30l108,165l-162,70l16,46l167,-55l9,189l48,0l9,-189l167,55l16,-46l-162,-70l108,-165l-42,-30l-120,159z"/>
-        <glyph unicode="@" d="M341,-144C302,-144 264,-135 229,-118C194,-101 163,-76 136,-43C109,-10 88,31 73,80C57,129 49,186 49,250C49,314 57,370 72,418C87,466 107,506 134,538C161,570 192,594 228,611C263,627 302,635 343,635C378,635 408,629 433,617C458,605 479,588 496,567C513,546 525,521 534,492C542,463 546,431 546,397l0,-297l-50,0l-7,58l-4,0C470,139 451,123 428,109C404,95 379,88 353,88C335,88 318,91 303,97C287,103 273,112 262,123C250,134 241,148 234,165C227,181 224,199 224,219C224,270 247,309 292,335C337,361 403,379 488,390l0,14C488,428 485,451 480,472C474,493 465,512 453,528C441,544 426,557 407,566C388,575 365,580 339,580C309,580 280,573 253,559C226,545 202,524 181,497C160,469 143,434 131,393C118,351 112,302 112,247C112,194 118,146 130,105C142,63 158,28 179,-1C200,-30 224,-51 252,-66C280,-81 310,-89 343,-89C373,-89 399,-85 422,-77C444,-70 465,-59 484,-44l28,-45C486,-107 459,-121 432,-130C405,-139 374,-144 341,-144M370,146C407,146 445,167 482,210l0,126C413,327 363,313 334,295C305,276 290,252 290,221C290,198 297,179 312,166C326,153 345,146 370,146z"/>
         <glyph unicode="#" d="M328,0l25,204l-132,0l-25,-204l-54,0l25,204l-80,0l0,57l87,0l18,148l-85,0l0,58l92,0l23,183l53,0l-22,-183l132,0l23,183l53,0l-22,-183l80,0l0,-58l-87,0l-18,-148l85,0l0,-57l-92,0l-25,-204M360,261l18,148l-132,0l-18,-148z"/>
         <glyph unicode="$" d="M85,113l39,57C149,152 177,136 208,123C238,109 272,102 310,102C350,102 380,110 401,127C421,143 431,164 431,189C431,210 423,227 408,241C392,254 372,266 349,277C326,288 300,298 273,308C245,318 219,330 196,344C173,357 153,374 138,393C122,412 114,436 114,465C114,507 129,541 159,568C188,595 227,611 276,616l0,132l60,0l0,-131C373,614 403,605 428,591C453,577 475,560 495,541l-44,-48C440,502 429,510 419,517C408,524 397,530 386,535C375,540 362,543 349,546C336,549 321,550 304,550C270,550 243,543 224,528C204,513 194,492 194,467C194,448 202,433 218,421C233,409 253,398 277,388C300,378 326,368 353,358C380,348 406,336 430,322C453,308 473,291 489,271C504,251 512,226 512,195C512,174 508,154 500,136C491,117 479,101 464,88C448,74 429,63 408,54C386,45 362,39 336,36l0,-146l-60,0l0,145C239,38 203,47 170,62C137,77 108,94 85,113z"/>
         <glyph unicode="%" d="M167,321C126,321 93,336 67,365C41,394 28,435 28,487C28,539 41,579 67,608C93,636 126,650 167,650C208,650 241,636 267,608C293,579 306,539 306,487C306,435 293,394 267,365C241,336 208,321 167,321M167,371C188,371 207,381 222,400C237,419 245,448 245,487C245,527 237,556 222,574C207,592 188,601 167,601C146,601 127,592 112,574C97,556 89,527 89,487C89,448 97,419 112,400C127,381 146,371 167,371M77,32l-49,45l183,188l33,-30M389,391l-33,30l167,203l49,-45M434,-12C393,-12 360,3 334,32C308,61 295,102 295,154C295,206 308,246 334,275C360,303 393,317 434,317C475,317 508,303 534,275C560,246 573,206 573,154C573,102 560,61 534,32C508,3 475,-12 434,-12M434,38C455,38 474,48 489,67C504,86 512,115 512,154C512,194 504,223 489,241C474,259 455,268 434,268C413,268 394,259 379,241C364,223 356,194 356,154C356,115 364,86 379,67C394,48 413,38 434,38z"/>
@@ -159,18 +159,11 @@
         <glyph unicode="=" d="M85,406l0,62l430,0l0,-62M85,193l0,62l430,0l0,-62z"/>
         <glyph unicode="^" d="M111,284l153,386l72,0l153,-386l-72,0l-66,176l-49,133l-4,0l-49,-133l-66,-176z"/>
         <glyph unicode="~" d="M388,257C368,257 350,261 335,270C319,279 304,288 291,299C277,310 264,319 251,328C238,337 224,341 210,341C195,341 180,335 167,324C153,313 140,290 129,255l-53,23C93,325 114,357 138,376C162,394 187,403 212,403C232,403 250,399 266,390C281,381 296,372 310,361C323,350 337,341 350,332C363,323 376,319 390,319C398,319 406,320 413,323C420,325 427,329 434,336C441,342 447,351 453,362C459,373 465,388 471,405l53,-24C507,334 486,302 462,284C438,266 413,257 388,257z"/>
+        <glyph unicode="|" horiz-adv-x="2000"/>
     </font>
-    <text>fijl</text>
     <!-- Special symbols -->
-    <path id="_uparrow" class="char" d="M13,3v19zM13,3l-5,5zM13,3l5,5z"/>
-    <path id="_lrarrows" class="char" d="M-9,8h44z M31,4l4,4z M31,12l4,-4z M-9,18h44z M-5,14l-4,4z M-5,22l-4,-4z"/>
-    <g id="_bar">
-        <text x="-120">#</text>
-        <text x="-60">#</text>
-        <text>#</text>
-        <text x="60">#</text>
-        <text x="120">#</text>
-    </g>
+    <path id="_uparrow"   class="char" d="M13,3v19zM13,3l-5,5zM13,3l5,5z"/>
+    <path id="_lrarrows"  class="char" d="M-9,8h44z M31,4l4,4z M31,12l4,-4z M-9,18h44z M-5,14l-4,4z M-5,22l-4,-4z"/>
     <!-- Continuous key shapes -->
     <path id="key_number" d="M0,0h296v16h-296v-16z"/>
     <path id="key_square" d="M0,0h26v26h-26v-26z"/>
@@ -186,16 +179,16 @@
     <path id="key_2x2"    d="M0,0h56v43a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-43z"/>
     <path id="key_3x2"    d="M0,0h86v43a13,13,0,0,1,-13,13h-60a13,13,0,0,1,-13,-13v-43z"/>
     <!-- Piecewise key shapes -->
-    <path id="key_r__r" d="M0,0h116v13a13,13,0,0,1,-26,0h-64a13,13,0,0,1,-26,0v-13z"/>
-    <path id="key_r_r"  d="M0,0h86v13a13,13,0,0,1,-26,0h-34a13,13,0,0,1,-26,0v-13z"/>
-    <path id="key_vA"   d="M0,0h126v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-44a13,13,0,0,1,-26,0v-13zM26,6h95z"/>
-    <path id="key_vO"   d="M0,0h66v13a13,13,0,0,1,-26,0h-14a13,13,0,0,1,-26,0v-13zM26,6h35z"/>
-    <path id="key_vE"   d="M0,0h96v13a13,13,0,0,1,-26,0h-14a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h65z"/>
-    <path id="key_vU"   d="M0,0h126v13a13,13,0,0,1,-26,0h-44a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h95z"/>
-    <path id="key_vI"   d="M0,0h126v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-14a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h80zM111,6h10z"/>
-    <path id="key_vOI"  d="M0,0h96v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-14a13,13,0,0,1,-26,0v-13z"/>
-    <path id="key_v_v"  d="M0,0h96v13a13,13,0,0,1,-26,0h-44a13,13,0,0,1,-26,0v-13z"/>
-    <path id="key_diag" d="M0,30h13l17,-17v-13h26v26h-13l-17,17a13,13,0,0,1,-13,13a13,13,0,0,1,-13,-13v-13z"/>
+    <path id="key_r__r"   d="M0,0h116v13a13,13,0,0,1,-26,0h-64a13,13,0,0,1,-26,0v-13z"/>
+    <path id="key_r_r"    d="M0,0h86v13a13,13,0,0,1,-26,0h-34a13,13,0,0,1,-26,0v-13z"/>
+    <path id="key_vA"     d="M0,0h126v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-44a13,13,0,0,1,-26,0v-13zM26,6h95z"/>
+    <path id="key_vO"     d="M0,0h66v13a13,13,0,0,1,-26,0h-14a13,13,0,0,1,-26,0v-13zM26,6h35z"/>
+    <path id="key_vE"     d="M0,0h96v13a13,13,0,0,1,-26,0h-14a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h65z"/>
+    <path id="key_vU"     d="M0,0h126v13a13,13,0,0,1,-26,0h-44a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h95z"/>
+    <path id="key_vI"     d="M0,0h126v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-14a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13v-13zM5,6h80zM111,6h10z"/>
+    <path id="key_vOI"    d="M0,0h96v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-14a13,13,0,0,1,-26,0v-13z"/>
+    <path id="key_v_v"    d="M0,0h96v13a13,13,0,0,1,-26,0h-44a13,13,0,0,1,-26,0v-13z"/>
+    <path id="key_diag"   d="M0,30h13l17,-17v-13h26v26h-13l-17,17a13,13,0,0,1,-13,13a13,13,0,0,1,-13,-13v-13z"/>
 </defs>
 <!-- Keys in basic positions, defined in main output in gray for background -->
 <g id="Base" class="base_bg">
@@ -225,7 +218,7 @@
 </g>
 <!-- Standard steno keys with capital letter labels -->
 <g class="key_bg">
-    <g id="#"       class="pos_#"><use href="#key_number"/><g class="key_number"><use href="#_bar"/></g></g>
+    <g id="#"       class="pos_#"><use href="#key_number"/><g class="key_number"><text class="small">#|#|#|#|#|</text></g></g>
     <g id="S"       class="pos_S"><use href="#key_tall"  /><g class="key_tall"  ><text>S</text></g></g>
     <g id="T"       class="pos_T"><use href="#key_square"/><g class="key_square"><text>T</text></g></g>
     <g id="K"       class="pos_K"><use href="#key_round" /><g class="key_round" ><text>K</text></g></g>
@@ -251,7 +244,7 @@
 </g>
 <!-- Placeholders for keys with unknown function -->
 <g class="unknown_bg">
-    <g id="#?"      class="pos_#"><use href="#key_number"/><g class="key_number"><use href="#_bar"/></g></g>
+    <g id="#?"      class="pos_#"><use href="#key_number"/><g class="key_number"><text class="small">?|?|?|?|?|</text></g></g>
     <g id="S?"      class="pos_S"><use href="#key_tall"  /><g class="key_tall"  ><text>?</text></g></g>
     <g id="T?"      class="pos_T"><use href="#key_square"/><g class="key_square"><text>?</text></g></g>
     <g id="K?"      class="pos_K"><use href="#key_round" /><g class="key_round" ><text>?</text></g></g>
@@ -379,9 +372,15 @@
 <g class="rare_bg">
     <g id=":z.+"    class="pos_S"><use href="#key_3x2"   /><g class="key_3x2"   ><text>z</text></g></g>
     <g id=":.v."    class="pos_W"><use href="#key_round" /><g class="key_round" ><text>v</text></g></g>
-    <g id=":.m."    class="pos_f"><use href="#key_tall"  /><g class="key_tall"  ><text>m</text></g></g>
+    <g id=":.m~"    class="pos_f"><use href="#key_tall"  /><g class="key_tall"  ><text>m</text></g></g>
     <g id=":.nch+"  class="pos_f"><use href="#key_3x2"   /><g class="key_3x2"   ><text>nch</text></g></g>
     <g id=":.gion"  class="pos_g"><use href="#key_wide"  /><g class="key_wide"  ><text class="small">GEN</text></g></g>
+</g>
+<!-- Connection modifiers -->
+<g class="connect_bg">
+    <g id=":KWR:PS"   class="pos_K"><use href="#key_3wide" /><g class="key_3wide" ><text>...</text></g></g>
+    <g id=":SKWR:PS" class="pos_S2"><use href="#key_4wide" /><g class="key_4wide" ><text>...</text></g></g>
+    <g id=":-RBGS:PS" class="pos_r"><use href="#key_4wide" /><g class="key_4wide" ><text>...</text></g></g>
 </g>
 <!-- Number keys and specific number-based modifiers -->
 <g class="number_bg">

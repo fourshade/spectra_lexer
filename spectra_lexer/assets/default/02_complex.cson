@@ -27,20 +27,20 @@
   ".mp+":   ["*PL",    "mp",         [], "alternative for `mp`; deprecated in favor of -FRP by certain parties"],
 
   ".k~":    ["*G",     "k",    ["SPEC"], "ghost pattern for `k`; used when combined with certain letters"],
-  ".nj":    ["-PBG",   "(.n)[j|.g]", [], "the NJ sound; treats `g` as `j`"],
-  ".nk":    ["*PBG",   "(.n)(.k~)",  [], "the NK sound; overlap of `n` and `k`"],
-  ".lk":    ["*LG",    "(.l)(.k~)",  [], "the LK sound (H*ULG → hulk)"],
-  ".lj":    ["-LG",    "(.l)[j|.g]", [], "the LJ sound; treats `g` as `j`"],
-  ".lch":   ["-LG",    "lch",        [], "the LCH sound (MULG → mulch)"],
+  ".nj":    ["-PBG",   "(.n)[j|.g]", [], "the 'NJ' sound; treats `g` as `j`"],
+  ".nk":    ["*PBG",   "(.n)(.k~)",  [], "the 'NK' sound; overlap of `n` and `k`"],
+  ".lk":    ["*LG",    "(.l)(.k~)",  [], "the 'LK' sound (H*ULG → hulk)"],
+  ".lj":    ["-LG",    "(.l)[j|.g]", [], "the 'LJ' sound; treats `g` as `j`"],
+  ".lch":   ["-LG",    "lch",        [], "the 'LCH' sound (PHULG → mulch)"],
 
-  ".rv":    ["-FRB",   "rv",         [], "the RV sound (KUFRB → curve)"],
-  ".rch":   ["-FRPB",  "rch",        [], "the RCH sound"],
-  ".nch":   ["-FRPB",  "nch",        [], "the NCH sound"],
+  ".rv":    ["-FRB",   "rv",         [], "the 'RV' sound (KUFRB → curve)"],
+  ".rch":   ["-FRPB",  "rch",        [], "the 'RCH' sound"],
+  ".nch":   ["-FRPB",  "nch",        [], "the 'NCH' sound"],
   ".nch+":  ["-FRPBLG","nch",  ["RARE"], "used to disambiguate `nch` vs. `rch` (HRUFRPBLG → lunch)"],
 
-  "~shun":  ["-GS",    "shun", ["SPEC"], "the SHUN sound"],
-  "~kshun": ["-BGS",   "kshun",["SPEC"], "the KSHUN sound; overlap of `k` and `shun`"],
-  ".gion":  ["-GS",    "gion", ["RARE"], "the GEN sound"],
+  "~shun":  ["-GS",    "shun", ["SPEC"], "the 'SHUN' sound"],
+  "~kshun": ["-BGS",   "kshun",["SPEC"], "the 'KSHUN' sound; overlap of `k` and `shun`"],
+  ".gion":  ["-GS",    "gion", ["RARE"], "the 'GEN' sound"],
 
   # vowels
   "y":      ["EU",     "y",    [],   "used as `y` at the end of words"],

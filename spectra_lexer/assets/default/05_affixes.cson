@@ -53,11 +53,8 @@
   "-ous":    ["OUS",    "(~ou)(.s)",          [], "standalone suffix stroke"],
   "-ious":   ["KWROUS", "(i~)(-ous)",         [], "standalone suffix stroke"],
 
-  "-a":      ["KWRA",   "(a)(KWR:SF)",  ["STRK"], "standalone suffix stroke"],
-  "-y":      ["KWREU",  "(y)(KWR:SF)",  ["STRK"], "standalone suffix stroke"],
-  ".u":      ["KWRU",   "(u)(KWR:SF)",        [], "blended `y` → `u` sound"],
-  ".U":      ["KWRAOU", "(U)(KWR:SF)",        [], "blended `y` → `u` sound"],
-  "-us":     ["KWRUS",  "(.u)(.s)",           [], "standalone suffix stroke"],
+  "-a":      ["KWRA",   "(a)(KWR:PS)",  ["STRK"], "standalone suffix stroke"],
+  "-y":      ["KWREU",  "(y)(KWR:PS)",  ["STRK"], "standalone suffix stroke"],
 
   "-er":     ["*ER",    "(e)(.r)(*:PS)",      [], "standalone suffix stroke"],
   "-ia":     ["KWRA*",  "(ia.)(*:PS)",        [], "standalone suffix stroke"],
