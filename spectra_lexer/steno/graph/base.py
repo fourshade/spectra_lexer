@@ -7,8 +7,8 @@ from .generator import CascadedTextGenerator, CompressedTextGenerator
 from .locator import GridLocator
 from .node import GraphNode, NodeOrganizer
 from spectra_lexer import Component
+from spectra_lexer.steno.keys import KeyLayout
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.system import StenoSystem
 
 
 class GraphRenderer(Component):
@@ -22,10 +22,10 @@ class GraphRenderer(Component):
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
     _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
 
-    @resource("system")
-    def set_system(self, system:StenoSystem) -> None:
+    @resource("system:layout")
+    def set_system(self, layout:KeyLayout) -> None:
         """ Make a node organizer that can parse the current key set. """
-        self._organizer = NodeOrganizer(system.layout.SEP, system.layout.SPLIT)
+        self._organizer = NodeOrganizer(layout.SEP, layout.SPLIT)
 
     @on("new_output", pipe_to="new_graph_text")
     def generate(self, rule:StenoRule) -> Optional[str]:

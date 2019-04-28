@@ -29,7 +29,7 @@ class Marker(struct, _fields=["key"], value=None, _kwargs="kwargs"):
     @classmethod
     def get_all(cls, owner):
         """ Return each marker of this type from the owner class's hierarchy along with its key. """
-        return [m for tp in owner.__mro__ for m in cls._DICT[tp]]
+        return [m for tp in owner.__mro__ if tp in cls._DICT for m in cls._DICT[tp]]
 
 
 class Command(Marker, pipe_to=None):

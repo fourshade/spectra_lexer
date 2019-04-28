@@ -1,8 +1,5 @@
-import sys
-
 from .engine import Engine, MainEngine, ThreadedEngine
-from .factory import ComponentAssembler, CommandBinder, ResourceBinder
-from .package import package
+from .factory import ComponentFactory, CommandBinder, ModulePackage, package, ResourceBinder
 from spectra_lexer import Component
 
 
@@ -13,26 +10,25 @@ class Application(Component):
     DESCRIPTION: str = "Subclasses state their purpose here."
     CLASS_PATHS: list = []
 
-    assembler: ComponentAssembler = None
-    commands: CommandBinder = None
-    resources: ResourceBinder = None
+    def __init__(self):
+        super().__init__()
+        self.components: ComponentFactory = ComponentFactory()
+        self.commands: CommandBinder = CommandBinder()
+        self.resources: ResourceBinder = ResourceBinder()
+        self.modules: ModulePackage = ModulePackage()
 
     def start(self, *args) -> None:
         """ Perform initial creation and loading of engine, components and resources.
             The app cannot be constructed by the factory, so add it directly to the start of the path list. """
-        d = {}
-        self.assembler = d["components"] = ComponentAssembler()
-        self.commands = d["commands"] = CommandBinder()
-        self.resources = d["resources"] = ResourceBinder()
         self.setup(self, *self.CLASS_PATHS)
+        d = {}
+        for k, v in vars(self).items():
+            if isinstance(v, package):
+                d[k] = v.expand()
         self.engine_call("init:", self.resources.get_ordered())
-        # Finish the global dict and send it to debug tools, then delete the factory objects and run the app.
-        d["modules"] = sys.modules
-        self.engine_call("res:debug", {k: package(v) for k, v in d.items()})
+        # Send the global dict to debug tools, then run the app.
+        self.engine_call("res:debug", d)
         self.engine_call("init_done")
-        del self.assembler
-        del self.commands
-        del self.resources
         return self.run(*args)
 
     def setup(self, *class_paths) -> None:
@@ -42,7 +38,7 @@ class Application(Component):
     def assemble_engine(self, class_paths, engine) -> None:
         """ Bind instances of component classes to their commands and resources with the engine callback. """
         engine_cb = engine.call
-        for component in self.assembler(class_paths):
+        for component in self.components(class_paths):
             component.engine_connect(engine_cb)
             self.resources.bind(component)
             for key, func in self.commands.bind(component, engine_cb):

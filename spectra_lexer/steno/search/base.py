@@ -33,12 +33,9 @@ class SearchEngine(Component):
     def _add_page_to_count(self) -> None:
         self._count += self.match_limit
 
+    set_rules = resource("system:rules")(delegate_to("_dictionary.new", "rules"))
     set_translations = resource("translations")(delegate_to("_dictionary.new", "translations"))
     set_index = resource("index")(delegate_to("_dictionary.new", "index"))
-
-    @resource("system")
-    def set_system(self, system:StenoSystem) -> None:
-        self._dictionary.new("rules", system.rules)
 
     @on("search_mode_strokes")
     def set_mode_strokes(self, enabled:bool) -> None:
