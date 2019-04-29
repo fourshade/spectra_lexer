@@ -1,4 +1,4 @@
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 _ACCEPT_LABEL = "OK"
 _REJECT_LABEL = "Cancel"
@@ -51,7 +51,8 @@ class IndexTool(Component):
         if index_size:
             self._send_index_commands(index_size)
 
-    @on("index_not_found", pipe_to="new_index")
+    @on("index_not_found")
+    @pipe_to("new_index")
     def startup_dialog(self) -> dict:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index.
             Make the starting index on accept, otherwise save an empty one so the message doesn't appear again. """
@@ -71,7 +72,8 @@ class IndexTool(Component):
         self.engine_call("new_status", "Making new index...")
         self.engine_call("lexer_make_index", self.translations, size=index_size)
 
-    @on("new_index", pipe_to="index_save")
+    @on("new_index")
+    @pipe_to("index_save")
     def index_finished(self, d:dict) -> dict:
         """ Once the new index has been received, we can load it, send the success message, and re-enable the GUI. """
         self.engine_call("res:index", d)

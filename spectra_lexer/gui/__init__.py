@@ -1,5 +1,6 @@
 """ Base package for GUI with mostly abstract components. """
 
+from .app import GUIApplication
 from .window import Window
 from .menu import Menu
 from .board import BoardDisplay

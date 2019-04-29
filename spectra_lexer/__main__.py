@@ -2,9 +2,9 @@
 
 import sys
 
-from spectra_lexer.gui_qt.app import GUIQtApplication
-from spectra_lexer.plover.app import PloverPluginApplication
-from spectra_lexer.steno.app import StenoAnalyzeApplication, StenoIndexApplication
+from spectra_lexer.gui_qt import GUIQtApplication
+from spectra_lexer.plover import PloverPluginApplication
+from spectra_lexer.steno import StenoAnalyzeApplication, StenoIndexApplication
 
 
 class EntryPoint:

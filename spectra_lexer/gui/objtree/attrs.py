@@ -6,7 +6,7 @@ from typing import Iterator
 
 from .collection import use_if
 from .container import Container, MutableKeyContainer
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 @use_if(hasattr, "__class__")

@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.file import JSON
 
 
@@ -12,11 +12,12 @@ class IndexManager(Component):
     file = resource("cmdline:index-file", "~/index.json", desc="JSON index file to load on startup and/or write to.")
     out = resource("cmdline:index-out", "~/index.json", desc="Output file name for steno rule -> translation indices.")
 
-    @on("init:index", pipe_to="res:index")
+    @on("init:index")
     def start(self, *dummy) -> Optional[Dict[str, dict]]:
         return self.load()
 
-    @on("index_load", pipe_to="res:index")
+    @on("index_load")
+    @pipe_to("res:index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:

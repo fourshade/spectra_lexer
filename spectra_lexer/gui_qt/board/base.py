@@ -1,5 +1,5 @@
 from spectra_lexer.gui import BoardDisplay
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class GUIQtBoardDisplay(BoardDisplay):
@@ -8,9 +8,12 @@ class GUIQtBoardDisplay(BoardDisplay):
     w_desc = resource("gui:w_display_desc", desc="Displays rule description.")
     w_board = resource("gui:w_display_board", desc="Displays steno board diagram.")
 
+    @on("gui_load")
     def load(self) -> None:
+        """ Connect the signals and initialize the board size. """
         self.w_board.onActivateLink.connect(self.on_link)
         self.w_board.onResize.connect(self.on_resize)
+        self.w_board.resizeEvent()
 
     def set_caption(self, caption:str, link_ref:str="") -> None:
         self.w_desc.setText(caption)

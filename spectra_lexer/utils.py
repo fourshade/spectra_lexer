@@ -4,9 +4,6 @@
 import ast
 import collections
 import functools
-import operator
-
-from spectra_lexer.struct import struct
 
 
 # ---------------------------PURE UTILITY FUNCTIONS---------------------------
@@ -111,7 +108,7 @@ def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
 
 
 def str_eval(val:str, _eval=ast.literal_eval) -> object:
-    """ Try to convert a Python string to an object using AST. This fixes ambiguities such as bool('False') = True.
+    """ Try to convert a string to a Python object using AST. This fixes ambiguities such as bool('False') = True.
         Strings that are read as names will throw an error, in which case they should be returned as-is. """
     try:
         return _eval(val)
@@ -132,36 +129,3 @@ def memoize(fn):
         There used to be Python tricks for fast caching, but functools.lru_cache now has a C implementation.
         The unbounded (non-LRU) case outperforms any cache system written in pure Python now. """
     return functools.lru_cache(maxsize=None)(fn)
-
-
-# --------------------------GENERAL PURPOSE CLASSES---------------------------
-# These classes are used to modify the behavior of attributes and methods on other classes.
-# They are used like functions, so their names are all lowercase.
-
-# A robust dummy object. Always returns itself through any chain of attribute lookups, subscriptions, and calls.
-_DUMMY_METHODS = ["__getattr__", "__getitem__", "__call__"]
-dummy = type("dummy", (), dict.fromkeys(_DUMMY_METHODS, lambda self, *a, **k: self))()
-
-
-class delegate_to(struct, _fields=["attr"], _args="partial_args", _kwargs="partial_kwargs"):
-    """ Descriptor to delegate method calls on the assigned name to an instance member.
-        If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
-        If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>.
-        Partial function arguments may also be added, though the performance cost is considerable.
-        Some special methods may be called implicitly. For these, call the respective builtin or operator. """
-    _BUILTINS = [bool, int, float, str, repr, format, iter, next, reversed, len, hash, dir, getattr, setattr, delattr]
-    SPECIAL_METHODS = {**vars(operator), **{f"__{fn.__name__}__": fn for fn in _BUILTINS}}
-
-    def __set_name__(self, owner:type, name:str) -> None:
-        attr, p_args, p_kwargs = self.values()
-        special = self.SPECIAL_METHODS.get(name)
-        if special is not None:
-            def delegate(instance, *args, _call=special, _attr=attr, **kwargs):
-                return _call(getattr(instance, _attr), *args, **kwargs)
-        else:
-            getter = operator.attrgetter(attr if "." in attr else f"{attr}.{name}")
-            def delegate(instance, *args, _get=getter, **kwargs):
-                return _get(instance)(*args, **kwargs)
-        if p_args or p_kwargs:
-            delegate = functools.partialmethod(delegate, *p_args, **p_kwargs)
-        setattr(owner, name, delegate)

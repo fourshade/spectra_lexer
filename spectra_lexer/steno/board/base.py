@@ -5,10 +5,10 @@ from typing import List
 from .caption import CaptionGenerator
 from .layout import ElementLayout
 from .matcher import ElementMatcher
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.steno.system import StenoSystem
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class BoardRenderer(Component):
@@ -32,7 +32,8 @@ class BoardRenderer(Component):
 
     set_index = resource("index")(delegate_to("_captioner"))
 
-    @resource("system", pipe_to="new_board_xml")
+    @resource("system")
+    @pipe_to("new_board_xml")
     def set_system(self, system:StenoSystem) -> bytes:
         """ The first <svg> element with a viewbox is the root element. Set the layout's viewbox to match it. """
         root = system.board["name"]["svg"]
@@ -43,16 +44,16 @@ class BoardRenderer(Component):
         self._captioner.set_rules_reversed(system.rev_rules)
         return system.board["raw"]
 
-    @on("board_set_size", pipe_to="new_board_layout")
+    @on("board_set_size")
     def set_size(self, width:int, height:int) -> List[tuple]:
         """ Set the layout's maximum dimensions. Recompute the current layout and send it. """
         self._layout.set_size(width, height)
         if self._last_rule is not None:
-            return self.get_info(self._last_rule)
+            return self.display_rule(self._last_rule)
 
-    @on("new_output", pipe_to="new_board_layout")
-    @on("new_graph_selection", pipe_to="new_board_layout")
-    def get_info(self, rule:StenoRule) -> List[tuple]:
+    @on("board_display_rule")
+    @pipe_to("new_board_layout")
+    def display_rule(self, rule:StenoRule) -> List[tuple]:
         """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
             The task is identical whether the rule is from a new output or a user graph selection. """
         self._last_rule = rule
@@ -64,7 +65,8 @@ class BoardRenderer(Component):
             ids = self._matcher.get_element_ids(rule, self.show_compound)
             return self._layout.make_draw_list(ids)
 
-    @on("board_find_examples", pipe_to="search_examples")
-    def get_examples(self, rule_name:str) -> tuple:
+    @on("board_find_examples")
+    @pipe_to("search_examples")
+    def find_examples(self, rule_name:str) -> tuple:
         """ If the link on the diagram is clicked, get a random translation using this rule and search near it. """
         return (rule_name, self._last_rule, *self._captioner.get_random_example(rule_name))

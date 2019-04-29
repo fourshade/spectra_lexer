@@ -1,5 +1,5 @@
 from spectra_lexer.gui import SearchPanel
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class GUIQtSearchPanel(SearchPanel):
@@ -11,6 +11,7 @@ class GUIQtSearchPanel(SearchPanel):
     w_strokes = resource("gui:w_search_type",      desc="Check box: False = word search, True = stroke search.")
     w_regex = resource("gui:w_search_regex",       desc="Check box: False = prefix search, True = regex search.")
 
+    @on("gui_load")
     def load(self) -> None:
         """ Connect all Qt signals on GUI load. """
         connectors = [self.w_input.textEdited.connect,
@@ -20,6 +21,7 @@ class GUIQtSearchPanel(SearchPanel):
                       self.w_regex.toggled.connect]
         self.connect_all(connectors)
 
+    @on("gui_set_enabled")
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all search widgets. """
         self.w_input.clear()

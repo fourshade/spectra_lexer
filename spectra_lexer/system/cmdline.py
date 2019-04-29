@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, SUPPRESS
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.utils import str_suffix
 
 # Program description as seen in the command line help.
@@ -15,7 +15,8 @@ class CmdlineParser(Component):
 
     _parser: ArgumentParser  # Temporarily holds command line option info from active components.
 
-    @on("init:cmdline", pipe_to="res:cmdline:")
+    @on("init:cmdline")
+    @pipe_to("res:cmdline:")
     def start(self, cmdline:dict) -> dict:
         """ Create the parser and add all possible command line options from each component that has some. """
         # Suppress defaults from unused arguments (resources have their own default settings).
@@ -32,13 +33,8 @@ class CmdlineParser(Component):
         del self._parser
         return d
 
-    @on("init_done", pipe_to="resources_done")
-    def done(self) -> tuple:
+    @on("init_done")
+    def done(self) -> None:
         """ Assuming all resource-heavy components share this thread, they will be done loading by the time execution
             gets back here, so we should let other threads know that everything is done. """
-        return ()
-
-    @on("new_status")
-    def display_status(self, msg:str) -> None:
-        """ Display engine status and general output messages in the console by default. """
-        print(f"SPECTRA: {msg}")
+        self.engine_call("resources_done")

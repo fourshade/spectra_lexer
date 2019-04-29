@@ -18,7 +18,7 @@ class GUIQtIndexTool(IndexTool):
         """ Open a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """
         IndexDialog(self.window, *args).show()
 
-    def startup_confirmation(self, title:str, body:str, *choices:str) -> str:
+    def startup_confirmation(self, *args) -> str:
         """ Create a simple modal message dialog and return the user's selection from <choices> as a string.
             Send the rightmost choice if the dialog was closed another way. """
-        return MessageDialog(self.window, title, body, *choices)
+        return MessageDialog(self.window, *args)

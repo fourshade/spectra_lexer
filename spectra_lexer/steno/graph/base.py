@@ -6,7 +6,7 @@ from .formatter import HTMLFormatter
 from .generator import CascadedTextGenerator, CompressedTextGenerator
 from .locator import GridLocator
 from .node import GraphNode, NodeOrganizer
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.steno.keys import KeyLayout
 from spectra_lexer.steno.rules import StenoRule
 
@@ -27,8 +27,8 @@ class GraphRenderer(Component):
         """ Make a node organizer that can parse the current key set. """
         self._organizer = NodeOrganizer(layout.SEP, layout.SPLIT)
 
-    @on("new_output", pipe_to="new_graph_text")
-    def generate(self, rule:StenoRule) -> Optional[str]:
+    @on("new_output")
+    def generate(self, rule:StenoRule) -> Optional[StenoRule]:
         """ Generate text graph data (of either type) from an output rule based on config settings. """
         if self._organizer is None:
             return None
@@ -42,10 +42,9 @@ class GraphRenderer(Component):
         # Create a locator and formatter using these structures and keep them for later reference.
         self._locator = GridLocator(nodes)
         self._formatter = HTMLFormatter(lines, nodes)
-        # The graph is new, so render it with no highlighting or boldface. It should scroll to the top by default.
-        return self._formatter.make_graph_text()
+        return self._display_selection(root, new=True)
 
-    @on("text_mouse_action", pipe_to="new_graph_selection")
+    @on("text_mouse_action")
     def select_character(self, row:int, col:int, clicked:bool=False) -> Optional[StenoRule]:
         """ Find the node owning the character at (row, col) of the graph. If that node is new, send out its rule. """
         if self._locator is None:
@@ -53,10 +52,12 @@ class GraphRenderer(Component):
         node = self._locator.select(row, col)
         if node is None or node is self._last_node:
             return None
+        # Store the node reference so we can avoid repeated lookups on small mouse deltas.
+        self._last_node = node
         return self._display_selection(node)
 
-    @on("text_display_rule", pipe_to="new_graph_selection")
-    def display_rule(self, rule:StenoRule) -> Optional[StenoRule]:
+    @on("graph_select_rule")
+    def select_rule(self, rule:StenoRule) -> Optional[StenoRule]:
         """ Find the first node created from <rule>, if any, and select it. """
         if self._formatter is None:
             return None
@@ -65,10 +66,10 @@ class GraphRenderer(Component):
             if node.rule is rule:
                 return self._display_selection(node)
 
-    def _display_selection(self, node:GraphNode) -> StenoRule:
-        """ Render and send the graph with <node> highlighted. Don't allow the graph to scroll. """
-        text = self._formatter.make_graph_text(node)
-        self.engine_call("new_graph_text", text, scroll_to=None)
-        # Store the object reference so we can avoid repeated lookups and send the rule to the board diagram.
-        self._last_node = node
+    @pipe_to("board_display_rule")
+    def _display_selection(self, node:GraphNode, new:bool=False) -> StenoRule:
+        """ Render and send the graph with a node highlighted. If None, render with no highlighting or boldface. """
+        text = self._formatter.make_graph_text(node if not new else None)
+        # A new graph should scroll to the top by default. Otherwise don't allow the graph to scroll.
+        self.engine_call("new_graph_text", text, scroll_to="top" if new else None)
         return node.rule

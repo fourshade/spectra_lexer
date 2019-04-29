@@ -2,11 +2,11 @@ import os
 from typing import Dict, Iterable
 
 from .rules import RuleParser
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.file import CFG, CSON, XML
 from spectra_lexer.steno.keys import KeyLayout
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.struct import struct
+from spectra_lexer.types import struct
 
 
 class StenoSystem(struct, _fields=["layout", "rules", "rev_rules", "board"]):
@@ -36,11 +36,12 @@ class SystemManager(Component):
         super().__init__()
         self._rule_parser = RuleParser()
 
-    @on("init:system", pipe_to="res:system:")
+    @on("init:system")
     def start(self, *dummy) -> StenoSystem:
         return self.load()
 
-    @on("system_load", pipe_to="res:system:")
+    @on("system_load")
+    @pipe_to("res:system:")
     def load(self, filename:str="") -> StenoSystem:
         """ Load the system master file in <filename>, then create the system with the key layout,
             both the forward and reverse rules dicts, and the SVG board layout (optional). """

@@ -6,7 +6,7 @@ from typing import Dict
 import pkg_resources
 
 from .types import PloverAction, PloverEngine, PloverStenoDict, PloverStenoDictCollection
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 # Minimum version of Plover required for plugin compatibility.
 _PLOVER_VERSION_REQUIRED = "4.0.0.dev8"
@@ -35,7 +35,8 @@ class PloverCompatibilityLayer(Component):
             # If the compatibility check fails, don't try to connect to Plover. Send an error.
             self.engine_call("new_status", _INCOMPATIBLE_MESSAGE)
 
-    @on("plover_convert_dicts", pipe_to="res:translations")
+    @on("plover_convert_dicts")
+    @pipe_to("res:translations")
     def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a single string dict.
             Plover dictionaries are not proper Python dicts and cannot be handled as such.

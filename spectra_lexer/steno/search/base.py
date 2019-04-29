@@ -1,8 +1,8 @@
 from .collection import SearchDictionary
 from .nexus import IndexNexus
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 # Text displayed as the final list item, allowing the user to expand the search.
 _MORE_TEXT = "(more...)"
@@ -104,9 +104,7 @@ class SearchEngine(Component):
         """ Look up mappings and display them in the lower list.
             Keep track of the last selected match so we can put together a display command with it. """
         self._last_match = match
-        mappings = self._dictionary.get(match) or []
-        if not isinstance(mappings, list):
-            mappings = [mappings]
+        mappings = self._dictionary.lookup(match)
         self._show_mappings(mappings)
         if len(mappings) == 1:
             # A lone mapping should be selected automatically and displayed on its own.
@@ -157,5 +155,5 @@ class SearchEngine(Component):
         # If we found matches, choose the original item and highlight the example rule in it.
         if matches:
             self._select_match(item)
-            self.engine_call("text_display_rule", rule)
+            self.engine_call("graph_select_rule", rule)
         return matches

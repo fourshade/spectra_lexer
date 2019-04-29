@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPainter, QPicture
 from PyQt5.QtWidgets import QLabel, QWidget
 
 from .renderer import BoardSVGRenderer
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class StenoBoardWidget(QWidget):

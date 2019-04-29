@@ -41,7 +41,7 @@ class HTMLFormatter(TextFormatter):
     """ Receives a list of text lines and instructions on formatting to apply in various places when any given
         node is highlighted. Creates structured text with explicit HTML formatting to be used by the GUI. """
 
-    _original_sections: List[List[str]]  # Original set of lines made at graph creation.
+    _original_sections: List[str]  # Original set of lines made at graph creation.
 
     def __init__(self, lines:List[str], node_grid:List[List[GraphNode]]):
         """ From a 2D node grid, compile a dict of nodes with ranges of character positions owned by each one. """
@@ -59,7 +59,7 @@ class HTMLFormatter(TextFormatter):
             If a node is specified, format the text with data corresponding to that node first. """
         if node is not None:
             # Restore the original state of each section first.
-            self.sections = list(self._original_sections)
+            self.sections = self._original_sections[:]
             self._format_node(node)
         return _FINISH_FORMAT.format(self.text())
 

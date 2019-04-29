@@ -8,3 +8,5 @@ basic = type("basic", (), dict(globals()))  # Subset of components that do not i
 from .board import BoardRenderer
 from .graph import GraphRenderer
 from .search import SearchEngine
+
+from .app import StenoAnalyzeApplication, StenoIndexApplication

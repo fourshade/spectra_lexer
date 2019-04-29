@@ -4,7 +4,7 @@ from typing import Callable, Dict, Iterable, Iterator, List
 from .index import LexerIndexCompiler
 from .match import LexerRuleMatcher
 from .results import LexerRuleMaker
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.utils import str_without
@@ -39,19 +39,22 @@ class StenoLexer(Component):
         self._rulemaker.set_converter(system.layout.to_rtfcre)
         self._indexer.set_rev_rules(system.rev_rules)
 
-    @on("lexer_query", pipe_to="new_output")
+    @on("lexer_query")
+    @pipe_to("new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
         return self._rulemaker.best_rule(list(self._process(keys, word)), keys, word)
 
-    @on("lexer_query_product", pipe_to="new_output")
+    @on("lexer_query_product")
+    @pipe_to("new_output")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
         pairs = list(product(keys, words))
         return self._rulemaker.best_rule([r for p in pairs for r in self._process(*p)], *pairs[0])
 
-    @on("lexer_query_all", pipe_to="new_analysis")
+    @on("lexer_query_all")
+    @pipe_to("new_analysis")
     def query_all(self, items:Iterable, filter_in=None, filter_out=None) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
@@ -64,7 +67,8 @@ class StenoLexer(Component):
         del self.need_all_keys
         return list(filter(filter_out, results))
 
-    @on("lexer_make_index", pipe_to="new_index")
+    @on("lexer_make_index")
+    @pipe_to("new_index")
     def make_index(self, translations:Iterable, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """

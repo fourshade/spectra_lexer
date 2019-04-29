@@ -3,7 +3,7 @@ from multiprocessing import cpu_count, Pool
 from traceback import print_exc
 from typing import Callable, Iterable
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 
 class ParallelExecutor(Component):

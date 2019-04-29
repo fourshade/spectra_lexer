@@ -34,7 +34,17 @@ class StripCaseSearchDict(StringSearchDict):
             return self.prefix_match_keys(pattern, count)
         return self.get_nearby_keys(pattern, count)
 
+    def lookup(self, match:str) -> list:
+        """ Do a basic lookup and wrap the result in a list. """
+        if match in self:
+            return [self[match]]
+        return []
+
 
 class ReverseStripCaseSearchDict(ReverseDict, StripCaseSearchDict):
     """ Composition class for a strip/case search dict over another dict's *values* instead of its keys.
         ReverseDict must be first in the MRO to take the match keyword before a dict constructor eats it. """
+
+    def lookup(self, match:str) -> list:
+        """ Reverse dict values are always lists. """
+        return self.get(match) or []

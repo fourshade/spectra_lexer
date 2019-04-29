@@ -3,8 +3,8 @@
 import sys
 
 from spectra_lexer import gui_qt, plover
-from spectra_lexer.gui_qt.app import GUIQtApplication
-from spectra_lexer.utils import dummy
+from spectra_lexer.gui_qt import GUIQtApplication
+from spectra_lexer.types import dummy
 
 
 class PloverPluginApplication(GUIQtApplication):
@@ -25,8 +25,8 @@ class PloverPluginApplication(GUIQtApplication):
         """ This component appears as a dialog to interface with Plover in proxy.
             It must translate some attributes into engine call methods and fake others. """
         super().__init__()
-        self.show = lambda *args: self.engine_call("gui_window_show")
-        self.close = lambda *args: self.engine_call("gui_window_close")
+        self.show = lambda *args: self.call("gui_window_show")
+        self.close = lambda *args: self.call("gui_window_close")
         # We get our translations from the Plover engine, so auto-loading of translations from disk must be suppressed.
         sys.argv.append("--translations-files=")
 
@@ -34,13 +34,12 @@ class PloverPluginApplication(GUIQtApplication):
         """ As a proxy, we fake any attribute we don't want to handle to avoid incompatibility. """
         return dummy
 
-    def run(self, plover_engine=None, *args):
-        """ After everything else is set up, connect the engine and return this proxy to Plover. """
+    def event_loop(self, plover_engine=None):
+        """ Plover is already running a Qt event loop. Connect the engine and return this proxy to Plover. """
         if plover_engine is None:
-            # Plover is not running, so we need to make a fake engine and run some tests with our own event loop.
-            self.engine_call("plover_test")
-            super().run(*args)
+            # If Plover is not running, make a fake engine and run some tests with our own event loop.
+            self.call("plover_test")
+            super().event_loop()
         else:
-            # The engine is always the first argument passed by Plover. Others are irrelevant.
-            self.engine_call("plover_connect", plover_engine)
+            self.call("plover_connect", plover_engine)
         return self

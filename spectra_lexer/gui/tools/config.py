@@ -1,6 +1,6 @@
 from typing import Dict
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 
 class ConfigTool(Component):

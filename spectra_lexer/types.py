@@ -1,6 +1,14 @@
-""" Module for the struct, the master convenience/utility class. Do not use for performance-critical code. """
+""" --------------------------GENERAL PURPOSE CLASSES---------------------------
+    These classes are used to modify the behavior of attributes and methods on other classes.
+    They are used like functions, so their names are all lowercase. """
 
 from collections import deque
+from functools import partialmethod
+import operator
+
+# A robust dummy object. Always returns itself through any chain of attribute lookups, subscriptions, and calls.
+_DUMMY_METHODS = ["__getattr__", "__getitem__", "__call__"]
+dummy = type("dummy", (), dict.fromkeys(_DUMMY_METHODS, lambda self, *a, **k: self))()
 
 
 class StructMeta(type):
@@ -64,3 +72,27 @@ class struct(dict, metaclass=StructMeta):
             self[v_attr] = v_args
         elif v_args:
             raise TypeError(f"Too many arguments in struct initializer; extra = {v_args}")
+
+
+class delegate_to(struct, _fields=["attr"], _args="partial_args", _kwargs="partial_kwargs"):
+    """ Descriptor to delegate method calls on the assigned name to an instance member object.
+        If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
+        If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>.
+        Partial function arguments may also be added, though the performance cost is considerable.
+        Some special methods may be called implicitly. For these, call the respective builtin or operator. """
+    _BUILTINS = [bool, int, float, str, repr, format, iter, next, reversed, len, hash, dir, getattr, setattr, delattr]
+    SPECIAL_METHODS = {**vars(operator), **{f"__{fn.__name__}__": fn for fn in _BUILTINS}}
+
+    def __set_name__(self, owner:type, name:str) -> None:
+        attr, partial_args, partial_kwargs = self.values()
+        special = self.SPECIAL_METHODS.get(name)
+        if special is not None:
+            def delegate(instance, *args, _call=special, _attr=attr, **kwargs):
+                return _call(getattr(instance, _attr), *args, **kwargs)
+        else:
+            getter = operator.attrgetter(attr if "." in attr else f"{attr}.{name}")
+            def delegate(instance, *args, _get=getter, **kwargs):
+                return _get(instance)(*args, **kwargs)
+        if partial_args or partial_kwargs:
+            delegate = partialmethod(delegate, *partial_args, **partial_kwargs)
+        setattr(owner, name, delegate)

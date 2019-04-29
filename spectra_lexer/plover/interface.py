@@ -3,7 +3,7 @@ from typing import Optional, Sequence, Tuple
 
 from .compat import join_strokes
 from .types import PloverAction, PloverEngine, PloverTranslatorState, PloverStenoDictCollection
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 # Starting/reset state of translation buffer. Can be safely assigned without copy due to immutability.
 _BLANK_STATE = ((), "")
@@ -34,7 +34,8 @@ class PloverInterface(Component):
         self.engine_call("plover_convert_dicts", steno_dc)
         self.engine_call("new_status", "Loaded new dictionaries from Plover engine.")
 
-    @on("plover_new_translation", pipe_to="lexer_query")
+    @on("plover_new_translation")
+    @pipe_to("lexer_query")
     def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         # Lock the Plover engine thread to access its state.

@@ -3,7 +3,8 @@
 from typing import Dict, Optional
 
 from .dict import ReverseStripCaseSearchDict, StripCaseSearchDict
-from spectra_lexer.utils import delegate_to, ensure_iterable
+from spectra_lexer.types import delegate_to
+from spectra_lexer.utils import ensure_iterable
 
 
 class ResourceNexus:
@@ -33,11 +34,11 @@ class ResourceNexus:
         if pattern.startswith(prefix):
             return pattern[len(prefix):]
 
+    search = delegate_to("_d")
+    lookup = delegate_to("_d")
+
     def command_args(self, match:str, mapping:object) -> Optional[tuple]:
         """ Return a tuple of items that can be directly called as an engine command to show a result, or None. """
-
-    search = delegate_to("_d")
-    get = delegate_to("_d")
 
 
 class TranslationNexus(ResourceNexus, resource="translations"):

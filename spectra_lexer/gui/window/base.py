@@ -1,25 +1,15 @@
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 
 class Window(Component):
     """ General operations class for the main window. This component handles many app-wide events in general. """
 
-    @on("init:menu")
-    def start(self, menu:dict) -> None:
-        """ Get everything we need from the window implementation and send it all to the GUI components. """
-        self.engine_call("res:gui:", self.get_window_elements())
-        # Load the menu first specifically, since it has its own options.
-        self.engine_call("load_menu", menu)
-        # Let components know the options are done so they can start loading the rest of the GUI.
-        self.engine_call("load_gui")
+    @on("gui_load")
+    def load(self) -> None:
         # Even once the window is visible, the user shouldn't interact with it until files are done loading.
         self.engine_call("new_status", "Loading...")
         self.engine_call("gui_set_enabled", False)
         self.show()
-
-    def get_window_elements(self) -> dict:
-        """ Get all required elements from the window to send to other GUI components. """
-        raise NotImplementedError
 
     @on("gui_window_show")
     def show(self) -> None:

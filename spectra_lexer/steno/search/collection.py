@@ -1,7 +1,7 @@
 from typing import List
 
 from .nexus import ResourceNexus
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class SearchDictionary:
@@ -28,5 +28,5 @@ class SearchDictionary:
                 self._nexus = nexus
                 return nexus.search(new_pattern, count, **search_kwargs)
 
-    get = delegate_to("_nexus")
+    lookup = delegate_to("_nexus")
     command_args = delegate_to("_nexus")

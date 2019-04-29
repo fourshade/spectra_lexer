@@ -34,5 +34,3 @@ The Spectra program is conceptually divided into several parts that form a pipel
     from any of the other components. It may run on a standalone framework, meaning we can't call its methods from
     anywhere except the main thread without going through an intermediary layer.
 """
-
-from .base import Component

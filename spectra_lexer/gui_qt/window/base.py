@@ -10,15 +10,19 @@ class GUIQtWindow(Window):
     def __init__(self):
         self.window = MainWindow()
 
-    def get_window_elements(self) -> dict:
-        return self.window.widgets()
+    @on("init:gui")
+    @pipe_to("res:gui:")
+    def start(self, keys:dict) -> dict:
+        """ Get everything we need from the window and send it all to the GUI components. """
+        elements = self.window.widgets()
+        return {k: elements[k] for k in keys if k in elements}
 
-    def show(self):
+    def show(self) -> None:
         if self.window is not None:
             self.window.show()
             self.window.activateWindow()
             self.window.raise_()
 
-    def close(self):
+    def close(self) -> None:
         if self.window is not None:
             self.window.close()

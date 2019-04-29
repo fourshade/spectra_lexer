@@ -1,5 +1,5 @@
 from .collection import ContainerCollection
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.file import XML
 
 

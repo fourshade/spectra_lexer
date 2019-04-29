@@ -7,7 +7,7 @@ from typing import List, NamedTuple
 from .object import ObjectNode, ObjectNodeUnmatched
 from .pattern import PatternInversion, PatternNode, PatternSeparators, PatternThick, PatternUnmatched
 from spectra_lexer.steno.graph.node import GraphNode, GraphNodeAppearance
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 class ConnectionInfo(NamedTuple):

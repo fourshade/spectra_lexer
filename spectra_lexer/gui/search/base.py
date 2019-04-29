@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Callable, Iterable, List
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 
 class SearchPanel(Component):
@@ -12,19 +12,10 @@ class SearchPanel(Component):
                     "search_mode_strokes",
                     "search_mode_regex"]
 
-    @on("load_gui")
-    def load(self) -> None:
-        raise NotImplementedError
-
     def connect_all(self, connectors:Iterable[Callable]) -> None:
         """ Connect all search actions to engine commands. """
         for connector, cmd_key in zip(connectors, self.COMMAND_KEYS):
             connector(partial(self.engine_call, cmd_key))
-
-    @on("gui_set_enabled")
-    def set_enabled(self, enabled:bool) -> None:
-        """ Enable/disable all interaction on the search panel. """
-        raise NotImplementedError
 
     @on("new_search_input")
     def set_input(self, text:str) -> None:

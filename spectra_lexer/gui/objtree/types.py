@@ -4,7 +4,7 @@ from typing import AbstractSet, Collection, Iterator, MutableMapping, MutableSeq
 
 from .collection import use_if
 from .container import Container, MutableContainer, MutableKeyContainer
-from spectra_lexer.utils import delegate_to
+from spectra_lexer.types import delegate_to
 
 
 @use_if(isinstance, Collection)

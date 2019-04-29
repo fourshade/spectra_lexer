@@ -108,18 +108,24 @@ class ConsoleDialog(ToolDialog):
     TITLE = "Python Console"
     SIZE = (600, 400)
 
+    w_text: ConsoleTextWidget = None
+
     def make_layout(self) -> None:
-        """ Create and add the sole widget to a vertical layout, then tell the console it's ready. """
+        """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        w_text = ConsoleTextWidget(self, self.callback)
-        layout.addWidget(w_text)
-        self.callback(w_text.add_text)
+        self.w_text = ConsoleTextWidget(self, self.callback)
+        layout.addWidget(self.w_text)
 
 
 class GUIQtConsoleTool(ConsoleTool):
-    """ Component for interactive engine and system interpreter operations. """
+    """ Qt component for system interpreter I/O. """
 
     window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+    dialog: ConsoleDialog = None
 
     def open_dialog(self, *args) -> None:
-        ConsoleDialog(self.window, *args).show()
+        self.dialog = ConsoleDialog(self.window, *args)
+        self.dialog.show()
+
+    def output(self, text:str) -> None:
+        self.dialog.w_text.add_text(text)

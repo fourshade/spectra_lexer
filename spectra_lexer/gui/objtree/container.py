@@ -2,7 +2,8 @@ from reprlib import Repr
 from typing import Iterable, Iterator, List, Tuple
 
 from .collection import ContainerCollection
-from spectra_lexer.utils import delegate_to, memoize
+from spectra_lexer.types import delegate_to
+from spectra_lexer.utils import memoize
 
 
 @memoize

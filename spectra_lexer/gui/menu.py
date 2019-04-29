@@ -1,14 +1,14 @@
-from typing import Callable
+from typing import Callable, Dict
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 
 
 class Menu(Component):
     """ GUI operations class for the menu bar. Each action just consists of clicking a menu item.
         Unlike other components, this one starts out empty and has items added on engine configuration. """
 
-    @on("load_menu")
-    def load(self, menu:dict) -> None:
+    @on("init:menu")
+    def load(self, menu:Dict[str, dict]) -> None:
         """ Add all items to their respective menus. Headings should be added to the menu bar as needed. """
         for heading, page in menu.items():
             for item_text, opt in page.items():

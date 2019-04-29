@@ -1,6 +1,6 @@
 from typing import Dict, List, Union
 
-from spectra_lexer import Component
+from spectra_lexer.core import Component
 from spectra_lexer.file import CFG, JSON
 from spectra_lexer.utils import ensure_iterable, merge
 
@@ -18,11 +18,12 @@ class TranslationsManager(Component):
     files = resource("cmdline:translations-files", [_PLOVER_SENTINEL], desc="JSON translation files to load on startup.")
     out = resource("cmdline:translations-out", "translations.json", desc="Output file name for steno translations.")
 
-    @on("init:translations", pipe_to="res:translations")
+    @on("init:translations")
     def start(self, *dummy) -> Dict[str, str]:
         return self.load()
 
-    @on("translations_load", pipe_to="res:translations")
+    @on("translations_load")
+    @pipe_to("res:translations")
     def load(self, filenames:Union[str, List[str]]="") -> Dict[str, str]:
         """ Load and merge translations from disk. """
         patterns = ensure_iterable(filenames or self.files)
