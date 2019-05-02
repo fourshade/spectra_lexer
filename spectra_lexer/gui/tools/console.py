@@ -1,10 +1,8 @@
 from code import InteractiveConsole
 import sys
-from functools import partial
-from typing import Callable
+from typing import Callable, Union
 
 from spectra_lexer import Component
-from spectra_lexer.utils import delegate_to
 
 
 class DialogConsole(InteractiveConsole):
@@ -12,15 +10,13 @@ class DialogConsole(InteractiveConsole):
 
     has_started: bool = False  # Has the dialog started and sent the first message?
 
-    def __init__(self, locals:dict, output_cb:Callable):
-        super().__init__(locals)
-        self.write = output_cb
-
-    def send(self, text_in:str) -> None:
+    def send(self, text_in:Union[str, Callable]) -> None:
         """ When the dialog sends a new line of input, push to the console. """
         more = 0
         if not self.has_started:
-            # Write the startup sequence on first send. """
+            # Set the callback and write the startup sequence on first send.
+            self.write = text_in
+            text_in = ""
             self.write(f"Python {sys.version}\n"
                        f"SPECTRA DEBUG CONSOLE - Current global objects and options:\n"
                        f"{[*self.locals]}\n")
@@ -48,13 +44,13 @@ class ConsoleTool(Component):
 
     _console: DialogConsole = None  # Main interpreter console.
 
-    @on("console_tool_open", pipe_to="new_dialog")
-    def open(self) -> tuple:
+    @on("console_tool_open")
+    def open(self) -> None:
         """ Start the interpreter console with the current vars dict and show the initial generated text in a dialog.
             If it already is started, just show the dialog again with the current text contents. """
         if self._console is None:
-            output_cb = partial(self.engine_call, "new_dialog_message", "console")
-            self._console = DialogConsole(self.debug_vars, output_cb)
-        return "console", ["console_tool_send"]
+            self._console = DialogConsole(self.debug_vars)
+        self.open_dialog(self._console.send)
 
-    send = on("console_tool_send")(delegate_to("_console"))
+    def open_dialog(self, callback) -> None:
+        raise NotImplementedError

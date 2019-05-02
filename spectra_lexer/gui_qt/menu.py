@@ -1,25 +1,33 @@
-from spectra_lexer import Component
+from typing import Callable, Dict
+
+from PyQt5.QtWidgets import QMenu
+
+from spectra_lexer.gui import Menu
 
 
-class GUIQtMenu(Component):
-    """ GUI operations class for the menu bar. Each action just consists of clicking a menu item.
-        Unlike other widgets, this one starts out empty and has items added on engine configuration. """
+class GUIQtMenu(Menu):
+    """ GUI Qt extension class for the menu bar. """
 
     menu_bar = resource("gui:m_menu", desc="Menu bar.")
+    headings: Dict[str, QMenu]  # Dict of previously created menu headings.
 
-    @on("load_menu")
-    def load(self, menu:dict) -> None:
-        """ Gather the menu items declared as options during setup and prepare the function calls. """
-        # Add all items to their respective menus. Menus are created and added to the menu bar as needed.
-        for heading, page in menu.items():
-            menu = self.menu_bar.addMenu(heading)
-            for item_text, opt in page.items():
-                # Add a new menu item under <heading> -> <item_text> to execute <func>.
-                # Add a separator instead if the item text starts with "SEP".
-                action = menu.addSeparator() if item_text.startswith("SEP") else menu.addAction(item_text)
-                action.triggered.connect(lambda *_, args=opt.value: self.engine_call(*args))
+    def __init__(self):
+        super().__init__()
+        self.headings = {}
 
-    @on("gui_set_enabled")
+    def _get_menu(self, heading:str) -> QMenu:
+        """ Get the menu object corresponding to a heading string, or create a new one. """
+        s = self.headings.get(heading)
+        if s is None:
+            s = self.headings[heading] = self.menu_bar.addMenu(heading)
+        return s
+
+    def add_item(self, heading:str, item_text:str) -> Callable:
+        action = self._get_menu(heading).addAction(item_text)
+        return action.triggered.connect
+
+    def add_separator(self, heading:str) -> None:
+        self._get_menu(heading).addSeparator()
+
     def set_enabled(self, enabled:bool) -> None:
-        """ Enable or disable all menu items when GUI-blocking operations are being done. """
         self.menu_bar.setEnabled(enabled)

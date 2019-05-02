@@ -14,10 +14,6 @@ class TextGraphWidget(QTextEdit):
     _last_col: int = -1             # Column number of last detected character under mouse cursor
     _mouse_enabled: bool = True     # Does moving the mouse over the text do anything?
 
-    def set_graph_text(self, text:str, **kwargs) -> None:
-        """ Set the text content of the widget with HTML and mouse interactivity. """
-        self.set_text(text, html=True, mouse=True, **kwargs)
-
     def set_text(self, text:str, *, html:bool=False, mouse:bool=False, scroll_to:str="top") -> None:
         """ Set the text content of the widget and <scroll_to> the top or bottom (or don't if scroll_to=None). """
         self._mouse_enabled = mouse

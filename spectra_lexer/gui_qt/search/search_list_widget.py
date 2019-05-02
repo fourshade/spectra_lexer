@@ -15,8 +15,8 @@ class SearchListWidget(QListView):
     def clear(self) -> None:
         self.model().setStringList([])
 
-    def set_items(self, s_list:List[str]) -> None:
-        self.model().setStringList(s_list)
+    def set_items(self, str_list:List[str]) -> None:
+        self.model().setStringList(str_list)
 
     def select(self, key:str) -> None:
         """ Programmatically select a specific item by first instance (if it exists).

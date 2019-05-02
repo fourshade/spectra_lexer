@@ -23,7 +23,7 @@ class GraphRenderer(Component):
     _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
 
     @resource("system:layout")
-    def set_system(self, layout:KeyLayout) -> None:
+    def set_layout(self, layout:KeyLayout) -> None:
         """ Make a node organizer that can parse the current key set. """
         self._organizer = NodeOrganizer(layout.SEP, layout.SPLIT)
 

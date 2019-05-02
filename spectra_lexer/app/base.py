@@ -1,5 +1,8 @@
+import sys
+
 from .engine import Engine, MainEngine, ThreadedEngine
-from .factory import ComponentFactory, CommandBinder, ModulePackage, package, ResourceBinder
+from .factory import ComponentFactory, CommandBinder, ResourceBinder
+from .package import package
 from spectra_lexer import Component
 
 
@@ -15,19 +18,15 @@ class Application(Component):
         self.components: ComponentFactory = ComponentFactory()
         self.commands: CommandBinder = CommandBinder()
         self.resources: ResourceBinder = ResourceBinder()
-        self.modules: ModulePackage = ModulePackage()
+        self.modules: package = package.nested(sys.modules)
 
     def start(self, *args) -> None:
         """ Perform initial creation and loading of engine, components and resources.
             The app cannot be constructed by the factory, so add it directly to the start of the path list. """
         self.setup(self, *self.CLASS_PATHS)
-        d = {}
-        for k, v in vars(self).items():
-            if isinstance(v, package):
-                d[k] = v.expand()
         self.engine_call("init:", self.resources.get_ordered())
         # Send the global dict to debug tools, then run the app.
-        self.engine_call("res:debug", d)
+        self.engine_call("res:debug", {k: v for k, v in vars(self).items() if isinstance(v, dict)})
         self.engine_call("init_done")
         return self.run(*args)
 

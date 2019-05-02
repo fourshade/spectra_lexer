@@ -2,7 +2,6 @@ from .collection import SearchDictionary
 from .nexus import IndexNexus
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.utils import delegate_to
 
 # Text displayed as the final list item, allowing the user to expand the search.

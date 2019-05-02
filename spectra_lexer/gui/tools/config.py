@@ -9,13 +9,15 @@ class ConfigTool(Component):
     config_menu = resource("menu:Tools:Edit Configuration...", ["config_tool_open"])
     info = resource("cfginfo", {}, desc="Dict with detailed config info from active components.")
 
-    @on("config_tool_open", pipe_to="new_dialog")
-    def open(self) -> tuple:
+    @on("config_tool_open")
+    def open(self) -> None:
         """ Create and show GUI configuration manager dialog by combining info and data dict values. """
-        return "config", ["config_tool_send"], self.info
+        self.open_dialog(self.send, self.info)
 
-    @on("config_tool_send", pipe_to="config_save")
-    def send(self, d:Dict[str, dict]) -> Dict[str, dict]:
+    def open_dialog(self, callback, info:Dict[str, dict]) -> None:
+        raise NotImplementedError
+
+    def send(self, d:Dict[str, dict]) -> None:
         """ Update and save the new config values. """
         self.engine_call("config_update", d)
-        return d
+        self.engine_call("config_save", d)

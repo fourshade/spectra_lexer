@@ -12,8 +12,8 @@ class ObjectTreeTool(Component):
 
     resources: dict = None   # Dict of all resources such as object type icons.
 
-    @on("tree_dialog_open", pipe_to="new_dialog")
-    def open(self) -> tuple:
+    @on("tree_dialog_open")
+    def open(self) -> None:
         """ Create the dialog and all resources using the current root vars dict. """
         if self.resources is None:
             # Make a raw root item by making an initial container from a 1-tuple containing the actual root object.
@@ -26,4 +26,7 @@ class ObjectTreeTool(Component):
             # Optional aliases for each icon may be present, separated by spaces.
             icon_ids = {d["id"]: k.split() for k, v in xml_dict["spectra_types"].items() for d in v}
             self.resources = {"root_item": root, "xml_bytes": xml_dict["raw"], "icon_ids": icon_ids}
-        return "objtree", [""], self.resources
+        self.open_dialog(self.resources)
+
+    def open_dialog(self, resources:dict) -> None:
+        raise NotImplementedError

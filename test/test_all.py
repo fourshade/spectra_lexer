@@ -61,7 +61,7 @@ INDEX = IndexManager()
 INDEX_DICT = INDEX.load(get_test_filename("index"))
 TEST_INDEX = list(INDEX_DICT.items())
 SEARCH = SearchEngine()
-SEARCH.set_system(SYSTEM_OBJ)
+SEARCH.set_rules(SYSTEM_OBJ.rules)
 SEARCH.set_translations(TRANSLATIONS_DICT)
 SEARCH.set_index(INDEX_DICT)
 
@@ -116,7 +116,7 @@ def test_board(result):
 
 
 GRAPH = GraphRenderer()
-GRAPH.set_system(SYSTEM_OBJ)
+GRAPH.set_layout(SYSTEM_OBJ.layout)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)

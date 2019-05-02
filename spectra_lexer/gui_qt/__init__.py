@@ -5,4 +5,6 @@ from .menu import GUIQtMenu
 from .search import GUIQtSearchPanel
 from .board import GUIQtBoardDisplay
 from .text import GUIQtTextDisplay
-from .tools import GUIQtToolDispatcher
+
+from .tools import *
+from .objtree import GUIQtObjectTreeTool

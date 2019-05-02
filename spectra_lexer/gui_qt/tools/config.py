@@ -1,9 +1,8 @@
-from typing import Dict
-
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout
 
 from .dialog import FormDialog
+from spectra_lexer.gui import ConfigTool
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -50,7 +49,7 @@ class ConfigDialog(FormDialog):
     TITLE = "Spectra Configuration"
     SIZE = (250, 300)
 
-    def new_layout(self, info:Dict[str, dict]) -> QLayout:
+    def new_layout(self, info:dict) -> QLayout:
         """ Make and add the central widget using info from the dict and set the save callback. """
         layout = QVBoxLayout(self)
         w_tabs = QTabWidget(self)
@@ -70,3 +69,12 @@ class ConfigDialog(FormDialog):
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:
             QMessageBox.warning(self, "Config Error", "One or more config values was invalid.")
+
+
+class GUIQtConfigTool(ConfigTool):
+    """ Config manager; allows editing of config values for any component. """
+
+    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+
+    def open_dialog(self, *args) -> None:
+        ConfigDialog(self.window, *args).show()

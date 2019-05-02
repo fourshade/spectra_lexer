@@ -1,20 +1,13 @@
 """ Base module for modal (one-shot) dialogs and a framework for more complicated ones with callbacks. """
 
-from typing import Callable, Sequence
+from typing import Callable
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QLayout, QMessageBox, QWidget
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox,  QLabel, QLayout, QMessageBox, QSlider, QToolTip, QVBoxLayout, \
+    QWidget
 
 
-def FileDialog(parent:QFileDialog, callback:Callable, title:str, fmts_msg:str, fmts:Sequence[str]) -> None:
-    """ Create a modal file open dialog and send a file selection to the callback.
-        If the dialog is cancelled, send an empty list. """
-    filter_msg = f"{fmts_msg} (*{' *'.join(fmts)})"
-    callback(QFileDialog.getOpenFileName(parent, title, ".", filter_msg)[0])
-
-
-def MessageDialog(parent:QMessageBox, callback:Callable, title:str, message:str,
-                  main_button:str="OK", *other_buttons:str) -> None:
+def MessageDialog(parent:QMessageBox, title:str, message:str, main_button:str="OK", *other_buttons:str) -> str:
     """ Create a simple modal message dialog. There is always at least one button: <main_button>.
         After that, each string in <other_buttons> adds another button going left to right.
         Send the string on the button that was chosen, or the rightmost one if the dialog was closed another way. """
@@ -27,9 +20,9 @@ def MessageDialog(parent:QMessageBox, callback:Callable, title:str, message:str,
     dialog.exec_()
     selection = dialog.clickedButton()
     try:
-        callback(all_buttons[button_objects.index(selection)])
+        return all_buttons[button_objects.index(selection)]
     except (KeyError, ValueError):
-        callback(all_buttons[-1])
+        return all_buttons[-1]
 
 
 class ToolDialog(QDialog):
@@ -40,7 +33,7 @@ class ToolDialog(QDialog):
 
     callback: Callable  # A callback to return any necessary output to the parent.
 
-    def __init__(self, parent:QWidget, callback:Callable, *args):
+    def __init__(self, parent:QWidget, callback:Callable=None, *args):
         """ Create the root UI dialog window and layout, then set the callback. """
         super().__init__(parent, Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.setWindowTitle(self.TITLE)
@@ -58,7 +51,7 @@ class ToolDialog(QDialog):
 class FormDialog(ToolDialog):
     """ A GUI tool dialog class for a submission form. Has standard buttons and returns useful output on accept. """
 
-    def make_layout(self,  *args) -> None:
+    def make_layout(self, *args) -> None:
         """ Get the subclass layout, add the standard buttons at the bottom, and connect basic signals. """
         layout = self.new_layout(*args)
         w_buttons = QDialogButtonBox(self)
@@ -83,3 +76,40 @@ class FormDialog(ToolDialog):
         if value is not None:
             self.callback(value)
             return super().accept()
+
+
+class SliderDialog(FormDialog):
+    """ Qt dialog window object with labels and a single interactive slider. """
+
+    slider: QSlider = None  # Horizontal slider.
+
+    def new_layout(self, upper_text:str, lower_text:str, slider_range:tuple) -> QLayout:
+        minimum, default, maximum = slider_range
+        layout = QVBoxLayout(self)
+        heading_label = QLabel(self)
+        heading_label.setWordWrap(True)
+        heading_label.setText(upper_text)
+        self.slider = QSlider(self)
+        self.slider.setMinimum(minimum)
+        self.slider.setMaximum(maximum)
+        self.slider.setValue(default)
+        self.slider.setOrientation(Qt.Horizontal)
+        self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setTickInterval(1)
+        self.slider.valueChanged.connect(self.new_slider_value)
+        desc_label = QLabel(self)
+        desc_label.setWordWrap(True)
+        desc_label.setText(lower_text)
+        layout.addWidget(heading_label)
+        layout.addWidget(self.slider)
+        layout.addWidget(desc_label)
+        return layout
+
+    def submit(self) -> int:
+        """ Return the slider position on submit. """
+        return self.slider.value()
+
+    # Slots
+    def new_slider_value(self, value:int) -> None:
+        """ Show a tooltip with the current numerical value when the slider is moved. """
+        QToolTip.showText(self.pos() + self.slider.pos(), str(value), self.slider)

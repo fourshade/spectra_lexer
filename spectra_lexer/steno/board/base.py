@@ -65,6 +65,6 @@ class BoardRenderer(Component):
             return self._layout.make_draw_list(ids)
 
     @on("board_find_examples", pipe_to="search_examples")
-    def get_examples(self, name:str) -> tuple:
+    def get_examples(self, rule_name:str) -> tuple:
         """ If the link on the diagram is clicked, get a random translation using this rule and search near it. """
-        return (name, self._last_rule, *self._captioner.get_random_example(name))
+        return (rule_name, self._last_rule, *self._captioner.get_random_example(rule_name))

@@ -1,15 +1,14 @@
 from collections import defaultdict
 from functools import partialmethod
 from itertools import islice
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
-from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
-from PyQt5.QtSvg import QSvgRenderer
-from PyQt5.QtWidgets import QTreeView, QVBoxLayout
+from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout, QWidget
 
-from .dialog import ToolDialog
-from spectra_lexer.utils import memoize
+from .format import ItemFormatter
+from spectra_lexer.gui import ObjectTreeTool
 
 # Default maximum number of child objects to show for each object.
 CHILD_LIMIT = 200
@@ -18,55 +17,10 @@ HEADINGS = ["Name", "Type/Item Count", "Value"]
 HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-class IconRenderer(dict):
-    """ SVG icon dict that renders static icons on transparent bitmap images. """
-
-    def __init__(self, xml_bytes:bytes, icon_ids:Dict[str, list]):
-        """ Load an SVG XML string and create a blank template image with the viewbox size. """
-        super().__init__()
-        gfx = QSvgRenderer(xml_bytes)
-        blank = QImage(gfx.viewBox().size(), QImage.Format_ARGB32)
-        blank.fill(QColor.fromRgb(255, 255, 255, 0))
-        # Create an icon dict using the SVG element IDs and their aliases.
-        for k, names in icon_ids.items():
-            # For each SVG element, copy the template, render the element in place, and convert it to an icon.
-            im = QImage(blank)
-            with QPainter(im) as p:
-                # Icons are small but important; set render hints for every new painter to render in best quality.
-                p.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
-                gfx.render(p, k, gfx.boundsOnElement(k))
-            icon = QIcon(QPixmap.fromImage(im))
-            for n in names:
-                self[n] = icon
-
-    def __call__(self, choices:Iterable[str]) -> QIcon:
-        """ Return an available icon from a sequence of choices from most wanted to least. """
-        return next(filter(None, map(self.get, choices)), None)
-
-
-class ItemFormatter:
-
-    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
-    _role_map: List[tuple]  # Maps string keys to Qt roles, with a formatting function applied to the data.
-
-    def __init__(self, **kwargs):
-        """ Create the role data map with the [caching] color generator and icon finder. """
-        self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
-                          ("tooltip",      Qt.ToolTipRole,    lambda x: x),
-                          ("icon_choices", Qt.DecorationRole, IconRenderer(**kwargs)),
-                          ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
-
-    def __call__(self, data:dict):
-        """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """
-        data.update({r: f(data[k]) for k, r, f in self._role_map if k in data}, flags=Qt.ItemFlags(self._FLAGS))
-        if data.get("edit"):
-            data["flags"] |= Qt.ItemIsEditable
-
-
 class ObjectTreeModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
-    _format_item = ItemFormatter           # Formats each item data dict with flags and roles.
+    _format_item: ItemFormatter            # Formats each item data dict with flags and roles.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
@@ -143,22 +97,38 @@ class ObjectTreeModel(QAbstractItemModel):
 
 class ObjectTreeView(QTreeView):
 
-    def __init__(self, parent:ToolDialog, **kwargs):
+    def __init__(self, parent:QDialog, model:ObjectTreeModel):
         """ Create the item model, format the header, and connect the expansion signal. """
         super().__init__(parent)
         self.setFont(QFont("Segoe UI", 9))
-        self.setModel(ObjectTreeModel(**kwargs))
+        self.setModel(model)
         self.header().setDefaultSectionSize(120)
         self.header().resizeSection(0, 200)
-        self.expanded.connect(self.model().expand)
+        self.setUniformRowHeights(True)
+        self.expanded.connect(model.expand)
 
 
-class ObjectTreeDialog(ToolDialog):
+class ObjectTreeDialog(QDialog):
     """ Qt tree dialog window object. """
 
-    TITLE = "Python Object Tree View"
-    SIZE = (600, 450)
+    TITLE: str = "Python Object Tree View"  # Dialog window title string.
+    SIZE: tuple = (600, 450)                # Dimensions in pixels: (width, height).
 
-    def make_layout(self, resources:dict) -> None:
-        """ Create the layout and tree widget. """
-        QVBoxLayout(self).addWidget(ObjectTreeView(self, **resources))
+    def __init__(self, parent:QWidget, resources:dict):
+        """ Create the root UI dialog window, layout, item model, and tree widget. """
+        super().__init__(parent, Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowTitle(self.TITLE)
+        self.resize(*self.SIZE)
+        self.setMinimumSize(*self.SIZE)
+        self.setSizeGripEnabled(False)
+        model = ObjectTreeModel(**resources)
+        QVBoxLayout(self).addWidget(ObjectTreeView(self, model))
+
+
+class GUIQtObjectTreeTool(ObjectTreeTool):
+    """ Component for interactive tree operations. """
+
+    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+
+    def open_dialog(self, *args) -> None:
+        ObjectTreeDialog(self.window, *args).show()

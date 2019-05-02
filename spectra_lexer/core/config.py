@@ -16,15 +16,16 @@ class ConfigManager(Component):
     def start(self, config:dict) -> Optional[Dict[str, dict]]:
         """ Send all info and store default data values for active config settings. """
         info = self._info = defaultdict(dict)
-        for key, opt in config.items():
-            sect, name = key.split(":", 1)
-            v = opt.value
-            tp = type(v)
-            label = name.replace("_", " ").title()
-            desc = opt.desc
-            if "name" in info[sect]:
-                v = info[sect][name][0]
-            info[sect][name] = [v, tp, label, desc]
+        for sect, page in config.items():
+            d = info[sect]
+            for key, opt in page.items():
+                v = opt.value
+                tp = type(v)
+                label = key.replace("_", " ").title()
+                desc = opt.desc
+                if "name" in d:
+                    v = d[key][0]
+                d[key] = [v, tp, label, desc]
         return self.load()
 
     @on("config_load", pipe_to="res:config::")

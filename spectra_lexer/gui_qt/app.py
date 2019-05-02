@@ -6,7 +6,7 @@ from traceback import print_exc
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import app, core, gui_qt, steno, tools
+from spectra_lexer import app, core, gui_qt, steno
 
 
 class Connection(QObject):
@@ -30,7 +30,7 @@ class GUIQtApplication(app.ThreadedApplication):
 
     DESCRIPTION = "Run the interactive GUI application by itself."
     CLASS_PATHS = [gui_qt]
-    WORKER_CLASS_PATHS = [[core, steno, tools]]
+    WORKER_CLASS_PATHS = [[core, steno]]
     PASSTHROUGH = Connection
 
     # We can create the QApplication at class level since only one is ever allowed to run.

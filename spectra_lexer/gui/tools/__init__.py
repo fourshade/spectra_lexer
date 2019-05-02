@@ -4,4 +4,3 @@ from .file import FileTool
 from .config import ConfigTool
 from .index import IndexTool
 from .console import ConsoleTool
-from .objtree import ObjectTreeTool

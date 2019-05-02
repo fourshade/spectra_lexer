@@ -5,6 +5,7 @@ from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
 from .dialog import ToolDialog
+from spectra_lexer.gui import ConsoleTool
 
 
 class HistoryTracker(list):
@@ -112,5 +113,13 @@ class ConsoleDialog(ToolDialog):
         layout = QVBoxLayout(self)
         w_text = ConsoleTextWidget(self, self.callback)
         layout.addWidget(w_text)
-        self.receive = w_text.add_text
-        self.callback("")
+        self.callback(w_text.add_text)
+
+
+class GUIQtConsoleTool(ConsoleTool):
+    """ Component for interactive engine and system interpreter operations. """
+
+    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+
+    def open_dialog(self, *args) -> None:
+        ConsoleDialog(self.window, *args).show()
