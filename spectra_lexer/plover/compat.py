@@ -35,7 +35,7 @@ class PloverCompatibilityLayer(Component):
             # If the compatibility check fails, don't try to connect to Plover. Send an error.
             self.engine_call("new_status", _INCOMPATIBLE_MESSAGE)
 
-    @on("plover_convert_dicts", pipe_to="set_dict_translations")
+    @on("plover_convert_dicts", pipe_to="res:translations")
     def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a single string dict.
             Plover dictionaries are not proper Python dicts and cannot be handled as such.

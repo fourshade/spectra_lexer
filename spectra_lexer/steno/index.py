@@ -9,11 +9,14 @@ class IndexManager(Component):
         The structure is a dict of rule names, each mapped to a string dict of steno translations.
         Simple as it is, the structure is large and requires a lot of CPU load to process. """
 
-    file = Resource("cmdline", "index-file", "~/index.json", "JSON index file to load at startup and/or write to.")
-    out = Resource("cmdline", "index-out", "~/index.json", "Output file name for steno rule -> translation indices.")
+    file = resource("cmdline:index-file", "~/index.json", desc="JSON index file to load on startup and/or write to.")
+    out = resource("cmdline:index-out", "~/index.json", desc="Output file name for steno rule -> translation indices.")
 
-    @on("load_dicts", pipe_to="set_dict_index")
-    @on("index_load", pipe_to="set_dict_index")
+    @on("init:index", pipe_to="res:index")
+    def start(self, *dummy) -> Optional[Dict[str, dict]]:
+        return self.load()
+
+    @on("index_load", pipe_to="res:index")
     def load(self, filename:str="") -> Optional[Dict[str, dict]]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         try:

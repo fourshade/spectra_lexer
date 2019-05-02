@@ -14,8 +14,8 @@ class GUIQtTextDisplay(Component):
     """ GUI operations class for displaying status, interactive text, and exceptions.
         Also handles mouse input to the text widget. """
 
-    w_title = Resource("gui", "w_display_title", None, "Displays status messages and mapping of keys to word.")
-    w_text = Resource("gui",  "w_display_text",  None, "Displays formatted rule graphs and other textual data.")
+    w_title = resource("gui:w_display_title", desc="Displays status messages and mapping of keys to word.")
+    w_text = resource("gui:w_display_text", desc="Displays formatted rule graphs and other textual data.")
     _anim: Iterator[str] = None  # Animation string iterator for the title bar. Should repeat.
     _title_timer: QTimer = None  # Animation timer for the title bar.
 
@@ -41,7 +41,8 @@ class GUIQtTextDisplay(Component):
         """ Set the title to be the next item in the string iterator. """
         self.w_title.setText(next(self._anim))
 
-    set_interactive_text = on("new_interactive_text")(delegate_to("w_text"))
+    set_text = delegate_to("w_text")
+    set_graph_text = on("new_graph_text")(delegate_to("w_text"))
 
     @on("exception")
     def handle_exception(self, e:Exception) -> bool:
@@ -50,7 +51,7 @@ class GUIQtTextDisplay(Component):
         tb_text = "".join(tb_lines)
         # Plover owns stderr while running, and the GUI can only print exceptions after setup.
         # To avoid crashing Plover, only report failure if NONE of the possible print methods succeed.
-        for obj, attr in [(self, "set_interactive_text"), (sys.stderr, "write")]:
+        for obj, attr in [(self, "set_text"), (sys.stderr, "write")]:
             try:
                 getattr(obj, attr)(tb_text)
                 return True

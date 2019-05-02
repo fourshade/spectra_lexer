@@ -14,10 +14,10 @@ from spectra_lexer.utils import delegate_to
 class BoardRenderer(Component):
     """ Creates graphics and description strings for the board diagram. """
 
-    show_compound = Resource("config", "board:show_compound_keys", True,
-                             "Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
-    show_links = Resource("config", "board:show_example_links", True,
-                          "Show hyperlinks to other examples of a selected rule. Requires an index.")
+    show_compound = resource("config:board:show_compound_keys", True,
+                             desc="Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
+    show_links = resource("config:board:show_example_links", True,
+                          desc="Show hyperlinks to other examples of a selected rule. Requires an index.")
 
     _captioner: CaptionGenerator     # Generates the caption text above the board diagram.
     _layout: ElementLayout           # Calculates drawing bounds for each element.
@@ -30,9 +30,9 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
         self._layout = ElementLayout()
 
-    set_index = on("set_dict_index")(delegate_to("_captioner"))
+    set_index = resource("index")(delegate_to("_captioner"))
 
-    @on("set_system", pipe_to="new_board_xml")
+    @resource("system", pipe_to="new_board_xml")
     def set_system(self, system:StenoSystem) -> bytes:
         """ The first <svg> element with a viewbox is the root element. Set the layout's viewbox to match it. """
         root = system.board["name"]["svg"]

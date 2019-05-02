@@ -28,5 +28,5 @@ class SearchDictionary:
                 self._nexus = nexus
                 return nexus.search(new_pattern, count, **search_kwargs)
 
-    lookup = delegate_to("_nexus")
+    get = delegate_to("_nexus")
     command_args = delegate_to("_nexus")

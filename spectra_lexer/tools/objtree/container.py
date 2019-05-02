@@ -30,7 +30,7 @@ class NodeRepr(Repr):
         """ Simpler version of reprlib.repr for arbitrary objects that doesn't cut out in the middle. """
         try:
             s = repr(obj)
-            if len(s) <= self.maxother:
+            if len(s) <= self.maxother and s != object.__repr__(obj):
                 return s
         except Exception:
             pass
@@ -58,8 +58,12 @@ class Container(Iterable[List[dict]]):
 
     def __iter__(self) -> Iterator[List[dict]]:
         """ From the object's keyed contents, yield one list of dicts for each item. """
-        for key in self.keys():
-            yield self.item_data(key)
+        try:
+            for key in self.keys():
+                yield self.item_data(key)
+        except Exception as e:
+            # Unpredictable exceptions may arise during introspection, so just present an error for any one.
+            yield from ErroredContainer(e)
 
     def keys(self) -> Iterator:
         """ Whatever contents we have, they must be keyed in some way.
@@ -104,28 +108,39 @@ class Container(Iterable[List[dict]]):
     __getitem__ = delegate_to("_obj")
 
 
-def _add_edit_callback(d, fn, *args, eval_input=False) -> dict:
+def _add_edit_callback(d, fn, *args, cb_key="edit", eval_input=False) -> dict:
     """ Add a callback for editing of GUI fields to a dict. """
     def edit(user_input:str) -> bool:
         """ Attempt an edit operation and abort on any exception. Return True on success. """
         try:
             # Since only strings can be entered, we may evaluate them as Python expressions.
             if eval_input:
-                user_input = eval(user_input)
+                user_input = eval_string(user_input)
             fn(*args, user_input)
             return True
         except Exception:
             # If the value was not a valid Python expression or editing failed another way, do nothing.
             return False
-    d["edit"] = edit
+    d[cb_key] = edit
     return d
+
+
+def eval_string(s:str):
+    """ Evaluate a user string as a Python expression. If there's an undefined name, try to import its module. """
+    d = globals()
+    while True:
+        try:
+            return eval(s, d)
+        except NameError as e:
+            name = e.args[0].split("'")[1]
+            d[name] = __import__(name)
 
 
 class MutableContainer(Container):
 
     color = (0, 0, 0)  # Mutable containers are the default color of black.
-    key_tooltip: str = "This key may not be changed."
-    value_tooltip: str = "Double-click to edit this value."
+    key_tooltip = "This key may not be changed."
+    value_tooltip = "Double-click to edit this value."
 
     def value_data(self, key, *args) -> dict:
         """ Include a callback for editing of values in the data dict. """
@@ -138,7 +153,7 @@ class MutableContainer(Container):
 
 class MutableKeyContainer(MutableContainer):
 
-    key_tooltip: str = "Double-click to move this item to another key."
+    key_tooltip = "Double-click to move this item to another key."
 
     def key_data(self, key, *args) -> dict:
         """ Include a callback for editing of keys in the data dict. """
@@ -148,3 +163,22 @@ class MutableKeyContainer(MutableContainer):
         """ A container only has this method if it is mutable AND it makes sense to change an item's order/key. """
         self[new_key] = self[old_key]
         del self[old_key]
+
+
+class ErroredContainer(Container):
+
+    color = (192, 0, 0)  # Errors are bright red.
+    key_tooltip = value_tooltip = "An unexpected error occurred."
+
+    def key_str(self, key):
+        return "ERROR"
+
+    def __iter__(self) -> Iterator[List[dict]]:
+        """ Yield the exception's data if possible. Further exception handling is futile. """
+        try:
+            yield self.item_data(self._obj)
+        except Exception:
+            pass
+
+    def __getitem__(self, key):
+        return self._obj

@@ -3,7 +3,7 @@
 from typing import Dict, Optional
 
 from .dict import ReverseStripCaseSearchDict, StripCaseSearchDict
-from spectra_lexer.utils import delegate_to, ensure_list
+from spectra_lexer.utils import delegate_to, ensure_iterable
 
 
 class ResourceNexus:
@@ -37,7 +37,7 @@ class ResourceNexus:
         """ Return a tuple of items that can be directly called as an engine command to show a result, or None. """
 
     search = delegate_to("_d")
-    lookup = delegate_to("_d")
+    get = delegate_to("_d")
 
 
 class TranslationNexus(ResourceNexus, resource="translations"):
@@ -65,7 +65,7 @@ class TranslationNexus(ResourceNexus, resource="translations"):
         if all(isinstance(i, str) for i in args):
             return ("lexer_query", *args)
         # If there is more than one of either input, make a product query to select the best combination.
-        return ("lexer_query_product", *map(ensure_list, args))
+        return ("lexer_query_product", *map(ensure_iterable, args))
 
 
 class RulesNexus(ResourceNexus, resource="rules"):

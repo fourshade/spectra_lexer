@@ -5,11 +5,11 @@ from spectra_lexer.file import CFG, FileHandler, JSON
 class FileTool(Component):
     """ Controls user-based file loading and window closing. """
 
-    m_rules = Resource("menu",  "File:Load System...",       ["file_tool_open", "system", CFG])
-    m_trans = Resource("menu",  "File:Load Translations...", ["file_tool_open", "translations", JSON])
-    m_index = Resource("menu",  "File:Load Index...",        ["file_tool_open", "index", JSON])
-    m_sep = Resource("menu",    "File:")
-    m_window = Resource("menu", "File:Close",                ["gui_window_close"])
+    m_rules = resource("menu:File:Load System...",       ["file_tool_open", "system", CFG])
+    m_trans = resource("menu:File:Load Translations...", ["file_tool_open", "translations", JSON])
+    m_index = resource("menu:File:Load Index...",        ["file_tool_open", "index", JSON])
+    m_sep = resource("menu:File:SEP",                    [])
+    m_window = resource("menu:File:Close",               ["gui_window_close"])
 
     _last_type: str = ""  # Last resource type with a dialog load attempt.
 

@@ -20,7 +20,7 @@ DIALOG_TYPES = {"file": FileDialog,
 class GUIQtToolDispatcher(Component):
     """ Creates dialogs at the request of tool components and facilitates communications. """
 
-    window = Resource("gui", "window", None, "Main window object. Must be the parent of any new dialogs.")
+    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
 
     _dialogs: Dict[str, ToolDialog]  # Currently active dialogs.
 

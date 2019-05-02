@@ -6,7 +6,6 @@ from typing import Iterable, List
 
 from .reverse import ReverseDict
 from .search import StringSearchDict
-from spectra_lexer.utils import ensure_list
 
 
 class StripCaseSearchDict(StringSearchDict):
@@ -34,10 +33,6 @@ class StripCaseSearchDict(StringSearchDict):
                     return ["REGEX ERROR"]
             return self.prefix_match_keys(pattern, count)
         return self.get_nearby_keys(pattern, count)
-
-    def lookup(self, match:str) -> List[str]:
-        """ Perform a simple lookup on a dict. If the results aren't a list, make it one. """
-        return ensure_list(self.get(match) or [])
 
 
 class ReverseStripCaseSearchDict(ReverseDict, StripCaseSearchDict):

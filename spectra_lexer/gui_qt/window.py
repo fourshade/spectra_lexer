@@ -7,14 +7,14 @@ class GUIQtWindow(Component):
 
     window: MainWindow = None  # Main GUI window. All GUI activity (including dialogs) is coupled to this window.
 
-    @on("start")
-    def start(self, **options) -> None:
+    @on("init:menu")
+    def start(self, menu:dict) -> None:
         """ Make the window, get all required widgets from it, and send those to the components. """
         self.window = MainWindow()
         for key, val in self.window.widgets().items():
-            self.engine_call(f"set_gui_{key}", val)
+            self.engine_call(f"res:gui:{key}", val)
         # Load the menu first specifically, since it has its own options.
-        self.engine_call("load_menu", **options)
+        self.engine_call("load_menu", menu)
         # Let components know the options are done so they can start loading the rest of the GUI.
         self.engine_call("load_gui")
         # Even once the window is visible, the user shouldn't interact with it until files are done loading.

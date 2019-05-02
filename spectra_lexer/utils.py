@@ -2,11 +2,15 @@
     Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments. """
 
 import ast
+import collections
 import functools
 import operator
 
+from spectra_lexer.struct import struct
+
 
 # ---------------------------PURE UTILITY FUNCTIONS---------------------------
+
 
 def nop(*args, **kwargs) -> None:
     """ ... """
@@ -39,19 +43,21 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None):
         obj = getattr(obj, next_attr, sentinel)
 
 
-def recurse(obj:object, iter_attr:str=None, sentinel:object=None):
+def recurse(obj:object, iter_attr:str=None, iter_fn=iter, sentinel:object=None, max_level:int=-1):
     """ Starting with a container object that can contain other similar container objects,
         yield that object, then recursively yield objects from its contents, depth-first.
-        If iter_attr is None, the object must be an iterable container itself.
-        If iter_attr is defined, it is the name of an iterable attribute.
+        If <iter_attr> is None, the object must be an iterable container itself.
+        If <iter_attr> is defined, it is the name of an iterable attribute.
+        <iter_fn> is the function that gets the iterable contents, defaulting to iter.
         Recursion stops if the sentinel is encountered or the attribute is not found.
+        If <max_level> is not negative, it will also stop after that many levels.
         Reference loops will cause the generator to recurse up to the recursion limit. """
     yield obj
     if iter_attr is not None:
         obj = getattr(obj, iter_attr, sentinel)
-    if obj is not sentinel:
-        for item in obj:
-            yield from recurse(item, iter_attr, sentinel)
+    if obj is not sentinel and max_level:
+        for item in iter_fn(obj):
+            yield from recurse(item, iter_attr, iter_fn, sentinel, max_level - 1)
 
 
 def merge(d_iter) -> dict:
@@ -63,9 +69,17 @@ def merge(d_iter) -> dict:
     return merged
 
 
-def ensure_list(obj:object) -> list:
-    # Ensure the output object is a list by wrapping the object in a list if it isn't one already.
-    return obj if isinstance(obj, list) else [obj]
+def ensure_iterable(obj:object, blacklist:tuple=(str,), empty:tuple=(None,)):
+    # Ensure the output object is iterable by wrapping it in a list if it isn't.
+    # Iteration may not be desired on some types (such as strings), so they may be blacklisted as "not iterable".
+    # Some types (such as None) are used to indicate the absence of a value, and may return an empty iterable.
+    if isinstance(obj, blacklist):
+        return [obj]
+    if isinstance(obj, collections.abc.Iterable):
+        return obj
+    if obj in empty:
+        return ()
+    return [obj]
 
 
 # These functions ought to have been string built-ins. Pure Python string manipulation is slow as fuck.
@@ -107,15 +121,6 @@ def str_eval(val:str, _eval=ast.literal_eval) -> object:
 
 # ------------------------DECORATORS/NESTED FUNCTIONS-------------------------
 
-def save_kwargs(fn):
-    """ Decorator to save and re-use keyword arguments from previous calls to a function. """
-    @functools.wraps(fn)
-    def call(*args, _fn=fn, _saved_kwargs={}, **kwargs):
-        _saved_kwargs.update(kwargs)
-        return _fn(*args, **_saved_kwargs)
-    return call
-
-
 def with_sets(cls:type) -> type:
     """ Decorator for a constants class to add sets of all legal keys and values for membership testing. """
     cls.keys, cls.values = map(set, zip(*vars(cls).items()))
@@ -133,35 +138,30 @@ def memoize(fn):
 # These classes are used to modify the behavior of attributes and methods on other classes.
 # They are used like functions, so their names are all lowercase.
 
-class _dummy:
-    """ The ultimate dummy object. Always. Returns. Itself. """
-    def __call__(self, *args, **kwargs): return self
-    __getattr__ = __getitem__ = __call__
-dummy = _dummy()
+# A robust dummy object. Always returns itself through any chain of attribute lookups, subscriptions, and calls.
+_DUMMY_METHODS = ["__getattr__", "__getitem__", "__call__"]
+dummy = type("dummy", (), dict.fromkeys(_DUMMY_METHODS, lambda self, *a, **k: self))()
 
 
-class delegate_to:
+class delegate_to(struct, _fields=["attr"], _args="partial_args", _kwargs="partial_kwargs"):
     """ Descriptor to delegate method calls on the assigned name to an instance member.
         If there are dots in <attr>, method calls on self.<name> are redirected to self.<dotted.path.in.attr>.
         If there are no dots in <attr>, method calls on self.<name> are redirected to self.<attr>.<name>.
         Partial function arguments may also be added, though the performance cost is considerable.
         Some special methods may be called implicitly. For these, call the respective builtin or operator. """
     _BUILTINS = [bool, int, float, str, repr, format, iter, next, reversed, len, hash, dir, getattr, setattr, delattr]
-    SPECIAL_METHODS = dict(vars(operator), **{f"__{fn.__name__}__": fn for fn in _BUILTINS})
-    def __init__(self, attr:str, *partial_args, **partial_kwargs):
-        self.params = attr, partial_args, partial_kwargs
+    SPECIAL_METHODS = {**vars(operator), **{f"__{fn.__name__}__": fn for fn in _BUILTINS}}
+
     def __set_name__(self, owner:type, name:str) -> None:
-        attr, p_args, p_kwargs = self.params
+        attr, p_args, p_kwargs = self.values()
         special = self.SPECIAL_METHODS.get(name)
         if special is not None:
             def delegate(instance, *args, _call=special, _attr=attr, **kwargs):
                 return _call(getattr(instance, _attr), *args, **kwargs)
-            if p_args or p_kwargs:
-                raise ValueError("Partial arguments are not allowed when delegating special methods.")
         else:
             getter = operator.attrgetter(attr if "." in attr else f"{attr}.{name}")
             def delegate(instance, *args, _get=getter, **kwargs):
                 return _get(instance)(*args, **kwargs)
-            if p_args or p_kwargs:
-                delegate = functools.partialmethod(delegate, *p_args, **p_kwargs)
+        if p_args or p_kwargs:
+            delegate = functools.partialmethod(delegate, *p_args, **p_kwargs)
         setattr(owner, name, delegate)

@@ -7,7 +7,7 @@ from .results import LexerRuleMaker
 from spectra_lexer import Component
 from spectra_lexer.steno.rules import RuleMapItem, StenoRule
 from spectra_lexer.steno.system import StenoSystem
-from spectra_lexer.utils import delegate_to, str_without
+from spectra_lexer.utils import str_without
 
 # Default size of generated indices (maximum word size).
 _DEFAULT_INDEX_SIZE = 12
@@ -17,8 +17,8 @@ class StenoLexer(Component):
     """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
         patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
 
-    need_all_keys = Resource("config", "lexer:need_all_keys", False,
-                             "Only return results that match every key in the stroke.")
+    need_all_keys = resource("config:lexer:need_all_keys", False,
+                             desc="Only return results that match every key in the stroke.")
 
     _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
     _rulemaker: LexerRuleMaker          # Makes rules from lexer results.
@@ -32,7 +32,7 @@ class StenoLexer(Component):
         self._rulemaker = LexerRuleMaker()
         self._indexer = LexerIndexCompiler()
 
-    @on("set_system")
+    @resource("system")
     def set_system(self, system:StenoSystem) -> None:
         self._cleanse = system.layout.cleanse_from_rtfcre
         self._matcher.load(system)

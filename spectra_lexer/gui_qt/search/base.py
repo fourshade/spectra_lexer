@@ -7,11 +7,11 @@ from spectra_lexer.utils import delegate_to
 class GUIQtSearchPanel(Component):
     """ GUI operations class for finding strokes and translations that are similar to one another. """
 
-    w_input = Resource("gui",   "w_search_input",    None, "Input box for the user to enter a search string.")
-    w_matches = Resource("gui", "w_search_matches",  None, "List box to show the matches for the user's search.")
-    w_mappings = Resource("gui","w_search_mappings", None, "List box to show the mappings of a match list selection.")
-    w_strokes = Resource("gui", "w_search_type",  None, "Check box to determine whether to use word or stroke search.")
-    w_regex = Resource("gui",   "w_search_regex", None, "Check box to determine whether to use prefix or regex search.")
+    w_input = resource("gui:w_search_input",       desc="Input box for the user to enter a search string.")
+    w_matches = resource("gui:w_search_matches",   desc="List box to show the matches for the user's search.")
+    w_mappings = resource("gui:w_search_mappings", desc="List box to show the mappings of a match selection.")
+    w_strokes = resource("gui:w_search_type",      desc="Check box: False = word search, True = stroke search.")
+    w_regex = resource("gui:w_search_regex",       desc="Check box: False = prefix search, True = regex search.")
 
     @on("load_gui")
     def load(self) -> None:

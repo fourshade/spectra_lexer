@@ -6,30 +6,32 @@ from typing import Iterator
 
 from .collection import use_if
 from .container import Container, MutableKeyContainer
+from spectra_lexer.utils import delegate_to
 
 
 @use_if(hasattr, "__class__")
 class ClassContainer(Container):
 
     color = (32, 32, 128)  # Class containers are blue.
+    key_tooltip = value_tooltip = "Auto-generated item; cannot edit."
     _EXCLUDED_CLASSES: set = {i for m in (builtins, types) for i in vars(m).values() if isinstance(i, type)}
 
-    def __bool__(self) -> bool:
+    _cls_dict = {}  # Pre-computed class hierarchy dict by name.
+
+    def __init__(self, obj):
         """ Allow class access if the object has an instance dict. Metaclasses may be accessed as well.
             The main exception is type, which is its own class and would expand indefinitely.
             Others include built-in types which provide next to nothing useful in their attr listings. """
-        return hasattr(self._obj, "__dict__") and self._obj.__class__ not in self._EXCLUDED_CLASSES
+        super().__init__(obj)
+        if hasattr(obj, "__dict__"):
+            self._cls_dict = {tp.__name__: tp for tp in obj.__class__.__mro__ if tp not in self._EXCLUDED_CLASSES}
+
+    __bool__ = delegate_to("_cls_dict")
 
     def keys(self) -> Iterator[str]:
-        """ If allowed, yield the class alone, keyed by its name. """
-        if self:
-            yield self._obj.__class__.__name__
+        return iter(self._cls_dict)
 
-    def __getitem__(self, key:str) -> None:
-        tp = self._obj.__class__
-        if self and key == tp.__name__:
-            return tp
-        raise KeyError(tp)
+    __getitem__ = delegate_to("_cls_dict")
 
 
 @use_if(hasattr, "__dict__")
@@ -53,7 +55,7 @@ class AttrContainer(MutableKeyContainer):
         """ Return the attribute under <key> by any method we can. """
         try:
             return getattr(self._obj, key)
-        except AttributeError:
+        except (AttributeError, TypeError):
             return self._obj.__dict__[key]
 
     def __delitem__(self, key:str) -> None:

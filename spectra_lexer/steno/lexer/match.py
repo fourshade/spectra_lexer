@@ -51,9 +51,7 @@ class LexerRuleMatcher:
         special_dict = self._special_dict = {}
         stroke_dict = self._stroke_dict = {}
         word_dict = self._word_dict = {}
-        # Steno order may be ignored for certain keys. This has a large performance and accuracy cost.
-        # Only the asterisk is used in such a way that this treatment is worth it.
-        prefix_tree = self._prefix_finder = PrefixFinder(self._star_filter)
+        prefix_entries = []
         # Sort rules into specific dictionaries based on specific flags for the lexer matching system.
         match_name = RuleFlags.SPECIAL
         match_stroke = RuleFlags.STROKE
@@ -74,7 +72,10 @@ class LexerRuleMatcher:
                 word_dict[letters] = lr
             # Everything else gets added to the tree-based prefix dictionary.
             else:
-                prefix_tree.add(skeys, letters, lr)
+                prefix_entries.append((skeys, letters, lr))
+        # Steno order may be ignored for certain keys. This has a large performance and accuracy cost.
+        # Only the asterisk is used in such a way that this treatment is worth it.
+        self._prefix_finder = PrefixFinder(prefix_entries, self._star_filter)
 
     def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerRule]:
         """ Return a list of rules that match the given keys and letters in any of the dictionaries.
@@ -89,7 +90,7 @@ class LexerRuleMatcher:
             rule_type = self._analyze_star(skeys, all_skeys, all_letters)
             return [self._special_dict.get(f"{self._key_star}:{rule_type}") or self._rule_unknown]
         # Try to match keys by prefix. This may yield a large number of rules.
-        matches = self._prefix_finder.find(skeys, letters)
+        matches = self._prefix_finder(skeys, letters)
         # We have a complete stroke next if we just started or a stroke separator was just matched.
         is_start = (skeys == all_skeys)
         if is_start or all_skeys[-len(skeys) - 1] == self._key_sep:

@@ -2,7 +2,9 @@
 
 import sys
 
-from spectra_lexer.main import BatchAnalyzeApplication, BatchIndexApplication, GUIQtApplication, PloverPluginApplication
+from spectra_lexer.gui_qt.app import GUIQtApplication
+from spectra_lexer.plover.app import PloverPluginApplication
+from spectra_lexer.steno.app import StenoAnalyzeApplication, StenoIndexApplication
 
 
 class EntryPoint:
@@ -23,8 +25,8 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(BatchAnalyzeApplication)
-    index = EntryPoint(BatchIndexApplication)
+    analyze = EntryPoint(StenoAnalyzeApplication)
+    index = EntryPoint(StenoIndexApplication)
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
     gui = EntryPoint(GUIQtApplication)
     # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.

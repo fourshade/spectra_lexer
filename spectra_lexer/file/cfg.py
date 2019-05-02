@@ -15,11 +15,12 @@ class CFG(FileHandler, formats=[".cfg", ".ini"]):
         cfg.read_string(contents.decode('utf-8'))
         d = {}
         for sect, prox in cfg.items():
-            page = d[sect] = dict(prox)
-            for (opt, val) in page.items():
-                # Try to evaluate strings as Python objects. This fixes crap like bool('False') = True.
-                if isinstance(val, str):
-                    page[opt] = str_eval(val)
+            if sect != "DEFAULT":
+                page = d[sect] = dict(prox)
+                for (opt, val) in page.items():
+                    # Try to evaluate strings as Python objects. This fixes crap like bool('False') = True.
+                    if isinstance(val, str):
+                        page[opt] = str_eval(val)
         return d
 
     @classmethod

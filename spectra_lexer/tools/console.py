@@ -43,8 +43,8 @@ class DialogConsole(InteractiveConsole):
 class ConsoleTool(Component):
     """ Component for interactive engine and system interpreter operations. """
 
-    m_console = Resource("menu", "Debug:Open Console...", ["console_tool_open"])
-    debug_vars = Resource("dict", "debug", {})  # Variables to load on interpreter startup as globals.
+    m_console = resource("menu:Debug:Open Console...", ["console_tool_open"])
+    debug_vars = resource("debug", {}, desc="Variables to load on interpreter startup as globals.")
 
     _console: DialogConsole = None  # Main interpreter console.
 

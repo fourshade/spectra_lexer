@@ -14,8 +14,8 @@ class IndexTool(Component):
     """ Controls user-based index creation. """
 
     # Create and show index size choice dialog.
-    index_menu = Resource("menu", "Tools:Make Index...", ["new_dialog", "index", ["index_tool_size_send"]])
-    translations = Resource("dict", "translations", {})  # Translations dict for mass queries.
+    index_menu = resource("menu:Tools:Make Index...", ["new_dialog", "index", ["index_tool_size_send"]])
+    translations = resource("translations", {})
 
     @on("index_tool_size_send")
     def size_submit(self, index_size:int) -> None:
@@ -46,7 +46,7 @@ class IndexTool(Component):
     @on("new_index", pipe_to="index_save")
     def index_finished(self, d:dict) -> dict:
         """ Once the new index has been received, we can load it, send the success message, and re-enable the GUI. """
-        self.engine_call("set_dict_index", d)
+        self.engine_call("res:index", d)
         self.engine_call("new_status", "Successfully created index!" if d else "Skipped index creation.")
         self.engine_call("gui_set_enabled", True)
         return d

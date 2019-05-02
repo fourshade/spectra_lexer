@@ -12,7 +12,7 @@ _MORE_TEXT = "(more...)"
 class SearchEngine(Component):
     """ Provides GUI support services for search. """
 
-    match_limit = Resource("config", "search:match_limit", 100, "Maximum number of matches returned by a search.")
+    match_limit = resource("config:search:match_limit", 100, desc="Maximum number of matches returned by a search.")
 
     _dictionary: SearchDictionary  # Runs the actual search queries.
     _count: int                    # Limit on number of search results. May exceed <match_limit> on user action.
@@ -33,10 +33,10 @@ class SearchEngine(Component):
     def _add_page_to_count(self) -> None:
         self._count += self.match_limit
 
-    set_index = on("set_dict_index")(delegate_to("_dictionary.new", "index"))
-    set_translations = on("set_dict_translations")(delegate_to("_dictionary.new", "translations"))
+    set_translations = resource("translations")(delegate_to("_dictionary.new", "translations"))
+    set_index = resource("index")(delegate_to("_dictionary.new", "index"))
 
-    @on("set_system")
+    @resource("system")
     def set_system(self, system:StenoSystem) -> None:
         self._dictionary.new("rules", system.rules)
 
@@ -104,14 +104,13 @@ class SearchEngine(Component):
         else:
             self.lookup(match)
 
-    def lookup(self, match:str) -> list:
-        """ Keep track of the last selected match so we can put together a display command with it. """
+    def lookup(self, match:str) -> None:
+        """ Look up mappings and display them in the lower list.
+            Keep track of the last selected match so we can put together a display command with it. """
         self._last_match = match
-        return self._lookup(match)
-
-    def _lookup(self, match:str) -> list:
-        """ Look up mappings and display them in the lower list. """
-        mappings = self._dictionary.lookup(match)
+        mappings = self._dictionary.get(match) or []
+        if not isinstance(mappings, list):
+            mappings = [mappings]
         self._show_mappings(mappings)
         if len(mappings) == 1:
             # A lone mapping should be selected automatically and displayed on its own.
@@ -119,13 +118,12 @@ class SearchEngine(Component):
         elif len(mappings) > 1:
             # If there is more than one mapping, we look at all possibilities.
             self.display(mappings)
-        return mappings
 
     def _show_mappings(self, mappings:list) -> None:
         """ Mappings may be rules. To be safe, show the string form of everything. """
         self.engine_call("new_search_mapping_list", list(map(str, mappings)))
 
-    def _select_mapping(self, mapping:object) -> None:
+    def _select_mapping(self, mapping) -> None:
         self._select("mapping",  mapping)
         self.display(mapping)
 
@@ -134,12 +132,12 @@ class SearchEngine(Component):
         """ When a mapping is chosen manually from the lower list, send a display command. """
         self.display(mapping)
 
-    def display(self, mapping:object) -> None:
+    def display(self, mapping) -> None:
         """ Send an engine command to display the given match and mappings object, whatever they are. """
         self._last_mapping = mapping
         self._display(self._last_match, mapping)
 
-    def _display(self, match:str, mappings:object) -> None:
+    def _display(self, match:str, mappings) -> None:
         cmd_args = self._dictionary.command_args(match, mappings)
         if cmd_args is not None:
             self.engine_call(*cmd_args)

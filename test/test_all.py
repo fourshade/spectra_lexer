@@ -21,7 +21,7 @@ from test import get_test_filename
 
 # Create and connect components for the tests in order as we need them.
 SYSTEM = SystemManager()
-SYSTEM_OBJ = SYSTEM.load_system()
+SYSTEM_OBJ = SYSTEM.load()
 RULES_DICT = SYSTEM_OBJ.rules
 IGNORED_KEYS = Counter({"/": 999, "-": 999})
 
@@ -42,7 +42,7 @@ def test_rules(r):
 
 
 TRANSLATIONS = TranslationsManager()
-TRANSLATIONS_DICT = TRANSLATIONS.load_all(get_test_filename("translations"))
+TRANSLATIONS_DICT = TRANSLATIONS.load(get_test_filename("translations"))
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 LEXER = StenoLexer()
 LEXER.set_system(SYSTEM_OBJ)

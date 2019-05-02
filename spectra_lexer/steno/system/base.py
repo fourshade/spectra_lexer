@@ -26,8 +26,8 @@ class SystemManager(Component):
     # File path for the SVG steno board graphics, relative to the master CFG.
     BOARD = "board.svg"
 
-    file = Resource("cmdline", "system-cfg", ":/assets/default/master.cfg", "File with system resources")
-    out = Resource("cmdline", "rules-out", "./rules.json", "Output file name for lexer-generated rules.")
+    file = resource("cmdline:system-cfg", ":/assets/default/master.cfg", desc="File with system resources")
+    out = resource("cmdline:rules-out", "./rules.json", desc="Output file name for lexer-generated rules.")
 
     _rule_parser: RuleParser  # Parses steno rules in both directions.
 
@@ -35,19 +35,21 @@ class SystemManager(Component):
         super().__init__()
         self._rule_parser = RuleParser()
 
-    @on("load_dicts", pipe_to="set_system")
-    @on("system_load", pipe_to="set_system")
-    def load_system(self, filename:str="") -> StenoSystem:
+    @on("init:system", pipe_to="res:system")
+    def start(self, *dummy) -> StenoSystem:
+        return self.load()
+
+    @on("system_load", pipe_to="res:system")
+    def load(self, filename:str="") -> StenoSystem:
         """ Load the system master file in <filename>, then create the system with the key layout,
             both the forward and reverse rules dicts, and the SVG board layout (optional). """
-        keys = self.load(filename)
+        keys = self.load_master(filename or self.file)
         rules, rev_rules = self.load_rules()
         board = self.load_board()
         return StenoSystem(keys, rules, rev_rules, board)
 
-    def load(self, filename:str="") -> KeyLayout:
+    def load_master(self, main_cfg:str) -> KeyLayout:
         """ Load the master config file for the system. Use default settings if missing. """
-        main_cfg = filename or self.file
         folder, _ = os.path.split(main_cfg)
         cfg = CFG.load(main_cfg, ignore_missing=True)
         files = cfg.get("files")

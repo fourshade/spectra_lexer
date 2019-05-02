@@ -14,20 +14,20 @@ from spectra_lexer.steno.system import StenoSystem
 class GraphRenderer(Component):
     """ Component class for creating and formatting a monospaced text graph from a rule. """
 
-    recursive = Resource("config", "graph:recursive_graph", True, "Include rules that make up other rules.")
-    compressed = Resource("config", "graph:compressed_display", True, "Compress the graph vertically to save space.")
+    recursive = resource("config:graph:recursive_graph", True, desc="Include rules that make up other rules.")
+    compressed = resource("config:graph:compressed_display", True, desc="Compress the graph vertically to save space.")
 
     _organizer: NodeOrganizer = None  # Makes node tree layouts out of rules.
     _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
     _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
     _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
 
-    @on("set_system")
+    @resource("system")
     def set_system(self, system:StenoSystem) -> None:
         """ Make a node organizer that can parse the current key set. """
         self._organizer = NodeOrganizer(system.layout.SEP, system.layout.SPLIT)
 
-    @on("new_output", pipe_to="new_interactive_text", html=True, mouse=True)
+    @on("new_output", pipe_to="new_graph_text")
     def generate(self, rule:StenoRule) -> Optional[str]:
         """ Generate text graph data (of either type) from an output rule based on config settings. """
         if self._organizer is None:
@@ -68,7 +68,7 @@ class GraphRenderer(Component):
     def _display_selection(self, node:GraphNode) -> StenoRule:
         """ Render and send the graph with <node> highlighted. Don't allow the graph to scroll. """
         text = self._formatter.make_graph_text(node)
-        self.engine_call("new_interactive_text", text, html=True, mouse=True, scroll_to=None)
+        self.engine_call("new_graph_text", text, scroll_to=None)
         # Store the object reference so we can avoid repeated lookups and send the rule to the board diagram.
         self._last_node = node
         return node.rule

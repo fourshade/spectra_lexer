@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import partial
 from xml.parsers.expat import ParserCreate
 
 from .base import FileHandler
@@ -11,7 +12,7 @@ class XML(FileHandler, formats=[".svg", ".xml"]):
     @classmethod
     def decode(cls, contents:bytes, **kwargs) -> dict:
         """ Return a list of attribute dicts for each category of element along with the raw XML byte string. """
-        d = defaultdict(lambda: defaultdict(list), super().decode(contents))
+        d = defaultdict(partial(defaultdict, list), super().decode(contents))
         def start_element(name:str, attrs:dict, d=d, list_append=list.append) -> None:
             attrs["name"] = name
             for k in attrs:

@@ -6,9 +6,9 @@ from spectra_lexer.file import XML
 class ObjectTreeTool(Component):
     """ Component for interactive tree operations. """
 
-    file = Resource("cmdline", "objtree-icons", ":/assets/treeicons.svg", "File with all object tree icons")
-    m_tree = Resource("menu", "Debug:View Object Tree...", ["tree_dialog_open"])
-    debug_vars = Resource("dict", "debug", {})  # Root variables to load on dialog open.
+    file = resource("cmdline:objtree-icons", ":/assets/treeicons.svg", desc="File with all object tree icons")
+    m_tree = resource("menu:Debug:View Object Tree...", ["tree_dialog_open"])
+    debug_vars = resource("debug", {}, desc="Root variables to load on dialog open.")
 
     resources: dict = None   # Dict of all resources such as object type icons.
 

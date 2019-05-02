@@ -27,7 +27,7 @@ class StenoRule(NamedTuple):
     rulemap: tuple         # Tuple of tuples mapping child rules to letter positions.
 
     def __str__(self) -> str:
-        return f"{self.keys} → {self.letters}"
+        return f"{self.keys} → {self.letters or '<special>'}"
 
 
 class RuleMapItem(NamedTuple):
