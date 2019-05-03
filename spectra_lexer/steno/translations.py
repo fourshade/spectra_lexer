@@ -18,19 +18,21 @@ class TranslationsManager(Component):
     files = resource("cmdline:translations-files", [_PLOVER_SENTINEL], desc="JSON translation files to load on startup.")
     out = resource("cmdline:translations-out", "translations.json", desc="Output file name for steno translations.")
 
-    @on("init:translations")
-    def start(self, *dummy) -> Dict[str, str]:
-        return self.load()
+    @init("translations")
+    def start(self, *dummy) -> None:
+        self.load()
 
     @on("translations_load")
-    @pipe_to("res:translations")
     def load(self, filenames:Union[str, List[str]]="") -> Dict[str, str]:
         """ Load and merge translations from disk. """
+        d = {}
         patterns = ensure_iterable(filenames or self.files)
         if _PLOVER_SENTINEL in patterns:
             patterns = _plover_files()
         if any(patterns):
-            return merge(JSON.load_all(*patterns))
+            d = merge(JSON.load_all(*patterns))
+            self.engine_call("res:translations", d)
+        return d
 
     @on("translations_save")
     def save(self, d:Dict[str, str], filename:str="") -> None:

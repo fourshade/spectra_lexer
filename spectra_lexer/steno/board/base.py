@@ -1,7 +1,5 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
-from typing import List
-
 from .caption import CaptionGenerator
 from .layout import ElementLayout
 from .matcher import ElementMatcher
@@ -30,11 +28,10 @@ class BoardRenderer(Component):
         self._captioner = CaptionGenerator()
         self._layout = ElementLayout()
 
-    set_index = resource("index")(delegate_to("_captioner"))
+    set_index = on_resource("index")(delegate_to("_captioner"))
 
-    @resource("system")
-    @pipe_to("new_board_xml")
-    def set_system(self, system:StenoSystem) -> bytes:
+    @on_resource("system")
+    def set_system(self, system:StenoSystem) -> None:
         """ The first <svg> element with a viewbox is the root element. Set the layout's viewbox to match it. """
         root = system.board["name"]["svg"]
         if root:
@@ -42,18 +39,16 @@ class BoardRenderer(Component):
         # Create the matcher with the system and send the raw SVG XML data to the GUI.
         self._matcher = ElementMatcher(system)
         self._captioner.set_rules_reversed(system.rev_rules)
-        return system.board["raw"]
 
     @on("board_set_size")
-    def set_size(self, width:int, height:int) -> List[tuple]:
+    def set_size(self, width:int, height:int) -> None:
         """ Set the layout's maximum dimensions. Recompute the current layout and send it. """
         self._layout.set_size(width, height)
         if self._last_rule is not None:
-            return self.display_rule(self._last_rule)
+            self.display_rule(self._last_rule)
 
     @on("board_display_rule")
-    @pipe_to("new_board_layout")
-    def display_rule(self, rule:StenoRule) -> List[tuple]:
+    def display_rule(self, rule:StenoRule) -> None:
         """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
             The task is identical whether the rule is from a new output or a user graph selection. """
         self._last_rule = rule
@@ -63,10 +58,9 @@ class BoardRenderer(Component):
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         if self._matcher is not None:
             ids = self._matcher.get_element_ids(rule, self.show_compound)
-            return self._layout.make_draw_list(ids)
+            self.engine_call("new_board_layout", self._layout.make_draw_list(ids))
 
     @on("board_find_examples")
-    @pipe_to("search_examples")
-    def find_examples(self, rule_name:str) -> tuple:
+    def find_examples(self, rule_name:str) -> None:
         """ If the link on the diagram is clicked, get a random translation using this rule and search near it. """
-        return (rule_name, self._last_rule, *self._captioner.get_random_example(rule_name))
+        self.engine_call("search_examples", rule_name, self._last_rule, *self._captioner.get_random_example(rule_name))

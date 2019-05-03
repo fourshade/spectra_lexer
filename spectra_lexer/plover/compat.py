@@ -36,7 +36,6 @@ class PloverCompatibilityLayer(Component):
             self.engine_call("new_status", _INCOMPATIBLE_MESSAGE)
 
     @on("plover_convert_dicts")
-    @pipe_to("res:translations")
     def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> Dict[str, str]:
         """ When usable Plover dictionaries become available, parse their items into a single string dict.
             Plover dictionaries are not proper Python dicts and cannot be handled as such.
@@ -51,6 +50,7 @@ class PloverCompatibilityLayer(Component):
                     finished_dict.update(zip(map(join_strokes, kv_alt), kv_alt))
                 else:
                     finished_dict.update(d.items())
+        self.engine_call("res:translations", finished_dict)
         return finished_dict
 
     def fake_engine(self, d:dict, split_count:int=1) -> PloverEngine:

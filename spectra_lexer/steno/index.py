@@ -12,22 +12,28 @@ class IndexManager(Component):
     file = resource("cmdline:index-file", "~/index.json", desc="JSON index file to load on startup and/or write to.")
     out = resource("cmdline:index-out", "~/index.json", desc="Output file name for steno rule -> translation indices.")
 
-    @on("init:index")
-    def start(self, *dummy) -> Optional[Dict[str, dict]]:
-        return self.load()
+    @init("index")
+    def start(self, *dummy) -> None:
+        self.load()
 
     @on("index_load")
-    @pipe_to("res:index")
-    def load(self, filename:str="") -> Optional[Dict[str, dict]]:
+    def load(self, filename:str="") -> Dict[str, dict]:
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
+        d = {}
         try:
-            return JSON.load(filename or self.file)
+            d = JSON.load(filename or self.file)
+            self._update(d)
         except OSError:
             self.engine_call("index_not_found")
-            return
+        return d
 
     @on("index_save")
     def save(self, d:Dict[str, dict], filename:str="") -> None:
-        """ Save an index structure directly into JSON. Sort all rules and translations by key.
+        """ Save an index structure directly into JSON. Sort all rules and translations by key and set them active.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
         JSON.save(filename or self.out, d, sort_keys=True)
+        self._update(d)
+
+    def _update(self, d:Dict[str, dict]) -> None:
+        """ Update the active index on save or load. """
+        self.engine_call("res:index", d)

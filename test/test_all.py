@@ -111,12 +111,12 @@ BOARD.set_size(100, 100)
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_board(result):
-    """ Perform all tests for board diagram output. Currently only checks that the output isn't empty. """
-    assert BOARD.display_rule(result)
+    """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
+    BOARD.display_rule(result)
 
 
 GRAPH = GraphRenderer()
-GRAPH.set_layout(SYSTEM_OBJ.layout)
+GRAPH.layout = SYSTEM_OBJ.layout
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)

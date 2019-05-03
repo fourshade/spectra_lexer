@@ -36,19 +36,20 @@ class SystemManager(Component):
         super().__init__()
         self._rule_parser = RuleParser()
 
-    @on("init:system")
-    def start(self, *dummy) -> StenoSystem:
-        return self.load()
+    @init("system")
+    def start(self, *dummy) -> None:
+        self.load()
 
     @on("system_load")
-    @pipe_to("res:system:")
     def load(self, filename:str="") -> StenoSystem:
         """ Load the system master file in <filename>, then create the system with the key layout,
             both the forward and reverse rules dicts, and the SVG board layout (optional). """
         keys = self.load_master(filename or self.file)
         rules, rev_rules = self.load_rules()
         board = self.load_board()
-        return StenoSystem(keys, rules, rev_rules, board)
+        system = StenoSystem(keys, rules, rev_rules, board)
+        self.engine_call("res:system", system, broadcast_depth=1)
+        return system
 
     def load_master(self, main_cfg:str) -> KeyLayout:
         """ Load the master config file for the system. Use default settings if missing. """

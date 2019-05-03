@@ -8,9 +8,9 @@ class ObjectTreeTool(Component):
 
     file = resource("cmdline:objtree-icons", ":/assets/treeicons.svg", desc="File with all object tree icons")
     m_tree = resource("menu:Debug:View Object Tree...", ["tree_dialog_open"])
-    debug_vars = resource("debug", {}, desc="Root variables to load on dialog open.")
+    debug_vars = resource("debug", {})  # Root variables to load on dialog open.
 
-    resources: dict = None   # Dict of all resources such as object type icons.
+    resources: dict = None  # Dict of all resources such as object type icons.
 
     @on("tree_dialog_open")
     def open(self) -> None:

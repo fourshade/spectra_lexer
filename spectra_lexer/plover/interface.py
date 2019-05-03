@@ -35,8 +35,7 @@ class PloverInterface(Component):
         self.engine_call("new_status", "Loaded new dictionaries from Plover engine.")
 
     @on("plover_new_translation")
-    @pipe_to("lexer_query")
-    def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
+    def on_new_translation(self, _, new_actions:Sequence[PloverAction]) -> None:
         """ When a new translation becomes available, see if it can or should be formatted and sent to the lexer. """
         # Lock the Plover engine thread to access its state.
         with self._plover:
@@ -44,14 +43,14 @@ class PloverInterface(Component):
         # Make sure that we have at least one new action and strokes from one new valid translation.
         if not new_actions or not t_strokes:
             self._state = _BLANK_STATE
-            return None
+            return
         # Unpack and use the current state if the new text attaches to it, otherwise start fresh.
         strokes, text = self._state if new_actions[0].prev_attach else _BLANK_STATE
         # Combine all the new strokes and text into the current state and send it to the lexer.
         strokes += t_strokes
         text += "".join(a.text for a in new_actions if a.text)
         self._state = strokes, text
-        return join_strokes(strokes), text
+        self.engine_call("lexer_query", join_strokes(strokes), text)
 
 
 def _get_last_strokes_if_valid(translator_state:PloverTranslatorState) -> Optional[Tuple[str]]:

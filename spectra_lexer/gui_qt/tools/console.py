@@ -120,7 +120,7 @@ class ConsoleDialog(ToolDialog):
 class GUIQtConsoleTool(ConsoleTool):
     """ Qt component for system interpreter I/O. """
 
-    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
     dialog: ConsoleDialog = None
 
     def open_dialog(self, *args) -> None:

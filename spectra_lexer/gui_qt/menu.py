@@ -8,7 +8,7 @@ from spectra_lexer.gui import Menu
 class GUIQtMenu(Menu):
     """ GUI Qt extension class for the menu bar. """
 
-    menu_bar = resource("gui:m_menu", desc="Menu bar.")
+    menu_bar = resource("gui:m_menu")  # Menu bar widget.
     headings: Dict[str, QMenu]  # Dict of previously created menu headings.
 
     def __init__(self):

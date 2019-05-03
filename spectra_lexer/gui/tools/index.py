@@ -52,14 +52,14 @@ class IndexTool(Component):
             self._send_index_commands(index_size)
 
     @on("index_not_found")
-    @pipe_to("new_index")
-    def startup_dialog(self) -> dict:
+    def startup_dialog(self) -> None:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index.
             Make the starting index on accept, otherwise save an empty one so the message doesn't appear again. """
         choice = self.startup_confirmation("Make Index", _STARTUP_MESSAGE, _ACCEPT_LABEL, _REJECT_LABEL)
         if choice != _ACCEPT_LABEL:
-            return {}
-        self._send_index_commands()
+            self.index_finished({})
+        else:
+            self._send_index_commands()
 
     def startup_confirmation(self, title:str, body:str, *choices:str) -> str:
         """ Open a dialog and return the user's selection as a string. """
@@ -73,10 +73,8 @@ class IndexTool(Component):
         self.engine_call("lexer_make_index", self.translations, size=index_size)
 
     @on("new_index")
-    @pipe_to("index_save")
-    def index_finished(self, d:dict) -> dict:
-        """ Once the new index has been received, we can load it, send the success message, and re-enable the GUI. """
-        self.engine_call("res:index", d)
+    def index_finished(self, d:dict) -> None:
+        """ Once the new index has been received, we can save it, send the success message, and re-enable the GUI. """
+        self.engine_call("index_save", d)
         self.engine_call("new_status", "Successfully created index!" if d else "Skipped index creation.")
         self.engine_call("gui_set_enabled", True)
-        return d

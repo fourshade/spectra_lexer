@@ -10,8 +10,8 @@ from spectra_lexer.gui import TextDisplay
 class GUIQtTextDisplay(TextDisplay):
     """ GUI Qt operations class for the text widget. Also shows status and exceptions. """
 
-    w_title = resource("gui:w_display_title", desc="Displays status messages and mapping of keys to word.")
-    w_text = resource("gui:w_display_text", desc="Displays formatted rule graphs and other textual data.")
+    w_title = resource("gui:w_display_title")  # Displays status messages and mapping of keys to word.
+    w_text = resource("gui:w_display_text")    # Displays formatted rule graphs and other textual data.
 
     _anim: Iterator[str] = None  # Animation string iterator for the title bar. Should repeat.
     _title_timer: QTimer = None  # Animation timer for the title bar.

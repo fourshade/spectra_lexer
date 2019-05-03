@@ -1,6 +1,6 @@
 """ --------------------------GENERAL PURPOSE CLASSES---------------------------
     These classes are used to modify the behavior of attributes and methods on other classes.
-    They are used like functions, so their names are all lowercase. """
+    Some are used like functions or other low-level constructs, so their names are all lowercase. """
 
 from collections import deque
 from functools import partialmethod
@@ -96,3 +96,50 @@ class delegate_to(struct, _fields=["attr"], _args="partial_args", _kwargs="parti
         if partial_args or partial_kwargs:
             delegate = partialmethod(delegate, *partial_args, **partial_kwargs)
         setattr(owner, name, delegate)
+
+
+class _package(dict):
+    """ Simple marker class for package dicts. May gain functionality in the future. """
+    __slots__ = ()
+
+
+class package(_package):
+    """ Class for packaging objects and modules under string keys in a nested dict. """
+    __slots__ = ("_delim", "_root_key")
+
+    def __init__(self, *args, delim:str=".", root_key:str=None, **kwargs):
+        super().__init__()
+        self._delim = delim
+        self._root_key = root_key
+        if args or kwargs:
+            self.update(*args, **kwargs)
+
+    def update(self, seq, **kwargs) -> None:
+        items_iter = getattr(seq, "items", seq.__iter__)()
+        if kwargs:
+            items_iter = [*items_iter, *kwargs.items()]
+        self._update(items_iter)
+
+    def _update(self, items_iter) -> None:
+        """ Split all keys on <self.delim> and nest package dicts in a hierarchy based on these splits.
+            If one key is a prefix of another, it may occupy a slot needed for another level of dicts.
+            If this happens and <self.root_key> is None, destroy its value to make room for the new dicts.
+            If <self.root_key> is not None, move the value one level deeper under that key. """
+        delim = self._delim
+        root_key = self._root_key
+        for k, v in items_iter:
+            d = self
+            *first, last = k.split(delim)
+            for i in first:
+                if i not in d:
+                    d[i] = _package()
+                elif not isinstance(d[i], _package):
+                    r = d[i]
+                    d[i] = _package()
+                    if root_key is not None:
+                        d[i][root_key] = r
+                d = d[i]
+            if last not in d or not isinstance(d[last], _package):
+                d[last] = v
+            elif root_key is not None:
+                d[last][root_key] = v

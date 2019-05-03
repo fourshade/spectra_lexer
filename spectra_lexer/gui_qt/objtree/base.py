@@ -128,7 +128,7 @@ class ObjectTreeDialog(QDialog):
 class GUIQtObjectTreeTool(ObjectTreeTool):
     """ Component for interactive tree operations. """
 
-    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
 
     def open_dialog(self, *args) -> None:
         ObjectTreeDialog(self.window, *args).show()

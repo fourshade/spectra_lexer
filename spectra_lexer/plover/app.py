@@ -12,7 +12,7 @@ class PloverPluginApplication(GUIQtApplication):
         Notably, the plugin must not create its own QApplication or run its own event loop (unless in test mode). """
 
     DESCRIPTION = "Run the GUI application in Plover plugin mode."
-    CLASS_PATHS = [gui_qt, plover]
+    GUI_CLASS_PATHS = [gui_qt, plover]
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'

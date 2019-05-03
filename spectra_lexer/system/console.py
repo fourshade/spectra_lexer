@@ -44,7 +44,7 @@ class ConsoleManager(Component):
     """ Component for engine and system interpreter operations.
         Handles the most fundamental operations of the system, including status and exceptions. """
 
-    debug_vars = resource("debug", {}, desc="Variables to load on interpreter startup as globals.")
+    debug_vars = resource("debug", {})  # Variables to load on interpreter startup as globals.
 
     _console: SpectraConsole = None  # Main interpreter console.
 

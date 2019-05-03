@@ -102,9 +102,9 @@ def str_prefix(s:str, sep:str=" ", _split=str.split) -> str:
     return _split(s, sep, 1)[0]
 
 
-def str_suffix(s:str, sep:str=" ", _split=str.split) -> str:
+def str_suffix(s:str, sep:str=" ", _rsplit=str.rsplit) -> str:
     """ Return <s> from the end up to the last instance of <sep>. If <sep> is not present, return all of <s>. """
-    return _split(s, sep, 1)[-1]
+    return _rsplit(s, sep, 1)[-1]
 
 
 def str_eval(val:str, _eval=ast.literal_eval) -> object:

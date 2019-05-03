@@ -32,7 +32,7 @@ class StenoLexer(Component):
         self._rulemaker = LexerRuleMaker()
         self._indexer = LexerIndexCompiler()
 
-    @resource("system")
+    @on_resource("system")
     def set_system(self, system:StenoSystem) -> None:
         self._cleanse = system.layout.cleanse_from_rtfcre
         self._matcher.load(system)
@@ -40,21 +40,27 @@ class StenoLexer(Component):
         self._indexer.set_rev_rules(system.rev_rules)
 
     @on("lexer_query")
-    @pipe_to("new_output")
     def query(self, keys:str, word:str) -> StenoRule:
         """ Return and send out the best rule that maps the given key string to the given word. """
-        return self._rulemaker.best_rule(list(self._process(keys, word)), keys, word)
+        return self._output(self._query(keys, word))
 
     @on("lexer_query_product")
-    @pipe_to("new_output")
     def query_product(self, keys:Iterable[str], words:Iterable[str]) -> StenoRule:
         """ As arguments, take iterables of keys and words and test every possible pairing.
             Return and send out the best rule out of all combinations. """
         pairs = list(product(keys, words))
-        return self._rulemaker.best_rule([r for p in pairs for r in self._process(*p)], *pairs[0])
+        rules = [r for p in pairs for r in self._process(*p)]
+        rule = self._rulemaker.best_rule(rules, *pairs[0])
+        return self._output(rule)
+
+    def _query(self, keys:str, word:str) -> StenoRule:
+        return self._rulemaker.best_rule(list(self._process(keys, word)), keys, word)
+
+    def _output(self, rule:StenoRule) -> StenoRule:
+        self.engine_call("new_output", rule)
+        return rule
 
     @on("lexer_query_all")
-    @pipe_to("new_analysis")
     def query_all(self, items:Iterable, filter_in=None, filter_out=None) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
@@ -63,18 +69,21 @@ class StenoLexer(Component):
         # Only keep results with all keys matched to reduce garbage.
         # Delete the attribute when finished to re-expose the class config setting.
         self.need_all_keys = True
-        results = self.engine_call("parallel_starmap", self.query, filter(filter_in, items))
+        results = self.engine_call("parallel_starmap", self._query, filter(filter_in, items))
         del self.need_all_keys
-        return list(filter(filter_out, results))
+        filtered = list(filter(filter_out, results))
+        self.engine_call("new_analysis", filtered)
+        return filtered
 
     @on("lexer_make_index")
-    @pipe_to("new_index")
     def make_index(self, translations:Iterable, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """
         filter_in, filter_out = self._indexer.make_filters(size)
         results = self.query_all(translations, filter_in, filter_out)
-        return self._indexer.compile_results(results)
+        d = self._indexer.compile_results(results)
+        self.engine_call("new_index", d)
+        return d
 
     def _process(self, keys:str, word:str) -> Iterator[tuple]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed

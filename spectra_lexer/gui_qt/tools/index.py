@@ -12,7 +12,7 @@ class IndexDialog(SliderDialog):
 class GUIQtIndexTool(IndexTool):
     """ Controls user-based index creation. """
 
-    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
 
     def get_index_size(self, *args) -> None:
         """ Open a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """

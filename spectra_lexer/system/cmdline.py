@@ -13,25 +13,21 @@ _TYPE_KWDS = {int:  {"type": int},
 class CmdlineParser(Component):
     """ Command line parser for the Spectra program. """
 
-    _parser: ArgumentParser  # Temporarily holds command line option info from active components.
-
-    @on("init:cmdline")
-    @pipe_to("res:cmdline:")
-    def start(self, cmdline:dict) -> dict:
+    @init("cmdline")
+    def start(self, cmdline:dict) -> None:
         """ Create the parser and add all possible command line options from each component that has some. """
         # Suppress defaults from unused arguments (resources have their own default settings).
-        self._parser = ArgumentParser(description=CMDLINE_DESCRIPTION, argument_default=SUPPRESS)
+        parser = ArgumentParser(description=CMDLINE_DESCRIPTION, argument_default=SUPPRESS)
         # All options handled here must be parsed as long options connected by hyphens.
-        for key, opt in cmdline.items():
-            kwds = {"help": opt.desc, "metavar": str_suffix(key, "-").upper()}
-            kwds.update(_TYPE_KWDS.get(type(opt.value), {}))
-            self._parser.add_argument(f"--{key}", **kwds)
+        for key, res in cmdline.items():
+            default, desc = res.info()
+            kwds = {"help": desc, "metavar": str_suffix(key, "-").upper()}
+            kwds.update(_TYPE_KWDS.get(type(default), {}))
+            parser.add_argument(f"--{key}", **kwds)
         # Parse arguments from sys.argv using the gathered info.
         # The parser replaces hyphens with underscores, but our keys need the hyphens.
-        d = {raw_key.replace("_", "-"): val for raw_key, val in vars(self._parser.parse_args()).items()}
-        # The parser isn't pickleable due to strange internal state, so get rid of it.
-        del self._parser
-        return d
+        d = {raw_key.replace("_", "-"): val for raw_key, val in vars(parser.parse_args()).items()}
+        self.engine_call("res:cmdline", d, broadcast_depth=1)
 
     @on("init_done")
     def done(self) -> None:

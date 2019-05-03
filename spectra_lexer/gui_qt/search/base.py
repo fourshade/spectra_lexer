@@ -5,11 +5,11 @@ from spectra_lexer.types import delegate_to
 class GUIQtSearchPanel(SearchPanel):
     """ GUI Qt operations class for the left-hand search panel. """
 
-    w_input = resource("gui:w_search_input",       desc="Input box for the user to enter a search string.")
-    w_matches = resource("gui:w_search_matches",   desc="List box to show the matches for the user's search.")
-    w_mappings = resource("gui:w_search_mappings", desc="List box to show the mappings of a match selection.")
-    w_strokes = resource("gui:w_search_type",      desc="Check box: False = word search, True = stroke search.")
-    w_regex = resource("gui:w_search_regex",       desc="Check box: False = prefix search, True = regex search.")
+    w_input = resource("gui:w_search_input")        # Input box for the user to enter a search string.
+    w_matches = resource("gui:w_search_matches")    # List box to show the matches for the user's search.
+    w_mappings = resource("gui:w_search_mappings")  # List box to show the mappings of a match selection.
+    w_strokes = resource("gui:w_search_type")       # Check box: False = word search, True = stroke search.
+    w_regex = resource("gui:w_search_regex")        # Check box: False = prefix search, True = regex search.
 
     @on("gui_load")
     def load(self) -> None:

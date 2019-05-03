@@ -74,7 +74,7 @@ class ConfigDialog(FormDialog):
 class GUIQtConfigTool(ConfigTool):
     """ Config manager; allows editing of config values for any component. """
 
-    window = resource("gui:window", desc="Main window object. Must be the parent of any new dialogs.")
+    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
 
     def open_dialog(self, *args) -> None:
         ConfigDialog(self.window, *args).show()

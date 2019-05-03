@@ -5,8 +5,8 @@ from spectra_lexer.types import delegate_to
 class GUIQtBoardDisplay(BoardDisplay):
     """ Draws steno board diagram elements and the description for rules. """
 
-    w_desc = resource("gui:w_display_desc", desc="Displays rule description.")
-    w_board = resource("gui:w_display_board", desc="Displays steno board diagram.")
+    w_desc = resource("gui:w_display_desc")    # Displays rule description.
+    w_board = resource("gui:w_display_board")  # Displays steno board diagram.
 
     @on("gui_load")
     def load(self) -> None:
