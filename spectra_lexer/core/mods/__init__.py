@@ -1,4 +1,4 @@
-from .base import ComponentModMeta
+from .base import MainMod
 from .command import CommandMod
-from .packaged import PackagedModMeta
+from .package import DebugPackageMod
 from .resource import ResourceMod

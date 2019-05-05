@@ -1,39 +1,40 @@
 from functools import partial
-from typing import Callable
+from typing import Callable, Iterable
 
+from .base import ComponentMod, MainMod
+from .command import CommandMod, CommandDef
 from .deps import DependencyOrderer
-from .packaged import PackagedMod
-from spectra_lexer.types import package
+from .package import package
 from spectra_lexer.utils import str_prefix
 
 
-class ResourceMod(PackagedMod):
+class ResourceMod(ComponentMod):
 
     provides: str = None
     requires: str = None
 
     @classmethod
-    def make_package(cls) -> package:
-        """ Make a package that contains only resource mods that require something (not provide it).
-            With no root key, any info for resources that contain other resources is discarded.
-            Broadcast will still allow these components to receive resource packages. """
-        return package([(m.pkg_key, m) for m in cls.lookup_mods() if m.requires is not None], delim=":")
-
-    @classmethod
-    def setup(cls, engine_call:Callable) -> None:
+    def setup(cls, components:Iterable, engine_call:Callable) -> None:
         """ Sort the resource types so that all dependencies are met in the right order.
-            Use the first part of each resource identifier as a key. Initialize all resources in order at the end. """
+            Use the first part of each resource identifier as a key.
+            Initialize all resources in order at the end with the main engine callback. """
         deps = DependencyOrderer()
-        for tp in cls.lookup_owners():
-            requires = {m.requires for m in cls.lookup_by_owner(tp) if m.requires is not None}
-            provides = {m.provides for m in cls.lookup_by_owner(tp) if m.provides is not None}
-            deps.add_object(tp, requires, provides)
-        pkg = cls.make_package()
+        pkg = package()
+        for cmp in components:
+            mods = cls.lookup_cmp_mods(cmp)
+            reqs = {m.requires: m for m in mods}
+            reqs.pop(None, None)
+            pkg.update(reqs)
+            deps.add_requirements({m.provides for m in mods} - {None},
+                                  {str_prefix(r, ":") for r in reqs})
+        pkg.nest(delim=":")
         for k in deps.sorted_keys():
             engine_call(f"init:{k}", pkg[k])
 
 
-class ResourceInitializer(ResourceMod, key="init"):
+class ResourceInit(MainMod, CommandMod, ResourceMod):
+
+    KEY = "init"
 
     def __init__(self, key:str):
         """ The command always starts with 'init:'. """
@@ -41,20 +42,26 @@ class ResourceInitializer(ResourceMod, key="init"):
         self.provides = key
 
 
-class ResourceDef(ResourceMod, key="on_resource", package_key="resources"):
+class ResourceDef(CommandDef, ResourceMod):
     """ An external resource, configured before the application starts.
         It is like a command, but is required to be called before the component may be used. """
 
+    KEY = "on_resource"
+    DEBUG_KEY = "resources"
+    NEST_KWARGS = {"delim": ":"}
+
     def __init__(self, key:str):
         """ The command always starts with 'res:'. """
+        super().__init__(key)
         self.cmd_key = f"res:{key}"
-        self.pkg_key = key
-        self.requires = str_prefix(key, ":")
+        self.requires = self.pkg_key = key
 
 
-class StoredResourceDef(ResourceDef, key="resource"):
+class StoredResourceDef(ResourceDef):
     """ An external resource that stores its value on the component without calling a function on it.
         It includes a default value and optionally a description for introspection tools. """
+
+    KEY = "resource"
 
     _desc: str
 

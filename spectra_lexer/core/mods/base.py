@@ -1,52 +1,41 @@
 from collections import defaultdict
-from typing import Callable, Iterator, List
+from typing import Callable, Dict
+
+from spectra_lexer.utils import recurse
 
 
-class ComponentModMeta(type):
-
-    _CLASSES: dict = {}
-    _dict: dict
-
-    def __new__(mcs, name, bases, dct, key=None):
-        """ Add a data dict with component classes as keys and lists of command instances as values.
-            Register each subclass under a keyword if one is given. """
-        cls = super().__new__(mcs, name, bases, dct)
-        if key is not None:
-            mcs._CLASSES[key or name] = cls
-        cls._dict = defaultdict(list)
-        return cls
+class AbstractMod:
 
     @classmethod
-    def get_classes_by_key(mcs) -> dict:
-        return mcs._CLASSES
-
-    def lookup_by_owner(cls, owner:type) -> Iterator:
-        """ Yield each mod of type <cls> or subclasses from the owner's class hierarchy. """
-        for tp in owner.__mro__:
-            for m in cls._dict[tp]:
-                yield m
-
-    def lookup_owners(cls) -> List[type]:
-        """ Return every owner class with at least one mod of type <cls> or subclasses in its inheritance line. """
-        return list(cls._dict)
-
-    def lookup_mods(cls) -> list:
-        """ Return all mods of type <cls> or subclasses. """
-        return [m for v in cls._dict.values() for m in v]
-
-    def register(cls, owner, self):
-        for tp in cls.__mro__:
-            if issubclass(tp, ComponentMod):
-                tp._dict[owner].append(self)
+    def subclasses(cls) -> set:
+        """ Recursively gather all unique descendents of <cls>, excluding itself. """
+        return set(recurse(cls, iter_fn=type.__subclasses__)) - {cls}
 
 
-class ComponentMod(metaclass=ComponentModMeta):
+class MainMod(AbstractMod):
+    """ Each main component mod has a named key. This makes them directly usable in any component class body. """
+
+    KEY: str
+
+    @classmethod
+    def classes(cls) -> Dict[str, AbstractMod]:
+        return {subcls.KEY: subcls for subcls in cls.subclasses()}
+
+
+class ComponentMod(AbstractMod):
     """ The golden rule of component mods is that the code must operate as normal even without engine support.
         To that end, they must replace anything they decorate with either the original value or a default.
         If any functions are permanently modified, pickling will fail, and so will multiprocessing. """
 
-    _attr: str = None              # The attribute name assigned to this mod on the component class.
-    _value = _SENTINEL = object()  # The "original" value of what was modified, returned to its place after setup.
+    _INSTANCES: dict = defaultdict(list)  # Class-specific dict of instances keyed by owner component class.
+    _SENTINEL: object = object()          # Sentinel value to ensure that each mod cleans up after itself.
+
+    _value: object = _SENTINEL  # The "original" value of what was modified, returned to its place after setup.
+    _attr: str = None           # The attribute name assigned to this mod on the component class.
+
+    def __init_subclass__(cls):
+        """ Add a data dict with component classes as keys and lists of mod instances as values. """
+        cls._INSTANCES = defaultdict(list)
 
     def __call__(self, func:Callable):
         """ When used as a decorator, the value will be the function, replaced on __set_name__. """
@@ -54,9 +43,9 @@ class ComponentMod(metaclass=ComponentModMeta):
         return self
 
     def __set_name__(self, owner:type, name:str) -> None:
-        """ Add the owner class hierarchy to the data dict, save the attribute name, and put the original value back.
+        """ Add the instance to the class data dict, save the attribute name, and put the original value back.
             If the original value was a descriptor itself (or another mod), chain the __set_name__ call to it. """
-        self.__class__.register(owner, self)
+        self._INSTANCES[owner].append(self)
         self._attr = name
         v = self._value
         if v is self._SENTINEL:
@@ -64,3 +53,13 @@ class ComponentMod(metaclass=ComponentModMeta):
         setattr(owner, name, v)
         if hasattr(v, "__set_name__"):
             v.__set_name__(owner, name)
+
+    @classmethod
+    def lookup(cls, cmp:object) -> list:
+        """ Return each mod of type <cls> from <cmp>'s class hierarchy. """
+        return [m for subcls in type(cmp).__mro__ for m in cls._INSTANCES[subcls]]
+
+    @classmethod
+    def lookup_cmp_mods(cls, cmp:object) -> list:
+        """ Return each mod descended from <cls> in <cmp>'s class hierarchy. """
+        return [m for subcls in cls.subclasses() for m in subcls.lookup(cmp)]

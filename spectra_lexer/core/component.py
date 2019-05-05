@@ -1,24 +1,30 @@
-""" Base module of the Spectra core package. Contains the most fundamental components. Don't touch anything... """
+""" Base module of the Spectra core package. Contains the most fundamental classes. Don't touch anything... """
 
-from .mods import ComponentModMeta
+from spectra_lexer.core.mods import MainMod
 from spectra_lexer.utils import nop
-
-MODS_BY_KEY = ComponentModMeta.get_classes_by_key()
 
 
 class ComponentMeta(type):
     """ Metaclass for all subclasses of Component. """
 
     def __prepare__(name, bases):
-        """ Add references to the main mod decorators to every component. """
-        return MODS_BY_KEY.copy()
+        """ Start the namespace of every component with references to the main command decorators. """
+        return MainMod.classes()
+
+    @classmethod
+    def build_from_paths(mcs, class_paths):
+        """ Create and yield instances of all component subclasses found in <class_paths>.
+            Class paths may include packages, modules, and classes themselves. """
+        for path in class_paths:
+            for obj in [path, *getattr(path, "__dict__", {}).values()]:
+                if isinstance(obj, mcs):
+                    yield obj()
 
 
 class Component(metaclass=ComponentMeta):
     """ Base class for any component that sends and receives commands from the Spectra engine.
-        It is the root class of the Spectra lexer object hierarchy, being subclassed directly
-        or indirectly by nearly every important (externally-visible) piece of the program.
-        As such, it cannot depend on anything except pure utility functions. """
+        It is the root class of the Spectra lexer component hierarchy, being subclassed directly
+        or indirectly by nearly every important (externally-visible) piece of the program. """
 
     engine_call = nop  # Default engine callback is a no-op (useful for testing individual components).
 
