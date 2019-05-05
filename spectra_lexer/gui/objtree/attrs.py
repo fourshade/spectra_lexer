@@ -4,63 +4,74 @@ import builtins
 import types
 from typing import Iterator
 
-from .collection import use_if
+from .collection import use_if_object_has_attr
 from .container import Container, MutableKeyContainer
 from spectra_lexer.types import delegate_to
 
 
-@use_if(hasattr, "__class__")
+@use_if_object_has_attr("__class__")
 class ClassContainer(Container):
 
     color = (32, 32, 128)  # Class containers are blue.
     key_tooltip = value_tooltip = "Auto-generated item; cannot edit."
     _EXCLUDED_CLASSES: set = {i for m in (builtins, types) for i in vars(m).values() if isinstance(i, type)}
 
-    _cls_dict = {}  # Pre-computed class hierarchy dict by name.
+    _cls_tree: dict = {}  # Pre-computed class hierarchy tree by name.
 
     def __init__(self, obj):
-        """ Allow class access if the object has an instance dict. Metaclasses may be accessed as well.
+        """ Allow class access if the object has an instance dict, or metaclass access if the object *is* a class.
             The main exception is type, which is its own class and would expand indefinitely.
             Others include built-in types which provide next to nothing useful in their attr listings. """
         super().__init__(obj)
         if hasattr(obj, "__dict__"):
-            self._cls_dict = {tp.__name__: tp for tp in obj.__class__.__mro__ if tp not in self._EXCLUDED_CLASSES}
+            self._cls_tree = {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
-    __bool__ = delegate_to("_cls_dict")
+    __bool__ = delegate_to("_cls_tree")
 
     def keys(self) -> Iterator[str]:
-        return iter(self._cls_dict)
+        return iter(self._cls_tree)
 
-    __getitem__ = delegate_to("_cls_dict")
+    __getitem__ = delegate_to("_cls_tree")
 
 
-@use_if(hasattr, "__dict__")
-class AttrContainer(MutableKeyContainer):
+@use_if_object_has_attr("__slots__")
+class AttrContainer(Container):
 
-    key_tooltip: str = "Double-click to change this attribute name."
-    value_tooltip: str = "Double-click to edit this attribute."
+    _ATTR = "__slots__"
 
-    def __bool__(self) -> int:
-        return bool(self._obj.__dict__)
+    # Slots are tricky to modify. Keep them as read-only for now.
+    key_tooltip = value_tooltip = "Attributes are slots; cannot edit."
+
+    def __init__(self, obj):
+        """ The chosen attribute container object is saved for easy access. """
+        super().__init__(obj)
+        self._attro = getattr(self._obj, self._ATTR)
+
+    __bool__ = delegate_to("_attro")
 
     def keys(self) -> Iterator[str]:
         """ Include all instance attributes. """
-        return iter(self._obj.__dict__)
-
-    def __contains__(self, key:str) -> bool:
-        """ Return True if there is an attribute under <key>. """
-        return hasattr(self._obj, key)
+        return iter(self._attro)
 
     def __getitem__(self, key:str):
         """ Return the attribute under <key> by any method we can. """
         try:
             return getattr(self._obj, key)
         except (AttributeError, TypeError):
-            return self._obj.__dict__[key]
+            return self._attro[key]
+
+
+@use_if_object_has_attr("__dict__")
+class DictAttrContainer(AttrContainer, MutableKeyContainer):
+
+    _ATTR = "__dict__"
+
+    key_tooltip: str = "Double-click to change this attribute name."
+    value_tooltip: str = "Double-click to edit this attribute value."
 
     def __delitem__(self, key:str) -> None:
         """ Delete the attribute under <key> if it exists. """
-        if key in self:
+        if hasattr(self._obj, key):
             delattr(self._obj, key)
 
     def __setitem__(self, key:str, value) -> None:

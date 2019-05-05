@@ -2,12 +2,12 @@
 
 from typing import AbstractSet, Collection, Iterator, MutableMapping, MutableSequence, MutableSet, Sequence
 
-from .collection import use_if
+from .collection import use_if_object_is
 from .container import Container, MutableContainer, MutableKeyContainer
 from spectra_lexer.types import delegate_to
 
 
-@use_if(isinstance, Collection)
+@use_if_object_is(Collection)
 class SizedContainer(Container):
     """ A sized iterable item container. The most generic acceptable type of iterable container.
         No order is assumed, so the items may be sorted for display. Mappings do not need a subclass beyond this. """
@@ -33,12 +33,12 @@ class SizedContainer(Container):
         return super().keys()
 
 
-@use_if(isinstance, MutableMapping)
+@use_if_object_is(MutableMapping)
 class MutableMappingContainer(SizedContainer, MutableKeyContainer):
     """ The default methods work well for mappings. No changes need to be made. """
 
 
-@use_if(isinstance, AbstractSet)
+@use_if_object_is(AbstractSet)
 class SetContainer(SizedContainer):
 
     key_tooltip = "Hash value of the object. Cannot be edited."
@@ -54,7 +54,7 @@ class SetContainer(SizedContainer):
         raise KeyError(key)
 
 
-@use_if(isinstance, MutableSet)
+@use_if_object_is(MutableSet)
 class MutableSetContainer(SetContainer, MutableContainer):
 
     def __delitem__(self, key) -> None:
@@ -67,7 +67,7 @@ class MutableSetContainer(SetContainer, MutableContainer):
         self._obj.add(value)
 
 
-@use_if(isinstance, Sequence)
+@use_if_object_is(Sequence)
 class SequenceContainer(SizedContainer):
 
     def key_str(self, key:int) -> str:
@@ -79,7 +79,7 @@ class SequenceContainer(SizedContainer):
         return iter(range(len(self)))
 
 
-@use_if(isinstance, MutableSequence)
+@use_if_object_is(MutableSequence)
 class MutableSequenceContainer(SequenceContainer, MutableKeyContainer):
 
     key_tooltip = "Double-click to move this item to a new index (non-negative integers only)."

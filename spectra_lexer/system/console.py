@@ -54,7 +54,7 @@ class ConsoleManager(Component):
             If not started, start it with the current vars dict and write the startup sequence. """
         if self._console is None:
             d = self.debug_vars.copy()
-            for k in d["commands"]:
+            for k in d.get("commands", ()):
                 d[k] = partial(self.engine_call, k)
             callback = partial(self.engine_call, "new_console_output")
             self._console = SpectraConsole(d, callback)
