@@ -10,10 +10,13 @@ class GUIApplication(Application):
     DESCRIPTION = "Run the interactive GUI application by itself."
     CLASS_PATHS = [system, steno]
 
-    def run(self, *args) -> int:
+    def __init__(self):
         """ Let components know the options are done so they can start loading the rest of the GUI. """
+        super().__init__()
         self.call("gui_load")
-        # Start the GUI event loop and run it indefinitely. Print uncaught exceptions before quitting.
+
+    def run(self) -> int:
+        """ Start the GUI event loop and run it indefinitely. Print uncaught exceptions before quitting. """
         try:
             return self.event_loop()
         except Exception:

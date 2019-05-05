@@ -26,7 +26,7 @@ class StenoApplication(Application):
     COMMANDS: list = []
     RESOURCE: str = "translations"
 
-    def run(self, *args) -> int:
+    def run(self) -> int:
         """ Start the timer and run the <COMMANDS> on <RESOURCE>. Each command feeds its output to the next one. """
         s_time = time()
         print(f"Operation started.")

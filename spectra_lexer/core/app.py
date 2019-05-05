@@ -11,17 +11,16 @@ class Application:
 
     call: Callable = None
 
+    def __init__(self):
+        """ Build the runtime and get a top-level callable. """
+        runtime = self._new_runtime()
+        self.call = runtime.setup()
+
     def _new_runtime(self) -> Runtime:
         """ Make a new runtime from class paths given by the subclass. """
         return Runtime(self.CLASS_PATHS)
 
-    def start(self, *args) -> None:
-        """ Build the runtime, get a top-level callable, and start the app. """
-        runtime = self._new_runtime()
-        self.call = runtime.setup()
-        return self.run(*args)
-
-    def run(self, *args):
-        """ After everything else is ready, a primary task may be run. It may return a single value to main().
+    def run(self) -> int:
+        """ After everything else is ready, a primary task may be run. It may return an exit code to main().
             A batch operation can run until complete, or a GUI event loop can run indefinitely. """
         raise NotImplementedError

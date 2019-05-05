@@ -38,5 +38,5 @@ class GUIQtApplication(GUIApplication):
         """ Run the GUI on the main thread, and the standard steno components on a worker thread. """
         return ThreadedRuntime(self.GUI_CLASS_PATHS, [self.CLASS_PATHS], passthrough=_Connection)
 
-    def event_loop(self):
+    def event_loop(self) -> int:
         return self.QT_APP.exec_()

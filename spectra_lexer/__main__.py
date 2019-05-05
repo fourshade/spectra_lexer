@@ -7,17 +7,6 @@ from spectra_lexer.plover import PloverPluginApplication
 from spectra_lexer.steno import StenoAnalyzeApplication, StenoIndexApplication
 
 
-class EntryPoint:
-    """ Wrapper for a console script entry point. Appears as the app class by copying its attributes. """
-    def __init__(self, app_cls):
-        self.__dict__ = dict(vars(app_cls))
-        self.app_cls = app_cls
-
-    def __call__(self, *args):
-        """ Create and start the application. """
-        return self.app_cls().start(*args)
-
-
 class Spectra:
     """ Container class for all entry points to the Spectra program, and the top-level class in the hierarchy. """
     @classmethod
@@ -25,12 +14,12 @@ class Spectra:
         """ Get all entry points that match the given key up to its last character. """
         return [ep for attr, ep in vars(cls).items() if attr.startswith(key)]
     # Run the Spectra program by itself in batch mode. Interactive steno components are not required for this.
-    analyze = EntryPoint(StenoAnalyzeApplication)
-    index = EntryPoint(StenoIndexApplication)
+    analyze = StenoAnalyzeApplication
+    index = StenoIndexApplication
     # Run the Spectra program by itself with the standard GUI. The GUI should start first for smoothest operation.
-    gui = EntryPoint(GUIQtApplication)
+    gui = GUIQtApplication
     # Run the Spectra program as a plugin for Plover. Running it with no args starts a standalone test configuration.
-    plugin = EntryPoint(PloverPluginApplication)
+    plugin = PloverPluginApplication
 
 
 def main() -> int:
@@ -50,7 +39,7 @@ def main() -> int:
         return -1
     # Reassign the remaining arguments to sys.argv and run the entry point.
     sys.argv = [script, *cmd_opts]
-    return matches[0]()
+    return matches[0]().run()
 
 
 if __name__ == '__main__':
