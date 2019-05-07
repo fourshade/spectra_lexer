@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
-from .dialog import ToolDialog
+from .base import GUIQtTool, ToolDialog
 from spectra_lexer.gui import ConsoleTool
 
 
@@ -78,8 +78,10 @@ class ConsoleTextWidget(QTextEdit):
             self._history.add(user_str)
             self.textKeyboardInput.emit(user_str)
         else:
-            # In any other case, pass the keypress as normal and re-validate the cursor.
+            # In any other case, pass the keypress as normal. Undo anything that modifies the previous text.
             super().keyPressEvent(event)
+            if not self.toPlainText().startswith(original):
+                self.undo()
             self._set_cursor_valid()
 
     def insertFromMimeData(self, data:QMimeData):
@@ -110,22 +112,18 @@ class ConsoleDialog(ToolDialog):
 
     w_text: ConsoleTextWidget = None
 
-    def make_layout(self) -> None:
+    def make_layout(self, callback:Callable) -> None:
         """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        self.w_text = ConsoleTextWidget(self, self.callback)
+        self.w_text = ConsoleTextWidget(self, callback)
         layout.addWidget(self.w_text)
 
 
-class GUIQtConsoleTool(ConsoleTool):
+class GUIQtConsoleTool(GUIQtTool, ConsoleTool):
     """ Qt component for system interpreter I/O. """
 
-    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
-    dialog: ConsoleDialog = None
-
-    def open_dialog(self, *args) -> None:
-        self.dialog = ConsoleDialog(self.window, *args)
-        self.dialog.show()
+    DIALOG_CLASS = ConsoleDialog
 
     def output(self, text:str) -> None:
-        self.dialog.w_text.add_text(text)
+        if self.dialog is not None:
+            self.dialog.w_text.add_text(text)

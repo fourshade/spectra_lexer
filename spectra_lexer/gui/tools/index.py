@@ -1,8 +1,5 @@
 from spectra_lexer.core import Component
 
-_ACCEPT_LABEL = "OK"
-_REJECT_LABEL = "Cancel"
-
 _STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
 using your Plover dictionary. The default file size is around 10 MB, and can take anywhere
@@ -34,15 +31,14 @@ class IndexTool(Component):
     """ Controls user-based index creation. """
 
     index_menu = resource("menu:Tools:Make Index...", ["index_tool_open"])
-    translations = resource("translations", {})
 
     @on("index_tool_open")
     def open(self) -> None:
         """ Create the dialog. If the index size was positive, the dialog was accepted, so create the custom index. """
         size_range = (MINIMUM_SIZE, DEFAULT_SIZE, MAXIMUM_SIZE)
-        self.get_index_size(self.size_submit, _SIZE_UPPER_TEXT, _SIZE_LOWER_TEXT, size_range)
+        self.open_dialog(self.size_submit, _SIZE_UPPER_TEXT, _SIZE_LOWER_TEXT, size_range)
 
-    def get_index_size(self, callback, upper_text:str, lower_text:str, size_range:tuple) -> None:
+    def open_dialog(self, callback, upper_text:str, lower_text:str, size_range:tuple) -> None:
         """ Open a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """
         raise NotImplementedError
 
@@ -55,14 +51,13 @@ class IndexTool(Component):
     def startup_dialog(self) -> None:
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index.
             Make the starting index on accept, otherwise save an empty one so the message doesn't appear again. """
-        choice = self.startup_confirmation("Make Index", _STARTUP_MESSAGE, _ACCEPT_LABEL, _REJECT_LABEL)
-        if choice != _ACCEPT_LABEL:
-            self.index_finished({})
-        else:
+        if self.confirm_new_startup_index(_STARTUP_MESSAGE):
             self._send_index_commands()
+        else:
+            self.index_finished({})
 
-    def startup_confirmation(self, title:str, body:str, *choices:str) -> str:
-        """ Open a dialog and return the user's selection as a string. """
+    def confirm_new_startup_index(self, question:str) -> bool:
+        """ Open a question dialog and return the user's accept/cancel decision as a bool. """
         raise NotImplementedError
 
     def _send_index_commands(self, index_size:int=DEFAULT_SIZE) -> None:
@@ -70,7 +65,7 @@ class IndexTool(Component):
             This thread will be busy, so the GUI will not respond to user interaction. Disable it. """
         self.engine_call("gui_set_enabled", False)
         self.engine_call("new_status", "Making new index...")
-        self.engine_call("lexer_make_index", self.translations, size=index_size)
+        self.engine_call("analyzer_make_index", size=index_size)
 
     @on("new_index")
     def index_finished(self, d:dict) -> None:

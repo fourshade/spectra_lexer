@@ -2,7 +2,7 @@ from typing import Iterable, Callable
 
 from .engine import Engine, MainEngine, SimpleEngine, ThreadedEngine
 from .executor import Executor
-from spectra_lexer.core.factory import ComponentFactory
+from ..factory import ComponentFactory
 
 
 class Runtime:

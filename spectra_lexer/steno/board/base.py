@@ -3,9 +3,9 @@
 from .caption import CaptionGenerator
 from .layout import ElementLayout
 from .matcher import ElementMatcher
+from ..rules import StenoRule
+from ..system import StenoSystem
 from spectra_lexer.core import Component
-from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.types import delegate_to
 
 

@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict
 
 from spectra_lexer.core import Component
 from spectra_lexer.file import CFG

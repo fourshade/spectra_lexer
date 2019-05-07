@@ -1,7 +1,7 @@
 from typing import Dict, Iterable, List
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QColor, QPainter, QIcon, QPixmap
+from PyQt5.QtGui import QColor, QIcon, QImage, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 
 from spectra_lexer.utils import memoize

@@ -1,11 +1,12 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
-from .formatter import HTMLFormatter
 from .generator import CascadedTextGenerator, CompressedTextGenerator
+from .html import HTMLFormatter
 from .locator import GridLocator
 from .node import GraphNode, NodeOrganizer
+from .text import SectionedTextField
+from ..rules import StenoRule
 from spectra_lexer.core import Component
-from spectra_lexer.steno.rules import StenoRule
 
 
 class GraphRenderer(Component):
@@ -15,10 +16,10 @@ class GraphRenderer(Component):
     compressed = resource("config:graph:compressed_display", True, desc="Compress the graph vertically to save space.")
     layout = resource("system:layout")
 
-    _organizer: NodeOrganizer = None  # Makes node tree layouts out of rules.
-    _locator: GridLocator = None      # Finds which node the mouse is over during a mouseover event.
-    _formatter: HTMLFormatter = None  # Formats the output text based on which node is selected (if any).
-    _last_node: GraphNode = None      # Most recent node from a select event (for identity matching).
+    _organizer: NodeOrganizer = None        # Makes node tree layouts out of rules.
+    _formatter: HTMLFormatter = None        # Formats the output text based on which node is selected (if any).
+    _locator: GridLocator = None            # Finds which node the mouse is over during a mouseover event.
+    _last_node: GraphNode = None            # Most recent node from a select event (for identity matching).
 
     @on("new_output")
     def generate(self, rule:StenoRule) -> None:
@@ -32,9 +33,10 @@ class GraphRenderer(Component):
         # Generate and render all text objects into standard strings and node grids indexed by position.
         generator_type = CompressedTextGenerator if self.compressed else CascadedTextGenerator
         lines, nodes = generator_type(root).render()
-        # Create a locator and formatter using these structures and keep them for later reference.
+        # Create  a text field, formatter, and locator using these structures and keep them for later reference.
+        text_field = SectionedTextField(lines, nodes)
+        self._formatter = HTMLFormatter(text_field)
         self._locator = GridLocator(nodes)
-        self._formatter = HTMLFormatter(lines, nodes)
         self._display_selection(root, new=True)
 
     @on("text_mouse_action")
@@ -42,7 +44,7 @@ class GraphRenderer(Component):
         """ Find the node owning the character at (row, col) of the graph. If that node is new, send out its rule. """
         if self._locator is None:
             return
-        node = self._locator.select(row, col)
+        node = self._locator.get(row, col)
         if node is None or node is self._last_node:
             return
         # Store the node reference so we can avoid repeated lookups on small mouse deltas.
@@ -52,16 +54,19 @@ class GraphRenderer(Component):
     @on("graph_select_rule")
     def select_rule(self, rule:StenoRule) -> None:
         """ Find the first node created from <rule>, if any, and select it. """
-        if self._formatter is None:
+        if self._locator is None:
             return
-        # The formatter is a dict of nodes; just run a quick search through its keys.
-        for node in self._formatter:
-            if node.rule is rule:
-                self._display_selection(node)
+        node = self._organizer.node_from(rule)
+        if node is not None:
+            self._display_selection(node)
 
     def _display_selection(self, node:GraphNode, new:bool=False) -> None:
         """ Render and send the graph with a node highlighted. If None, render with no highlighting or boldface. """
-        text = self._formatter.make_graph_text(node if not new else None)
+        self._formatter.start()
+        if not new:
+            self._formatter.highlight(node)
+        text = self._formatter.finish()
         # A new graph should scroll to the top by default. Otherwise don't allow the graph to scroll.
         self.engine_call("new_graph_text", text, scroll_to="top" if new else None)
-        self.engine_call("board_display_rule", node.rule)
+        # Get the rule originally associated with this node and send it to the board.
+        self.engine_call("board_display_rule", self._organizer.rule_from(node))

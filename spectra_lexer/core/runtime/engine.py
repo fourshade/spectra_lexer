@@ -1,6 +1,6 @@
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Iterable, Tuple
+from typing import Any, Callable, Tuple
 
 
 class Engine:

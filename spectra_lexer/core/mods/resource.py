@@ -2,7 +2,7 @@ from functools import partial
 from typing import Callable, Iterable
 
 from .base import ComponentMod, MainMod
-from .command import CommandMod, CommandDef
+from .command import CommandDef, CommandMod
 from .deps import DependencyOrderer
 from .package import package
 from spectra_lexer.utils import str_prefix
@@ -29,7 +29,9 @@ class ResourceMod(ComponentMod):
                                   {str_prefix(r, ":") for r in reqs})
         pkg.nest(delim=":")
         for k in deps.sorted_keys():
-            engine_call(f"init:{k}", pkg[k])
+            # Don't bother loading a resource if no components need it.
+            if k in pkg:
+                engine_call(f"init:{k}", pkg[k])
 
 
 class ResourceInit(MainMod, CommandMod, ResourceMod):

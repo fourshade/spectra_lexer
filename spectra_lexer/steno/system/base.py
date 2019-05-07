@@ -2,10 +2,10 @@ import os
 from typing import Dict, Iterable
 
 from .rules import RuleParser
+from ..keys import KeyLayout
+from ..rules import StenoRule
 from spectra_lexer.core import Component
 from spectra_lexer.file import CFG, CSON, XML
-from spectra_lexer.steno.keys import KeyLayout
-from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.types import struct
 
 
@@ -73,7 +73,7 @@ class SystemManager(Component):
     def load_board(self) -> dict:
         """ Load an SVG file and keep the raw XML data along with all element IDs.
             The board is not necessary to run the lexer; return empty fields if it can't be loaded. """
-        return XML.load(self.BOARD, ignore_missing=True) or XML.decode(b"")
+        return XML.load(self.BOARD, ignore_missing=True)
 
     @on("rules_save")
     def save_rules(self, rules:Iterable[StenoRule], filename:str="") -> None:

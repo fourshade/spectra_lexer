@@ -1,8 +1,8 @@
 from typing import Dict, List, NamedTuple
 
 from .prefix import PrefixFinder
-from spectra_lexer.steno.rules import RuleFlags, StenoRule
-from spectra_lexer.steno.system import StenoSystem
+from ..rules import RuleFlags, StenoRule
+from ..system import StenoSystem
 from spectra_lexer.utils import str_prefix, str_without
 
 

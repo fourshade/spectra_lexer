@@ -1,12 +1,11 @@
 from itertools import product
-from typing import Callable, Dict, Iterable, Iterator, List
+from typing import Callable, Iterable, Iterator, List, Tuple
 
-from .index import LexerIndexCompiler
 from .match import LexerRuleMatcher
 from .results import LexerRuleMaker
+from ..rules import RuleMapItem, StenoRule
+from ..system import StenoSystem
 from spectra_lexer.core import Component
-from spectra_lexer.steno.rules import RuleMapItem, StenoRule
-from spectra_lexer.steno.system import StenoSystem
 from spectra_lexer.utils import str_without
 
 # Default size of generated indices (maximum word size).
@@ -22,7 +21,6 @@ class StenoLexer(Component):
 
     _matcher: LexerRuleMatcher          # Master rule-matching dictionary.
     _rulemaker: LexerRuleMaker          # Makes rules from lexer results.
-    _indexer: LexerIndexCompiler        # Compiles results into an index based on which built-in rules they use.
     _cleanse: Callable[[str], str]      # Performs thorough conversions on RTFCRE steno strings.
 
     def __init__(self):
@@ -30,14 +28,12 @@ class StenoLexer(Component):
         super().__init__()
         self._matcher = LexerRuleMatcher()
         self._rulemaker = LexerRuleMaker()
-        self._indexer = LexerIndexCompiler()
 
     @on_resource("system")
     def set_system(self, system:StenoSystem) -> None:
         self._cleanse = system.layout.cleanse_from_rtfcre
         self._matcher.load(system)
         self._rulemaker.set_converter(system.layout.to_rtfcre)
-        self._indexer.set_rev_rules(system.rev_rules)
 
     @on("lexer_query")
     def query(self, keys:str, word:str) -> StenoRule:
@@ -61,29 +57,15 @@ class StenoLexer(Component):
         return rule
 
     @on("lexer_query_all")
-    def query_all(self, items:Iterable, filter_in=None, filter_out=None) -> List[StenoRule]:
+    def query_all(self, items:Iterable[Tuple[str, str]]) -> List[StenoRule]:
         """ Run the lexer in parallel on all (keys, word) translations in <items> and return a list of results.
-            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
-        if isinstance(items, dict):
-            items = items.items()
-        # Only keep results with all keys matched to reduce garbage.
-        # Delete the attribute when finished to re-expose the class config setting.
+            Only keep results with all keys matched to reduce garbage. """
         self.need_all_keys = True
-        results = self.engine_call("parallel_starmap", self._query, filter(filter_in, items))
+        results = self.engine_call("parallel_starmap", self._query, items)
+        # Delete the attribute when finished to re-expose the class config setting.
         del self.need_all_keys
-        filtered = list(filter(filter_out, results))
-        self.engine_call("new_analysis", filtered)
-        return filtered
-
-    @on("lexer_make_index")
-    def make_index(self, translations:Iterable, size:int=_DEFAULT_INDEX_SIZE) -> Dict[str, dict]:
-        """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
-            Make a index for each built-in rule containing a dict of every translation that used it. """
-        filter_in, filter_out = self._indexer.make_filters(size)
-        results = self.query_all(translations, filter_in, filter_out)
-        d = self._indexer.compile_results(results)
-        self.engine_call("new_index", d)
-        return d
+        self.engine_call("new_bulk_output", results)
+        return results
 
     def _process(self, keys:str, word:str) -> Iterator[tuple]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed

@@ -1,9 +1,10 @@
 import json
 
-from .base import FileHandler
+from .base import FileHandler, use_if_format_is
 
 
-class JSON(FileHandler, formats=[".json"]):
+@use_if_format_is(".json")
+class JSON(FileHandler):
     """ Codec to convert a Python dict to/from a UTF-8 JSON byte string. """
 
     # JSON standard library functions with default arguments are the fastest way to load structured data in Python.
@@ -14,8 +15,13 @@ class JSON(FileHandler, formats=[".json"]):
         """ For JSON encoding, an explicit flag is required to preserve Unicode symbols. """
         return json.dumps(d, ensure_ascii=False).encode('utf-8')
 
+    @classmethod
+    def on_missing(cls) -> dict:
+        return {}
 
-class CSON(JSON, formats=[".cson"]):
+
+@use_if_format_is(".cson")
+class CSON(JSON):
     """ Codec to convert a Python dict to/from a JSON string with full-line comments. """
 
     @classmethod

@@ -14,23 +14,24 @@ class SizedContainer(Container):
 
     _AUTOSORT_MAXSIZE: int = 200
 
-    __bool__ = delegate_to("_obj")
     __len__ = delegate_to("_obj")
 
-    def __str__(self) -> str:
-        """ Add the number of items to the type field. """
-        n = len(self)
-        return f"{n} item" + "s" * (n != 1)
-
-    def keys(self) -> Iterator:
+    def __iter__(self) -> Iterator:
         """ If the container is under a certain size, attempt to sort its objects by key.
             A sort operation may fail if some keys aren't comparable. """
         if len(self) < self._AUTOSORT_MAXSIZE:
             try:
-                return iter(sorted(super().keys()))
+                return iter(sorted(self._obj))
             except TypeError:
                 pass
-        return super().keys()
+        return iter(self._obj)
+
+    __getitem__ = delegate_to("_obj")
+
+    def type_str(self) -> str:
+        """ Add the number of items to the type field. """
+        n = len(self)
+        return f" - {n} item" + "s" * (n != 1)
 
 
 @use_if_object_is(MutableMapping)
@@ -43,15 +44,15 @@ class SetContainer(SizedContainer):
 
     key_tooltip = "Hash value of the object. Cannot be edited."
 
-    def key_str(self, key) -> str:
-        """ Since the items are both the keys and the values, display the hashes in the key field. """
-        return str(hash(key))
-
     def __getitem__(self, key):
         """ The key is the item itself. """
         if key in self._obj:
             return key
         raise KeyError(key)
+
+    def key_str(self, key) -> str:
+        """ Since the items are both the keys and the values, display the hashes in the key field. """
+        return str(hash(key))
 
 
 @use_if_object_is(MutableSet)
@@ -70,13 +71,13 @@ class MutableSetContainer(SetContainer, MutableContainer):
 @use_if_object_is(Sequence)
 class SequenceContainer(SizedContainer):
 
+    def __iter__(self) -> Iterator:
+        """ Generate sequential index numbers as the keys. """
+        return iter(range(len(self)))
+
     def key_str(self, key:int) -> str:
         """ Add a dot in front of each index for clarity. """
         return f".{key}"
-
-    def keys(self) -> Iterator:
-        """ Generate sequential index numbers as the keys. """
-        return iter(range(len(self)))
 
 
 @use_if_object_is(MutableSequence)

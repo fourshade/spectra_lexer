@@ -2,10 +2,12 @@ from configparser import ConfigParser
 from io import StringIO
 
 from spectra_lexer.utils import str_eval
-from .base import FileHandler
+from .base import FileHandler, use_if_format_is
 
 
-class CFG(FileHandler, formats=[".cfg", ".ini"]):
+@use_if_format_is(".cfg")
+@use_if_format_is(".ini")
+class CFG(FileHandler):
     """ Codec to convert a nested Python dict to/from a config/INI formatted string. """
 
     @classmethod
@@ -31,3 +33,7 @@ class CFG(FileHandler, formats=[".cfg", ".ini"]):
         stream = StringIO()
         cfg.write(stream)
         return stream.getvalue().encode('utf-8')
+
+    @classmethod
+    def on_missing(cls) -> dict:
+        return {}

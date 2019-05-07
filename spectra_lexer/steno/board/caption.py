@@ -1,7 +1,7 @@
 import random
 from typing import Dict, Union
 
-from spectra_lexer.steno.rules import RuleFlags, StenoRule
+from ..rules import RuleFlags, StenoRule
 
 
 class CaptionGenerator:

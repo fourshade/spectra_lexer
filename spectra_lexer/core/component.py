@@ -1,6 +1,6 @@
 """ Base module of the Spectra core package. Contains the most fundamental classes. Don't touch anything... """
 
-from spectra_lexer.core.mods import MainMod
+from .mods import MainMod
 from spectra_lexer.utils import nop
 
 
@@ -12,13 +12,15 @@ class ComponentMeta(type):
         return MainMod.classes()
 
     @classmethod
-    def build_from_paths(mcs, class_paths):
-        """ Create and yield instances of all component subclasses found in <class_paths>.
+    def from_paths(mcs, paths, engine_callback):
+        """ Create, connect, and yield instances of all component subclasses found in <paths>.
             Class paths may include packages, modules, and classes themselves. """
-        for path in class_paths:
-            for obj in [path, *getattr(path, "__dict__", {}).values()]:
+        for p in paths:
+            for obj in [p, *getattr(p, "__dict__", {}).values()]:
                 if isinstance(obj, mcs):
-                    yield obj()
+                    cmp = obj()
+                    cmp.engine_call = engine_callback
+                    yield cmp
 
 
 class Component(metaclass=ComponentMeta):
@@ -27,10 +29,6 @@ class Component(metaclass=ComponentMeta):
         or indirectly by nearly every important (externally-visible) piece of the program. """
 
     engine_call = nop  # Default engine callback is a no-op (useful for testing individual components).
-
-    def engine_connect(self, engine_cb):
-        """ Set the engine callback. """
-        self.engine_call = engine_cb
 
     def __getstate__(self):
         """ Each component has a reference to the engine through self.engine_call, which respectively has a reference

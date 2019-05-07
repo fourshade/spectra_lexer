@@ -21,8 +21,8 @@ class Window(Component):
         """ Closing the main window kills the program in standalone mode, but not as a plugin. """
         raise NotImplementedError
 
-    @on("resources_done")
-    def enable(self) -> None:
-        """ All files have command line options, so when this command is issued, everything must be done. """
+    @on_resource("translations")
+    def enable(self, *args) -> None:
+        """ Translations are the last large file I/O task to complete before the GUI is usable. """
         self.engine_call("gui_set_enabled", True)
         self.engine_call("new_status", "Loading complete.")

@@ -2,7 +2,6 @@
 
 import builtins
 import types
-from typing import Iterator
 
 from .collection import use_if_object_has_attr
 from .container import Container, MutableKeyContainer
@@ -26,11 +25,8 @@ class ClassContainer(Container):
         if hasattr(obj, "__dict__"):
             self._cls_tree = {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
-    __bool__ = delegate_to("_cls_tree")
-
-    def keys(self) -> Iterator[str]:
-        return iter(self._cls_tree)
-
+    __len__ = delegate_to("_cls_tree")
+    __iter__ = delegate_to("_cls_tree")
     __getitem__ = delegate_to("_cls_tree")
 
 
@@ -47,11 +43,8 @@ class AttrContainer(Container):
         super().__init__(obj)
         self._attro = getattr(self._obj, self._ATTR)
 
-    __bool__ = delegate_to("_attro")
-
-    def keys(self) -> Iterator[str]:
-        """ Include all instance attributes. """
-        return iter(self._attro)
+    __len__ = delegate_to("_attro")
+    __iter__ = delegate_to("_attro")
 
     def __getitem__(self, key:str):
         """ Return the attribute under <key> by any method we can. """

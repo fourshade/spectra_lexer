@@ -26,7 +26,7 @@ class Executor:
             # Unhandled exceptions in an exception handler are fatal. They should return instead of raise.
             return self._exec("exception", exc_value)
 
-    def _exec(self, key:str, *args, broadcast_depth:int=None, **kwargs):
+    def _exec(self, key:str, *args, broadcast_depth:int=None, **kwargs) -> Any:
         """ Run all commands matching a key and return the last result. """
         value = None
         if broadcast_depth is not None:
@@ -49,8 +49,3 @@ class Executor:
                 self._broadcast(k, v, kwargs, depth)
             if self._commands[k]:
                 self._exec(k, *v, **kwargs)
-
-
-#
-# class ExecutorMod(metaclass=ClassRegistryMeta):
-#

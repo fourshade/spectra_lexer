@@ -3,7 +3,7 @@
 from typing import List, Tuple
 
 from .canvas import Canvas
-from .pattern import Pattern
+from .pattern import PatternSpec
 from .primitive import Primitive
 
 
@@ -47,9 +47,9 @@ class ObjectNode(Object):
     """ Grid of text lines that form a node and its attachments one character in each direction.
         Sections of text belonging to a single node are added with positions depending on the node attributes. """
 
-    pattern: Pattern  # Structure with symbol pattern templates for connectors and containers.
+    pattern: PatternSpec  # Structure with symbol pattern templates for connectors and containers.
 
-    def __init__(self, s:str, tag:object, pattern:Pattern) -> None:
+    def __init__(self, s:str, tag:object, pattern:PatternSpec) -> None:
         """ Add the first primitive: a new line with the node's text starting at the origin. """
         self.tag = tag
         self.pattern = pattern
@@ -87,7 +87,7 @@ class ObjectNode(Object):
 class ObjectNodeUnmatched(ObjectNode):
     """ Graphical element for unmatched keys. These have broken connectors ending in question marks on both sides. """
 
-    def __init__(self, s:str, tag:object, pattern:Pattern) -> None:
+    def __init__(self, s:str, tag:object, pattern:PatternSpec) -> None:
         """ Add the body with an extra row offset to ensure that empty matches have enough space. """
         self.tag = tag
         self.pattern = pattern

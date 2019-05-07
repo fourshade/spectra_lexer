@@ -2,7 +2,7 @@ from collections import Counter
 import re
 from typing import Dict, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.steno.rules import RuleMapItem, StenoRule
+from ..rules import RuleMapItem, StenoRule
 
 # Available bracket pairs for parsing rules.
 _LEFT_BRACKETS = r'\(\['

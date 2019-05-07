@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import update_wrapper
 from typing import Callable, Dict
 
 from spectra_lexer.utils import recurse
@@ -38,9 +39,10 @@ class ComponentMod(AbstractMod):
         cls._INSTANCES = defaultdict(list)
 
     def __call__(self, func:Callable):
-        """ When used as a decorator, the value will be the function, replaced on __set_name__. """
+        """ When used as a decorator, the value will be the function, replaced on __set_name__.
+            We still want to wrap the mod with the function's info so it shows up in the console. """
         self._value = func
-        return self
+        return update_wrapper(self, func)
 
     def __set_name__(self, owner:type, name:str) -> None:
         """ Add the instance to the class data dict, save the attribute name, and put the original value back.

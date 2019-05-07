@@ -12,7 +12,7 @@ class GridLocator:
         """ Save a 2D grid of object references from a new graph as a lookup table. """
         self._grid = grid
 
-    def select(self, row:int, col:int) -> Optional:
+    def get(self, row:int, col:int) -> Optional:
         """ Return the object that was responsible for the graphical element at position (row, col).
             Return None if no element is there, no object owns the element, or an index is out of range. """
         if 0 <= row < len(self._grid):

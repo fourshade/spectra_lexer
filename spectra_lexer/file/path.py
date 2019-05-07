@@ -7,37 +7,37 @@ import os
 from appdirs import user_data_dir
 from pkg_resources import resource_listdir, resource_string
 
+from spectra_lexer.types import polymorph_index
 from spectra_lexer.utils import str_prefix
 
 # Root package name for built-in assets.
 _PACKAGE_NAME = str_prefix(__package__, ".")
+# Records resource types to check for membership by prefix.
+use_if_path_startswith = polymorph_index()
 
 
-class Resource(str):
-    """ Abstract class for a resource identifier. """
-
-    _TYPES: list = []  # Resource types to check for membership, in order.
-
-    def __init_subclass__(cls, prefix:str=""):
-        """ Add a new resource subclass to the list and sort by prefix in reverse so longer ones are tried first. """
-        cls._TYPES.append((prefix, cls))
-        cls._TYPES.sort(reverse=True)
+class PathFinder:
+    """ Parses path strings into resource identifiers by prefix. """
 
     @classmethod
     def from_string(cls, s:str):
         """ Given a string, determine the type of resource from the prefix and create the appropriate identifier. """
-        for prefix, tp in cls._TYPES:
+        for prefix, tp in PATH_TYPES:
             if s.startswith(prefix):
                 return tp(s[len(prefix):])
 
     @classmethod
-    def from_pattern(cls, pattern:str) -> list:
+    def list_from_pattern(cls, pattern:str) -> list:
         """ Given a string, determine the resource type from the prefix and expand the pattern into a list. """
         return cls.from_string(pattern).search()
 
+
+class Path(str):
+    """ Abstract class for a resource path identifier. """
+
     @classmethod
     def from_list(cls, str_list:list) -> list:
-        """ Given a list of strings, make a list of resources from *this* class and return it. """
+        """ Given a list of strings, make a list of identifiers from the current class and return it. """
         return [cls(s) for s in str_list]
 
     def read(self) -> bytes:
@@ -50,8 +50,9 @@ class Resource(str):
         return []
 
 
-class File(Resource):
-    """ A file identifier, created from an ordinary file path. """
+@use_if_path_startswith("")
+class FilePath(Path):
+    """ A file identifier, created from an ordinary file path. Will be used if nothing else matches. """
 
     def read(self) -> bytes:
         """ Open and read an entire text file as a byte string. """
@@ -71,7 +72,8 @@ class File(Resource):
         return self.from_list(glob.glob(self))
 
 
-class Asset(Resource, prefix=":/"):
+@use_if_path_startswith(":/")
+class AssetPath(Path):
     """ A built-in asset identifier, created by using pkg_resources. """
 
     def read(self) -> bytes:
@@ -86,7 +88,8 @@ class Asset(Resource, prefix=":/"):
         return self.from_list([os.path.join(pathname, n) for n in asset_names])
 
 
-class UserFile(File, prefix="~"):
+@use_if_path_startswith("~")
+class UserFilePath(FilePath):
     """ An identifier for a file in the user's app data directory. Produces instances of its superclass only. """
 
     def __new__(cls, s:str):
@@ -94,11 +97,16 @@ class UserFile(File, prefix="~"):
             If the prefix is ~/, it is specifically a file from THIS application's user data directory. """
         app_prefix, filename = s.split("/", 1)
         directory = user_data_dir(app_prefix or _PACKAGE_NAME)
-        return File(os.path.join(directory, filename))
+        return FilePath(os.path.join(directory, filename))
 
 
-class Null(Resource, prefix="NUL"):
+@use_if_path_startswith("NUL")
+class NullPath(Path):
     """ A dummy class that reads nothing and writes to a black hole. """
 
     read = lambda self: b""
     write = lambda *args: None
+
+
+# Sort resource path types by prefix in reverse so longer ones are tried first.
+PATH_TYPES = sorted(use_if_path_startswith.items(), reverse=True)

@@ -16,7 +16,7 @@ class SearchDictionary:
 
     def new(self, r_key:str, d:dict) -> None:
         """ Make a new nexus, overwrite the previous one of the same type (if any), and re-sort them by priority. """
-        self._collection.append(ResourceNexus.from_resource(r_key, d))
+        self._collection.append(ResourceNexus.types[r_key](d))
         self._collection = sorted({type(n): n for n in self._collection}.values(), reverse=True)
 
     def search(self, pattern:str, count:int, *, strokes:bool=False, **search_kwargs) -> List[str]:

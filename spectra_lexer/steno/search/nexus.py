@@ -3,30 +3,22 @@
 from typing import Dict, Optional
 
 from .dict import ReverseStripCaseSearchDict, StripCaseSearchDict
-from spectra_lexer.types import delegate_to
+from spectra_lexer.types import delegate_to, polymorph_index
 from spectra_lexer.utils import ensure_iterable
 
 
 class ResourceNexus:
-
-    _R_TABLE = {}     # Maps resource key strings to the nexus types that use them.
 
     PRIORITY: int = 0  # Search priority. Resource prefixes are checked in order from highest to lowest priority nexus.
     PREFIX: str = ""   # Prefix to test (and strip) on input patterns. Empty by default, so pattern is unmodified.
 
     _d: StripCaseSearchDict = StripCaseSearchDict()  # Current dict used for lookups and commands.
 
-    def __init_subclass__(cls, resource:str="UNDEFINED"):
-        """ Add each subclass under its resource type. """
-        cls._R_TABLE[resource] = cls
+    types = polymorph_index()  # Records nexus types by resource key.
 
     def __lt__(self, other) -> bool:
         """ Nexus sort order is equivalent to that of their priority ints. """
         return self.PRIORITY < other.PRIORITY
-
-    @classmethod
-    def from_resource(cls, r_key:str, d:dict):
-        return cls._R_TABLE[r_key](d)
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
         """ Indicator function that returns a new pattern on success and can modify the current dict reference. """
@@ -41,7 +33,11 @@ class ResourceNexus:
         """ Return a tuple of items that can be directly called as an engine command to show a result, or None. """
 
 
-class TranslationNexus(ResourceNexus, resource="translations"):
+use_if_resource_is = ResourceNexus.types
+
+
+@use_if_resource_is("translations")
+class TranslationNexus(ResourceNexus):
     """ A hybrid forward+reverse steno translation nexus. Used when nothing else matches. """
 
     PRIORITY = 1  # Has low priority. It must outrank the default nexus only.
@@ -69,7 +65,8 @@ class TranslationNexus(ResourceNexus, resource="translations"):
         return ("lexer_query_product", *map(ensure_iterable, args))
 
 
-class RulesNexus(ResourceNexus, resource="rules"):
+@use_if_resource_is("rules")
+class RulesNexus(ResourceNexus):
     """ A simple nexus for rule search by name when a prefix is added. There is only one dict, which never changes. """
 
     PRIORITY = 2  # Has medium priority. It must outrank the translations nexus.
@@ -84,7 +81,8 @@ class RulesNexus(ResourceNexus, resource="rules"):
         return "new_output", mapping
 
 
-class IndexNexus(ResourceNexus, resource="index"):
+@use_if_resource_is("index")
+class IndexNexus(ResourceNexus):
     """ A resource-heavy nexus for finding translations that contain a particular steno rule. """
 
     PRIORITY = 3      # Has highest priority but lowest chance of success. Must outrank the rules nexus.

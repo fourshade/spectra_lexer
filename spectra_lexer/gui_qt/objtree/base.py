@@ -5,10 +5,11 @@ from typing import Dict, List
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont
-from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
 from .format import ItemFormatter
 from spectra_lexer.gui import ObjectTreeTool
+from spectra_lexer.gui_qt.tools.base import GUIQtTool, ToolDialog
 
 # Default maximum number of child objects to show for each object.
 CHILD_LIMIT = 200
@@ -108,27 +109,19 @@ class ObjectTreeView(QTreeView):
         self.expanded.connect(model.expand)
 
 
-class ObjectTreeDialog(QDialog):
+class ObjectTreeDialog(ToolDialog):
     """ Qt tree dialog window object. """
 
-    TITLE: str = "Python Object Tree View"  # Dialog window title string.
-    SIZE: tuple = (600, 450)                # Dimensions in pixels: (width, height).
+    TITLE: str = "Python Object Tree View"
+    SIZE: tuple = (600, 450)
 
-    def __init__(self, parent:QWidget, resources:dict):
-        """ Create the root UI dialog window, layout, item model, and tree widget. """
-        super().__init__(parent, Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        self.setWindowTitle(self.TITLE)
-        self.resize(*self.SIZE)
-        self.setMinimumSize(*self.SIZE)
-        self.setSizeGripEnabled(False)
+    def make_layout(self, resources:dict) -> None:
+        """ Create the layout, item model, and tree widget. """
         model = ObjectTreeModel(**resources)
         QVBoxLayout(self).addWidget(ObjectTreeView(self, model))
 
 
-class GUIQtObjectTreeTool(ObjectTreeTool):
+class GUIQtObjectTreeTool(GUIQtTool, ObjectTreeTool):
     """ Component for interactive tree operations. """
 
-    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
-
-    def open_dialog(self, *args) -> None:
-        ObjectTreeDialog(self.window, *args).show()
+    DIALOG_CLASS = ObjectTreeDialog

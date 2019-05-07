@@ -2,8 +2,8 @@
 
 from typing import Callable, Dict, Iterable, List
 
-from spectra_lexer.steno.rules import RuleFlags, StenoRule
-from spectra_lexer.steno.system import StenoSystem
+from ..rules import RuleFlags, StenoRule
+from ..system import StenoSystem
 
 # Format strings for creating SVG element IDs.
 _SVG_RULE_PREFIX = ":"

@@ -1,9 +1,9 @@
 """ Module for graph nodes. Contains enough information for text operations. """
 
 from functools import partialmethod
-from typing import Sequence
+from typing import Sequence, Dict
 
-from spectra_lexer.steno.rules import RuleFlags, StenoRule
+from ..rules import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse, traverse, with_sets
 
 
@@ -23,7 +23,6 @@ class GraphNode:
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
 
-    rule: StenoRule          # Original rule, kept only as a means of unique identification and for compatibility.
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
     parent: object           # Direct parent of the node. If None, it is the root node (or unconnected).
@@ -39,7 +38,7 @@ class GraphNode:
     descendents = partialmethod(recurse, "children")
 
     def __str__(self):
-        return f"{self.rule} → {self.children}"
+        return self.text + (f": {self.children}" if self.children else "")
 
 
 class NodeOrganizer:
@@ -48,6 +47,7 @@ class NodeOrganizer:
 
     _key_sep: str    # Steno key used as stroke separator.
     _key_split: str  # Steno key used to split sides in RTFCRE.
+    _rules_by_node: Dict[GraphNode, StenoRule] = {}  # Mapping of each node in the last tree to its rule.
 
     def __init__(self, key_sep:str, key_split:str):
         self._key_sep = key_sep
@@ -58,16 +58,26 @@ class NodeOrganizer:
             The root node has no parent; its "attach interval" is arbitrarily defined as starting
             at 0 and being the length of its letters, and its appearance flag overrides all others.
             The root node's text always shows letters no matter what. """
+        self._rules_by_node = {}
         root = self.make_node(rule, 0, len(rule.letters), None, self.RECURSION_LIMIT if recursive else 1)
         root.text = rule.letters
         root.appearance = GraphNodeAppearance.ROOT
         return root
 
+    def rule_from(self, node:GraphNode) -> StenoRule:
+        """ Given a node from the last tree, look up its rule. """
+        return self._rules_by_node.get(node)
+
+    def node_from(self, rule:StenoRule) -> GraphNode:
+        """ Given a rule, find the first node that used it (if any) in the last tree. """
+        for n, r in self._rules_by_node.items():
+            if r is rule:
+                return n
+
     def make_node(self, rule:StenoRule, start:int, length:int, parent:object, maxdepth:int) -> GraphNode:
         """ Create a new node from a rule and recursively populate child nodes with rules from the map.
             maxdepth is the maximum recursion depth to draw nodes out to. """
         node = GraphNode()
-        node.rule = rule
         node.attach_start = start
         node.attach_length = length
         node.parent = parent
@@ -95,4 +105,6 @@ class NodeOrganizer:
             for f in (rule.flags & GraphNodeAppearance.values):
                 node.appearance = f
                 break
+        # Keep track of the node and its rule in case we need one from the other.
+        self._rules_by_node[node] = rule
         return node
