@@ -1,49 +1,40 @@
-from code import InteractiveConsole
+from code import InteractiveInterpreter
+from io import StringIO
 import sys
-from typing import Callable
+
+from .tools import AttrRedirector
+from spectra_lexer.types import polymorph_index
 
 
-class AttrRedirector:
-    """ Context manager that temporarily overwrites a number of attributes on a target object, then restores them.
-        Only works on objects with a __dict__. The usual case is redirecting streams and hooks from the sys module. """
-
-    _saved = {}
-
-    def __init__(self, target:object, **attrs):
-        self._attrs = attrs
-        self._target_dict = target.__dict__
-
-    def __enter__(self):
-        self._saved = {a: self._target_dict[a] for a in self._attrs}
-        self._target_dict.update(self._attrs)
-
-    def __exit__(self, *args):
-        self._target_dict.update(self._saved)
+ConsoleTypes = use_if_interactive = polymorph_index()
 
 
-class SpectraConsole(InteractiveConsole):
-    """ Interpreter console with redirectable output. """
+@use_if_interactive(False)
+class Console(InteractiveInterpreter):
+    """ Terminal-based interpreter console with redirectable output streams and display hook. """
 
-    def __init__(self, d_locals:dict, output_cb:Callable):
+    START_MSG: str = "Spectra Console - BATCH MODE\n"
+
+    def __init__(self, d_locals:dict, **overrides):
         super().__init__(d_locals)
-        self.write = output_cb
-        self.redirector = AttrRedirector(sys, displayhook=self.display, stdout=self)
+        # Execute a dummy statement to add the __builtins__ module to locals.
+        exec("pass", d_locals)
+        # Each keyword argument is an object that should override __builtins__ at the top level.
+        d_locals["__builtins__"].update(overrides)
 
-    def send(self, text_in:str) -> None:
-        """ Process a line of input while redirecting the interactive display to our callback. """
-        with self.redirector:
-            self._send(text_in)
+    def run(self, text_in:str) -> str:
+        """ Execute a string of input text while redirecting the standard streams to a buffer we can return. """
+        if text_in is None:
+            # Return the startup sequence if the input text is None.
+            return self.START_MSG
+        output = StringIO()
+        with AttrRedirector(sys, displayhook=self.display, stdout=output, stderr=output):
+            self._run(text_in)
+        return output.getvalue()
 
-    def _send(self, text_in:str) -> None:
-        """ When a command sends a new line of input, push to the console. """
-        more = 0
-        try:
-            self.write(text_in + "\n")
-            more = self.push(text_in)
-        except KeyboardInterrupt:
-            self.write("\nKeyboardInterrupt\n")
-            self.resetbuffer()
-        self.write("... " if more else ">>> ")
+    def _run(self, text_in:str) -> None:
+        """ In batch mode, send any string straight to the interpreter as an executable command. """
+        self.runsource(text_in)
 
     def display(self, value:object) -> None:
         """ Like the normal console, show the repr of any return value on a new line, or nothing at all for None. """
@@ -52,3 +43,28 @@ class SpectraConsole(InteractiveConsole):
         # Unlike the normal console, save the last value under _ in locals rather than globals.
         # It is too easy to step on other usages of _ (such as gettext) when saving to globals.
         self.locals["_"] = value
+
+
+@use_if_interactive(True)
+class InteractiveConsole(Console):
+    """ Interactive terminal console with an opening message and prompts. """
+
+    PS1 = ">>> "
+    PS2 = "... "
+    START_MSG = f"Spectra Console - Python {sys.version}\n" \
+                f"Type 'dir()' to see a list of engine commands and other globals.\n{PS1}"
+
+    buffer = ""
+
+    def _run(self, text_in:str) -> None:
+        """ When a new line of input is entered, add it to the buffer and run it if it forms a complete statement. """
+        self.buffer += text_in
+        try:
+            if not self.runsource(self.buffer):
+                self.buffer = ""
+            else:
+                self.buffer += "\n"
+        except KeyboardInterrupt:
+            self.write(f"KeyboardInterrupt\n")
+            self.buffer = ""
+        self.write(self.PS2 if self.buffer else self.PS1)

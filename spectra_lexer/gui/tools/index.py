@@ -1,4 +1,4 @@
-from spectra_lexer.core import Component
+from .base import GUITool
 
 _STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
@@ -27,20 +27,16 @@ DEFAULT_SIZE = 12
 MAXIMUM_SIZE = 20
 
 
-class IndexTool(Component):
+class IndexTool(GUITool):
     """ Controls user-based index creation. """
 
     index_menu = resource("menu:Tools:Make Index...", ["index_tool_open"])
 
     @on("index_tool_open")
     def open(self) -> None:
-        """ Create the dialog. If the index size was positive, the dialog was accepted, so create the custom index. """
+        """ Create a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """
         size_range = (MINIMUM_SIZE, DEFAULT_SIZE, MAXIMUM_SIZE)
         self.open_dialog(self.size_submit, _SIZE_UPPER_TEXT, _SIZE_LOWER_TEXT, size_range)
-
-    def open_dialog(self, callback, upper_text:str, lower_text:str, size_range:tuple) -> None:
-        """ Open a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """
-        raise NotImplementedError
 
     def size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted, so create the custom index. """
@@ -54,6 +50,7 @@ class IndexTool(Component):
         if self.confirm_new_startup_index(_STARTUP_MESSAGE):
             self._send_index_commands()
         else:
+            self.engine_call("new_status", "Skipped index creation.")
             self.index_finished({})
 
     def confirm_new_startup_index(self, question:str) -> bool:
@@ -62,14 +59,12 @@ class IndexTool(Component):
 
     def _send_index_commands(self, index_size:int=DEFAULT_SIZE) -> None:
         """ Set the size, run the command, and show a starting message in the title field.
-            This thread will be busy, so the GUI will not respond to user interaction. Disable it. """
+            It is not thread-safe for the GUI to access certain objects while processing. Disable it. """
         self.engine_call("gui_set_enabled", False)
-        self.engine_call("new_status", "Making new index...")
         self.engine_call("analyzer_make_index", size=index_size)
 
     @on("new_index")
     def index_finished(self, d:dict) -> None:
         """ Once the new index has been received, we can save it, send the success message, and re-enable the GUI. """
         self.engine_call("index_save", d)
-        self.engine_call("new_status", "Successfully created index!" if d else "Skipped index creation.")
         self.engine_call("gui_set_enabled", True)

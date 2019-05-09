@@ -1,4 +1,4 @@
-""" Main module and entry point for Spectra's Plover plugin application. """
+""" Main entry point for Spectra's Plover plugin application. """
 
 import sys
 
@@ -12,7 +12,8 @@ class PloverPluginApplication(GUIQtApplication):
         Notably, the plugin must not create its own QApplication or run its own event loop (unless in test mode).
         It appears as a dialog proxy to Plover, translating some attributes into engine calls and faking others. """
 
-    DESCRIPTION = "Run the GUI application in Plover plugin mode."
+    # Running the app from the command line with no args starts a standalone test configuration.
+    DESCRIPTION = "Run the GUI application in Plover plugin test mode."
     GUI_CLASS_PATHS = [gui_qt, plover]
 
     # Class constants required by Plover for toolbar.

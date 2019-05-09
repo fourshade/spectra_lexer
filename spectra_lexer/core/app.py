@@ -6,8 +6,8 @@ from .runtime import Runtime
 class Application:
     """ Base application class for the Spectra program. The starting point for program logic. """
 
-    DESCRIPTION: str = "Subclasses state their purpose here."
-    CLASS_PATHS: Iterable = ()
+    DESCRIPTION: str            # String shown in command-line help.
+    CLASS_PATHS: Iterable = ()  # List of modules or classes to draw components from.
 
     call: Callable = None
 

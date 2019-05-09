@@ -1,10 +1,10 @@
 from collections import defaultdict
 from typing import Dict
 
-from spectra_lexer.core import Component
+from .base import GUITool
 
 
-class ConfigTool(Component):
+class ConfigTool(GUITool):
     """ Config manager; allows editing of config values for any component. """
 
     config_menu = resource("menu:Tools:Edit Configuration...", ["config_tool_open"])
@@ -37,9 +37,6 @@ class ConfigTool(Component):
                 if name in p:
                     p[name] = [val, *p[name][1:]]
         self.open_dialog(self.send, info)
-
-    def open_dialog(self, callback, info:Dict[str, dict]) -> None:
-        raise NotImplementedError
 
     def send(self, d:Dict[str, dict]) -> None:
         """ Save the new config values. This will update the values on components as well. """

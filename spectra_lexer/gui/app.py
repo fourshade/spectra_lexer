@@ -7,7 +7,7 @@ from spectra_lexer.core import Application
 class GUIApplication(Application):
     """ Abstract starting class for an interactive GUI application. """
 
-    DESCRIPTION = "Run the interactive GUI application by itself."
+    DESCRIPTION = "Run the GUI application by itself."
     CLASS_PATHS = [system, steno]
 
     def __init__(self):

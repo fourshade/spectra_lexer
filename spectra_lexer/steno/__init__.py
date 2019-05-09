@@ -10,4 +10,4 @@ from .board import BoardRenderer
 from .graph import GraphRenderer
 from .search import SearchEngine
 
-from .app import StenoAnalyzeApplication, StenoIndexApplication
+from .app import StenoApplication, StenoAnalyzeApplication, StenoIndexApplication

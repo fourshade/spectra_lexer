@@ -1,4 +1,4 @@
-""" Main module and entry point for Spectra's interactive GUI application. """
+""" Main entry point for Spectra's interactive GUI application. """
 
 import sys
 from typing import Callable, Iterable

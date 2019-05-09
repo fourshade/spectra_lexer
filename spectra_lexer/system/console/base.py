@@ -1,9 +1,7 @@
-import sys
-from functools import partial, update_wrapper
 from traceback import TracebackException
 
-from .interpreter import SpectraConsole
-from .tools import ConsoleTools
+from .interpreter import Console, ConsoleTypes
+from .tools import WrappedCommand, xhelp
 from spectra_lexer.core import Component
 
 
@@ -11,28 +9,26 @@ class ConsoleManager(Component):
     """ Component for engine and system interpreter operations.
         Handles the most fundamental operations of the system, including status and exceptions. """
 
-    debug_vars = resource("debug", {})  # Variables to load on interpreter startup as globals.
+    debug_vars = resource("debug", {})  # Contains all application-level global variables
 
-    _console: SpectraConsole = None  # Main interpreter console.
+    _console: Console = None  # Main interpreter console.
+
+    @on("console_start")
+    def console_start(self, *, interactive:bool=True) -> str:
+        """ (Re)start the console with a copy of the current debug dict. """
+        d_vars = dict(self.debug_vars)
+        # Start a console locals namespace with every engine command, wrapped in the original function info.
+        locals_ns = {k: WrappedCommand(f, self.engine_call) for k, f in d_vars.get("commands", {}).items()}
+        # Start the interpreter console with the output callback and some extra tools.
+        self._console = ConsoleTypes[interactive](locals_ns, app=d_vars, help=xhelp())
+        return self.console_in()
 
     @on("console_input")
-    def send(self, text:str) -> None:
-        """ Send a new string of text to the interpreter console. If not started, start it with the debug dict. """
-        if self._console is None:
-            # The console locals must be a normal dict. A defaultdict will cause lots of problems.
-            d = dict(self.debug_vars)
-            # Write the startup sequence manually, before adding the commands.
-            callback = partial(self.engine_call, "new_console_output")
-            callback(f"Python {sys.version}\n"
-                     f"SPECTRA DEBUG CONSOLE - Current global objects:\n{[*d]}\n"
-                     f"Type 'list(commands)' to see a list of engine commands.\n")
-            # Add every engine command to the top-level locals, wrapped in the original function info.
-            for k, f in d.get("commands", {}).items():
-                d[k] = update_wrapper(partial(self.engine_call, k), f)
-            # Add everything public from the tools class and start the interpreter.
-            d.update({k: v for k, v in vars(ConsoleTools).items() if not k.startswith("_")})
-            self._console = SpectraConsole(d, callback)
-        self._console.send(text)
+    def console_in(self, text_in:str=None) -> str:
+        """ Process a new string of input text and send the output to the engine. """
+        text_out = self._console.run(text_in)
+        self.engine_call("new_console_output", text_out)
+        return text_out
 
     @on("new_status")
     def display_status(self, msg:str) -> None:
@@ -41,10 +37,10 @@ class ConsoleManager(Component):
 
     @on("exception")
     def exception(self, exc_value:Exception) -> Exception:
-        """ Print an exception traceback to stderr, if possible. Return the exception if unsuccessful. """
+        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful. """
         tb_lines = TracebackException.from_exception(exc_value).format()
         tb_text = "".join(tb_lines)
         try:
-            sys.stderr.write(tb_text)
+            print(tb_text)
         except Exception as e:
             return e

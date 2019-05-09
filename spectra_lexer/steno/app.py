@@ -1,32 +1,27 @@
-""" Main module and entry point for batch operations on Spectra. """
+""" Main entry point for console operations on Spectra. """
 
-from time import time
+import sys
 
 from spectra_lexer import system, steno
-from spectra_lexer.core import Application
+from spectra_lexer.system import ConsoleApplication
 
 
-class StenoApplication(Application):
-    """ Simple shell class for calling engine commands from the command line in batch. """
-
-    DESCRIPTION = "run a command set directly from console."
+class StenoApplication(ConsoleApplication):
+    """ Simple shell class for running the steno program from the command line. """
     CLASS_PATHS = [system, steno.basic]
-    COMMAND: str = ""
+    CMDLINE_ARGS: list = []
 
-    def run(self) -> int:
-        """ Start the timer and run the <COMMAND> in the console. """
-        s_time = time()
-        print(f"Operation started.")
-        self.call("console_input", self.COMMAND)
-        print(f"Operation done in {time() - s_time:.1f} seconds.")
-        return 0
+    def __init__(self):
+        """ Batch operation subclasses may add optional args to the command line before parsing. """
+        sys.argv += self.CMDLINE_ARGS
+        super().__init__()
 
 
 class StenoAnalyzeApplication(StenoApplication):
     DESCRIPTION = "run the lexer on every item in a JSON steno translations dictionary."
-    COMMAND = "rules_save(analyzer_make_rules())"
+    CMDLINE_ARGS = ["--cmd=rules_save(analyzer_make_rules())"]
 
 
 class StenoIndexApplication(StenoApplication):
     DESCRIPTION = "analyze a translations file and index each translation by the rules it uses."
-    COMMAND = "index_save(analyzer_make_index())"
+    CMDLINE_ARGS = ["--cmd=index_save(analyzer_make_index())"]

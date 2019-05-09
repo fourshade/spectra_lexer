@@ -42,7 +42,7 @@ class SystemManager(Component):
 
     @on("system_load")
     def load(self, filename:str="") -> StenoSystem:
-        """ Load the system master file in <filename>, then create the system with the key layout,
+        """ Load the system CFG master file in <filename>, then create the system with the key layout,
             both the forward and reverse rules dicts, and the SVG board layout (optional). """
         keys = self.load_master(filename or self.file)
         rules, rev_rules = self.load_rules()

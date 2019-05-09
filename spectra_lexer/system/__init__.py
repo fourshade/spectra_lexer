@@ -4,3 +4,5 @@ from .cmdline import CmdlineParser
 from .config import ConfigManager
 from .console import ConsoleManager
 from .parallel import ParallelExecutor
+
+from .app import ConsoleApplication

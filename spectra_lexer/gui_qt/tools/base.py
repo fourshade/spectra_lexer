@@ -1,4 +1,4 @@
-""" Base module for modal (one-shot) dialogs and a framework for more complicated ones with callbacks. """
+""" Base module for a Qt dialog framework with callbacks. """
 
 from typing import Callable
 
@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QLayout, QWidget
 
 from spectra_lexer.core import Component
+from spectra_lexer.gui.tools.base import GUITool
 
 
 class ToolDialog(QDialog):
@@ -61,16 +62,21 @@ class FormDialog(ToolDialog):
             return super().accept()
 
 
-class GUIQtTool(Component):
+class GUIQtTool(GUITool):
     """ Qt-based dialog tool. Tracks a dialog object so that no more than one ever exists. """
 
     DIALOG_CLASS: type = QDialog     # Dialog class to instantiate (only one at a time).
 
     window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
-    dialog: QDialog = None           # Previous dialog object. Must be set to None on deletion.
 
-    def open_dialog(self, *args, **kwargs) -> None:
-        """ If no dialog exists, create and show a new one, otherwise just show the old one. """
-        if self.dialog is None:
-            self.dialog = self.DIALOG_CLASS(self.window, *args, **kwargs)
-        self.dialog.show()
+    def create_dialog(self, *args, **kwargs) -> QDialog:
+        """ Create and return a new dialog with the given args. """
+        return self.DIALOG_CLASS(self.window, *args, **kwargs)
+
+    def destroy_dialog(self, dialog:QDialog) -> None:
+        """ Destroy the given dialog object. """
+        dialog.close()
+
+    def show_dialog(self, dialog:QDialog) -> None:
+        """ Display the given dialog on the screen. """
+        dialog.show()

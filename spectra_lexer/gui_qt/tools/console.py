@@ -73,9 +73,11 @@ class ConsoleTextWidget(QTextEdit):
         elif event.key() == Qt.Key_Down:
             self._set_content(original + self._history.next())
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            # If a newline is entered, send only the user-provided text in a signal.
+            # If a newline is entered, capture only the user-provided text.
+            # Add it to the history, append it to the saved text (with newline), and send it in a signal.
             user_str = self.toPlainText()[len(original):]
             self._history.add(user_str)
+            self.add_text(user_str + "\n")
             self.textKeyboardInput.emit(user_str)
         else:
             # In any other case, pass the keypress as normal. Undo anything that modifies the previous text.
@@ -110,13 +112,14 @@ class ConsoleDialog(ToolDialog):
     TITLE = "Python Console"
     SIZE = (600, 400)
 
-    w_text: ConsoleTextWidget = None
+    add_text: Callable[[str], None] = None
 
     def make_layout(self, callback:Callable) -> None:
         """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        self.w_text = ConsoleTextWidget(self, callback)
-        layout.addWidget(self.w_text)
+        w_text = ConsoleTextWidget(self, callback)
+        layout.addWidget(w_text)
+        self.add_text = w_text.add_text
 
 
 class GUIQtConsoleTool(GUIQtTool, ConsoleTool):
@@ -124,6 +127,5 @@ class GUIQtConsoleTool(GUIQtTool, ConsoleTool):
 
     DIALOG_CLASS = ConsoleDialog
 
-    def output(self, text:str) -> None:
-        if self.dialog is not None:
-            self.dialog.w_text.add_text(text)
+    def send_to_dialog(self, dialog:ConsoleDialog, text:str) -> None:
+        dialog.add_text(text)
