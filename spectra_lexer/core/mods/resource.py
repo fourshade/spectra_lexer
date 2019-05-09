@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List, Tuple
 
 from .base import ComponentMod, MainMod
 from .command import CommandDef, CommandMod
@@ -14,10 +14,9 @@ class ResourceMod(ComponentMod):
     requires: str = None
 
     @classmethod
-    def setup(cls, components:Iterable, engine_call:Callable) -> None:
+    def init_commands(cls, components:Iterable[object]) -> List[Tuple[str, dict]]:
         """ Sort the resource types so that all dependencies are met in the right order.
-            Use the first part of each resource identifier as a key.
-            Initialize all resources in order at the end with the main engine callback. """
+            Use the first part of each resource identifier as a key. Return the init commands in order. """
         deps = DependencyOrderer()
         pkg = package()
         for cmp in components:
@@ -25,13 +24,10 @@ class ResourceMod(ComponentMod):
             reqs = {m.requires: m for m in mods}
             reqs.pop(None, None)
             pkg.update(reqs)
-            deps.add_requirements({m.provides for m in mods} - {None},
-                                  {str_prefix(r, ":") for r in reqs})
+            deps.add_requirements({m.provides for m in mods} - {None}, {str_prefix(r, ":") for r in reqs})
         pkg.nest(delim=":")
-        for k in deps.sorted_keys():
-            # Don't bother loading a resource if no components need it.
-            if k in pkg:
-                engine_call(f"init:{k}", pkg[k])
+        # Don't bother loading a resource if no components need it.
+        return [(f"init:{k}", pkg[k]) for k in deps.sorted_keys() if k in pkg]
 
 
 class ResourceInit(MainMod, CommandMod, ResourceMod):

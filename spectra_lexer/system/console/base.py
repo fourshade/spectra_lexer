@@ -18,7 +18,7 @@ class ConsoleManager(Component):
         """ (Re)start the console with a copy of the current debug dict. """
         d_vars = dict(self.debug_vars)
         # Start a console locals namespace with every engine command, wrapped in the original function info.
-        locals_ns = {k: WrappedCommand(f, self.engine_call) for k, f in d_vars.get("commands", {}).items()}
+        locals_ns = {k: WrappedCommand(f_list, self.engine_call) for k, f_list in d_vars.get("commands", {}).items()}
         # Start the interpreter console with the output callback and some extra tools.
         self._console = ConsoleTypes[interactive](locals_ns, app=d_vars, help=xhelp())
         return self.console_in()

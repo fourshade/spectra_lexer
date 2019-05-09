@@ -42,7 +42,7 @@ class DebugPackageMod(AbstractMod):
     NEST_KWARGS: dict = {"delim": ".", "root_key": "__init__"}
 
     @classmethod
-    def package_all(cls, components:Iterable) -> Dict[str, package]:
+    def package_all(cls, components:Iterable[object]) -> Dict[str, package]:
         """ Return a debug dict with packages from all packaged mod classes.
             If any packages have the same key due to subclassing, merge them. """
         d = {}
@@ -56,7 +56,7 @@ class DebugPackageMod(AbstractMod):
         return pkgs
 
     @classmethod
-    def package_items(cls, components:Iterable) -> Iterable:
+    def package_items(cls, components:Iterable[object]) -> Iterable:
         raise NotImplementedError
 
 
@@ -65,7 +65,7 @@ class ComponentPackager(DebugPackageMod):
     DEBUG_KEY = "components"
 
     @classmethod
-    def package_items(cls, components:Iterable) -> Iterable:
+    def package_items(cls, components:Iterable[object]) -> Iterable[tuple]:
         """ Yield package items with each component indexed by its class's module path. """
         for cmp in components:
             ks = type(cmp).__module__.split(".")
@@ -79,5 +79,5 @@ class ModulePackager(ComponentPackager):
     DEBUG_KEY = "modules"
 
     @classmethod
-    def package_items(cls, components:Iterable) -> Iterable:
+    def package_items(cls, components:Iterable[object]) -> dict:
         return sys.modules

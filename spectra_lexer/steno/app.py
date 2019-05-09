@@ -8,13 +8,16 @@ from spectra_lexer.system import ConsoleApplication
 
 class StenoApplication(ConsoleApplication):
     """ Simple shell class for running the steno program from the command line. """
-    CLASS_PATHS = [system, steno.basic]
+
     CMDLINE_ARGS: list = []
 
     def __init__(self):
         """ Batch operation subclasses may add optional args to the command line before parsing. """
         sys.argv += self.CMDLINE_ARGS
         super().__init__()
+
+    def _class_paths(self) -> list:
+        return super()._class_paths() + [system, steno.basic]
 
 
 class StenoAnalyzeApplication(StenoApplication):

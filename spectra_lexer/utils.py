@@ -4,10 +4,10 @@
 import ast
 import collections
 import functools
+import operator
 
 
 # ---------------------------PURE UTILITY FUNCTIONS---------------------------
-
 
 def nop(*args, **kwargs) -> None:
     """ ... """
@@ -40,21 +40,26 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None):
         obj = getattr(obj, next_attr, sentinel)
 
 
-def recurse(obj:object, iter_attr:str=None, iter_fn=iter, sentinel:object=None, max_level:int=-1):
+def recurse(obj:object, iter_fn=iter, max_level:int=-1):
     """ Starting with a container object that can contain other similar container objects,
-        yield that object, then recursively yield objects from its contents, depth-first.
-        If <iter_attr> is None, the object must be an iterable container itself.
-        If <iter_attr> is defined, it is the name of an iterable attribute.
+        recursively yield objects from its contents, depth-first.
         <iter_fn> is the function that gets the iterable contents, defaulting to iter.
-        Recursion stops if the sentinel is encountered or the attribute is not found.
+        Recursion stops if the object evaluates False or is not iterable.
         If <max_level> is not negative, it will also stop after that many levels.
         Reference loops will cause the generator to recurse up to the recursion limit. """
-    yield obj
-    if iter_attr is not None:
-        obj = getattr(obj, iter_attr, sentinel)
-    if obj is not sentinel and max_level:
-        for item in iter_fn(obj):
-            yield from recurse(item, iter_attr, iter_fn, sentinel, max_level - 1)
+    if max_level:
+        try:
+            for item in iter_fn(obj):
+                yield item
+                if item:
+                    yield from recurse(item, iter_fn, max_level - 1)
+        except TypeError:
+            return
+
+
+def recurse_attr(obj:object, attr:str, max_level:int=-1):
+    """ Recurse over objects that have contents in an iterable attribute. """
+    return recurse(obj, operator.attrgetter(attr), max_level)
 
 
 def merge(d_iter) -> dict:

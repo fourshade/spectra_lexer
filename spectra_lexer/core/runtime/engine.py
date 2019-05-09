@@ -1,81 +1,66 @@
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Sequence
 
 
 class Engine:
-    """ Abstract base engine class for the Spectra program. """
-
-    _call: Callable[[tuple], Any]  # Execution unit that handles commands and exceptions.
-
-    def __init__(self, executor:Callable[[tuple], Any]):
-        self._call = executor
-
-    def call(self, *args, **kwargs) -> Any:
-        raise NotImplementedError
-
-
-class SimpleEngine(Engine):
     """ Single-threaded engine class for the Spectra program. Calls are directed straight to the executor. """
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.call = self._call
+    _run_executor: Callable[[tuple], Any]  # Callable that dispatches engine commands.
 
-
-class ConnectedEngine(Engine):
-    """ Engine that may connect to and call other engines. Any call to an external engine can never return a value. """
-
-    _connected_engines: list  # List of connected engine objects.
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        self._connected_engines = []
+    def __init__(self, executor:Callable[[tuple], Any]):
+        super().__init__()
+        self._run_executor = executor
 
     def call(self, *args, **kwargs) -> Any:
-        """ Echo new commands to connected engines before calling them ourselves. """
-        cmd = args, kwargs
-        for engine in self._connected_engines:
-            engine.receive(cmd)
-        return self._call(*args, **kwargs)
+        return self._exec(*args, **kwargs)
 
-    def receive(self, cmd:Tuple[tuple, dict]) -> None:
-        raise NotImplementedError
+    def _exec(self, *args, fatal_exceptions=False, **kwargs) -> Any:
+        """ Execute a command and handle exceptions that make it back here.
+            Qt will crash if exceptions propagate back to it; do not allow this under normal circumstances. """
+        try:
+            return self._run_executor(*args, **kwargs)
+        except Exception as exc_value:
+            # Exception handling is done, like anything else, by calling components.
+            # Some apps may lock stderr while running, and a GUI can only print exceptions after setup.
+            # Unhandled exceptions in an exception handler are fatal.
+            if fatal_exceptions:
+                raise
+            return self.call("exception", exc_value, fatal_exceptions=True)
 
-    def _unpack_call(self, cmd:Tuple[tuple, dict]) -> None:
-        args, kwargs = cmd
-        self._call(*args, **kwargs)
 
-
-class ThreadedEngine(ConnectedEngine):
+class ThreadedEngine(Engine, Queue):
     """ Engine that services its own, isolated group of components on a separate thread by taking external commands
-        from a queue and calling everything it can within its own internal group. """
+        from a queue and calling them on its group. """
 
-    _queue: Queue = None  # Thread-safe queue to hold command tuples from other threads.
+    _connections: Sequence[Callable] = ()  # All connected engine callbacks.
 
-    def start(self, parent_engine:ConnectedEngine) -> None:
+    def connect(self, receiver:Queue) -> None:
+        """ Connect another engine to this one. It will receive commands from our components in its queue. """
+        self._connections = (*self._connections, receiver.put)
+
+    def set_passthrough(self, passthrough:Callable) -> None:
+        """ If an engine needs the main thread, a passthrough function may be given
+            that notifies the main thread when it needs to run an external command. """
+        self.call_ext = passthrough(self.call_ext)
+
+    def call(self, *args, **kwargs) -> Any:
+        """ Echo new commands to connected engines before executing them ourselves. """
+        cmd = args, kwargs
+        for callback in self._connections:
+            callback(cmd)
+        return self._exec(*args, **kwargs)
+
+    def call_ext(self, cmd:tuple) -> None:
+        """ Execute a command from another engine. These calls cannot return a value to that engine. """
+        args, kwargs = cmd
+        self._exec(*args, **kwargs)
+
+    def start(self) -> None:
         """ Start a new thread to service this engine until program exit. Must be daemonic to die with the program. """
-        self._queue = Queue()
-        self._connected_engines = [parent_engine]
-        self.receive = self._queue.put
         Thread(target=self._loop, daemon=True).start()
 
     def _loop(self) -> None:
-        """ Call commands in our queue. They have been sent by other threads, so we do not need to echo them. """
+        """ Execute commands in our queue. They have been sent by other threads, so we do not need to echo them. """
         while True:
-            self._unpack_call(self._queue.get())
-
-
-class MainEngine(ConnectedEngine):
-    """ Main engine for components grouped into threads. Components within a single group can communicate freely;
-        external communication is only allowed between the main engine and a child, and is strictly unidirectional. """
-
-    def set_passthrough(self, passthrough:Callable) -> None:
-        """ Since this engine runs on the main thread, a passthrough function may be given
-            that notifies the main thread when it needs to receive a command. """
-        self.receive = passthrough(self._unpack_call)
-
-    def connect(self, child_engine:ThreadedEngine) -> None:
-        """ Connect a new child engine and start it. These can never be disconnected. """
-        self._connected_engines.append(child_engine)
-        child_engine.start(self)
+            self.call_ext(self.get())

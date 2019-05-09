@@ -1,11 +1,11 @@
 """ Base module for special dictionaries used in search. """
 
-import re
 from itertools import repeat
+import re
 from typing import Iterable, List
 
-from .reverse import ReverseDict
-from .search import StringSearchDict
+from spectra_lexer.types.dict import ReverseDict
+from spectra_lexer.types.search import StringSearchDict
 
 
 class StripCaseSearchDict(StringSearchDict):

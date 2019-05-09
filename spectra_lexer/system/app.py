@@ -39,9 +39,8 @@ class ConsoleApplication(Application):
 
     DESCRIPTION = "run commands directly from console."
 
-    def __init__(self):
-        self.CLASS_PATHS = [*self.CLASS_PATHS, ConsoleTerminal]
-        super().__init__()
+    def _class_paths(self) -> list:
+        return [ConsoleTerminal]
 
     def run(self) -> int:
         return self.call("terminal_run")

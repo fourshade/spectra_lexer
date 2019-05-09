@@ -1,6 +1,6 @@
 from .collection import ContainerCollection
 from spectra_lexer.core import Component
-from spectra_lexer.file import XML
+from spectra_lexer.system import file
 
 
 class ObjectTreeTool(Component):
@@ -21,7 +21,7 @@ class ObjectTreeTool(Component):
             container = ContainerCollection((self.debug_vars,))
             root = next(iter(container))[0]
             # Load the SVG XML icons. On failure, don't use icons.
-            xml_dict = XML.load(self.file, ignore_missing=True)
+            xml_dict = file.load(self.file, ignore_missing=True)
             # Each element ID without a starting underline is a valid icon.
             # Optional aliases for each icon may be present, separated by spaces.
             icon_ids = {d["id"]: k.split() for k, v in xml_dict["spectra_types"].items() for d in v}

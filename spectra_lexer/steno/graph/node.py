@@ -4,7 +4,7 @@ from functools import partialmethod
 from typing import Sequence, Dict
 
 from ..rules import RuleFlags, StenoRule
-from spectra_lexer.utils import recurse, traverse, with_sets
+from spectra_lexer.utils import recurse_attr, traverse, with_sets
 
 
 @with_sets
@@ -35,7 +35,7 @@ class GraphNode:
     # Get all ancestors of this node (starting with itself) up to the root.
     ancestors = partialmethod(traverse, "parent")
     # Get all descendents of this node (starting with itself) searching depth-first.
-    descendents = partialmethod(recurse, "children")
+    descendents = partialmethod(recurse_attr, "children")
 
     def __str__(self):
         return self.text + (f": {self.children}" if self.children else "")

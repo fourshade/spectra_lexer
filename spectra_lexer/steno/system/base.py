@@ -5,17 +5,22 @@ from .rules import RuleParser
 from ..keys import KeyLayout
 from ..rules import StenoRule
 from spectra_lexer.core import Component
-from spectra_lexer.file import CFG, CSON, XML
-from spectra_lexer.types import struct
+from spectra_lexer.system import file
 
 
-class StenoSystem(struct, _fields=["layout", "rules", "rev_rules", "board"]):
+class StenoSystem(dict):
     """ Description of a complete steno system, including key layout, rules, and (optional) board graphics. """
 
     layout: KeyLayout
     rules: Dict[str, StenoRule]
     rev_rules: Dict[StenoRule, str]
     board: dict
+
+    def __init__(self, *args, **kwargs):
+        """ Fill all fields named in annotations, in order if possible. """
+        super().__init__(zip(self.__annotations__, args), **kwargs)
+        # Make all fields accessible as either attributes or dict items.
+        self.__dict__ = self
 
 
 class SystemManager(Component):
@@ -54,7 +59,7 @@ class SystemManager(Component):
     def load_master(self, main_cfg:str) -> KeyLayout:
         """ Load the master config file for the system. Use default settings if missing. """
         folder, _ = os.path.split(main_cfg)
-        cfg = CFG.load(main_cfg, ignore_missing=True)
+        cfg = file.load(main_cfg, ignore_missing=True)
         files = cfg.get("files")
         if files:
             f = {k.upper(): os.path.join(folder, v) for k, v in files.items()}
@@ -66,16 +71,16 @@ class SystemManager(Component):
 
     def load_rules(self) -> tuple:
         """ Load all rules for the system. This operation must not fail. """
-        dicts = CSON.load_all(self.RULES)
+        dicts = file.load_all(self.RULES)
         rules = self._rule_parser.parse(dicts)
         return rules, self._rule_parser.invert(rules)
 
     def load_board(self) -> dict:
         """ Load an SVG file and keep the raw XML data along with all element IDs.
             The board is not necessary to run the lexer; return empty fields if it can't be loaded. """
-        return XML.load(self.BOARD, ignore_missing=True)
+        return file.load(self.BOARD, ignore_missing=True)
 
     @on("rules_save")
     def save_rules(self, rules:Iterable[StenoRule], filename:str="") -> None:
         """ From a bare iterable of rules (generally from the lexer), make a new raw dict and save it to JSON. """
-        CSON.save(filename or self.out, self._rule_parser.inv_parse(rules), sort_keys=True)
+        file.save(filename or self.out, self._rule_parser.inv_parse(rules), sort_keys=True)

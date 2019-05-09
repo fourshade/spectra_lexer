@@ -25,23 +25,32 @@ class AttrRedirector:
 class WrappedCommand:
     """ A command object wrapped to display helpful information. """
 
-    def __init__(self, f, engine_cb:Callable):
+    _call: Callable     # Engine callback of the *console*
+    cmd_key: str = ""   # Command key; automatically obtained during wrapping.
+
+    def __init__(self, f_list:list, engine_cb:Callable):
+        """ Each command key may have more than one target function.
+            Wrap this object as the first one and add help from each one with annotations and/or a docstring. """
         self._call = engine_cb
-        vars(self).update(vars(f))
-        lines = [f"COMMAND: {f.cmd_key}\n"]
-        if hasattr(f, "__annotations__"):
-            params = dict(f.__annotations__)
-            ret = params.pop("return") if "return" in params else "<unknown>"
-            p = "ACCEPTS - "
-            if not params:
-                lines.append(f"{p}no arguments")
-            for k, cls in params.items():
-                lines.append(f"{p}{k}: {_safe_get_name(cls)}")
-                p = " " * len(p)
-            lines.append(f"\nRETURNS -> {_safe_get_name(ret)}\n")
-        if hasattr(f, "__doc__"):
-            lines.append(str(f.__doc__))
-        self.__doc__ = "\n".join(lines)
+        if f_list:
+            vars(self).update(vars(f_list[0]))
+            lines = [f"COMMAND: {self.cmd_key}"]
+            if len(f_list) > 1:
+                lines.append("\n(Multiple targets)")
+            for f in f_list:
+                if hasattr(f, "__annotations__"):
+                    params = dict(f.__annotations__)
+                    ret = params.pop("return") if "return" in params else "<unknown>"
+                    p = "\nACCEPTS - "
+                    if not params:
+                        lines.append(f"{p}no arguments")
+                    for k, cls in params.items():
+                        lines.append(f"{p}{k}: {_safe_get_name(cls)}")
+                        p = " " * len(p)
+                    lines.append(f"\nRETURNS -> {_safe_get_name(ret)}\n")
+                if hasattr(f, "__doc__"):
+                    lines.append(str(f.__doc__))
+            self.__doc__ = "\n".join(lines)
 
     def __call__(self, *args, **kwargs):
         return self._call(self.cmd_key, *args, **kwargs)

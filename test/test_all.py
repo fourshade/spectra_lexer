@@ -127,12 +127,13 @@ def test_graph(result):
     root = GRAPH._organizer.node_from(result)
     assert root.parent is None
     # Every other node descends from it and is unique.
-    all_nodes_list = list(root.descendents())
-    all_nodes_set = set(all_nodes_list)
-    assert len(all_nodes_list) == len(all_nodes_set)
+    child_nodes_list = list(root.descendents())
+    child_nodes_set = set(child_nodes_list)
+    assert len(child_nodes_list) == len(child_nodes_set)
     # Going the other direction, all nodes except the root must have its parent in the set.
-    assert all([node.parent in all_nodes_set for node in all_nodes_list[1:]])
-    # The nodes available for interaction must be a subset of this collection.
+    all_nodes_set = child_nodes_set | {root}
+    assert all([node.parent in all_nodes_set for node in child_nodes_list])
+    # The nodes available for interaction must be a subset of our collection.
     assert all_nodes_set >= set(GRAPH._formatter._sections)
 
 

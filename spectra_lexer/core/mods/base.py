@@ -9,8 +9,8 @@ class AbstractMod:
 
     @classmethod
     def subclasses(cls) -> set:
-        """ Recursively gather all unique descendents of <cls>, excluding itself. """
-        return set(recurse(cls, iter_fn=type.__subclasses__)) - {cls}
+        """ Recursively gather all unique descendents of <cls>. """
+        return set(recurse(cls, iter_fn=type.__subclasses__))
 
 
 class MainMod(AbstractMod):
@@ -38,7 +38,7 @@ class ComponentMod(AbstractMod):
         """ Add a data dict with component classes as keys and lists of mod instances as values. """
         cls._INSTANCES = defaultdict(list)
 
-    def __call__(self, func:Callable):
+    def __call__(self, func:Callable) -> Callable:
         """ When used as a decorator, the value will be the function, replaced on __set_name__.
             We still want to wrap the mod with the function's info so it shows up in the console. """
         self._value = func

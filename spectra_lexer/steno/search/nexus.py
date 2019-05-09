@@ -9,16 +9,15 @@ from spectra_lexer.utils import ensure_iterable
 
 class ResourceNexus:
 
-    PRIORITY: int = 0  # Search priority. Resource prefixes are checked in order from highest to lowest priority nexus.
     PREFIX: str = ""   # Prefix to test (and strip) on input patterns. Empty by default, so pattern is unmodified.
 
     _d: StripCaseSearchDict = StripCaseSearchDict()  # Current dict used for lookups and commands.
 
-    types = polymorph_index()  # Records nexus types by resource key.
+    TYPES = polymorph_index()  # Records nexus types by resource key.
 
     def __lt__(self, other) -> bool:
-        """ Nexus sort order is equivalent to that of their priority ints. """
-        return self.PRIORITY < other.PRIORITY
+        """ Nexus sort order is longest to shortest by prefix length. """
+        return len(self.PREFIX) > len(other.PREFIX)
 
     def check(self, pattern:str, **mode_kwargs) -> Optional[str]:
         """ Indicator function that returns a new pattern on success and can modify the current dict reference. """
@@ -33,14 +32,12 @@ class ResourceNexus:
         """ Return a tuple of items that can be directly called as an engine command to show a result, or None. """
 
 
-use_if_resource_is = ResourceNexus.types
+use_if_resource_is = ResourceNexus.TYPES
 
 
 @use_if_resource_is("translations")
 class TranslationNexus(ResourceNexus):
     """ A hybrid forward+reverse steno translation nexus. Used when nothing else matches. """
-
-    PRIORITY = 1  # Has low priority. It must outrank the default nexus only.
 
     _forward: StripCaseSearchDict         # Forward translations dict (strokes -> English words).
     _reverse: ReverseStripCaseSearchDict  # Reverse translations dict (English words -> strokes).
@@ -48,7 +45,7 @@ class TranslationNexus(ResourceNexus):
     def __init__(self, d:Dict[str, str], strip:str=" -"):
         """ For translation-based searches, spaces and hyphens should be stripped off each end. """
         self._forward = StripCaseSearchDict(d, strip_chars=strip)
-        self._reverse = ReverseStripCaseSearchDict(match=d, strip_chars=strip)
+        self._reverse = ReverseStripCaseSearchDict(_match=d, strip_chars=strip)
 
     def check(self, pattern:str, strokes:bool=False, **mode_kwargs) -> str:
         """ Indicator function that always returns success. Does not modify the pattern. """
@@ -69,7 +66,6 @@ class TranslationNexus(ResourceNexus):
 class RulesNexus(ResourceNexus):
     """ A simple nexus for rule search by name when a prefix is added. There is only one dict, which never changes. """
 
-    PRIORITY = 2  # Has medium priority. It must outrank the translations nexus.
     PREFIX = "/"  # A basic slash which is also a prefix of *other*, higher priority prefixes.
 
     def __init__(self, d:dict, strip:str=" .+-~"):
@@ -85,12 +81,10 @@ class RulesNexus(ResourceNexus):
 class IndexNexus(ResourceNexus):
     """ A resource-heavy nexus for finding translations that contain a particular steno rule. """
 
-    PRIORITY = 3      # Has highest priority but lowest chance of success. Must outrank the rules nexus.
     PREFIX = "//"     # This includes the rules prefix, so it must be checked first.
     DELIM: str = ";"  # Delimiter between rule name and translation.
 
     _index: Dict[str, dict]  # Index dict from which to create subnexus objects for any rule name on demand.
-    _last_key: str = None    # Last valid rule key, to avoid creating a new search nexus on every query.
     _d: TranslationNexus     # Current nexus used to redirect checks and commands.
 
     def __init__(self, d:Dict[str, dict]):
@@ -104,13 +98,14 @@ class IndexNexus(ResourceNexus):
         pattern = super().check(pattern)
         if pattern is not None:
             key, pattern = (pattern.split(self.DELIM, 1) + [""])[:2]
-            if key in self._index:
-                if key != self._last_key:
+            v = self._index.get(key)
+            if v is not None:
+                if not isinstance(v, TranslationNexus):
                     # Search dicts are memory hogs, and users tend to look at many results under the same rule.
-                    # We generate each search nexus on demand only, and keep it until a new rule is requested.
-                    self._last_key = key
-                    self._d = TranslationNexus(self._index[key])
-                return self._d.check(pattern, **mode_kwargs)
+                    # We generate each search nexus from its index only on demand.
+                    v = self._index[key] = TranslationNexus(v)
+                self._d = v
+                return v.check(pattern, **mode_kwargs)
 
     search = delegate_to("_d", prefix=False)
     command_args = delegate_to("_d")

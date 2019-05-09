@@ -7,12 +7,10 @@ class GUIQtWindow(Window):
 
     window: MainWindow = None  # Main GUI window. All GUI activity (including dialogs) is coupled to this window.
 
-    def __init__(self):
-        self.window = MainWindow()
-
     @init("gui")
     def start(self, keys:dict) -> None:
-        """ Get everything we need from the window and send it all to the GUI components. """
+        """ Create the window, get everything we need from it, and send it all to the GUI components. """
+        self.window = MainWindow()
         elements = self.window.widgets()
         d = {k: elements[k] for k in keys if k in elements}
         self.engine_call("res:gui", d, broadcast_depth=1)

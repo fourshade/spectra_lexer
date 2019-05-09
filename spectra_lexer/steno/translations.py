@@ -1,7 +1,8 @@
+import json
 from typing import Dict, List, Union
 
 from spectra_lexer.core import Component
-from spectra_lexer.file import CFG, JSON
+from spectra_lexer.system import file
 from spectra_lexer.utils import ensure_iterable, merge
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
@@ -28,31 +29,30 @@ class TranslationsManager(Component):
         d = {}
         patterns = ensure_iterable(filenames or self.files)
         if _PLOVER_SENTINEL in patterns:
-            patterns = _plover_files()
+            patterns = self._plover_files()
         if any(patterns):
-            d = merge(JSON.load_all(*patterns))
+            d = merge(map(file.load, patterns))
             self.engine_call("res:translations", d)
         return d
 
     @on("translations_save")
     def save(self, d:Dict[str, str], filename:str="") -> None:
         """ Save a translations dict directly into JSON. If no save filename is given, use the default. """
-        JSON.save(filename or self.out, d)
+        file.save(filename or self.out, d)
 
-
-def _plover_files() -> List[str]:
-    """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
-        in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
-    try:
-        cfg_dict = CFG.load(_PLOVER_USER_DIR + _PLOVER_CFG_FILENAME)
-        dict_section = cfg_dict['System: English Stenotype']['dictionaries']
-        # The section we need is read as a string, but it must be decoded as a JSON array.
-        return [_PLOVER_USER_DIR + e['path'] for e in reversed(JSON.decode(dict_section))]
-    except OSError:
-        # Catch-all for file loading errors. Just assume the required files aren't there and move on.
-        pass
-    except KeyError:
-        print("Could not find dictionaries in plover.cfg.")
-    except ValueError:
-        print("Problem decoding JSON in plover.cfg.")
-    return []
+    def _plover_files(self) -> List[str]:
+        """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
+            in the correct priority order (reverse of normal, since earlier keys overwrite later ones). """
+        try:
+            cfg_dict = file.load(_PLOVER_USER_DIR + _PLOVER_CFG_FILENAME)
+            dict_section = cfg_dict['System: English Stenotype']['dictionaries']
+            # The section we need is read as a string, but it must be decoded as a JSON array.
+            return [_PLOVER_USER_DIR + e['path'] for e in reversed(json.loads(dict_section))]
+        except OSError:
+            # Catch-all for file loading errors. Just assume the required files aren't there and move on.
+            pass
+        except KeyError:
+            self.engine_call("new_status", "Could not find dictionaries in plover.cfg.")
+        except ValueError:
+            self.engine_call("new_status", "Problem decoding JSON in plover.cfg.")
+        return []

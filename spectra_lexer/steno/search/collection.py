@@ -11,13 +11,12 @@ class SearchDictionary:
     _nexus: ResourceNexus             # Current nexus used for searches and basic lookups.
 
     def __init__(self):
-        """ Create a collection with a single fallback nexus (to ensure that searches always return *something*). """
-        self._collection = [ResourceNexus()]
+        self._collection = []
 
     def new(self, r_key:str, d:dict) -> None:
         """ Make a new nexus, overwrite the previous one of the same type (if any), and re-sort them by priority. """
-        self._collection.append(ResourceNexus.types[r_key](d))
-        self._collection = sorted({type(n): n for n in self._collection}.values(), reverse=True)
+        self._collection.append(ResourceNexus.TYPES[r_key](d))
+        self._collection = sorted({type(n): n for n in self._collection}.values())
 
     def search(self, pattern:str, count:int, *, strokes:bool=False, **search_kwargs) -> List[str]:
         """ Check which, if any, of our current nexus objects accepts this input pattern and mode.
@@ -27,6 +26,7 @@ class SearchDictionary:
             if new_pattern is not None:
                 self._nexus = nexus
                 return nexus.search(new_pattern, count, **search_kwargs)
+        return []
 
     lookup = delegate_to("_nexus")
     command_args = delegate_to("_nexus")

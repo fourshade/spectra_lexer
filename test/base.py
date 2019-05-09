@@ -12,12 +12,12 @@ def get_test_filename(r_type:str) -> str:
     return os.path.join(__file__, "..", f"data/{r_type}.json")
 
 
-def class_tester(test_classes:list):
-    """ Using a list of relevant test classes, create a decorator which configures test functions to run
-        not only on the designated base class, but also on any derived classes that appear in the list. """
-    def using_base(cls:type):
-        """ Decorator to define the base class for a class test, so that it may also be run on subclasses.
-            Make sure the test is still run on the defined class at minimum even if it isn't in the list. """
-        targets = [c for c in test_classes if issubclass(c, cls)] or [cls]
-        return pytest.mark.parametrize("cls", targets)
-    return using_base
+def class_tester(*test_classes:type):
+    """ Using a series of relevant test classes, create a decorator which configures test functions to run
+        not only on the designated classes, but also on any derived classes that appear in the test set. """
+    def using_bases(*bases:type):
+        """ Decorator to define the base classes for a class test, so that it may also be run on subclasses.
+            Make sure the test is still run on the defined bases at minimum even if they aren't in the list. """
+        targets = {c for cls in bases for c in test_classes if issubclass(c, cls)}
+        return pytest.mark.parametrize("cls", targets.union(bases))
+    return using_bases

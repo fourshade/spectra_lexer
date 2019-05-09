@@ -7,13 +7,13 @@ import re
 import pytest
 
 from spectra_lexer.steno.search.dict import ReverseStripCaseSearchDict, StripCaseSearchDict
-from spectra_lexer.steno.search.dict.reverse import ReverseDict
-from spectra_lexer.steno.search.dict.search import SimilarKeyDict, StringSearchDict
+from spectra_lexer.types.dict import multidict, ReverseDict
+from spectra_lexer.types.search import SimilarKeyDict, StringSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_tester([SimilarKeyDict, StringSearchDict, ReverseDict,
-                           StripCaseSearchDict, ReverseStripCaseSearchDict])
+class_test = class_tester(SimilarKeyDict, StringSearchDict, multidict, ReverseDict,
+                          StripCaseSearchDict, ReverseStripCaseSearchDict)
 
 
 @class_test(SimilarKeyDict)
@@ -209,35 +209,43 @@ def test_string_dict(cls):
         d.regex_match_keys('beautiful...an open group(', count=1)
 
 
+@class_test(multidict, ReverseDict)
+def test_reverse_dict(cls):
+    """ Unit tests for the added functionality of the multidict class. """
+    # A multidict must add items to a list rather than overwrite them.
+    d = cls()
+    d.add('beautiful', ('WAOUFL',))
+    d.add('BEAUTIFUL', ('PWAOUT', '-FL'))
+    d.add('beautiful', ('PWAOUFL',))
+    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+                 'BEAUTIFUL': [('PWAOUT', '-FL')]}
+    # Items can be removed from any list; the leftovers will stay in their original order.
+    d.add('ugly', ('LUG',))
+    d.add('ugly', ('ULG',))
+    d.add('ugly', ('UG', 'LY'))
+    d.add('ugly', ('UG', 'HREU'))
+    d.remove('ugly', ('LUG',))
+    d.remove('ugly', ('UG', 'LY'))
+    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+                 'BEAUTIFUL': [('PWAOUT', '-FL')],
+                 'ugly':      [('ULG',), ('UG', 'HREU')]}
+    # Any list with all entries removed should be totally removed from the dict (don't leave an empty list).
+    d.remove('ugly', ('ULG',))
+    d.remove('ugly', ('UG', 'HREU'))
+    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
+                 'BEAUTIFUL': [('PWAOUT', '-FL')]}
+
+
 @class_test(ReverseDict)
 def test_reverse_dict(cls):
     """ Unit tests for the added functionality of the reverse dict class. """
-    # A reverse dict must add items to a list rather than overwrite them.
-    rd = cls()
-    rd.append_key('beautiful', ('WAOUFL',))
-    rd.append_key('BEAUTIFUL', ('PWAOUT', '-FL'))
-    rd.append_key('beautiful', ('PWAOUFL',))
-    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                  'BEAUTIFUL': [('PWAOUT', '-FL')]}
-    # Items can be removed from any list; the leftovers will stay in their original order.
-    rd.append_key('ugly', ('LUG',))
-    rd.append_key('ugly', ('ULG',))
-    rd.append_key('ugly', ('UG', 'LY'))
-    rd.append_key('ugly', ('UG', 'HREU'))
-    rd.remove_key('ugly', ('LUG',))
-    rd.remove_key('ugly', ('UG', 'LY'))
-    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                  'BEAUTIFUL': [('PWAOUT', '-FL')],
-                  'ugly':      [('ULG',), ('UG', 'HREU')]}
-    # Any list with all entries removed should be totally removed from the dict (don't leave an empty list).
-    rd.remove_key('ugly', ('ULG',))
-    rd.remove_key('ugly', ('UG', 'HREU'))
-    assert rd == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                  'BEAUTIFUL': [('PWAOUT', '-FL')]}
     # A reverse dict should be able to invert any mapping at the most basic level.
-    fd = {1: "a", 2: "b", 3: "a", 4: "c", 5: "a", 6: "b", 7: "a", 8: "d"}
+    fd = {1: "a", 2: "b", 3: "a", 4: "c",
+          5: "a", 6: "b", 7: "a", 8: "d"}
+    rd = cls()
     rd.match_forward(fd)
-    assert rd == {"a": [1, 3, 5, 7],
-                  "b": [2, 6],
-                  "c": [4],
-                  "d": [8]}
+    rd2 = cls(_match=fd)
+    assert rd == rd2 == {"a": [1, 3, 5, 7],
+                         "b": [2, 6],
+                         "c": [4],
+                         "d": [8]}

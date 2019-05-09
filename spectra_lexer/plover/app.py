@@ -2,7 +2,7 @@
 
 import sys
 
-from spectra_lexer import gui_qt, plover
+from spectra_lexer import plover
 from spectra_lexer.gui_qt import GUIQtApplication
 from spectra_lexer.types import dummy
 
@@ -14,7 +14,6 @@ class PloverPluginApplication(GUIQtApplication):
 
     # Running the app from the command line with no args starts a standalone test configuration.
     DESCRIPTION = "Run the GUI application in Plover plugin test mode."
-    GUI_CLASS_PATHS = [gui_qt, plover]
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
@@ -35,6 +34,11 @@ class PloverPluginApplication(GUIQtApplication):
             self.call("plover_test")
         else:
             self.call("plover_connect", plover_engine)
+
+    def _class_paths(self) -> list:
+        paths = super()._class_paths()
+        paths[0].append(plover)
+        return paths
 
     def __getattr__(self, attr):
         """ As a proxy, we fake any attribute we don't want to handle to avoid incompatibility. """

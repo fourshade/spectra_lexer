@@ -1,6 +1,6 @@
-from typing import Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple, Sequence, Tuple
 
-from .prefix import PrefixFinder
+from spectra_lexer.types.prefix import PrefixTree
 from ..rules import RuleFlags, StenoRule
 from ..system import StenoSystem
 from spectra_lexer.utils import str_prefix, str_without
@@ -22,6 +22,40 @@ class LexerRule(NamedTuple):
     skeys: str           # Lexer-formatted steno keys that make up the rule.
     letters: str = ""    # Raw English text of the word.
     letter_len: int = 0  # Length of <letters>.
+
+
+class PrefixFinder:
+    """ Search engine that finds rules matching a prefix of ORDERED keys only. """
+
+    _tree: PrefixTree    # Primary search tree.
+    _key_sep: str        # Steno key used as stroke separator.
+    _unordered_key: str  # Key to put into unordered set.
+
+    def __init__(self, items:Sequence[Tuple[str,str,object]], sep:str, unordered_key:str):
+        """ Make the tree and the filter that returns which keys will be and won't be tested in prefixes.
+            Separate the given sets of keys into ordered keys (which contain any prefix) and unordered keys.
+            Index the rules, letters, and unordered keys under the ordered keys and compile the tree. """
+        tree = self._tree = PrefixTree()
+        self._key_sep = sep
+        self._unordered_key = unordered_key
+        for (skeys, letters, r) in items:
+            ordered, unordered = self._unordered_filter(skeys)
+            tree[ordered] = (r, letters, unordered)
+        tree.compile()
+
+    def __call__(self, skeys:str, letters:str) -> list:
+        """ Return a list of all rules that match a prefix of the given ordered keys,
+            a subset of the given letters, and a subset of the given unordered keys. """
+        ordered, unordered = self._unordered_filter(skeys)
+        return [r for (r, rl, ru) in self._tree[ordered] if rl in letters and ru <= unordered]
+
+    def _unordered_filter(self, skeys:str, _empty=frozenset()) -> tuple:
+        """ Filter out asterisks in the first stroke that may be consumed at any time and return them.
+            Also return the remaining ordered keys that must be consumed starting from the left. """
+        star = self._unordered_key
+        if (star not in skeys) or (star not in skeys.split(self._key_sep, 1)[0]):
+            return skeys, _empty
+        return str_without(skeys, star), frozenset([star])
 
 
 class LexerRuleMatcher:
@@ -75,7 +109,7 @@ class LexerRuleMatcher:
                 prefix_entries.append((skeys, letters, lr))
         # Steno order may be ignored for certain keys. This has a large performance and accuracy cost.
         # Only the asterisk is used in such a way that this treatment is worth it.
-        self._prefix_finder = PrefixFinder(prefix_entries, self._star_filter)
+        self._prefix_finder = PrefixFinder(prefix_entries, sep, star)
 
     def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerRule]:
         """ Return a list of rules that match the given keys and letters in any of the dictionaries.
@@ -119,11 +153,3 @@ class LexerRuleMatcher:
         splits_left, all_splits = skeys.count(self._key_sep), all_skeys.count(self._key_sep)
         if all_splits and (not splits_left or splits_left == all_splits):
             return SpecialRuleTypes.AFFIX
-
-    def _star_filter(self, sk:str, _empty=frozenset()) -> tuple:
-        """ Filter out asterisks in the first stroke that may be consumed at any time and return them.
-            Also return the remaining ordered keys that must be consumed starting from the left. """
-        star = self._key_star
-        if (star not in sk) or (star not in sk.split(self._key_sep, 1)[0]):
-            return sk, _empty
-        return str_without(sk, star), frozenset([star])

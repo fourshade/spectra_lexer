@@ -1,7 +1,7 @@
 from typing import Dict
 
 from spectra_lexer.core import Component
-from spectra_lexer.file import JSON
+from spectra_lexer.system import file
 
 
 class IndexManager(Component):
@@ -21,7 +21,7 @@ class IndexManager(Component):
         """ Load an index from disk if one is found. Ask the user to make one on failure. """
         d = {}
         try:
-            d = JSON.load(filename or self.file)
+            d = file.load(filename or self.file)
             self._update(d)
         except OSError:
             self.engine_call("index_not_found")
@@ -31,7 +31,7 @@ class IndexManager(Component):
     def save(self, d:Dict[str, dict], filename:str="") -> None:
         """ Save an index structure directly into JSON. Sort all rules and translations by key and set them active.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
-        JSON.save(filename or self.out, d, sort_keys=True)
+        file.save(filename or self.out, d, sort_keys=True)
         self._update(d)
 
     def _update(self, d:Dict[str, dict]) -> None:

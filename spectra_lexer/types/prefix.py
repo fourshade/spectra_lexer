@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Tuple
+from typing import Sequence
 
 
 class PrefixTree:
@@ -38,27 +38,3 @@ class PrefixTree:
                 break
             node = node[element]
         return node["values"]
-
-
-class PrefixFinder:
-    """ Search engine that finds rules matching a prefix of ORDERED keys only. """
-
-    _tree: PrefixTree         # Primary search tree.
-    _filtered_keys: Callable  # Callback to split keys into ordered and unordered sets.
-
-    def __init__(self, items:Sequence[Tuple[str,str,object]], unordered_filter:Callable[[str],Tuple[str,frozenset]]):
-        """ Make the tree and the filter that returns which keys will be and won't be tested in prefixes.
-            Separate the given sets of keys into ordered keys (which contain any prefix) and unordered keys.
-            Index the rules, letters, and unordered keys under the ordered keys and compile the tree. """
-        tree = self._tree = PrefixTree()
-        self._filtered_keys = unordered_filter
-        for (skeys, letters, r) in items:
-            ordered, unordered = self._filtered_keys(skeys)
-            tree[ordered] = (r, letters, unordered)
-        tree.compile()
-
-    def __call__(self, skeys:str, letters:str) -> list:
-        """ Return a list of all rules that match a prefix of the given ordered keys,
-            a subset of the given letters, and a subset of the given unordered keys. """
-        ordered, unordered = self._filtered_keys(skeys)
-        return [r for (r, rl, ru) in self._tree[ordered] if rl in letters and ru <= unordered]
