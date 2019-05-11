@@ -11,7 +11,7 @@ class GUIApplication(Application):
     CLASS_PATHS = [system, steno]
 
     def __init__(self):
-        """ Let components know the options are done so they can start loading the rest of the GUI. """
+        """ Start the components loading the GUI after handling all other startup tasks for the thread. """
         super().__init__()
         self.call("gui_load")
 

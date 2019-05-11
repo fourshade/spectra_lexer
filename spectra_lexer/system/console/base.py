@@ -37,10 +37,12 @@ class ConsoleManager(Component):
 
     @on("exception")
     def exception(self, exc_value:Exception) -> Exception:
-        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful. """
+        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful.
+            Send the traceback text to the engine in case GUI components want to display it. """
         tb_lines = TracebackException.from_exception(exc_value).format()
         tb_text = "".join(tb_lines)
         try:
+            self.engine_call("new_traceback", tb_text)
             print(tb_text)
         except Exception as e:
             return e

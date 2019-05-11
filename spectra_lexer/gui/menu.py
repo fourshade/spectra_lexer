@@ -16,13 +16,14 @@ class Menu(Component):
                     # Add a non-interactive separator if the item text starts with "SEP".
                     self.add_separator(heading)
                 else:
-                    # Create and connect each item to the engine by calling its returned connector.
+                    # Create each item and provide a callback for the implementation to connect to the engine.
                     cmds, desc = res.info()
-                    item_connector = self.add_item(heading, item_text)
-                    item_connector(lambda *_, args=cmds: self.engine_call(*args))
+                    def callback(*ignored, args=cmds):
+                        return self.engine_call(*args)
+                    self.add_item(heading, item_text, callback)
 
-    def add_item(self, heading:str, item_text:str) -> Callable:
-        """ Add a new menu item under <heading> -> <item_text> and return an engine connector. """
+    def add_item(self, heading:str, item_text:str, callback:Callable) -> None:
+        """ Add a new menu item under <heading> -> <item_text> that calls <callback> with no args when selected. """
         raise NotImplementedError
 
     def add_separator(self, heading:str) -> None:
@@ -31,5 +32,5 @@ class Menu(Component):
 
     @on("gui_set_enabled")
     def set_enabled(self, enabled:bool) -> None:
-        """ Enable or disable all menu items when GUI-blocking operations are being done. """
+        """ Enable or disable all menu items (when GUI-blocking operations are being done). """
         raise NotImplementedError

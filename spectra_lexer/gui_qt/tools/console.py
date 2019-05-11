@@ -35,7 +35,7 @@ class HistoryTracker(list):
 
 
 class ConsoleTextWidget(QTextEdit):
-    """ Formatted text widget meant to display plaintext interpreter input and output. """
+    """ Formatted text widget meant to display plaintext interpreter input and output as a terminal. """
 
     _history: HistoryTracker        # Tracks previous keyboard input.
     _last_text_received: str = ""   # Last text received from outside, used as an unchangeable base for text input.

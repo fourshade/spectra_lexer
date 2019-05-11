@@ -16,11 +16,12 @@ class FileTool(Component):
     @on("file_tool_open")
     def open(self, res_type:str, handler:FileHandler) -> None:
         """ Present a dialog for the user to select files of a specific resource type. """
-        filename = self.get_filename(f"Load {res_type.title()}", "Supported files", handler.extensions())
+        filename = self.get_filename_load(f"Load {res_type.title()}", handler.extensions())
         # Attempt to load the selected file (if any).
         if filename:
-            self.engine_call(f"{res_type}_load", filename)
             self.engine_call("new_status", f"Loaded {res_type} from file dialog.")
+            self.engine_call(f"{res_type}_load", filename)
 
-    def get_filename(self, title:str, fmts_msg:str, fmts:Iterable[str]) -> str:
+    def get_filename_load(self, title:str, fmts:Iterable[str]) -> str:
+        """ Present a file dialog with <title> to select any one file with an extension in <fmts> for loading. """
         raise NotImplementedError

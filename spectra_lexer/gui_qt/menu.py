@@ -22,9 +22,8 @@ class GUIQtMenu(Menu):
             s = self.headings[heading] = self.menu_bar.addMenu(heading)
         return s
 
-    def add_item(self, heading:str, item_text:str) -> Callable:
-        action = self._get_menu(heading).addAction(item_text)
-        return action.triggered.connect
+    def add_item(self, heading:str, item_text:str, callback:Callable) -> None:
+        self._get_menu(heading).addAction(item_text).triggered.connect(callback)
 
     def add_separator(self, heading:str) -> None:
         self._get_menu(heading).addSeparator()

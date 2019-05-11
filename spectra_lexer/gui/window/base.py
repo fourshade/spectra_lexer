@@ -13,12 +13,12 @@ class Window(Component):
 
     @on("gui_window_show")
     def show(self) -> None:
-        """ This must be called on start, and also to re-open a plugin window for its host application. """
+        """ This is always called on start, and for a plugin window, by its host application to re-open it. """
         raise NotImplementedError
 
     @on("gui_window_close")
     def close(self) -> None:
-        """ Closing the main window kills the program in standalone mode, but not as a plugin. """
+        """ Closing the main window should kill the program in standalone mode, but not as a plugin. """
         raise NotImplementedError
 
     @on_resource("translations")

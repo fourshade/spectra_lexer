@@ -54,7 +54,7 @@ class BoardRenderer(Component):
         self._last_rule = rule
         caption = self._captioner.get_text(rule)
         link_ref = self._captioner.get_link_ref(rule) if self.show_links else ""
-        self.engine_call("new_board_caption", caption, link_ref)
+        self.engine_call("new_board_info", caption, link_ref)
         # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
         if self._matcher is not None:
             ids = self._matcher.get_element_ids(rule, self.show_compound)

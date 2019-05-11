@@ -1,39 +1,27 @@
-from html import escape, unescape
-from typing import List
-
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QPainter, QPicture
 from PyQt5.QtWidgets import QLabel, QWidget
-
-from .renderer import BoardSVGRenderer
-from spectra_lexer.types import delegate_to
 
 
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _renderer: BoardSVGRenderer  # Main renderer of SVG steno board graphics.
     _w_link: QLabel              # Displays rule hyperlink.
     _gfx: QPicture = QPicture()  # Last recorded rendering of the steno board.
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._renderer = BoardSVGRenderer()
-        self._w_link = QLabel(self)
+        self._w_link = QLabel("<a href='dummy'>More Examples</a>", self)
         self._w_link.setVisible(False)
-        self._w_link.linkActivated.connect(lambda s: self.onActivateLink.emit(unescape(s)))
+        self._w_link.linkActivated.connect(lambda *args: self.onActivateLink.emit())
 
-    set_xml = delegate_to("_renderer.load")
-
-    def set_link(self, link_ref:str) -> None:
+    def set_link_enabled(self, enabled:bool) -> None:
         """ Show a link in the bottom-right corner of the diagram if examples exist. """
-        self._w_link.setText(f"<a href='{escape(link_ref)}'>More Examples</a>")
-        self._w_link.setVisible(bool(link_ref))
+        self._w_link.setVisible(enabled)
 
-    def set_layout(self, element_info:List[tuple]) -> None:
-        """ Draw new elements with the renderer and immediately repaint the board. """
-        self._gfx = QPicture()
-        self._renderer.draw(self._gfx, element_info)
+    def set_gfx(self, gfx:QPicture) -> None:
+        """ Set the new picture graphic and immediately repaint the board. """
+        self._gfx = gfx
         self.update()
 
     def paintEvent(self, *args) -> None:
@@ -46,5 +34,5 @@ class StenoBoardWidget(QWidget):
         self.onResize.emit(self.width(), self.height())
 
     # Signals
-    onActivateLink = pyqtSignal([str])
+    onActivateLink = pyqtSignal()
     onResize = pyqtSignal([int, int])

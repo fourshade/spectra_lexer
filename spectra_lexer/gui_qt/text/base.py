@@ -1,5 +1,4 @@
 from itertools import cycle
-from traceback import TracebackException
 from typing import Iterator
 
 from PyQt5.QtCore import QTimer
@@ -19,7 +18,7 @@ class GUIQtTextDisplay(TextDisplay):
     @on("gui_load")
     def load(self) -> None:
         """ Connect the mouse command and set up the title bar animation timer. """
-        self.w_text.textMouseAction.connect(self.on_click)
+        self.w_text.textMouseAction.connect(self.on_mouse_move)
         self._title_timer = QTimer(self.w_title)
         self._title_timer.timeout.connect(self._animate_title)
 
@@ -41,12 +40,12 @@ class GUIQtTextDisplay(TextDisplay):
         """ Set the text content of the widget with HTML and mouse interactivity. """
         self.w_text.set_text(text, html=True, mouse=True, **kwargs)
 
-    @on("exception")
-    def exception(self, exc_value:Exception) -> Exception:
-        """ Print an exception traceback to the main text widget, if possible. Return the exception if unsuccessful. """
-        tb_lines = TracebackException.from_exception(exc_value).format()
-        tb_text = "".join(tb_lines)
+    @on("new_traceback")
+    def exception(self, tb_text:str) -> None:
+        """ Print an exception traceback to the main text widget, if possible. """
         try:
+            self.w_title.setText("Well, this is embarrassing...")
             self.w_text.set_text(tb_text)
-        except Exception as e:
-            return e
+        except Exception:
+            # It doesn't matter if this fails. There are other methods to deal with exceptions.
+            pass
