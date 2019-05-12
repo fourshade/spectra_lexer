@@ -1,3 +1,10 @@
+5.0.0
+-----
+* Near complete refactoring of the framework
+* Engine commands are now available directly in the console as functions
+* Added miscellaneous features to the object tree dialog
+* Added more rules to the board diagram
+
 4.1.0
 -----
 * Added steno order inversions to the board diagram

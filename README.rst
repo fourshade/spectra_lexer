@@ -38,20 +38,25 @@ From the console, you can execute the main GUI program on its own by typing:
 
 The standalone mode operates identically to the plugin in all respects except that it cannot decipher strokes in real-time. By default, the program will look for your Plover dictionaries in the default user app data directory for your platform. It may not find them if you have them somewhere else, or have a strange user configuration. In any case, you can load dictionaries manually from the menu bar in standalone mode.
 
-There is also a batch mode available to analyze entire dictionaries. Run it by typing:
+There are also batch modes available to analyze entire dictionaries, such as:
 
 ``spectra_lexer analyze [--translations-files=FILE_IN1 [FILE_IN2 ...]] [--rules-out=FILE_OUT]``
 
 Each FILE_IN is a path to a JSON file containing a dictionary of steno translations, and FILE_OUT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
 
-There are other command line arguments available, but they are usually redundant and/or unnecessary. See the individual component source files for more details.
+The most advanced stuff is available in the console, by typing:
+
+``spectra_lexer console``
+
+This starts a Python interpreter with Spectra's engine commands directly exposed as top-level functions. Documentation on this is currently sparse, so it is difficult to operate without direct knowledge of the Python source code.
+
 
 Details
 -------
 
 This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. Depending on the config setting, if it cannot match every single steno key to letters in the word, it may not return a result at all (to avoid guessing wrong) or may return an incomplete guess on the first part of the word. Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
 
-When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke), choosing shorter strokes over longer ones to break ties.
+When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke). This choice is based on, among other things: the number of steno keys matched to rules, the number of letters those rules cover, the number of "unusual" rules involved, and if all else fails, choosing shorter strokes over longer ones to break ties.
 
 .. |Screenshot 1| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot1.png
 .. |Screenshot 2| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot2.png

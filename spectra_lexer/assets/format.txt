@@ -3,7 +3,7 @@ Each child directory contains the files for a complete steno system, with one sy
 A system includes include a config file with the key layout, a series of rules files, and an SVG board graphics file.
 Rule files may not be loaded individually; all must be in the same directory/system for cross-references to work.
 
-Out of the files needed to run the lexer, the JSON-based steno rule files, detailed here.
+Out of the files needed to run the lexer, the JSON-based steno rule files are detailed here.
 The file extension is .cson for "commented JSON". Full-line comments are allowed using "#".
 The format is alternately named so that normal JSON parsers won't try to read it (JSON does not support comments).
 The fastest way to parse these is to strip out comment lines followed by sending it through a normal JSON parser.
