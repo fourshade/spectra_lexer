@@ -1,7 +1,6 @@
 """ Main entry point for Spectra's interactive GUI application. """
 
 import sys
-from traceback import print_exc
 from typing import Callable
 
 from PyQt5.QtCore import pyqtSignal, QObject
@@ -46,14 +45,9 @@ class QtApplication(StenoApplication, GUIQT):
         return ThreadedEngineGroup(self._components, passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
-        """ Start the GUI event loop and run it indefinitely. Print uncaught exceptions before quitting. """
-        # The full component list is useful for debugging.
+        """ Start the GUI event loop and run it indefinitely. The full component list is useful for debugging. """
         self.ALL_COMPONENTS = list(self._components.recurse_items())
-        try:
-            return self.QT_APP.exec_()
-        except Exception:
-            print_exc()
-            return -1
+        return self.QT_APP.exec_()
 
 
 # With no mode arguments, the standalone GUI app is run by default.

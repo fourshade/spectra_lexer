@@ -42,7 +42,7 @@ class LX(RS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXSearchLookup(self, pattern:str, match:str, **kwargs) -> List[str]:
+    def LXSearchLookup(self, match:str, **kwargs) -> List[str]:
         """ Perform a normal dict lookup. We still require the original pattern to tell what dict it was. """
         raise NotImplementedError
 
@@ -52,8 +52,8 @@ class LX(RS):
         raise NotImplementedError
 
     @Command
-    def LXSearchExamples(self, link_name:str, **kwargs) -> Tuple[str, str]:
-        """ If the link on the diagram is clicked, get a random translation using this rule and search near it. """
+    def LXSearchExamples(self, link_name:str) -> Tuple[str, str]:
+        """ If the link on the diagram is clicked, get a random translation using this rule. """
         raise NotImplementedError
 
     @ConsoleCommand
@@ -67,7 +67,6 @@ class LX(RS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXBoardFromRule(self, rule:StenoRule, ratio:float=None, *, show_compound:bool=True) -> bytes:
-        """ Generate board diagram layouts arranged in columns according to <ratio> from a steno rule.
-            If <show_compound> is True, special keys may be shown corresponding to certain named rules. """
+    def LXBoardFromRule(self, rule:StenoRule, ratio:float=None) -> bytes:
+        """ Generate board diagram layouts arranged in columns according to <ratio> from a steno rule. """
         raise NotImplementedError

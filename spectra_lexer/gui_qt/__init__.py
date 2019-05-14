@@ -2,3 +2,4 @@
 
 from . import app
 from .base import GUIQT
+from .menu import MenuCommand

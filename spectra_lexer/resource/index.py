@@ -12,21 +12,22 @@ class StenoIndex(JSONDict):
         Index search is a two-part search. The first part goes by rule name, and is very precise.
         It is a key to generate translation dict objects, so only exact matches will work. """
 
-    def search(self, pattern:str, index_key:str="", prefix=False, regex=..., **kwargs) -> List[str]:
+    def search(self, index_key:str, pattern:str, **kwargs) -> List[str]:
         d = self.get(index_key)
-        if d is not None:
-            if not isinstance(d, TranslationsDictionary):
-                # Search indices are memory hogs, and users tend to look at many results under the same rule.
-                # We convert each dict to a full translations search index only on demand.
-                d = self[index_key] = TranslationsDictionary(d)
-            # Manually set the search flags to avoid regex search.
-            return d.search(pattern, prefix=prefix, regex=False, **kwargs)
-        return []
+        if not d:
+            return []
+        if not isinstance(d, TranslationsDictionary):
+            # Search indices are memory hogs, and users tend to look at many results under the same rule.
+            # We convert each dict to a full translations search index only on demand.
+            d = self[index_key] = TranslationsDictionary(d)
+        # Manually set the search flags to avoid regex search.
+        kwargs["regex"] = False
+        return d.search(pattern, prefix=False, **kwargs)
 
-    def lookup(self, match:str, index_key:str="", **kwargs) -> List[str]:
+    def lookup(self, index_key:str, match:str, **kwargs) -> List[str]:
         return self[index_key].lookup(match, **kwargs)
 
-    def find_example(self, index_key:str="") -> Tuple[str, str]:
+    def find_example(self, index_key:str) -> Tuple[str, str]:
         """ Given a rule/index key by name, return one translation using it at random. """
         d = self.get(index_key)
         if not d:

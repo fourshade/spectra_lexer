@@ -1,39 +1,31 @@
+from functools import partialmethod
 from typing import List, Tuple
 
 from .base import LX
 from spectra_lexer.resource import StenoRule
 
-_INDEX_PREFIX: str = "//"  # Prefix in search input to indicate an index search.
-_INDEX_DELIM: str = ";"    # Delimiter between rule name and translation.
-
 
 class SearchEngine(LX):
     """ Master class for similar-key string lookups on one of many dictionaries grouped into resource types. """
 
-    def LXSearchQuery(self, pattern:str, **kwargs) -> List[str]:
-        pattern, index = self._get_index(pattern, kwargs)
-        return index.search(pattern, **kwargs)
-
-    def LXSearchLookup(self, pattern:str, match:str, **kwargs) -> List[str]:
-        _, index = self._get_index(pattern, kwargs)
-        return index.lookup(match, **kwargs)
-
-    def _get_index(self, pattern:str, kwargs:dict) -> tuple:
-        """ For any search, we must figure out which index to use. """
-        if pattern.startswith(_INDEX_PREFIX):
-            kwargs["index_key"], pattern = (pattern[len(_INDEX_PREFIX):].split(_INDEX_DELIM, 1) + [""])[:2]
-            return pattern, self.INDEX
+    def _call_index(self, *args:str, index_key:str=None, meth_attr:str, **kwargs) -> List[str]:
+        """ Choose an index to use based on keyword args and call a method on it. """
+        if index_key is not None:
+            index = self.INDEX
+            args = (index_key, *args)
         else:
-            return pattern, self.TRANSLATIONS
+            index = self.TRANSLATIONS
+        return getattr(index, meth_attr)(*args, **kwargs)
+
+    LXSearchQuery = partialmethod(_call_index, meth_attr="search")
+    LXSearchLookup = partialmethod(_call_index, meth_attr="lookup")
 
     def LXSearchFindLink(self, rule:StenoRule) -> str:
-        name = self.RULES.inverse.get(rule)
-        if name is not None and name in self.INDEX:
-            return name
-        return ""
+        name = self.RULES.inverse.get(rule, "")
+        if name not in self.INDEX:
+            name = ""
+        return name
 
-    def LXSearchExamples(self, link_name:str, strokes:bool=False, **kwargs) -> Tuple[str, str]:
+    def LXSearchExamples(self, link_name:str) -> Tuple[str, str]:
         """ Given a rule by name, return the search text, one translation using it at random, and its neighbors. """
-        item = self.INDEX.find_example(link_name)[not strokes]
-        search_text = _INDEX_PREFIX + link_name + _INDEX_DELIM + item
-        return search_text, item
+        return self.INDEX.find_example(link_name)

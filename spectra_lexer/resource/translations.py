@@ -16,7 +16,7 @@ class _StenoSearchDict(StripCaseSearchDict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, _strip=self.STRIP_CHARS, **kwargs)
 
-    def search(self, pattern:str, count:int=None, prefix:bool=True, regex:bool=False, **kwargs) -> List[str]:
+    def search(self, pattern:str, count:int=None, prefix:bool=True, regex:bool=False) -> List[str]:
         """ Perform a special search for <pattern> with the given flags. Return up to <count> matches. """
         if regex:
             try:

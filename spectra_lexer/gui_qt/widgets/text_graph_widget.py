@@ -47,7 +47,7 @@ class TextGraphWidget(QTextEdit):
             text = f"{self.toPlainText()}\n\n{text}"
         self.setPlainText(text)
 
-    def set_interactive_text(self, text:str, *, scroll_to:str="top") -> None:
+    def set_interactive_text(self, text:str, *, scroll_to:str=None) -> None:
         """ Enable the mouse and replace the current text with new HTML formatted text.
             Optionally <scroll_to> the "top" or "bottom" (or don't if scroll_to=None). """
         self._mouse_enabled = True

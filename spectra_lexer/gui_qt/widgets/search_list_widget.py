@@ -18,21 +18,21 @@ class SearchListWidget(QListView):
     def set_items(self, str_list:List[str]) -> None:
         self.model().setStringList(str_list)
 
-    def select(self, key:str) -> None:
-        """ Programmatically select a specific item by first instance (if it exists).
+    def select(self, key:str=None) -> None:
+        """ Programmatically select a specific item by first instance (if it exists). If None, clear the selection.
             Scroll to put the item approximately in the middle of the page if possible.
             Suppress signals to keep from tripping the selectionChanged event. """
-        try:
-            key = self.model().stringList().index(key)
-        except ValueError:
-            return
-        idx = self.model().index(key, 0)
         self.blockSignals(True)
-        self._change_selection(idx)
+        try:
+            self._change_selection(key)
+        except ValueError:
+            self.selectionModel().clearSelection()
         self.blockSignals(False)
 
-    def _change_selection(self, idx:int) -> None:
-        """ Select an item by index and scroll to put it as close as possible to the center of the list. """
+    def _change_selection(self, key:str) -> None:
+        """ Select an item by key and scroll to put it as close as possible to the center of the list. """
+        key = self.model().stringList().index(key)
+        idx = self.model().index(key, 0)
         self.selectionModel().select(idx, QItemSelectionModel.SelectCurrent)
         self.scrollTo(idx, QAbstractItemView.PositionAtCenter)
 

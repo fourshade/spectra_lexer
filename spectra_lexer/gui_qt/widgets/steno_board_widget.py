@@ -7,8 +7,9 @@ from PyQt5.QtWidgets import QLabel, QWidget
 class StenoBoardWidget(QWidget):
     """ Widget to display all the keys that make up a steno stroke pictorally. """
 
-    _w_link: QLabel              # Displays rule hyperlink.
-    _gfx: QPicture = QPicture()  # Last recorded rendering of the steno board.
+    _w_link: QLabel                 # Displays rule hyperlink.
+    _renderer: QSvgRenderer = None  # Last XML SVG renderer.
+    _gfx: QPicture = QPicture()     # Last recorded rendering of the steno board.
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -21,21 +22,24 @@ class StenoBoardWidget(QWidget):
         self._w_link.setVisible(bool(link_ref))
 
     def set_board(self, xml_data:bytes) -> None:
-        """ Make a renderer to use the raw XML data with the available elements to draw.
-            Render the diagram on the new picture graphic and immediately repaint the board. """
-        renderer = QSvgRenderer(xml_data)
-        bounds = self._get_draw_bounds(renderer.viewBoxF())
-        gfx = QPicture()
-        with QPainter(gfx) as p:
-            # Set anti-aliasing on for best quality.
-            p.setRenderHints(QPainter.Antialiasing)
-            renderer.render(p, bounds)
-        self._gfx = gfx
-        self.update()
+        """ Make a renderer to use the raw XML data with the available elements to draw. """
+        self._renderer = QSvgRenderer(xml_data)
+        self.draw_board()
 
-    def _get_draw_bounds(self, viewbox:QRectF) -> QRectF:
+    def draw_board(self) -> None:
+        """ Render the diagram on a new picture graphic and immediately repaint the board. """
+        if self._renderer is not None:
+            bounds = self._get_draw_bounds()
+            gfx = self._gfx = QPicture()
+            with QPainter(gfx) as p:
+                # Set anti-aliasing on for best quality.
+                p.setRenderHints(QPainter.Antialiasing)
+                self._renderer.render(p, bounds)
+            self.update()
+
+    def _get_draw_bounds(self) -> QRectF:
         """ Return the bounding box needed to center everything in the widget at maximum scale. """
-        _, _, vw, vh = viewbox.getRect()
+        _, _, vw, vh = self._renderer.viewBoxF().getRect()
         width, height = self.width(), self.height()
         scale = min(width / vw, height / vh)
         fw, fh = vw * scale, vh * scale
@@ -48,11 +52,12 @@ class StenoBoardWidget(QWidget):
         self._gfx.play(QPainter(self))
 
     def resizeEvent(self, *args) -> None:
-        """ Reposition the link and send the new widget dimensions on any size change. """
+        """ Reposition the link, redraw the board, and send the new widget aspect ratio on any size change. """
         width, height = self.width(), self.height()
         self._w_link.move(width - 75, height - 18)
-        self.onResize.emit(width, height)
+        self.draw_board()
+        self.onResize.emit(width / height)
 
     # Signals
     onActivateLink = pyqtSignal()
-    onResize = pyqtSignal([int, int])
+    onResize = pyqtSignal([float])

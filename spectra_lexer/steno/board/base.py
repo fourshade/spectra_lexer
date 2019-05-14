@@ -31,10 +31,7 @@ class BoardRenderer(LX):
             return b""
         return self._generator.from_keys(keys, ratio)
 
-    def LXBoardFromRule(self, rule:StenoRule, ratio:float=_DEFAULT_RATIO, *, show_compound:bool=True) -> bytes:
+    def LXBoardFromRule(self, rule:StenoRule, ratio:float=_DEFAULT_RATIO) -> bytes:
         if self._generator is None:
             return b""
-        if show_compound:
-            return self._generator.from_rule(rule, ratio)
-        else:
-            return self._generator.from_keys(rule.keys, ratio)
+        return self._generator.from_rule(rule, ratio)

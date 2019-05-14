@@ -1,4 +1,5 @@
 import sys
+from traceback import print_exc
 
 from .base import CORE
 from .engine import Engine
@@ -47,5 +48,9 @@ class Application(CORE):
 
     @classmethod
     def app_main(cls, *args, **kwargs) -> int:
-        """ Create the application, run it, and return an exit code. """
-        return cls(*args, **kwargs).start()
+        """ Create the application, run it, and return an exit code. Print uncaught exceptions before quitting. """
+        try:
+            return cls(*args, **kwargs).start()
+        except Exception:
+            print_exc()
+            return -1

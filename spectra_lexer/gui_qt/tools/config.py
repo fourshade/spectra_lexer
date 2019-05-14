@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLi
 
 from .base import GUIQT_TOOL
 from .dialog import DialogContainer, FormDialog
-from spectra_lexer.view import ConfigDictionary
+from spectra_lexer.resource import ConfigDictionary
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -79,15 +79,16 @@ class QtConfigTool(GUIQT_TOOL):
 
     _dialog: DialogContainer
 
-    def __init__(self) -> None:
+    def __init__(self):
         self._dialog = DialogContainer(ConfigDialog)
 
     def tools_config_open(self) -> None:
         self._dialog.open(self.WINDOW, self.submit, self._get_info())
 
-    def submit(self, cfg:ConfigDictionary):
-        self.VIEWConfigSave(cfg)
+    def submit(self, cfg:ConfigDictionary) -> None:
         self.CONFIG = cfg
+        self.RSConfigSave(cfg)
+        self.VIEWConfigUpdate(cfg)
 
     def _get_info(self) -> dict:
         """ Make a dict with detailed config info from active components and data from disk. """

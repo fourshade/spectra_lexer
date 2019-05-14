@@ -2,7 +2,7 @@ import json
 import os
 from typing import List
 
-from .base import BoardElementTree, RS
+from .base import BoardElementTree, ConfigDictionary, RS
 from .index import StenoIndex
 from .keys import KeyLayout
 from .rules import RulesDictionary
@@ -26,6 +26,8 @@ class ResourceManager(RS):
                                                  desc="JSON translation files to load on start.")
     index_file: str = CmdlineOption("index-file", default="~/index.json",
                                     desc="JSON index file to load on start and/or write to.")
+    config_file: str = CmdlineOption("config-file", default="~/config.cfg",
+                                     desc="CFG file with config settings to load at start and/or write to.")
     translations_out: str = CmdlineOption("translations-out", default="./translations.json",
                                           desc="JSON translation file to save.")
     rules_out: str = CmdlineOption("rules-out", default="./rules.json",
@@ -42,6 +44,7 @@ class ResourceManager(RS):
         self.RSSystemLoad(self.system_path)
         self.RSTranslationsLoad(*(self.translation_files or self._plover_files()))
         self.RSIndexLoad(self.index_file)
+        self.RSConfigLoad(self.config_file)
         self.SYSStatus("Loading complete.")
 
     def RSSystemLoad(self, base_dir:str) -> dict:
@@ -60,6 +63,10 @@ class ResourceManager(RS):
         index = self.INDEX = self.SYSFileLoad(StenoIndex, *patterns, **kwargs)
         return index
 
+    def RSConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
+        cfg = self.CONFIG = self.SYSFileLoad(ConfigDictionary, *patterns, **kwargs)
+        return cfg
+
     def RSRulesSave(self, rules:RulesDictionary, filename:str="", **kwargs) -> None:
         self.SYSFileSave(rules, filename or self.rules_out, **kwargs)
 
@@ -68,6 +75,9 @@ class ResourceManager(RS):
 
     def RSIndexSave(self, index:StenoIndex, filename:str="", **kwargs) -> None:
         self.SYSFileSave(index, filename or self.index_file, **kwargs)
+
+    def RSConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
+        self.SYSFileSave(cfg, filename or self.config_file, **kwargs)
 
     def _plover_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files

@@ -1,91 +1,60 @@
-from typing import List
-
-from spectra_lexer.core import Command, Resource, Option
+from .state import ViewState
+from spectra_lexer.core import Command, Option
+from spectra_lexer.resource import ConfigDictionary
 from spectra_lexer.steno import LX
-from spectra_lexer.types.codec import CFGDict
 
-ConfigDictionary = CFGDict
 ConfigOption = Option()
 
 
 class VIEW(LX):
 
-    CONFIG: ConfigDictionary = Resource(ConfigDictionary())
     CONFIG_INFO: Option = ConfigOption  # Keeps track of configuration options in a master dict.
 
     @Command
-    def VIEWConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
-        """ Load all config options from disk. Ignore missing files. """
+    def VIEWConfigUpdate(self, cfg:ConfigDictionary) -> None:
+        """ Update all config values on existing components. """
         raise NotImplementedError
 
     @Command
-    def VIEWConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
-        """ Update components and save all config options to disk. If no save filename is given, use the default. """
+    def VIEWSearchExamples(self, state:ViewState) -> None:
+        """ When a link is clicked, search for examples of the named rule and select one. """
         raise NotImplementedError
 
     @Command
-    def VIEWQuery(self, strokes:str, word:str) -> None:
+    def VIEWSearch(self, state:ViewState) -> None:
+        """ Do a new search unless the input is blank. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWLookup(self, state:ViewState) -> None:
+        """ Do a lookup after special checks. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWQuery(self, state:ViewState) -> None:
         """ Execute and display a lexer query. """
         raise NotImplementedError
 
     @Command
-    def board_resize(self, width:int, height:int) -> None:
-        """ Tell the board layout engine when the graphical container changes size and redraw if necessary. """
+    def VIEWGraphOver(self, state:ViewState) -> None:
+        """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected. """
         raise NotImplementedError
 
     @Command
-    def graph_action(self, row:int, col:int, clicked:bool) -> None:
-        """ Tell the graph engine when the mouse moves over a new character and/or is clicked. """
+    def VIEWGraphClick(self, state:ViewState) -> None:
+        """ On click, find the node owning the character at (row, col) and select it with a bright color. """
         raise NotImplementedError
 
     @Command
-    def search_edit_input(self, pattern:str, **state) -> None:
-        """ The string in the search input box has changed. Do a new search unless the input is blank. """
+    def VIEWAction(self, state:ViewState, action:str) -> ViewState:
+        """ Perform any action above with the given state, then return it with the changes. """
         raise NotImplementedError
 
-    @Command
-    def search_choose_match(self, pattern:str, match:str, **state) -> None:
-        """ The user has chosen an item in the upper matches list. Do a lookup after special checks. """
-        raise NotImplementedError
 
-    @Command
-    def search_choose_mapping(self, match:str, mapping:str, **state) -> None:
-        """ The user has chosen an item in the lower mappings list. Send a display command. """
-        raise NotImplementedError
+class ViewConfig(VIEW):
 
-    @Command
-    def search_find_examples(self, rule_name:str, **state) -> None:
-        """ When a link is clicked, search for examples of the named rule. """
-        raise NotImplementedError
+    def Load(self) -> None:
+        self.VIEWConfigUpdate(self.CONFIG)
 
-    @Command
-    def VIEWNewTitle(self, title:str) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWNewGraph(self, text:str, scroll_to:str="top") -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWNewCaption(self, caption:str) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWNewBoard(self, xml_data:bytes) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWSetInput(self, text:str) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWSetMatches(self, str_list:List[str], selection:str=None) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWSetMappings(self, str_list:List[str], selection:str=None) -> None:
-        raise NotImplementedError
-
-    @Command
-    def VIEWSetLink(self, link_ref:str) -> None:
-        raise NotImplementedError
+    def VIEWConfigUpdate(self, cfg:ConfigDictionary) -> None:
+        self.CONFIG_INFO = [(sect, name, val) for sect, page in cfg.items() for name, val in page.items()]

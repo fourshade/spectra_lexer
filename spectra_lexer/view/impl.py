@@ -1,148 +1,186 @@
-from functools import partial
+from typing import List, Tuple
 
 from .base import ConfigOption, VIEW
+from .state import ViewState
 from spectra_lexer.resource import StenoRule
-
-# Text displayed as the final list item, allowing the user to expand the search.
-_MORE_TEXT = "(more...)"
+from spectra_lexer.steno import StenoGraph
 
 
-class ViewLayer(VIEW):
-    """ Implementation for handling text graphs and selections.
-        Interface to draw steno board diagram elements and the description for rules. """
+class InnerViewLayer(VIEW):
+    """ Inner layer to encapsulate all config values and engine calls. """
 
-    BoardConfigOption = partial(ConfigOption, "board")
-    GraphConfigOption = partial(ConfigOption, "graph")
-    SearchConfigOption = partial(ConfigOption, "search")
+    _MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
+    _INDEX_DELIM: str = ";"        # Delimiter between rule name and query for index searches.
 
-    show_compound: bool = BoardConfigOption("compound_keys", default=True,
-                                            desc="Show special labels for compound keys (i.e. `f` instead of TP).")
-    recursive_graph: bool = GraphConfigOption("recursive", default=True,
-                                              desc="Include rules that make up other rules.")
-    compressed_graph: bool = GraphConfigOption("compressed", default=True,
-                                               desc="Compress the graph vertically to save space.")
-    match_limit: int = SearchConfigOption("match_limit", default=100,
-                                          desc="Maximum number of matches returned by a search.")
-    show_links: bool = SearchConfigOption("example_links", default=True,
-                                          desc="Show hyperlinks to other examples of a selected rule from an index.")
-    need_all_keys: bool = SearchConfigOption("need_all_keys", default=False,
-                                             desc="Only return lexer results that match every key in the stroke.")
+    show_compound: bool = ConfigOption("board", "compound_keys", default=True,
+                                       desc="Show special labels for compound keys (i.e. `f` instead of TP).")
+    recursive_graph: bool = ConfigOption("graph", "recursive", default=True,
+                                         desc="Include rules that make up other rules.")
+    compressed_graph: bool = ConfigOption("graph", "compressed", default=True,
+                                          desc="Compress the graph vertically to save space.")
+    match_limit: int = ConfigOption("search", "match_limit", default=100,
+                                    desc="Maximum number of matches returned by a search.")
+    show_links: bool = ConfigOption("search", "example_links", default=True,
+                                    desc="Show hyperlinks to other examples of a selected rule from an index.")
+    need_all_keys: bool = ConfigOption("search", "need_all_keys", default=False,
+                                       desc="Only return lexer results that match every key in the stroke.")
 
-    _last_rule: StenoRule = None        # Most recent rule from lexer.
-    _last_selection: StenoRule = None   # Most recent selected rule on graph.
-    _last_board_rule: StenoRule = None  # Most recent rule shown on board.
-    _last_board_ratio: float = 100.0    # Last known aspect ratio for board viewing area.
-    _search_pages: int = 1              # Number of pages (size <match_limit>) of search results on screen.
+    def _call_examples(self, link_ref:str, strokes:bool) -> Tuple[str, str]:
+        match = self.LXSearchExamples(link_ref)[not strokes]
+        pattern = self._INDEX_DELIM.join([link_ref, match])
+        return pattern, match
 
-    def _show_rule(self, rule:StenoRule) -> None:
-        """ Generate a new graph from a lexer rule and set the title. """
-        self.VIEWNewTitle(str(rule))
-        self._last_rule = rule
-        self._last_selection = self._set_graph(rule, is_new=True, sel=self._last_selection, intense=True)
-
-    def graph_action(self, row:int, col:int, clicked:bool) -> None:
-        """ On click, find the node owning the character at (row, col) and select it with a bright color.
-            On mouseover, highlight it temporarily if nothing is selected. """
-        rule = self._last_rule
-        if rule is not None:
-            if clicked:
-                self._last_selection = self._set_graph(rule, location=(row, col), intense=True)
-            elif self._last_selection is None:
-                self._set_graph(rule, location=(row, col))
-
-    def _set_graph(self, rule:StenoRule, *, is_new:bool=False, location=None, sel=None, **kwargs) -> StenoRule:
-        """ Select a rule and format the graph with its reference highlighted. """
-        graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph, compressed=self.compressed_graph)
-        node = None
-        if location:
-            node = graph.from_character(*location)
-        if sel:
-            node = graph.from_rule(sel)
-        active = graph.get_rule(node)
-        text = graph.to_html(*filter(None, [node]), **kwargs)
-        selected = active or rule
-        self._make_board(selected)
-        self._search_set_example_rule(selected)
-        # A new graph should scroll to the top by default. Otherwise don't allow the graph to scroll.
-        self.VIEWNewGraph(text, scroll_to="top" if is_new else None)
-        return active
-
-    def board_resize(self, width:int, height:int) -> None:
-        self._last_board_ratio = width / height
-        if self._last_board_rule is not None:
-            self._make_board(self._last_board_rule)
-
-    def _make_board(self, rule:StenoRule) -> None:
-        xml_data = self.LXBoardFromRule(rule, self._last_board_ratio, show_compound=self.show_compound)
-        if xml_data:
-            self._last_board_rule = rule
-            self.VIEWNewBoard(xml_data)
-
-    def _search_set_example_rule(self, rule:StenoRule) -> None:
-        link_ref = self.LXSearchFindLink(rule) if self.show_links else ""
-        self.VIEWNewCaption(rule.caption())
-        self.VIEWSetLink(link_ref)
-
-    def search_find_examples(self, *, pattern:str=..., match:str=..., **state) -> None:
-        """ If the search engine found examples, show them in the matches list and select one. """
-        search_text, selection = self.LXSearchExamples(**state)
-        self.VIEWSetInput(search_text)
-        self.search_edit_input(search_text, selection=selection, **state)
-
-    def search_edit_input(self, pattern:str, **state) -> None:
-        self._search_pages = 1
-        if pattern:
-            self.search(pattern, **state)
-
-    def search(self, pattern:str, *, match:str=..., selection:str=None, **state) -> None:
-        """ Look up a pattern in the dictionary and populate the upper matches list. """
-        count = self._search_pages * self.match_limit
-        matches = self.LXSearchQuery(pattern, count=count, **state)
+    def _call_search(self, pattern:str, existing_count:int=0, strokes:bool=False, regex:bool=False) -> List[str]:
+        count = existing_count + self.match_limit
+        pattern, kwargs = self._parse_pattern(pattern)
+        matches = self.LXSearchQuery(pattern, count=count, strokes=strokes, regex=regex, **kwargs)
         # If we met the count, add a final item to allow search expansion.
         if len(matches) == count:
-            matches.append(_MORE_TEXT)
+            matches.append(self._MORE_TEXT)
+        return matches
+
+    def _wants_more(self, match:str) -> bool:
+        return (match == self._MORE_TEXT)
+
+    def _call_lookup(self, pattern:str, match:str, strokes:bool) -> List[str]:
+        _, kwargs = self._parse_pattern(pattern)
+        return self.LXSearchLookup(match, strokes=strokes, **kwargs)
+
+    def _order_selection(self, match:str, mapping:str, strokes:bool) -> List[str]:
+        return [match, mapping] if strokes else [mapping, match]
+
+    def _call_query(self, keys, letters) -> StenoRule:
+        if isinstance(keys, str):
+            cmd = self.LXLexerQuery
+        else:
+            cmd = self.LXLexerQueryProduct
+        return cmd(keys, letters, need_all_keys=self.need_all_keys)
+
+    def _call_graph(self, main_rule:StenoRule) -> StenoGraph:
+        return self.LXGraphGenerate(main_rule, recursive=self.recursive_graph, compressed=self.compressed_graph)
+
+    def _call_find_link(self, rule:StenoRule) -> str:
+        return self.LXSearchFindLink(rule) if self.show_links else ""
+
+    def _call_board(self, rule:StenoRule, ratio:float) -> bytes:
+        return self.LXBoardFromRule(rule, ratio) if self.show_compound else self.LXBoardFromKeys(rule.keys, ratio)
+
+    def _parse_pattern(self, pattern:str) -> Tuple[str, dict]:
+        *before, pattern = pattern.split(self._INDEX_DELIM, 1)
+        kwargs = {"index_key": before[0]} if before else {}
+        return pattern, kwargs
+
+
+class ViewLayer(InnerViewLayer):
+    """ Implementation layer for handling text graphs, selections, and steno board diagrams. """
+
+    def _search_examples(self, state:ViewState) -> None:
+        ref = state.link_ref
+        strokes = state.mode_strokes
+        text, selection = self._call_examples(ref, strokes)
+        state.input_text = text
+        state.matches = self._call_search(text, 0, strokes)
+        state.match_selected = selection
+
+    def _search(self, state:ViewState, existing_count:int=0) -> None:
+        """ Look up a pattern in the dictionary and populate the upper matches list. """
+        matches = self._call_search(state.input_text, existing_count, state.mode_strokes, state.mode_regex)
         # Automatically select the match if there was only one.
-        if selection is None and len(matches) == 1:
-            selection = matches[0]
-        # Show the new match list and wipe the mappings list if no lookup is performed.
-        self.VIEWSetMatches(matches, selection)
-        if selection is not None:
-            self.lookup(pattern, selection, **state)
-        else:
-            self.VIEWSetMappings([])
+        state.matches = matches
+        state.mappings = []
+        if len(matches) == 1:
+            state.match_selected = matches[0]
+            self._lookup(state)
 
-    def search_choose_match(self, pattern:str, match:str, **state) -> None:
-        if match == _MORE_TEXT:
-            # If the user clicked "more", increment the page count and search again. Do not find mappings.
-            self._search_pages += 1
-            self.search(pattern, **state)
+    def _user_lookup(self, state:ViewState) -> None:
+        """ If the user clicked "more", search again with another page. """
+        if self._wants_more(state.match_selected):
+            self._search(state, len(state.matches))
         else:
-            self.lookup(pattern, match, **state)
+            self._lookup(state)
 
-    def lookup(self, pattern:str, match:str, *, mapping:str=..., **state) -> None:
+    def _lookup(self, state:ViewState) -> None:
         """ Look up mappings and display them in the lower list. """
-        mappings = self.LXSearchLookup(pattern, match, **state)
-        # A lone mapping should be highlighted automatically and displayed on its own.
-        selection = mappings[0] if len(mappings) == 1 else None
-        if selection is not None:
-            self.search_choose_mapping(match, selection, **state)
+        pattern = state.input_text
+        match = state.match_selected
+        strokes = state.mode_strokes
+        mappings = state.mappings = self._call_lookup(pattern, match, strokes)
+        if len(mappings) == 1:
+            # A lone mapping should be highlighted automatically and displayed on its own.
+            state.mapping_selected = mappings[0]
+            self._query_from_selection(state)
         elif mappings:
             # If there is more than one mapping, make a product query to select the best combination.
-            result = self._show_query(self.LXLexerQueryProduct, mappings, [match])
-            if result.keys in mappings:
-                selection = result.keys
-        self.VIEWSetMappings(mappings, selection)
+            result = self._call_query(mappings, [match])
+            keys = state.mapping_selected = result.keys
+            state.graph_translation = [keys, match]
+            self._new_query(state)
 
-    def search_choose_mapping(self, match:str, mapping:str, strokes:bool=False, **state) -> None:
-        """ The order of strokes/word in the lexer command is reversed for strokes mode. """
-        args = [match, mapping] if strokes else [mapping, match]
-        self._show_query(self.LXLexerQuery, *args)
+    def _query_from_selection(self, state:ViewState) -> None:
+        """ Generate a new graph from a lexer rule and set the title.
+            The order of strokes/word in the lexer command is reversed for strokes mode. """
+        state.graph_translation = self._order_selection(state.match_selected, state.mapping_selected, state.mode_strokes)
+        self._new_query(state)
 
-    def _show_query(self, cmd, *args) -> StenoRule:
-        """ We must send a lexer query to show a translation. """
-        result = cmd(*args, need_all_keys=self.need_all_keys)
-        self._show_rule(result)
-        return result
+    def _new_query(self, state:ViewState) -> None:
+        state.graph_location = None
+        self._graph_action(state, intense=True)
 
-    def VIEWQuery(self, strokes:str, word:str, **kwargs) -> None:
-        self._show_rule(self.LXLexerQuery(strokes, word, **kwargs))
+    def _graph_action(self, state, intense:bool=False) -> None:
+        translation = state.graph_translation
+        if translation is not None:
+            rule = self._call_query(*translation)
+            self._set_graph(state, rule, intense)
+
+    def _set_graph(self, state:ViewState, main_rule:StenoRule, intense:bool) -> None:
+        """ Select a rule and format the graph with its reference highlighted. """
+        ref = state.link_ref
+        has_selection = state.graph_has_selection
+        location = state.graph_location
+        ratio = state.board_aspect_ratio
+        graph = self._call_graph(main_rule)
+        node = None
+        if location is not None and (not has_selection or intense):
+            node = graph.from_character(*location)
+        elif has_selection:
+            node = graph.from_rule(self.RULES.get(ref))
+        highlighted = graph.get_rule(node)
+        board_rule = highlighted or main_rule
+        if highlighted:
+            state.link_ref = self._call_find_link(highlighted)
+        if intense:
+            state.graph_has_selection = bool(highlighted)
+        state.graph_title = str(main_rule)
+        state.graph_text = graph.to_html(*filter(None, [node]), intense=intense)
+        state.board_caption = board_rule.caption()
+        state.board_xml_data = self._call_board(board_rule, ratio)
+
+
+class OuterViewLayer(ViewLayer):
+    """ Interface layer for exchanging state variables with the GUI. """
+
+    def VIEWSearchExamples(self, state:ViewState) -> None:
+        self._search_examples(state)
+        self._lookup(state)
+
+    def VIEWSearch(self, state:ViewState) -> None:
+        if state.input_text:
+            self._search(state)
+
+    def VIEWLookup(self, state:ViewState) -> None:
+        self._user_lookup(state)
+
+    def VIEWQuery(self, state:ViewState) -> None:
+        self._query_from_selection(state)
+
+    def VIEWGraphOver(self, state:ViewState) -> None:
+        if not state.graph_has_selection:
+            self._graph_action(state)
+
+    def VIEWGraphClick(self, state:ViewState) -> None:
+        self._graph_action(state, intense=True)
+
+    def VIEWAction(self, state:ViewState, action:str) -> ViewState:
+        if hasattr(self, action) and action.startswith("VIEW"):
+            getattr(self, action)(state)
+        return state

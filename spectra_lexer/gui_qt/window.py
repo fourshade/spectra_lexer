@@ -3,7 +3,7 @@ from .widgets import MainWindow
 
 
 class QtWindow(GUIQT):
-    """ GUI Qt operations class for the main window. """
+    """ Qt operations class for the main window. """
 
     def Load(self) -> None:
         """ Connect and enable all GUI controls. """
@@ -26,12 +26,6 @@ class QtWindow(GUIQT):
         self.W_STROKES = window.w_search_type
         self.W_REGEX = window.w_search_regex
 
-    def GUIQTShowWindow(self) -> None:
-        self.WINDOW.show()
-
-    def GUIQTCloseWindow(self) -> None:
-        self.WINDOW.close()
-
     def GUIQTSetEnabled(self, enabled:bool) -> None:
         self.W_INPUT.clear()
         self.W_INPUT.setPlaceholderText("Search..." if enabled else "")
@@ -44,3 +38,9 @@ class QtWindow(GUIQT):
         self.W_STROKES.setEnabled(enabled)
         self.W_REGEX.setEnabled(enabled)
         self.W_MENU.setEnabled(enabled)
+
+    def GUIQTShowWindow(self) -> None:
+        self.WINDOW.show()
+
+    def GUIQTCloseWindow(self) -> None:
+        self.WINDOW.close()
