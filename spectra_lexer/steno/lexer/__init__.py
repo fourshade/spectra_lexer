@@ -1,1 +1,1 @@
-from .base import StenoLexer
+from .base import LXLexer, StenoLexer

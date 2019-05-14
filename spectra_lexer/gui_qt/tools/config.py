@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout
 
-from .base import FormDialog, GUIQtTool
-from spectra_lexer.gui import ConfigTool
+from .base import FormDialog, QtCommandTool
+from .menu import MenuCommand
+from spectra_lexer.system import SYSConfig
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -71,7 +72,19 @@ class ConfigDialog(FormDialog):
             QMessageBox.warning(self, "Config Error", "One or more config values was invalid.")
 
 
-class GUIQtConfigTool(GUIQtTool, ConfigTool):
+class GUIQTConfig:
+
+    @MenuCommand("Tools", "Edit Configuration...")
+    def open(self) -> None:
+        """ Create and show GUI configuration manager dialog. """
+        raise NotImplementedError
+
+
+class QtConfigTool(QtCommandTool, GUIQTConfig,
+                   SYSConfig.Info):
     """ Config manager; allows editing of config values for any component. """
 
     DIALOG_CLASS = ConfigDialog
+
+    def open(self) -> None:
+        self.new_dialog(SYSConfig.save, self.info)

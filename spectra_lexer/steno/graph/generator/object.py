@@ -56,27 +56,24 @@ class ObjectNode(Object):
         if pattern.TEXT is not None:
             self.add(pattern.TEXT(s, tag))
 
-    def attach(self, parent:Object, row:int, col:int) -> None:
-        """ Attach <self> to its parent object at offset (row, col). """
-        parent.add(self, row, col)
-
     def draw_connectors(self, parent:Object, p_col:int, p_len:int, c_row:int, c_col:int, c_len:int) -> None:
         """ Add connectors to <parent> using properties and coordinates of a child <self>.
             <c_row> is the row index occupied by the child. The parent is by definition at row index 0.
             <p_col> and <c_col> are the left column indices. For now, they should always be the same.
             <p_len> and <c_len> are the lengths of the attachment containers in columns. """
         w = parent[0][2].width
+        pattern = self.pattern
         # If there's more than one space available, add a bottom container ├--┐ near the child.
         if c_row > 2:
-            self.add_symbols_to(parent, self.pattern.BOTTOM, c_len, c_row - 1, c_col)
+            self.add_symbols_to(parent, pattern.BOTTOM, c_len, c_row - 1, c_col)
         # Add a top container ├--┘ near the parent. We always need this at minimum even with zero attach length.
-        self.add_symbols_to(parent, self.pattern.TOP, p_len or 1, 1, p_col)
+        self.add_symbols_to(parent, pattern.TOP, p_len or 1, 1, p_col)
         # If the top container runs off the end, we need a corner ┐ endpiece.
         if p_col >= w:
-            self.add_symbols_to(parent, self.pattern.ENDPIECE, w - p_col + 1, 0, p_col)
+            self.add_symbols_to(parent, pattern.ENDPIECE, w - p_col + 1, 0, p_col)
         # If there's a gap, add a connector between the containers.
         if c_row > 3:
-            self.add_symbols_to(parent, self.pattern.CONNECTOR, c_row - 3, 2, c_col)
+            self.add_symbols_to(parent, pattern.CONNECTOR, c_row - 3, 2, c_col)
 
     def add_symbols_to(self, obj:Object, pattern_cls:type, length:int, row:int=0, col:int=0) -> None:
         """ Create a new primitive from <pattern_cls> with our tag and add it to <obj> at offset (row, col). """
@@ -97,8 +94,9 @@ class ObjectNodeUnmatched(ObjectNode):
     def draw_connectors(self, parent:Object, p_col:int, p_len:int, c_row:int, c_col:int, c_len:int) -> None:
         """ Draw top connectors downward and end in question marks just before reaching the bottom. """
         super().draw_connectors(parent, p_col, p_len, c_row, c_col, c_len)
+        pattern = self.pattern
         for r in range(2, c_row - 1):
-            self.add_symbols_to(parent, self.pattern.TOP, p_len, r, c_col)
-        self.add_symbols_to(parent, self.pattern.CUSTOM, p_len, c_row - 1, c_col)
-        self.add_symbols_to(parent, self.pattern.CUSTOM, c_len, c_row + 1, c_col)
-        self.add_symbols_to(parent, self.pattern.TOP, c_len, c_row + 2, c_col)
+            self.add_symbols_to(parent, pattern.TOP, p_len, r, c_col)
+        self.add_symbols_to(parent, pattern.CUSTOM, p_len, c_row - 1, c_col)
+        self.add_symbols_to(parent, pattern.CUSTOM, c_len, c_row + 1, c_col)
+        self.add_symbols_to(parent, pattern.TOP, c_len, c_row + 2, c_col)

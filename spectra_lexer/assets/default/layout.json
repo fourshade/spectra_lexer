@@ -1,0 +1,10 @@
+{
+    "SEP":     "/",
+    "SPLIT":   "-",
+    "SPECIAL": "*",
+    "LEFT":    "#STKPWHR",
+    "CENTER":  "AO*EU",
+    "RIGHT":   "FRPBLGTSDZ",
+    "SHIFT_TABLE": {"#": {"0": "O", "1": "S", "2": "T", "3": "P", "4": "H",
+                          "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
+}

@@ -1,3 +1,1 @@
-""" Package for the GUI Qt-based components of Spectra. """
-
-from .base import GUIQtWindow
+from .base import GUI, QtWindow

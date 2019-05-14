@@ -1,11 +1,13 @@
-from typing import FrozenSet, NamedTuple
+import re
+from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.utils import with_sets
+from spectra_lexer.types.codec import CSONDict
 
 
-@with_sets
-class RuleFlags:
-    """ Acceptable string values for flags, as read from JSON, that indicate some property of a rule. """
+class RuleFlags(FrozenSet[str]):
+    """ Immutable set of string flags that each indicate some property of a rule. """
+
+    # These are the acceptable string values for flags, as read from JSON.
     SPECIAL = "SPEC"   # Special rule used internally (in other rules). Only referenced by name.
     STROKE = "STRK"    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
     WORD = "WORD"      # Exact match for a single word. These rules do not adversely affect lexer performance.
@@ -17,17 +19,30 @@ class RuleFlags:
 
 
 class StenoRule(NamedTuple):
-    """ A general rule mapping a set of steno keys to a set of letters. All contents are immutable.
+    """ A general rule mapping a set of steno keys to a set of letters. All contents are recursively immutable.
         Includes flags, a description, and a submapping of rules that compose it. """
 
-    keys: str              # Raw string of steno keys that make up the rule.
-    letters: str           # Raw English text of the word.
-    flags: FrozenSet[str]  # Immutable set of strings describing flags that apply to the rule.
-    desc: str              # Textual description of the rule.
-    rulemap: tuple         # Tuple of tuples mapping child rules to letter positions.
+    keys: str         # Raw string of steno keys that make up the rule.
+    letters: str      # Raw English text of the word.
+    flags: RuleFlags  # Immutable set of strings describing flags that apply to the rule.
+    desc: str         # Textual description of the rule.
+    rulemap: tuple    # Immutable sequence of tuples mapping child rules to letter positions *in order*.
 
     def __str__(self) -> str:
+        """ The standard string representation of a rule is just its mapping of keys to letters. """
         return f"{self.keys} → {self.letters or '<special>'}"
+
+    def caption(self) -> str:
+        """ Generate a plaintext caption for a rule based on its child rules and flags. """
+        description = self.desc
+        # Lexer-generated rules display only the description by itself.
+        if RuleFlags.GENERATED in self.flags:
+            return description
+        # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
+        if not self.rulemap:
+            return f"{self.keys}: {description}"
+        # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
+        return f"{self}: {description}"
 
 
 class RuleMapItem(NamedTuple):
@@ -35,3 +50,122 @@ class RuleMapItem(NamedTuple):
     rule: StenoRule
     start: int
     length: int
+
+
+class _RawRule(NamedTuple):
+    """ Data structure for raw string fields read from each line in a JSON rules file. """
+    keys: str     # RTFCRE formatted series of steno strokes.
+    pattern: str  # English text pattern, consisting of raw letters as well as references to other rules.
+    flag_list: Sequence[str] = ()  # Optional sequence of flag strings.
+    description: str = ""          # Optional description for when the rule is displayed in the GUI.
+
+
+class RulesDictionary(CSONDict):
+    """ Class which takes a source dict of raw JSON rule entries with nested references and parses
+        them recursively to get a final dict of independent steno rules indexed by internal name. """
+
+    # Available bracket pairs for parsing rules.
+    _LEFT_BRACKETS = r'\(\['
+    _RIGHT_BRACKETS = r'\)\]'
+    # Rule substitutions must match:
+    _SUBRULE_RX = re.compile(fr'[{_LEFT_BRACKETS}]'                      # a left bracket, 
+                             fr'[^{_LEFT_BRACKETS}{_RIGHT_BRACKETS}]+?'  # one or more non-brackets, 
+                             fr'[{_RIGHT_BRACKETS}]')                    # and a right bracket.
+
+    _src_dict: Dict[str, list] = None       # Keep the source dict in the instance to avoid passing it everywhere.
+    _rev_dict: Dict[StenoRule, str] = None  # Same case for the reverse dict when converting back to JSON form.
+
+    @classmethod
+    def decode(cls, *all_data:bytes, **kwargs):
+        """ Decode a collection of JSON dicts and parse every entry using mutual recursion.
+            This will parse entries in a semi-arbitrary order, so make sure not to redo any. """
+        self = cls()
+        self._src_dict = super().decode(*all_data, **kwargs)
+        for k in self._src_dict:
+            try:
+                if k not in self:
+                    self._parse(k)
+            except KeyError as e:
+                raise KeyError(f"Illegal reference descended from rule {k}") from e
+        return self
+
+    def _parse(self, k:str) -> None:
+        """ Parse a raw source dictionary rule into a StenoRule object and store it. """
+        raw = _RawRule(*self._src_dict[k])
+        # We have to substitute in the effects of all child rules. These determine the final letters and rulemap.
+        letters, built_map = self._substitute(raw.pattern)
+        # The flags and built rulemap must be frozen before final inclusion in an immutable rule.
+        flags = RuleFlags(raw.flag_list)
+        rulemap = tuple(built_map)
+        self[k] = StenoRule(raw.keys, letters, flags, raw.description, rulemap)
+
+    def _substitute(self, pattern:str, ref_rx=_SUBRULE_RX) -> Tuple[str, List[RuleMapItem]]:
+        """
+        From a rule's raw pattern string, find all the child rule references in brackets and make a map
+        so the format code can break it down again if needed. For those in () brackets, we must substitute
+        in the letters: (.d)e(.s) -> des. For [] brackets, the letters and reference are given separately.
+
+        Only already-finished rules from the results dict can be directly substituted. Any rules that are
+        not finished yet will still contain their own child rules in brackets. If we find one of these,
+        we have to parse it first in a recursive manner. Circular references will crash the program.
+        """
+        built_map = []
+        m = ref_rx.search(pattern)
+        while m:
+            # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
+            rule_str = m.group()
+            if rule_str[0] == '(':
+                letters = None
+                rule_key = rule_str[1:-1]
+            else:
+                (letters, rule_key) = rule_str[1:-1].split("|", 1)
+            # Look up the child rule and parse it if it hasn't been yet. Even if we aren't using its letters,
+            # we still need to parse it at this stage so that the correct reference goes in the rulemap.
+            if rule_key not in self:
+                self._parse(rule_key)
+            rule = self[rule_key]
+            # Add the rule to the map and substitute in the letters if necessary.
+            if not letters:
+                letters = rule.letters
+            built_map.append(RuleMapItem(rule, m.start(), len(letters)))
+            pattern = pattern.replace(rule_str, letters)
+            m = ref_rx.search(pattern)
+        return pattern, built_map
+
+    def inverted(self) -> Dict[StenoRule, str]:
+        """ This dict must be reversed one-to-one to look up names given rules. Some components need this. """
+        d = self._rev_dict
+        if d is None:
+            d = self._rev_dict = {v: k for k, v in self.items()}
+        return d
+
+    def encode_other(self, rules:Iterable[StenoRule], **kwargs) -> bytes:
+        """ From a bare iterable of rules (generally from the lexer), encode a new rules dict using
+            auto-generated reference names and substituting *our* rules in each rulemap for their letters.
+            The reverse dict is required for this, so generate it if necessary. """
+        self.inverted()
+        return self.__class__({str(r): self._inv_parse(r) for r in rules}).encode(**kwargs)
+
+    def _inv_parse(self, r:StenoRule) -> _RawRule:
+        """ Convert a StenoRule object into a raw series of fields. """
+        # The pattern must be deduced from the letters, the rulemap, and the reference dict.
+        pattern = self._inv_substitute(r.letters, r.rulemap)
+        # Put the flags into a list. The keys and description are copied verbatim.
+        return _RawRule(r.keys, pattern, list(r.flags), r.desc)
+
+    def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
+        """ For each mapped rule with a name reference, replace the mapped letters with the reference. """
+        # Go from right to left to preserve indexing.
+        for item in reversed(rulemap):
+            # Some rules aren't named or are special. Don't show these in the pattern.
+            name = self._rev_dict.get(item.rule)
+            if not name:
+                continue
+            # Some rules take up no letters. Don't add these even if references exist.
+            start = item.start
+            end = start + item.length
+            if start == end:
+                continue
+            # Replace the letters this rule takes up with a standard parenthesized reference.
+            letters = letters[:start] + f"({name})" + letters[end:]
+        return letters

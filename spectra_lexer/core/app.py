@@ -1,36 +1,50 @@
-from typing import Callable
+from typing import Any, Callable, Hashable, List, Tuple
 
-from .component import ComponentGroup
-from .runtime import Runtime
+from .component import Option, Signal
+from .engine import Engine
+from .group import ComponentGroup
 
 
-class Application:
-    """ Base application class for the Spectra program. The starting point for program logic.
-        Routes messages and data structures between all constituent components using an engine. """
+class COREApp:
 
-    DESCRIPTION: str  # String shown in command-line help.
+    class Start:
+        @Signal
+        def on_app_start(self) -> None:
+            """ Start operations such as batch tasks and resource loading. """
+            raise NotImplementedError
 
-    call: Callable = None
+
+class Application(COREApp):
+    """ Abstract base application class for the Spectra program. The starting point for program logic. """
+
+    DESCRIPTION: str = "Spectra program."  # Program description as seen in the command line help.
+    CMDLINE_ARGS: list = []                # Subclasses may add extra args to the command line before parsing.
+
+    call: Callable  # Top-level callable used to initialize and start the application.
 
     def __init__(self):
-        """ Build the runtime and get a top-level callable. """
-        runtime = self._runtime()
-        components = ComponentGroup.from_paths(self._class_paths())
-        self.call = runtime.setup(components)
-        # Initialize all resources in order using the main engine.
-        # The mod classes will have sorted any dependencies out.
-        for k, arg in components.get_setup_commands():
+        """ Build the components and assemble the engine with them to get a top-level callable. """
+        components = ComponentGroup(self._class_paths())
+        self.call = self._engine(components)
+        # Initialize all resources in order from the main engine. The mod classes will sort dependencies out.
+        commands = [*self._global_commands(components), *Option.setup_commands(components)]
+        for k, arg in commands:
             self.call(k, arg)
 
     def _class_paths(self) -> list:
-        """ Return lists of modules or classes to draw components from, one per execution unit. """
+        """ Return a list of modules or classes to draw components from.
+            For multi-threaded applications, there may be a separate list for each thread. """
         raise NotImplementedError
 
-    def _runtime(self) -> Runtime:
-        """ Make a new runtime; may differ for subclasses. """
-        return Runtime()
+    def _engine(self, components:ComponentGroup) -> Callable:
+        """ Make and return a new engine callable; may differ for subclasses. """
+        return Engine(components)
+
+    def _global_commands(self, components:ComponentGroup) -> List[Tuple[Hashable, Any]]:
+        """ List any necessary system resource commands that must be run before the components start. """
+        return []
 
     def run(self) -> int:
         """ After everything else is ready, a primary task may be run. It may return an exit code to main().
             A batch operation can run until complete, or a GUI event loop can run indefinitely. """
-        raise NotImplementedError
+        return self.call(self.Start)

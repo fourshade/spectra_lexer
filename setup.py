@@ -3,51 +3,58 @@
 """ Main build script for lexer program, originally copied from Plover and stripped down. Work in progress. """
 
 from glob import glob
-from importlib import import_module
 import os
 import shutil
 import subprocess
 import sys
 
 import pkg_resources
-import setuptools.command
-
+import setuptools.command.develop
+import setuptools.command.install
 
 CMDCLASS_DICT = {}
-class CommandMeta(type):
-    """ Build command metaclass. Creates and records setuptools command classes. """
-    def __new__(mcs, name, bases, dct):
-        # If no run method is given and the name matches one from setuptools, use that as the base.
-        if "run" not in dct and name in setuptools.command.__all__:
-            bases = (getattr(import_module("setuptools.command."+name), name),)
-        # If there are dependencies or finishers, make a new run method to run them before/after the original.
-        deps = dct.get("requires", "")
-        finishers = dct.get("finish_with", "")
-        if deps or finishers:
-            run = dct.get("run") or bases[0].run
-            def run_sequence(self):
-                for cmd in deps.split():
-                    self.run_command(cmd)
-                run(self)
-                for cmd in finishers.split():
-                    self.run_command(cmd)
-            dct["run"] = run_sequence
-        # Each class is recorded in a dict to give to setuptools.setup().
-        cls = super().__new__(mcs, name, bases, dct)
-        CMDCLASS_DICT[name] = cls
-        return cls
 
 
-class Command(setuptools.Command, metaclass=CommandMeta):
+class _EntrancyCounter:
+    """ Simple context manager to count stack depth. """
+    def __init__(self): self.depth = 0
+    def __enter__(self): self.depth += 1
+    def __exit__(self, *args): self.depth -= 1
+
+
+class Command:
+    """ Abstract command class that runs dependencies before the command itself. """
+    requires = ""
+
+    def __init_subclass__(cls):
+        """ Each class is recorded in a dict to give to setuptools.setup(). """
+        CMDCLASS_DICT[cls.__name__] = cls
+
+    def finalize_options(self):
+        """ Run all commands in order, including dependencies. Make sure not to redo any. """
+        super().finalize_options()
+        dist = self.distribution
+        if not hasattr(dist, "done"):
+            dist.done = set()
+            dist.counter = _EntrancyCounter()
+        with dist.counter:
+            for cmd in self.requires.split():
+                if cmd not in dist.done:
+                    print(" " * dist.counter.depth * 2, end='')
+                    self.run_command(cmd)
+                dist.done.add(cmd)
+
+
+class CustomCommand(setuptools.Command):
     """ setuptools.Command with default fields and methods defined. """
     user_options = []
     def initialize_options(self): self.args = []
     def finalize_options(self): pass
-    def run(self): pass
 
 
-class build_ui(Command):
+class build_ui(Command, CustomCommand):
     description = "Build new/modified UI files."
+    requires = "clean"
 
     def _build_ui(self, src):
         """ Build Python code from a QT UI file. """
@@ -72,7 +79,7 @@ class build_ui(Command):
             self._build_ui(src)
 
 
-class clean(Command):
+class clean(Command, CustomCommand):
     description = "Remove all build and test-generated files."
     patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py', '**/*_rc.py')
 
@@ -85,15 +92,15 @@ class clean(Command):
                 os.remove(f)
 
 
-class develop(Command):
+class develop(Command, setuptools.command.develop.develop):
     requires = "build_ui"
 
 
-class install(Command):
+class install(Command, setuptools.command.install.install):
     requires = "build_ui"
 
 
-class run(Command):
+class run(Command, CustomCommand):
     description = "Build UI, then run from source."
     command_consumes_arguments = True
     requires = "build_ui"
@@ -103,11 +110,11 @@ class run(Command):
         subprocess.check_call(cmd)
 
 
-class sdist(Command):
+class sdist(Command, setuptools.command.sdist.sdist):
     requires = "build_ui"
 
 
-class test(Command):
+class test(Command, CustomCommand):
     description = "Build UI, then run all unit tests."
     requires = "build_ui"
 

@@ -1,48 +1,73 @@
+from code import InteractiveInterpreter
+import sys
 from traceback import TracebackException
 
-from .interpreter import Console, ConsoleTypes
+from ..app import SYSApp
+from ..control import SYSControl
+from .interpreter import ConsoleIO
 from .tools import WrappedCommand, xhelp
-from spectra_lexer.core import Component
+from spectra_lexer.core import Command, CommandClass, Component, COREEngine, Signal
+from spectra_lexer.types.importer import AutoImporter
+
+# Decorator for a string command available as a function in the console. Must return or save a useful value.
+ConsoleCommand = CommandClass(console_key="")
 
 
-class ConsoleManager(Component):
+class SYSConsole:
+
+    @Command
+    def open(self, **kwargs) -> str:
+        """ Open the console with all engine commands, each wrapped in the original function info. """
+        raise NotImplementedError
+
+    @Command
+    def input(self, text_in:str) -> str:
+        """ Process a string of input text and send any resulting output to the engine. """
+        raise NotImplementedError
+
+    class Output:
+        @Signal
+        def on_console_output(self, text:str) -> None:
+            raise NotImplementedError
+
+
+class ConsoleManager(Component, SYSConsole, SYSControl,
+                     SYSApp.Components,
+                     COREEngine.Exception):
     """ Component for engine and system interpreter operations.
         Handles the most fundamental operations of the system, including status and exceptions. """
 
-    debug_vars = resource("debug", {})  # Contains all application-level global variables
+    _console: ConsoleIO = None  # Main interpreter console IO interface.
 
-    _console: Console = None  # Main interpreter console.
+    def open(self, **kwargs) -> str:
+        """ Use a namespace dict that automatically imports top-level modules for convenience. """
+        wrapped_commands = {k: WrappedCommand(k, v, self.engine_call) for k, v in ConsoleCommand.items()}
+        locals_ns = AutoImporter.make_namespace(wrapped_commands, __app__=tuple(self.components), help=xhelp())
+        self._console = ConsoleIO(InteractiveInterpreter(locals_ns), **kwargs)
+        return self._send_output()
 
-    @on("console_start")
-    def console_start(self, *, interactive:bool=True) -> str:
-        """ (Re)start the console with a copy of the current debug dict. """
-        d_vars = dict(self.debug_vars)
-        # Start a console locals namespace with every engine command, wrapped in the original function info.
-        locals_ns = {k: WrappedCommand(f_list, self.engine_call) for k, f_list in d_vars.get("commands", {}).items()}
-        # Start the interpreter console with the output callback and some extra tools.
-        self._console = ConsoleTypes[interactive](locals_ns, app=d_vars, help=xhelp())
-        return self.console_in()
+    def input(self, text_in:str) -> str:
+        self._console.input(text_in)
+        return self._send_output()
 
-    @on("console_input")
-    def console_in(self, text_in:str=None) -> str:
-        """ Process a new string of input text and send the output to the engine. """
-        text_out = self._console.run(text_in)
-        self.engine_call("new_console_output", text_out)
+    def _send_output(self) -> str:
+        """ Read any available console output and send it to the engine. """
+        text_out = self._console.output()
+        self.engine_call(self.Output, text_out)
         return text_out
 
-    @on("new_status")
-    def display_status(self, msg:str) -> None:
-        """ Display engine status and general output messages in the console by default. """
-        print(f"SPECTRA: {msg}")
+    def status(self, message:str) -> None:
+        """ Display status messages in the console by default. """
+        print(f"SPECTRA: {message}")
 
-    @on("exception")
-    def exception(self, exc_value:Exception) -> Exception:
-        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful.
-            Send the traceback text to the engine in case GUI components want to display it. """
+    def exit(self) -> None:
+        sys.exit()
+
+    def on_engine_exception(self, exc_value:Exception) -> Exception:
+        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful. """
         tb_lines = TracebackException.from_exception(exc_value).format()
         tb_text = "".join(tb_lines)
         try:
-            self.engine_call("new_traceback", tb_text)
             print(tb_text)
         except Exception as e:
             return e

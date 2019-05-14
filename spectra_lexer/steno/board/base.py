@@ -1,66 +1,91 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
-from .caption import CaptionGenerator
-from .layout import ElementLayout
-from .matcher import ElementMatcher
+import json
+
+from .elements import XMLElementDict
+from .generator import BoardGenerator, STROKE_SENTINEL
+from .matcher import KeyMatcher, RuleMatcher
 from ..rules import StenoRule
-from ..system import StenoSystem
-from spectra_lexer.core import Component
-from spectra_lexer.types import delegate_to
+from ..system import LXSystem
+from spectra_lexer.core import COREApp, Component, Signal
+from spectra_lexer.system import ConsoleCommand, SYSFile
+
+# If no aspect ratio is given, this ensures that all boards end up in one row.
+_DEFAULT_RATIO = 100.0
+
+_DEFS_ASSET_PATH = ":/assets/board_defs.json"  # File with board shape definitions.
+_BOUNDS_DEF = "bounds"
+_BASE_TAG = "base"
+_SINGLE_TAG = "key"
+_UNMATCHED_TAG = "qkey"
+_RULE_TAG = "rule"
 
 
-class BoardRenderer(Component):
-    """ Creates graphics and description strings for the board diagram. """
+class LXBoard:
 
-    show_compound = resource("config:board:show_compound_keys", True,
-                             desc="Show special labels for compound keys (i.e. `f` instead of TP) and numbers")
-    show_links = resource("config:board:show_example_links", True,
-                          desc="Show hyperlinks to other examples of a selected rule. Requires an index.")
+    @ConsoleCommand("board_from_keys")
+    def from_keys(self, keys:str, ratio:float=_DEFAULT_RATIO) -> bytes:
+        """ Generate board diagram layouts arranged in columns according to <ratio> from a set of steno keys. """
+        raise NotImplementedError
 
-    _captioner: CaptionGenerator     # Generates the caption text above the board diagram.
-    _layout: ElementLayout           # Calculates drawing bounds for each element.
-    _matcher: ElementMatcher = None  # Generates the list of element IDs for each stroke of a rule.
-    _last_rule: StenoRule = None     # Last diagrammed rule, saved in case of resizing or example requests.
+    @ConsoleCommand("board_from_rule")
+    def from_rule(self, rule:StenoRule, ratio:float=_DEFAULT_RATIO, *, show_compound:bool=True) -> bytes:
+        """ Generate board diagram layouts arranged in columns according to <ratio> from a steno rule.
+            If <show_compound> is True, special keys may be shown corresponding to certain named rules. """
+        raise NotImplementedError
 
-    def __init__(self):
-        """ Set up an empty captioner and layout. """
-        super().__init__()
-        self._captioner = CaptionGenerator()
-        self._layout = ElementLayout()
+    class Output:
+        @Signal
+        def on_board_output(self, xml_data:bytes) -> None:
+            raise NotImplementedError
 
-    set_index = on_resource("index")(delegate_to("_captioner"))
 
-    @on_resource("system")
-    def set_system(self, system:StenoSystem) -> None:
-        """ The first <svg> element with a viewbox is the root element. Set the layout's viewbox to match it. """
-        root = system.board["name"]["svg"]
-        if root:
-            self._layout.set_view(tuple(map(int, root[0]["viewBox"].split())))
-        # Create the matcher with the system and send the raw SVG XML data to the GUI.
-        self._matcher = ElementMatcher(system)
-        self._captioner.set_rules_reversed(system.rev_rules)
+class BoardRenderer(Component, LXBoard,
+                    LXSystem.Layout, LXSystem.Rules, LXSystem.Board,
+                    COREApp.Start):
+    """ Creates graphics, captions, and example links for the board diagram. """
 
-    @on("board_set_size")
-    def set_size(self, width:int, height:int) -> None:
-        """ Set the layout's maximum dimensions. Recompute the current layout and send it. """
-        self._layout.set_size(width, height)
-        if self._last_rule is not None:
-            self.display_rule(self._last_rule)
+    _generator: BoardGenerator = None
+    _key_matcher: KeyMatcher = None
+    _rule_matcher: RuleMatcher = None
 
-    @on("board_display_rule")
-    def display_rule(self, rule:StenoRule) -> None:
-        """ Generate board diagram layouts from a steno rule and send them along with a caption and/or example link.
-            The task is identical whether the rule is from a new output or a user graph selection. """
-        self._last_rule = rule
-        caption = self._captioner.get_text(rule)
-        link_ref = self._captioner.get_link_ref(rule) if self.show_links else ""
-        self.engine_call("new_board_info", caption, link_ref)
-        # Create the element ID lists (one list for each stroke) with or without the special elements and draw them.
-        if self._matcher is not None:
-            ids = self._matcher.get_element_ids(rule, self.show_compound)
-            self.engine_call("new_board_layout", self._layout.make_draw_list(ids))
+    def on_app_start(self) -> None:
+        """ Parse the board XML into individual steno key/rule elements. """
+        defs = json.loads(self.engine_call(SYSFile.read, _DEFS_ASSET_PATH, ignore_missing=True))
+        xml_dict = XMLElementDict(defs)
+        xml_dict.add_recursive(self.board)
+        self._make_generator(xml_dict[_BASE_TAG], defs[_BOUNDS_DEF])
+        self._make_key_matcher(xml_dict[_SINGLE_TAG], xml_dict[_UNMATCHED_TAG])
+        self._make_rule_matcher(xml_dict[_RULE_TAG])
 
-    @on("board_find_examples")
-    def find_examples(self, rule_name:str) -> None:
-        """ If the link on the diagram is clicked, get a random translation using this rule and search near it. """
-        self.engine_call("search_examples", rule_name, self._last_rule, *self._captioner.get_random_example(rule_name))
+    def _make_generator(self, base:dict, bounds:list) -> None:
+        base_elements = list(base.values())
+        self._generator = BoardGenerator(base_elements, bounds)
+
+    def _make_key_matcher(self, keys:dict, unmatched:dict) -> None:
+        layout = self.layout
+        sep = layout.SEP
+        keys[sep] = unmatched[sep] = STROKE_SENTINEL
+        self._key_matcher = KeyMatcher(layout.from_rtfcre, keys, unmatched)
+
+    def _make_rule_matcher(self, elements:dict) -> None:
+        rules = self.rules
+        rule_dict = {rules[k]: elements[k] for k in elements if k in rules}
+        self._rule_matcher = RuleMatcher(self._key_matcher, rule_dict)
+
+    def from_keys(self, keys:str, ratio:float=_DEFAULT_RATIO) -> bytes:
+        if self._generator is None:
+            return b""
+        elems = self._key_matcher(keys)
+        return self._generate(elems, ratio)
+
+    def from_rule(self, rule:StenoRule, ratio:float=_DEFAULT_RATIO, *, show_compound:bool=True) -> bytes:
+        if self._generator is None:
+            return b""
+        elems = self._rule_matcher(rule) if show_compound else self._key_matcher(rule.keys)
+        return self._generate(elems, ratio)
+
+    def _generate(self, elems, ratio:float) -> bytes:
+        xml_data = self._generator(elems, ratio)
+        self.engine_call(self.Output, xml_data)
+        return xml_data

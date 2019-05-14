@@ -1,1 +1,1 @@
-from .base import BoardRenderer
+from .base import LXBoard, BoardRenderer

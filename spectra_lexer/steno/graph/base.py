@@ -1,72 +1,110 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
-from .generator import CascadedTextGenerator, CompressedTextGenerator
-from .html import HTMLFormatter
-from .locator import GridLocator
+from functools import lru_cache
+from typing import Dict, Iterable, List, Optional, Tuple
+
+from .generator import TextGenerator
+from .html import HTMLTextField
 from .node import GraphNode, NodeOrganizer
-from .text import SectionedTextField
 from ..rules import StenoRule
-from spectra_lexer.core import Component
+from ..system import LXSystem
+from spectra_lexer.core import Component, Signal
+from spectra_lexer.system import ConsoleCommand
 
 
-class GraphRenderer(Component):
+class StenoGraph:
+    """ Simple indexer with bounds checking for objects in a list of lists with non-uniform lengths.
+        The type of objects inside the lists does not matter; only the identity/reference matters.
+        Works well for text graphs (which have a relatively small number of rows and columns compared to pixels). """
+
+    _rules_by_node: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
+    _grid: List[list]             # List of lists of object references in [row][col] format.
+    _formatter: HTMLTextField     # Formats the output text based on which node is selected (if any).
+
+    def __init__(self, rules:Dict[GraphNode, StenoRule], lines:List[str], nodes:List[list]):
+        self._rules_by_node = rules
+        self._grid = nodes
+        self._formatter = HTMLTextField(lines, nodes)
+
+    def from_character(self, row:int, col:int) -> Optional[GraphNode]:
+        """ Return the node that was responsible for the graphical element at position (row, col).
+            Return None if no element is there, no node owns the element, or an index is out of range. """
+        if 0 <= row < len(self._grid):
+            row = self._grid[row]
+            if 0 <= col < len(row):
+                return row[col]
+
+    def from_rule(self, rule:StenoRule) -> Optional[GraphNode]:
+        """ Given a rule, find the first node that used it (if any) in the graph. """
+        for n, r in self._rules_by_node.items():
+            if r is rule:
+                return n
+
+    def get_rule(self, node:GraphNode) -> Optional[StenoRule]:
+        """ Given a node from the graph, look up its rule. Return None if not found. """
+        return self._rules_by_node.get(node)
+
+    def to_html(self, nodes:Iterable[GraphNode]=(), *, intense:bool=False, **kwargs) -> str:
+        """ Render the graph with zero or more nodes highlighted.
+            Save the text before starting and restore it to its original state after. """
+        formatter = self._formatter
+        formatter.save()
+        formatter.start()
+        for n in nodes:
+            formatter.highlight(n, intense)
+        text = formatter.finish()
+        formatter.restore()
+        return text
+
+
+class LXGraph:
+
+    @ConsoleCommand("graph_generate")
+    def generate(self, rule:StenoRule, *, recursive:bool=True, compressed:bool=True, intense:bool=False,
+                 locations:Iterable[Tuple[int, int]]=(), rules:Iterable[StenoRule]=()) -> Tuple[List[StenoRule], str]:
+        """ Generate text graph data (of either type) from an output rule based on parameter options. """
+        raise NotImplementedError
+
+    class Output:
+        @Signal
+        def on_graph_output(self, graph:StenoGraph) -> None:
+            raise NotImplementedError
+
+
+class GraphRenderer(Component, LXGraph,
+                    LXSystem.Layout):
     """ Component class for creating and formatting a monospaced text graph from a rule. """
 
-    recursive = resource("config:graph:recursive_graph", True, desc="Include rules that make up other rules.")
-    compressed = resource("config:graph:compressed_display", True, desc="Compress the graph vertically to save space.")
-    layout = resource("system:layout")
+    def generate(self, rule:StenoRule, recursive:bool=True, compressed:bool=True, **kwargs) -> tuple:
+        """ Generate and send out a graph tuple. """
+        graph = self._make_graph(rule, recursive, compressed)
+        self.engine_call(self.Output, graph)
+        return self._format_graph(graph, **kwargs)
 
-    _organizer: NodeOrganizer = None        # Makes node tree layouts out of rules.
-    _formatter: HTMLFormatter = None        # Formats the output text based on which node is selected (if any).
-    _locator: GridLocator = None            # Finds which node the mouse is over during a mouseover event.
-    _last_node: GraphNode = None            # Most recent node from a select event (for identity matching).
-
-    @on("new_output")
-    def generate(self, rule:StenoRule) -> None:
-        """ Generate text graph data (of either type) from an output rule based on config settings. """
-        if self._organizer is None:
-            self._organizer = NodeOrganizer(self.layout.SEP, self.layout.SPLIT)
-        # Send the rule string to the GUI as a title message.
-        self.engine_call("new_title_text", str(rule))
-        # Make a node tree layout out of the given rule.
-        root = self._organizer.make_tree(rule, self.recursive)
+    @lru_cache(maxsize=256)
+    def _make_graph(self, rule:StenoRule, recursive:bool, compressed:bool) -> StenoGraph:
+        """ Generate a graph object. This isn't cheap, so the most recent ones are cached. """
+        # Make a node tree layout and mapping out of the given rule.
+        organizer = NodeOrganizer(self.layout.SEP, self.layout.SPLIT, recursive)
+        root = organizer.make_tree(rule)
+        node_map = organizer.last_tree_mapping()
         # Generate and render all text objects into standard strings and node grids indexed by position.
-        generator_type = CompressedTextGenerator if self.compressed else CascadedTextGenerator
-        lines, nodes = generator_type(root).render()
-        # Create  a text field, formatter, and locator using these structures and keep them for later reference.
-        text_field = SectionedTextField(lines, nodes)
-        self._formatter = HTMLFormatter(text_field)
-        self._locator = GridLocator(nodes)
-        self._display_selection(root, new=True)
+        lines, nodes = TextGenerator(root, compressed).render()
+        # Add everything we generated to a graph object and return it.
+        graph = StenoGraph(node_map, lines, nodes)
+        self.engine_call(self.Output, graph)
+        return graph
 
-    @on("text_mouse_action")
-    def select_character(self, row:int, col:int, clicked:bool=False) -> None:
-        """ Find the node owning the character at (row, col) of the graph. If that node is new, send out its rule. """
-        if self._locator is None:
-            return
-        node = self._locator.get(row, col)
-        if node is None or node is self._last_node:
-            return
-        # Store the node reference so we can avoid repeated lookups on small mouse deltas.
-        self._last_node = node
-        self._display_selection(node)
+    def _format_graph(self, graph:StenoGraph, *, locations:Iterable[Tuple[int, int]]=(),
+                      rules:Iterable[StenoRule]=(), **kwargs) -> Tuple[List[StenoRule], str]:
+        """ Get all nodes corresponding to the given locations and rules (if any) and format the graph into text. """
+        nodes = _filtermap(graph.from_character, *zip(*locations))
+        nodes += _filtermap(graph.from_rule, rules)
+        # Get the rules associated with all selected nodes.
+        rules_out = _filtermap(graph.get_rule, nodes)
+        # Return a tuple with all found rules and the final formatted text with the node references highlighted.
+        return rules_out, graph.to_html(nodes, **kwargs)
 
-    @on("graph_select_rule")
-    def select_rule(self, rule:StenoRule) -> None:
-        """ Find the first node created from <rule>, if any, and select it. """
-        if self._locator is None:
-            return
-        node = self._organizer.node_from(rule)
-        if node is not None:
-            self._display_selection(node)
 
-    def _display_selection(self, node:GraphNode, new:bool=False) -> None:
-        """ Render and send the graph with a node highlighted. If None, render with no highlighting or boldface. """
-        self._formatter.start()
-        if not new:
-            self._formatter.highlight(node)
-        text = self._formatter.finish()
-        # A new graph should scroll to the top by default. Otherwise don't allow the graph to scroll.
-        self.engine_call("new_graph_text", text, scroll_to="top" if new else None)
-        # Get the rule originally associated with this node and send it to the board.
-        self.engine_call("board_display_rule", self._organizer.rule_from(node))
+def _filtermap(fn, *items) -> list:
+    return list(filter(None, map(fn, *items))) if items else []

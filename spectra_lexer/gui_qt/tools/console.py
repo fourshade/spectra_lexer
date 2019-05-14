@@ -4,8 +4,9 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
-from .base import GUIQtTool, ToolDialog
-from spectra_lexer.gui import ConsoleTool
+from .base import QtCommandTool, ToolDialog
+from .menu import MenuCommand
+from spectra_lexer.system import SYSConsole
 
 
 class HistoryTracker(list):
@@ -110,22 +111,37 @@ class ConsoleDialog(ToolDialog):
     """ Qt console dialog window object. Routes signals between the console, a text widget, and the keyboard. """
 
     TITLE = "Python Console"
-    SIZE = (600, 400)
+    SIZE = (680, 480)
 
     add_text: Callable[[str], None] = None
 
-    def make_layout(self, callback:Callable) -> None:
+    def make_layout(self, input_callback:Callable) -> None:
         """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        w_text = ConsoleTextWidget(self, callback)
+        w_text = ConsoleTextWidget(self, input_callback)
         layout.addWidget(w_text)
         self.add_text = w_text.add_text
 
 
-class GUIQtConsoleTool(GUIQtTool, ConsoleTool):
+class GUIQTConsole:
+
+    @MenuCommand("Debug", "Open Console...")
+    def open(self) -> None:
+        """ Open a new dialog and start the interpreter. """
+        raise NotImplementedError
+
+
+class QtConsoleTool(QtCommandTool, GUIQTConsole,
+                    SYSConsole.Output):
     """ Qt component for system interpreter I/O. """
 
     DIALOG_CLASS = ConsoleDialog
 
-    def send_to_dialog(self, dialog:ConsoleDialog, text:str) -> None:
-        dialog.add_text(text)
+    def open(self) -> None:
+        self.new_dialog(SYSConsole.input)
+        self.engine_call(SYSConsole.open)
+
+    def on_console_output(self, text:str) -> None:
+        """ If a dialog exists, send all console output text there. """
+        if self._dialog is not None:
+            self._dialog.add_text(text)

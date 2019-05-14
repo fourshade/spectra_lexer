@@ -1,46 +1,48 @@
-from functools import partial
-from time import time
+import sys
+from typing import Any, Hashable, List, Tuple
 
-from spectra_lexer.core import Application, Component
-
-
-class ConsoleTerminal(Component):
-    """ Component for console operations from a terminal. """
-
-    command = resource("cmdline:cmd", "", desc="Batch command to run on start.")
-
-    @on("terminal_run")
-    def run(self) -> int:
-        """ If a command was given, run it in batch mode (timing its execution) and exit.
-            Otherwise, start the console for interactive operation in the terminal. """
-        if self.command:
-            start_time = time()
-            self._start(interactive=False)
-            self.output("Operation started.\n")
-            self._send(self.command)
-            self.output(f"Operation done in {time() - start_time:.1f} seconds.\n")
-        else:
-            self._start(interactive=True)
-            while True:
-                self._send(input())
-        return 0
-
-    def _start(self, **kwargs) -> None:
-        self.engine_call("console_start", **kwargs)
-
-    def _send(self, text:str) -> None:
-        self.engine_call("console_input", text)
-
-    output = on("new_console_output")(partial(print, end=''))
+from spectra_lexer import system
+from spectra_lexer.core import Component, Resource
+from spectra_lexer.core.app import Application
+from spectra_lexer.core.group import ComponentGroup
 
 
-class ConsoleApplication(Application):
-    """ Simple shell class for running a console from the command line. """
+class SYSApp:
 
-    DESCRIPTION = "run commands directly from console."
+    class CmdlineArgs:
+        """ Contains command line arguments from sys.argv (excluding the script name). """
+        args: List[str] = Resource()
+
+    class Components:
+        """ Contains every component definition in the application. """
+        components: List[Component] = Resource()
+
+    class AssetPath:
+        """ Root directory for application assets. """
+        asset_path: str = Resource()
+
+    class UserPath:
+        """ Root directory for user data files. """
+        user_path: str = Resource()
+
+
+class SystemApplication(Application, SYSApp):
+    """ Abstract base application class with essential system functionality. """
 
     def _class_paths(self) -> list:
-        return [ConsoleTerminal]
+        return [system]
 
-    def run(self) -> int:
-        return self.call("terminal_run")
+    def _global_commands(self, components:ComponentGroup) -> List[Tuple[Hashable, Any]]:
+        """ System components require the command line arguments and file paths.
+            The full component list is also useful for debugging.  """
+        path = self._root_path()
+        return [*super()._global_commands(components),
+                (self.CmdlineArgs, sys.argv[1:]),
+                (self.AssetPath, path),
+                (self.UserPath, path),
+                (self.Components, list(components))]
+
+    @classmethod
+    def _root_path(cls):
+        """ The name of the class's root package is used as a default path for built-in assets and user files. """
+        return cls.__module__.split(".", 1)[0]

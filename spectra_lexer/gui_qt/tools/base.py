@@ -1,12 +1,13 @@
 """ Base module for a Qt dialog framework with callbacks. """
 
-from typing import Callable
+from functools import partial
+from typing import Callable, Hashable
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QLayout, QWidget
 
+from ..window import GUI
 from spectra_lexer.core import Component
-from spectra_lexer.gui.tools.base import GUITool
 
 
 class ToolDialog(QDialog):
@@ -62,21 +63,30 @@ class FormDialog(ToolDialog):
             return super().accept()
 
 
-class GUIQtTool(GUITool):
+class QtTool(Component,
+             GUI.Window):
     """ Qt-based dialog tool. Tracks a dialog object so that no more than one ever exists. """
 
-    DIALOG_CLASS: type = QDialog     # Dialog class to instantiate (only one at a time).
+    DIALOG_CLASS: type = QDialog  # Dialog class to instantiate (only one at a time)
 
-    window = resource("gui:window")  # Main window object. Must be the parent of any new dialogs.
+    _dialog: QDialog = None  # Previous dialog object. Must be set to None on deletion.
 
-    def create_dialog(self, *args, **kwargs) -> QDialog:
-        """ Create and return a new dialog with the given args. """
-        return self.DIALOG_CLASS(self.window, *args, **kwargs)
+    def new_dialog(self, *args, persistent=False) -> None:
+        """ Respond to a command to open a new dialog. If a dialog exists but is not persistent, destroy it. """
+        dlg = self._dialog
+        if dlg is not None and not persistent:
+            dlg.close()
+            dlg = None
+        # If no dialog exists (including because we destroyed it), make a new one.
+        if dlg is None:
+            dlg = self._dialog = self.DIALOG_CLASS(self.window, *args)
+        # Show the new/old dialog in any case.
+        dlg.show()
 
-    def destroy_dialog(self, dialog:QDialog) -> None:
-        """ Destroy the given dialog object. """
-        dialog.close()
 
-    def show_dialog(self, dialog:QDialog) -> None:
-        """ Display the given dialog on the screen. """
-        dialog.show()
+class QtCommandTool(QtTool):
+
+    def new_dialog(self, submit_command:Hashable=None, *args) -> None:
+        """ Some dialogs need to submit information back to the original component.
+            Use a partial function with the given callback to do this. """
+        super().new_dialog(partial(self.engine_call, submit_command), *args)

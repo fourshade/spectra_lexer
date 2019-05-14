@@ -1,7 +1,7 @@
 """ Module for generic key-search dicts. """
 
 from bisect import bisect_left
-from itertools import islice
+from itertools import islice, repeat
 from operator import methodcaller
 import re
 from typing import Callable, Dict, Iterable, List, Tuple, TypeVar, Union
@@ -214,3 +214,19 @@ class StringSearchDict(SimilarKeyDict):
             match_op = re.compile(pattern).match
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))
+
+
+class StripCaseSearchDict(StringSearchDict):
+    """ Class that performs string-based searches after stripping symbols and neutralizing case. """
+
+    def __init__(self, *args, _strip:str=None, **kwargs):
+        """ Make similarity functions that remove case and strip a user-defined set of symbols for the constructor. """
+        if _strip is not None:
+            def simfn(s:str) -> str:
+                return s.strip(_strip).lower()
+            # Also define a mapped version for use across a large number of keys.
+            # Mapping the built-in string methods separately provides a large speed boost.
+            def mapfn(s_iter:Iterable[str]) -> map:
+                return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
+            kwargs.update(simfn=simfn, mapfn=mapfn)
+        super().__init__(*args, **kwargs)

@@ -7,8 +7,8 @@ class _Primitive:
     """ Abstract object to write text to a canvas. Defines a rectangle size, a source string, and a node tag.
         No attribute is consistently used by every subclass, so __init__ is not defined here. """
 
-    height: int = 1     # Height in rows. Some subclasses may declare this as a property.
-    width: int = 1      # Width in columns. Some subclasses may declare this as a property.
+    height: int = 1     # Total height in rows.
+    width: int = 1      # Total width in columns.
     src: str = ""       # String to draw (may not be used).
     tag: object = None  # Identifier for the node (may not be used).
 

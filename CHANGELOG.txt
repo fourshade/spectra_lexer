@@ -1,3 +1,10 @@
+6.0.0
+-----
+* Total refactoring of the framework
+* SVG board diagrams are now compatible with major web browsers
+* Added rule selection in text graph by mouse click
+* Object tree and console can now auto-import missing modules
+
 5.0.0
 -----
 * Near complete refactoring of the framework

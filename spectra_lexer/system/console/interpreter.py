@@ -3,68 +3,41 @@ from io import StringIO
 import sys
 
 from .tools import AttrRedirector
-from spectra_lexer.types import polymorph_index
 
 
-ConsoleTypes = use_if_interactive = polymorph_index()
+class ConsoleIO(StringIO):
+    """ String-based IO interface for an interpreter console with an opening message and prompts. """
 
+    ps1: str = ">>> "  # Default input prompt.
+    ps2: str = "... "  # Input prompt when more lines are needed.
 
-@use_if_interactive(False)
-class Console(InteractiveInterpreter):
-    """ Terminal-based interpreter console with redirectable output streams and display hook. """
+    START_MSG: str = f"Spectra Console - Python {sys.version}\n" \
+                     f"Type 'dir()' to see a list of engine commands and other globals.\n{ps1}"
 
-    START_MSG: str = "Spectra Console - BATCH MODE\n"
+    _console = InteractiveInterpreter  # Executes Python code in interactive line-by-line mode.
+    _in_buffer: str = ""               # Holds characters from multi-line inputs until finished.
 
-    def __init__(self, d_locals:dict, **overrides):
-        super().__init__(d_locals)
-        # Execute a dummy statement to add the __builtins__ module to locals.
-        exec("pass", d_locals)
-        # Each keyword argument is an object that should override __builtins__ at the top level.
-        d_locals["__builtins__"].update(overrides)
+    def __init__(self, console:InteractiveInterpreter, *, interactive:bool=True):
+        """ The opening message and prompts are only shown in interactive mode. """
+        super().__init__()
+        self._console = console
+        if interactive:
+            self.write(self.START_MSG)
+        else:
+            self.ps1 = self.ps2 = ""
 
-    def run(self, text_in:str) -> str:
-        """ Execute a string of input text while redirecting the standard streams to a buffer we can return. """
-        if text_in is None:
-            # Return the startup sequence if the input text is None.
-            return self.START_MSG
-        output = StringIO()
-        with AttrRedirector(sys, displayhook=self.display, stdout=output, stderr=output):
-            self._run(text_in)
-        return output.getvalue()
+    def input(self, text_in:str) -> None:
+        """ When a new line of text is sent, add it to the input buffer and run it if it makes a complete statement.
+            Redirect the standard output streams to our output buffer during execution. """
+        source = self._in_buffer + text_in
+        with AttrRedirector(sys, stdout=self, stderr=self):
+            more = self._console.runsource(source)
+        self._in_buffer = (source + "\n") * more
+        self.write(self.ps2 if more else self.ps1)
 
-    def _run(self, text_in:str) -> None:
-        """ In batch mode, send any string straight to the interpreter as an executable command. """
-        self.runsource(text_in)
-
-    def display(self, value:object) -> None:
-        """ Like the normal console, show the repr of any return value on a new line, or nothing at all for None. """
-        if value is not None:
-            self.write(f"{value!r}\n")
-        # Unlike the normal console, save the last value under _ in locals rather than globals.
-        # It is too easy to step on other usages of _ (such as gettext) when saving to globals.
-        self.locals["_"] = value
-
-
-@use_if_interactive(True)
-class InteractiveConsole(Console):
-    """ Interactive terminal console with an opening message and prompts. """
-
-    PS1 = ">>> "
-    PS2 = "... "
-    START_MSG = f"Spectra Console - Python {sys.version}\n" \
-                f"Type 'dir()' to see a list of engine commands and other globals.\n{PS1}"
-
-    buffer = ""
-
-    def _run(self, text_in:str) -> None:
-        """ When a new line of input is entered, add it to the buffer and run it if it forms a complete statement. """
-        self.buffer += text_in
-        try:
-            if not self.runsource(self.buffer):
-                self.buffer = ""
-            else:
-                self.buffer += "\n"
-        except KeyboardInterrupt:
-            self.write(f"KeyboardInterrupt\n")
-            self.buffer = ""
-        self.write(self.PS2 if self.buffer else self.PS1)
+    def output(self) -> str:
+        """ Return all output text in the buffer and truncate it back to empty. """
+        value = self.getvalue()
+        self.seek(0)
+        self.truncate()
+        return value

@@ -1,1 +1,1 @@
-from .base import SearchEngine
+from .base import LXSearch, SearchEngine

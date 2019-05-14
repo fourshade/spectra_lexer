@@ -1,9 +1,26 @@
-from typing import Dict, List, NamedTuple, Sequence, Tuple
+from typing import Callable, Dict, List, Sequence, NamedTuple
 
-from spectra_lexer.types.prefix import PrefixTree
-from ..rules import RuleFlags, StenoRule
-from ..system import StenoSystem
+from spectra_lexer.types.tree import PrefixTree
 from spectra_lexer.utils import str_prefix, str_without
+from ..rules import RulesDictionary, RuleFlags, StenoRule
+
+
+class LexerMatch(NamedTuple):
+    """ Container for a steno rule match with s-keys. """
+    rule: StenoRule      # Original immutable rule.
+    skeys: str           # Lexer-formatted steno keys that make up the rule.
+    letters: str = ""    # Raw English text of the word.
+    letter_len: int = 0  # Length of <letters>.
+
+    @classmethod
+    def special(cls, skeys:str, desc:str):
+        """ Create a special (no-letter) rule and match info object. """
+        return cls(StenoRule(skeys, "", RuleFlags(), desc, ()), skeys)
+
+    @classmethod
+    def convert_dict(cls, rule_dict:RulesDictionary, from_rtfcre:Callable[[str], str]) -> dict:
+        """ All rules must have their keys parsed into the case-unique s-keys format for matching. """
+        return {n: cls(r, from_rtfcre(r.keys), r.letters, len(r.letters)) for n, r in rule_dict.items()}
 
 
 class SpecialRuleTypes:
@@ -16,31 +33,23 @@ class SpecialRuleTypes:
     OBSCENE = "OB"
 
 
-class LexerRule(NamedTuple):
-    """ Container for a steno rule with s-keys for finding matches. """
-    rule: StenoRule      # Original immutable rule.
-    skeys: str           # Lexer-formatted steno keys that make up the rule.
-    letters: str = ""    # Raw English text of the word.
-    letter_len: int = 0  # Length of <letters>.
-
-
-class PrefixFinder:
+class _PrefixFinder:
     """ Search engine that finds rules matching a prefix of ORDERED keys only. """
 
     _tree: PrefixTree    # Primary search tree.
     _key_sep: str        # Steno key used as stroke separator.
     _unordered_key: str  # Key to put into unordered set.
 
-    def __init__(self, items:Sequence[Tuple[str,str,object]], sep:str, unordered_key:str):
+    def __init__(self, items:Sequence[LexerMatch], sep:str, unordered_key:str):
         """ Make the tree and the filter that returns which keys will be and won't be tested in prefixes.
             Separate the given sets of keys into ordered keys (which contain any prefix) and unordered keys.
             Index the rules, letters, and unordered keys under the ordered keys and compile the tree. """
         tree = self._tree = PrefixTree()
         self._key_sep = sep
         self._unordered_key = unordered_key
-        for (skeys, letters, r) in items:
-            ordered, unordered = self._unordered_filter(skeys)
-            tree[ordered] = (r, letters, unordered)
+        for r in items:
+            ordered, unordered = self._unordered_filter(r.skeys)
+            tree[ordered] = (r, r.letters, unordered)
         tree.compile()
 
     def __call__(self, skeys:str, letters:str) -> list:
@@ -61,27 +70,24 @@ class PrefixFinder:
 class LexerRuleMatcher:
     """ A master dictionary of steno rules. Each component dict maps strings to steno rules in some way. """
 
-    _key_sep: str                        # Steno key used as stroke separator in both stroke formats.
-    _key_star: str                       # Steno key used for special translation-wide matches.
-    _rule_sep: LexerRule                 # Separator rule constant.
-    _rule_unknown: LexerRule             # Unknown special rule constant.
+    _key_sep: str              # Steno key used as stroke separator in both stroke formats.
+    _key_star: str             # Steno key used for special translation-wide matches.
+    _rule_sep: LexerMatch      # Separator rule constant.
+    _rule_unknown: LexerMatch  # Unknown special rule constant.
 
-    _special_dict: Dict[str, LexerRule] = None  # Rules that match by reference name.
-    _stroke_dict: Dict[str, LexerRule] = None   # Rules that match by full stroke only.
-    _word_dict: Dict[str, LexerRule] = None     # Rules that match by exact word only (whitespace-separated).
-    _prefix_finder: PrefixFinder = None         # Rules that match by starting with certain keys in order.
+    _special_dict: Dict[str, LexerMatch]  # Rules that match by reference name.
+    _stroke_dict: Dict[str, LexerMatch]   # Rules that match by full stroke only.
+    _word_dict: Dict[str, LexerMatch]     # Rules that match by exact word only (whitespace-separated).
+    _prefix_finder: _PrefixFinder         # Rules that match by starting with certain keys in order.
 
-    def load(self, system:StenoSystem) -> None:
+    def __init__(self, sep:str, star:str, rules:Dict[str, LexerMatch]):
         """ Construct constants and a specially-structured series of dictionaries from a steno system. """
-        sep = self._key_sep = system.layout.SEP
-        star = self._key_star = system.layout.SPECIAL
-        from_rtfcre = system.layout.from_rtfcre
+        self._key_sep = sep
+        self._key_star = star
         # The separator rule constant is specifically matched on its own.
-        r_sep = StenoRule(sep, "", frozenset(), "Stroke separator", ())
-        self._rule_sep = LexerRule(r_sep, sep)
+        self._rule_sep = LexerMatch.special(sep, "Stroke separator")
         # The unknown special rule constant is required in case no special rules match (or a matched rule is missing).
-        r_unknown = StenoRule(star, "", frozenset(), "purpose unknown\nPossibly resolves a conflict", ())
-        self._rule_unknown = LexerRule(r_unknown, star)
+        self._rule_unknown = LexerMatch.special(star, "purpose unknown\nPossibly resolves a conflict")
         special_dict = self._special_dict = {}
         stroke_dict = self._stroke_dict = {}
         word_dict = self._word_dict = {}
@@ -90,28 +96,25 @@ class LexerRuleMatcher:
         match_name = RuleFlags.SPECIAL
         match_stroke = RuleFlags.STROKE
         match_word = RuleFlags.WORD
-        for (n, r) in system.rules.items():
+        for n, lr in rules.items():
             # All rules must have their keys parsed into the case-unique s-keys format.
-            skeys = from_rtfcre(r.keys)
-            letters = r.letters
-            flags = r.flags
-            lr = LexerRule(r, skeys, letters, len(letters))
+            flags = lr.rule.flags
             # Internal rules are only used in special cases, by name.
             if match_name in flags:
                 special_dict[n] = lr
             # Filter stroke and word rules into their own dicts.
             elif match_stroke in flags:
-                stroke_dict[skeys] = lr
+                stroke_dict[lr.skeys] = lr
             elif match_word in flags:
-                word_dict[letters] = lr
+                word_dict[lr.letters] = lr
             # Everything else gets added to the tree-based prefix dictionary.
             else:
-                prefix_entries.append((skeys, letters, lr))
+                prefix_entries.append(lr)
         # Steno order may be ignored for certain keys. This has a large performance and accuracy cost.
         # Only the asterisk is used in such a way that this treatment is worth it.
-        self._prefix_finder = PrefixFinder(prefix_entries, sep, star)
+        self._prefix_finder = _PrefixFinder(prefix_entries, sep, star)
 
-    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerRule]:
+    def __call__(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerMatch]:
         """ Return a list of rules that match the given keys and letters in any of the dictionaries.
             For single-key end-cases, there are no better matches, so return immediately if one is found. """
         # If our current stroke is empty, a stroke separator is next. Return its rule.
