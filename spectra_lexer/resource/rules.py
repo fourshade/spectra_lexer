@@ -1,7 +1,7 @@
 import re
-from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Sequence, Tuple
+from typing import Dict, FrozenSet, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.types.codec import CSONDict
+from spectra_lexer.types.codec import AbstractCodec, CSONDict
 
 
 class RuleFlags(FrozenSet[str]):
@@ -60,10 +60,12 @@ class _RawRule(NamedTuple):
     description: str = ""          # Optional description for when the rule is displayed in the GUI.
 
 
-class RulesDictionary(CSONDict):
+class RulesDictionary(dict, AbstractCodec):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
 
+    # Delimiter between letters and their rule alias in [] brackets.
+    _ALIAS_DELIM = "|"
     # Available bracket pairs for parsing rules.
     _LEFT_BRACKETS = r'\(\['
     _RIGHT_BRACKETS = r'\)\]'
@@ -72,21 +74,31 @@ class RulesDictionary(CSONDict):
                              fr'[^{_LEFT_BRACKETS}{_RIGHT_BRACKETS}]+?'  # one or more non-brackets, 
                              fr'[{_RIGHT_BRACKETS}]')                    # and a right bracket.
 
-    _src_dict: Dict[str, list] = None       # Keep the source dict in the instance to avoid passing it everywhere.
-    _rev_dict: Dict[StenoRule, str] = None  # Same case for the reverse dict when converting back to JSON form.
+    _src_dict: Dict[str, list] = {}  # Keep the source dict in the instance to avoid passing it everywhere.
+    inverse: Dict[StenoRule, str]    # An inverse dict is useful when converting back to JSON form.
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._update_inverse()
+
+    def _update_inverse(self):
+        """ The inverse dict needs to be re-created to sync with any changes. """
+        # TODO: Make the two dicts match after *any* update.
+        self.inverse = {v: k for k, v in self.items()}
 
     @classmethod
     def decode(cls, *all_data:bytes, **kwargs):
-        """ Decode a collection of JSON dicts and parse every entry using mutual recursion.
+        """ Decode a collection of commented JSON dicts and parse every entry using mutual recursion.
             This will parse entries in a semi-arbitrary order, so make sure not to redo any. """
         self = cls()
-        self._src_dict = super().decode(*all_data, **kwargs)
+        self._src_dict = CSONDict.decode(*all_data, **kwargs)
         for k in self._src_dict:
             try:
                 if k not in self:
                     self._parse(k)
             except KeyError as e:
                 raise KeyError(f"Illegal reference descended from rule {k}") from e
+        self._update_inverse()
         return self
 
     def _parse(self, k:str) -> None:
@@ -99,7 +111,7 @@ class RulesDictionary(CSONDict):
         rulemap = tuple(built_map)
         self[k] = StenoRule(raw.keys, letters, flags, raw.description, rulemap)
 
-    def _substitute(self, pattern:str, ref_rx=_SUBRULE_RX) -> Tuple[str, List[RuleMapItem]]:
+    def _substitute(self, pattern:str, ref_rx=_SUBRULE_RX, delim=_ALIAS_DELIM) -> Tuple[str, List[RuleMapItem]]:
         """
         From a rule's raw pattern string, find all the child rule references in brackets and make a map
         so the format code can break it down again if needed. For those in () brackets, we must substitute
@@ -114,11 +126,11 @@ class RulesDictionary(CSONDict):
         while m:
             # For every child rule, strip the parentheses to get the dict key (and the letters for [] rules).
             rule_str = m.group()
+            rule_key = rule_str[1:-1]
             if rule_str[0] == '(':
                 letters = None
-                rule_key = rule_str[1:-1]
             else:
-                (letters, rule_key) = rule_str[1:-1].split("|", 1)
+                (letters, rule_key) = rule_key.split(delim, 1)
             # Look up the child rule and parse it if it hasn't been yet. Even if we aren't using its letters,
             # we still need to parse it at this stage so that the correct reference goes in the rulemap.
             if rule_key not in self:
@@ -132,19 +144,10 @@ class RulesDictionary(CSONDict):
             m = ref_rx.search(pattern)
         return pattern, built_map
 
-    def inverted(self) -> Dict[StenoRule, str]:
-        """ This dict must be reversed one-to-one to look up names given rules. Some components need this. """
-        d = self._rev_dict
-        if d is None:
-            d = self._rev_dict = {v: k for k, v in self.items()}
-        return d
-
-    def encode_other(self, rules:Iterable[StenoRule], **kwargs) -> bytes:
-        """ From a bare iterable of rules (generally from the lexer), encode a new rules dict using
-            auto-generated reference names and substituting *our* rules in each rulemap for their letters.
-            The reverse dict is required for this, so generate it if necessary. """
-        self.inverted()
-        return self.__class__({str(r): self._inv_parse(r) for r in rules}).encode(**kwargs)
+    def encode(self, **kwargs) -> bytes:
+        """ Generate a raw rules dict by substituting references in each rulemap for their letters, then encode it. """
+        raw = CSONDict({k: self._inv_parse(r) for k, r in self.items()})
+        return raw.encode(**kwargs)
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:
         """ Convert a StenoRule object into a raw series of fields. """
@@ -158,7 +161,7 @@ class RulesDictionary(CSONDict):
         # Go from right to left to preserve indexing.
         for item in reversed(rulemap):
             # Some rules aren't named or are special. Don't show these in the pattern.
-            name = self._rev_dict.get(item.rule)
+            name = self.inverse.get(item.rule)
             if not name:
                 continue
             # Some rules take up no letters. Don't add these even if references exist.

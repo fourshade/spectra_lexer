@@ -8,7 +8,7 @@ from PyQt5.QtGui import QColor, QFont, QImage, QPainter, QIcon, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
-from ..base import ToolDialog
+from spectra_lexer.gui_qt.tools.dialog import ToolDialog
 from spectra_lexer.utils import memoize
 
 # Default maximum number of child objects to show for each object.

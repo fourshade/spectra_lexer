@@ -1,11 +1,12 @@
 from code import InteractiveInterpreter
-from io import StringIO
 import sys
+from time import time
+from typing import Callable, Iterator
 
 from .tools import AttrRedirector
 
 
-class ConsoleIO(StringIO):
+class ConsoleIO:
     """ String-based IO interface for an interpreter console with an opening message and prompts. """
 
     ps1: str = ">>> "  # Default input prompt.
@@ -16,15 +17,18 @@ class ConsoleIO(StringIO):
 
     _console = InteractiveInterpreter  # Executes Python code in interactive line-by-line mode.
     _in_buffer: str = ""               # Holds characters from multi-line inputs until finished.
+    _out_buffer: list                  # Output text buffer, used like StringIO
 
-    def __init__(self, console:InteractiveInterpreter, *, interactive:bool=True):
+    def __init__(self, locals_ns:dict, *, interactive:bool=True):
         """ The opening message and prompts are only shown in interactive mode. """
-        super().__init__()
-        self._console = console
+        self._console = InteractiveInterpreter(locals_ns)
         if interactive:
-            self.write(self.START_MSG)
+            buf = [self.START_MSG]
         else:
+            buf = []
             self.ps1 = self.ps2 = ""
+        self._out_buffer = buf
+        self.write = buf.append
 
     def input(self, text_in:str) -> None:
         """ When a new line of text is sent, add it to the input buffer and run it if it makes a complete statement.
@@ -36,8 +40,26 @@ class ConsoleIO(StringIO):
         self.write(self.ps2 if more else self.ps1)
 
     def output(self) -> str:
-        """ Return all output text in the buffer and truncate it back to empty. """
-        value = self.getvalue()
-        self.seek(0)
-        self.truncate()
+        """ Join and return all output text in the buffer, then reset it back to empty. """
+        buf = self._out_buffer
+        value = "".join(buf)
+        buf.clear()
         return value
+
+    def run_batch(self, *lines:str) -> Iterator[str]:
+        """ Run lines of Python code in batch mode. Track and print the total execution time. """
+        start_time = time()
+        yield "Operation started...\n"
+        for cmd in lines:
+            self.input(cmd)
+            yield self.output()
+        yield f"Operation done in {time() - start_time:.1f} seconds.\n"
+
+    def run_repl(self, input_cb:Callable[[], str]) -> Iterator[str]:
+        """ Run a REPL in the console, taking input lines from the callback. """
+        while True:
+            try:
+                yield self.output()
+                self.input(input_cb())
+            except KeyboardInterrupt:
+                self.write("KeyboardInterrupt\n")

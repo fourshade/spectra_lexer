@@ -1,8 +1,8 @@
-from typing import Callable, Dict, List, Sequence, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Sequence
 
+from spectra_lexer.resource import RuleFlags, RulesDictionary, StenoRule
 from spectra_lexer.types.tree import PrefixTree
 from spectra_lexer.utils import str_prefix, str_without
-from ..rules import RulesDictionary, RuleFlags, StenoRule
 
 
 class LexerMatch(NamedTuple):

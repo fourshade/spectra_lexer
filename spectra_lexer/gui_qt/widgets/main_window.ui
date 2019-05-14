@@ -360,22 +360,22 @@
   <customwidget>
    <class>SearchListWidget</class>
    <extends>QListView</extends>
-   <header>spectra_lexer.gui_qt.window.search_list_widget</header>
+   <header>spectra_lexer.gui_qt.widgets.search_list_widget</header>
   </customwidget>
   <customwidget>
    <class>TextTitleWidget</class>
    <extends>QLineEdit</extends>
-   <header>spectra_lexer.gui_qt.window.text_title_widget</header>
+   <header>spectra_lexer.gui_qt.widgets.text_title_widget</header>
   </customwidget>
   <customwidget>
    <class>TextGraphWidget</class>
    <extends>QTextEdit</extends>
-   <header>spectra_lexer.gui_qt.window.text_graph_widget</header>
+   <header>spectra_lexer.gui_qt.widgets.text_graph_widget</header>
   </customwidget>
   <customwidget>
    <class>StenoBoardWidget</class>
    <extends>QWidget</extends>
-   <header>spectra_lexer.gui_qt.window.steno_board_widget</header>
+   <header>spectra_lexer.gui_qt.widgets.steno_board_widget</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

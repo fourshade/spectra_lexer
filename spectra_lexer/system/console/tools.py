@@ -1,6 +1,7 @@
 """ Contains useful types for introspection and/or interactive interpreter operations. """
 
-from typing import Callable, Hashable
+from functools import partial, update_wrapper
+from typing import Callable
 
 
 class AttrRedirector(list):
@@ -20,20 +21,18 @@ class AttrRedirector(list):
     __enter__ = __exit__
 
 
-class WrappedCommand:
-    """ A command object wrapped to display helpful information. """
+class HelpWrapper(partial):
+    """ A function wrapped to display helpful information on repr() and help(). """
 
-    _cmd_key: Hashable  # Command key object.
-    _call: Callable     # Engine callback of the *console*.
+    __help__: str  # String shown on repr() and in place of ordinary help.
 
-    def __init__(self, name:str, cmd_key:Hashable, engine_cb:Callable):
-        """ Wrap this object as the <cmd_key> and add help with annotations and/or a docstring. """
-        self._cmd_key = cmd_key
-        self._call = engine_cb
-        vars(self).update(vars(cmd_key))
-        lines = [f"COMMAND: {name}", ""]
-        if hasattr(cmd_key, "__annotations__"):
-            params = dict(cmd_key.__annotations__)
+    def __new__(cls, func:Callable, wrapped=None):
+        """ Add help using the name, annotations, and/or docstring of the function (or another wrapper). """
+        self = super().__new__(cls, func)
+        update_wrapper(self, func if wrapped is None else wrapped)
+        lines = [f"COMMAND: {self.__name__}", ""]
+        if hasattr(self, "__annotations__"):
+            params = dict(self.__annotations__)
             ret = params.pop("return", "<unknown>")
             p = "ACCEPTS - "
             if not params:
@@ -42,15 +41,13 @@ class WrappedCommand:
                 lines.append(f"{p}{k}: {_short_type_name(cls)}")
                 p = " " * len(p)
             lines += ["", f"RETURNS -> {_short_type_name(ret)}", ""]
-        if hasattr(cmd_key, "__doc__"):
-            lines += map(str.lstrip, str(cmd_key.__doc__).splitlines())
-        self.__doc__ = "\n".join(lines)
-
-    def __call__(self, *args, **kwargs):
-        return self._call(self._cmd_key, *args, **kwargs)
+        if hasattr(self, "__doc__"):
+            lines += map(str.lstrip, str(self.__doc__).splitlines())
+        self.__help__ = "\n".join(lines)
+        return self
 
     def __repr__(self) -> str:
-        return str(self.__doc__)
+        return self.__help__
 
 
 def _short_type_name(cls:type) -> str:
@@ -74,8 +71,8 @@ class xhelp:
             print(self)
         for obj in args:
             print("")
-            if isinstance(obj, WrappedCommand):
-                print(obj.__doc__)
+            if hasattr(obj, "__help__"):
+                print(obj.__help__)
             else:
                 for fn in self._HELP_SECTIONS:
                     try:

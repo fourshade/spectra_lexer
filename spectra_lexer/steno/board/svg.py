@@ -69,6 +69,9 @@ class SVGDocument(SVGGroup):
 
     TAG = "svg"
 
+    def set_viewbox(self, *coords:int):
+        self["viewBox"] = " ".join(map(str, coords))
+
     def encode(self, encoding:str='utf-8') -> bytes:
         """ Add all required fields and encode the entire document into an XML byte string.
             The stdlib uses an I/O stream for this, but append+join on a list is actually faster. """

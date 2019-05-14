@@ -1,2 +1,2 @@
 from . import attrs, types
-from .base import GUIQTObjectTree
+from spectra_lexer.gui_qt.tools.base import GUIQT_TOOL

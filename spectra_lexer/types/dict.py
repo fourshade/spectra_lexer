@@ -5,13 +5,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from functools import reduce
 
 
-class autodict(defaultdict):
-    """ A defaultdict that creates new instances of itself to an arbitrary nesting depth. """
+class autodict(dict):
+    """ A dict that creates new instances of itself to an arbitrary nesting depth. """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(autodict, *args, **kwargs)
-
-    def traverse_getitem(self, keys:Sequence, _getitem=defaultdict.__getitem__):
+    def traverse_getitem(self, keys:Sequence, _getitem=dict.__getitem__):
         """ Traverse a nested autodict using a sequence of keys and return the value from the last one. """
         return reduce(_getitem, keys, self)
 
@@ -19,6 +16,11 @@ class autodict(defaultdict):
         """ Traverse a nested autodict using a sequence of keys and assign the given value to the last one. """
         *keys, last_key = keys
         self.traverse_getitem(keys)[last_key] = value
+
+    def __missing__(self, k):
+        """ Make a new class instance, insert it under the missing key, and return it. """
+        value = self[k] = self.__class__()
+        return value
 
 
 class multidict(dict):
@@ -68,14 +70,6 @@ class multidict(dict):
     def __missing__(self, k) -> list:
         """ Return an empty list on lookup failure. Do NOT add this list to the dict. """
         return []
-
-
-class namespace(dict):
-    """ A namespace dict that allows item access through attributes.
-        More powerful than types.SimpleNamespace, but be careful not to step on dict methods. """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
 
 
 class ReverseDict(dict):

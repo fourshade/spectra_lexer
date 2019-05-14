@@ -1,14 +1,9 @@
-from .board import GUIQTBoard
-from .window import GUI
-from spectra_lexer.core import COREApp, Component
-from spectra_lexer.types import delegate_to
-from spectra_lexer.view import VIEWSearch
+from typing import List
+
+from .base import GUIQT
 
 
-class QtSearch(Component,
-               GUI.SearchInput, GUI.SearchMatchList, GUI.SearchMappingList, GUI.SearchToggleStrokes, GUI.SearchToggleRegex,
-               COREApp.Start, GUI.Enabled, GUIQTBoard.Link, VIEWSearch.NewInfo, VIEWSearch.Input, VIEWSearch.Matches,
-               VIEWSearch.MatchFocus, VIEWSearch.Mappings, VIEWSearch.MappingFocus):
+class QtSearch(GUIQT):
     """ GUI Qt operations class for the left-hand search panel. """
 
     _state = dict(pattern="",     # Last pattern from user textbox input.
@@ -18,53 +13,54 @@ class QtSearch(Component,
                   strokes=False,  # If True, search for strokes instead of translations.
                   regex=False)    # If True, perform search using regex characters.
 
-    def on_app_start(self) -> None:
+    def GUIQTConnect(self) -> None:
         """ Connect all Qt signals on GUI load and copy the class state dict to the instance. """
         self._state = self._state.copy()
-        self.w_input.textEdited.connect(self._edit_input)
-        self.w_matches.itemSelected.connect(self._select_match)
-        self.w_mappings.itemSelected.connect(self._select_mapping)
-        self.w_strokes.toggled.connect(self._set_mode)
-        self.w_regex.toggled.connect(self._set_mode)
+        self.W_INPUT.textEdited.connect(self._edit_input)
+        self.W_MATCHES.itemSelected.connect(self._select_match)
+        self.W_MAPPINGS.itemSelected.connect(self._select_mapping)
+        self.W_STROKES.toggled.connect(self._set_mode)
+        self.W_REGEX.toggled.connect(self._set_mode)
+        self.W_BOARD.onActivateLink.connect(self._click_example_link)
 
     def _send_command(self, command, **updates) -> None:
         """ Send a command with the entire state as keyword args after updating it. """
         self._state.update(updates)
-        self.engine_call(command, **self._state)
+        command(**self._state)
 
     def _edit_input(self, pattern:str) -> None:
-        self._send_command(VIEWSearch.edit_input, pattern=pattern)
+        self._send_command(self.search_edit_input, pattern=pattern)
 
     def _select_match(self, match:str) -> None:
-        self._send_command(VIEWSearch.choose_match, match=match)
+        self._send_command(self.search_choose_match, match=match)
 
     def _select_mapping(self, mapping:str) -> None:
-        self._send_command(VIEWSearch.choose_mapping, mapping=mapping)
+        self._send_command(self.search_choose_mapping, mapping=mapping)
 
-    def on_window_enabled(self, enabled:bool) -> None:
-        """ Enable/disable all search widgets. """
-        self.w_input.clear()
-        self.w_input.setPlaceholderText("Search..." if enabled else "")
-        self.w_matches.clear()
-        self.w_mappings.clear()
-        self.w_input.setEnabled(enabled)
-        self.w_matches.setEnabled(enabled)
-        self.w_mappings.setEnabled(enabled)
-        self.w_strokes.setEnabled(enabled)
-        self.w_regex.setEnabled(enabled)
+    def _click_example_link(self) -> None:
+        self._send_command(self.search_find_examples)
 
     def _set_mode(self, *dummy) -> None:
         """ When one of the mode checkboxes changes, retry the last search with the new state. """
-        self._send_command(VIEWSearch.edit_input, strokes=self.w_strokes.isChecked(), regex=self.w_regex.isChecked())
+        self._send_command(self.search_edit_input, strokes=self.W_STROKES.isChecked(), regex=self.W_REGEX.isChecked())
 
-    def on_view_info(self, caption:str, link_ref:str) -> None:
+    def VIEWSetInput(self, text:str) -> None:
+        self.W_INPUT.setText(text)
+        self._state.update(pattern=text)
+
+    def VIEWSetMatches(self, str_list:List[str], selection:str=None) -> None:
+        self.W_MATCHES.set_items(str_list)
+        if selection is not None:
+            self.W_MATCHES.select(selection)
+            self._state.update(match=selection)
+
+    def VIEWSetMappings(self, str_list:List[str], selection:str=None) -> None:
+        self.W_MAPPINGS.set_items(str_list)
+        if selection is not None:
+            self.W_MAPPINGS.select(selection)
+            self._state.update(mapping=selection)
+
+    def VIEWSetLink(self, link_ref:str) -> None:
+        """ Show a link in the bottom-right corner and save the reference. """
         self._state.update(link_name=link_ref)
-
-    def on_example_link(self) -> None:
-        self._send_command(VIEWSearch.find_examples)
-
-    on_view_search_input = delegate_to("w_input.setText")
-    on_view_search_matches = delegate_to("w_matches.set_items")
-    on_view_search_match_focus = delegate_to("w_matches.select")
-    on_view_search_mappings = delegate_to("w_mappings.set_items")
-    on_view_search_mapping_focus = delegate_to("w_mappings.select")
+        self.W_BOARD.set_link(link_ref)

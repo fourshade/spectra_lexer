@@ -3,8 +3,8 @@
 from functools import partialmethod
 from typing import Dict, Sequence
 
+from spectra_lexer.resource import RuleFlags, StenoRule
 from spectra_lexer.utils import recurse_attr, traverse
-from ..rules import RuleFlags, StenoRule
 
 
 class GraphNode:

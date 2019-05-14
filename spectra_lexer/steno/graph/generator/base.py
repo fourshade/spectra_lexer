@@ -6,7 +6,6 @@ from typing import Callable, Iterable, List, Sequence, Tuple
 from .object import ObjectNode, ObjectNodeUnmatched
 from .pattern import PatternInversion, PatternNode, PatternSeparators, PatternThick, PatternUnmatched
 from ..node import GraphNode
-from spectra_lexer.types import delegate_to
 
 _APPEARANCE_SEPARATOR = GraphNode.Appearance.SEPARATOR
 _APPEARANCE_UNMATCHED = GraphNode.Appearance.UNMATCHED
@@ -46,7 +45,9 @@ class TextGenerator:
             child_rows = self._layout(map(self.generate, child_nodes), child_nodes)
             _connect(obj, child_rows)
 
-    render = delegate_to("_root_object")
+    def render(self) -> Tuple[list, list]:
+        """ Render all text objects onto a grid of the minimum required size. """
+        return self._root_object.render()
 
 
 _START_ROW = 3    # Start the first child three rows down by default.

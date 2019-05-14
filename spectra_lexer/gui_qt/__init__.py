@@ -1,4 +1,4 @@
 """ Package for the GUI Qt-based components of Spectra. """
 
-from .board import GUIQTBoard
-from .tools import *
+from . import app
+from .base import GUIQT

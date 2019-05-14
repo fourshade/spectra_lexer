@@ -2,30 +2,47 @@
 
 import sys
 
-from .types import PloverEngine
+from .base import PLOVER
+from .types import PloverAction, PloverCompatibilityTester, PloverEngine
 from spectra_lexer import plover
-from spectra_lexer.core import Signal
-from spectra_lexer.gui_qt.app import GUIQtApplication
-from spectra_lexer.gui_qt.window import GUI
+from spectra_lexer.gui_qt.app import QtApplication
 from spectra_lexer.types import dummy
 
-
-class PLOVERApp:
-
-    class Connect:
-        @Signal
-        def on_engine_connect(self, plover_engine:PloverEngine) -> None:
-            """ Connect the Plover engine to ours only if a compatible version of Plover is found. """
-            raise NotImplementedError
+# Minimum version of Plover required for plugin compatibility.
+VERSION_REQUIRED = "4.0.0.dev8"
 
 
-class PloverPluginApplication(GUIQtApplication, PLOVERApp):
-    """ Master component for the Plover plugin; runs on the standard Qt GUI with a couple (important) differences.
-        Notably, the plugin must not create its own QApplication or run its own event loop (unless in test mode).
-        It appears as a dialog proxy to Plover, translating some attributes into engine calls and faking others. """
+class _PloverPluginApplication(QtApplication, PLOVER):
+    """ Master component for the Plover plugin; runs on the standard Qt GUI with a couple (important) differences. """
 
-    # Running the app from the command line with no args starts a standalone test configuration.
-    DESCRIPTION = "Run the GUI application in Plover plugin test mode."
+    def __init__(self, plover_engine:PloverEngine, compat_check:bool=True):
+        """ We get our translations from the Plover engine, so auto-loading from disk must be suppressed. """
+        sys.argv.append("--translations-files=NUL.json")
+        super().__init__()
+        # Add the Plover engine only if a compatible version is found.
+        if not compat_check or PloverCompatibilityTester(self.SYSStatus)(VERSION_REQUIRED):
+            self.PLOVER_ENGINE = plover_engine
+
+    def _class_paths(self) -> list:
+        """ Parsing large dictionaries is expensive, so the Plover plugin components run on the worker thread. """
+        main_path, worker_path = paths = super()._class_paths()
+        worker_path.append(plover)
+        return paths
+
+    def run(self) -> None:
+        """ Plover engine signals can only be caught by the main thread, so connect them here. """
+        engine = self.PLOVER_ENGINE
+        engine.signal_connect("dictionaries_loaded", self.FoundDicts)
+        engine.signal_connect("translated", self.FoundTranslation)
+        # Load the current Plover dictionaries to finish engine setup.
+        self.FoundDicts(engine.dictionaries)
+
+
+class PloverPluginProxy(_PloverPluginApplication):
+    """ Main entry point and dialog proxy to Plover. Translates some attributes into engine calls and fakes others.
+        In this mode, the application must not create its own QApplication object or run its own event loop. """
+
+    DESCRIPTION = "Run the GUI application in Plover plugin mode. The Plover engine must be the first argument."
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
@@ -34,20 +51,36 @@ class PloverPluginApplication(GUIQtApplication, PLOVERApp):
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
-    def __init__(self, plover_engine=None):
-        """ Plover is already running a Qt event loop. Create the engine and return this proxy to Plover.
-            We get our translations from the Plover engine, so auto-loading from disk must be suppressed. """
-        sys.argv.append("--translations-files=NUL.json")
-        super().__init__()
-        self.show = lambda *args: self.call(GUI.show)
-        self.close = lambda *args: self.call(GUI.close)
-        self.call(self.Connect, plover_engine)
+    def __init__(self, *args):
+        """ Create the app, start it, and return this proxy to Plover. """
+        super().__init__(*args)
+        self.start()
 
-    def _class_paths(self) -> list:
-        main_path, worker_path = paths = super()._class_paths()
-        main_path.append(plover)
-        return paths
+    def show(self, *args) -> None:
+        self.GUIQTShowWindow()
 
-    def __getattr__(self, attr):
+    def close(self, *args) -> None:
+        self.GUIQTCloseWindow()
+
+    def __getattr__(self, *args):
         """ As a proxy, we fake any attribute we don't want to handle to avoid incompatibility. """
         return dummy
+
+
+class PloverPluginTest(_PloverPluginApplication):
+    """ Make a fake Plover engine and run some simple tests. """
+
+    DESCRIPTION = "Run the GUI application in Plover plugin test mode."
+
+    def __init__(self):
+        """ We do not need Plover for the tests, so compatibility is not required. """
+        super().__init__(PloverEngine.test(), compat_check=False)
+
+    def run(self) -> None:
+        super().run()
+        self.FoundTranslation(None, [PloverAction()])
+        QtApplication.run(self)
+
+
+# Running this app from the command line starts a standalone test configuration.
+PloverPluginTest.set_entry_point("plover_test")

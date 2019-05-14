@@ -9,13 +9,8 @@ class AutoImporter(dict):
     def make_namespace(cls, *args, **kwargs) -> dict:
         """ Auto-import tends to pollute namespaces with tons of garbage. We don't need that at the top level.
             The actual auto-import dict is hidden as __builtins__, and is tried only after the main dict fails. """
-        return dict(*args, **kwargs, __builtins__=cls())
-
-    def __init__(self, *args, **kwargs):
-        """ We don't want to corrupt the global builtins, so we start by making a copy. """
-        super().__init__(globals()["__builtins__"])
-        # The constructor args, if given, can override these.
-        self.update(*args, **kwargs)
+        # The class constructor will copy the real global builtins dict; it won't be corrupted.
+        return dict(*args, **kwargs, __builtins__=cls(__builtins__))
 
     def __missing__(self, k:str):
         """ Try to import missing modules before raising a KeyError (which becomes a NameError). """

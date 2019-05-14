@@ -21,10 +21,11 @@ class PrefixTree:
         node["values"].append(v)
 
     def compile(self) -> None:
+        """ Finalize the tree by populating nodes with values from all possible prefixes.
+            Must be called before use. Invalidated by modification. """
         self._compile(self._root, [])
 
     def _compile(self, node:dict, values:list) -> None:
-        """ Finalize the tree by populating nodes with values from all possible prefixes. """
         v = node.pop("values")
         v += values
         for n in node.values():

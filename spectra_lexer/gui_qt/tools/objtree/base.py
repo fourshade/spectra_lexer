@@ -3,17 +3,14 @@ import sys
 
 from .collection import ContainerCollection
 from .impl import ObjectTreeDialog
-from ..base import QtTool
-from ..menu import MenuCommand
-from spectra_lexer.core import Component
-from spectra_lexer.system import SYSApp
+from ..base import GUIQT_TOOL
+from ..dialog import DialogContainer
 from spectra_lexer.types.codec import SVGElement
 
 _ICON_DATA = get_data(__package__, "/treeicons.svg")  # File with all object tree icons.
 
 
-class ObjectTree(Component,
-                 SYSApp.Components):
+class ObjectTree(GUIQT_TOOL):
 
     _resources: dict = None  # Dict of all resources such as object type icons.
 
@@ -44,7 +41,7 @@ class ObjectTree(Component,
     def _components_by_path(self) -> dict:
         """ Return a nested dict with each component indexed by its class's module path. """
         d = {}
-        for cmp in self.components:
+        for cmp in self.ALL_COMPONENTS:
             ks = type(cmp).__module__.split(".")
             if ks[-1] == "base":
                 ks.pop()
@@ -72,20 +69,15 @@ class ObjectTree(Component,
         return pkg
 
 
-class GUIQTObjectTree:
-
-    @MenuCommand("Debug", "View Object Tree...")
-    def open(self) -> None:
-        """ Create the dialog and all resources using the current components dict. """
-        raise NotImplementedError
-
-
-class ObjectTreeTool(ObjectTree, QtTool, GUIQTObjectTree):
+class ObjectTreeTool(ObjectTree):
     """ Component for interactive tree operations. """
 
-    DIALOG_CLASS = ObjectTreeDialog
+    _dialog: DialogContainer
 
-    def open(self) -> None:
+    def __init__(self) -> None:
+        self._dialog = DialogContainer(ObjectTreeDialog)
+
+    def debug_tree_open(self) -> None:
         if self._resources is None:
             self.generate_resources()
-        self.new_dialog(self._resources)
+        self._dialog.open(self.WINDOW, self._resources)

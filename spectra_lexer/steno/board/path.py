@@ -1,7 +1,6 @@
 from cmath import phase, pi, rect
 from typing import List
 
-from .elements import ProcPos, ProcText
 from .svg import SVGElement, SVGPath
 
 
@@ -80,7 +79,6 @@ def _shift_toward(ep:complex, cp:complex, shift_mag:float, angle_offset:float=0.
 class SVGPathInversion(SVGPath):
     """ Inversions are denoted by bent arrows drawn using a quadratic Bezier curve. """
 
-    _OFFSET_ATTRS = ProcPos.OFFSET, ProcText.CENTER
     _STYLE = {"stroke": "#FF0000", "stroke-width": "1.5"}
 
     _ENDPOINT_SHIFT = 12.0      # Amount to pull the arrow endpoints back away from the element centers
@@ -90,12 +88,11 @@ class SVGPathInversion(SVGPath):
     _SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
 
     def __init__(self, *elems:SVGElement, **attrib):
+        """ The SVG parser should have added offsets to eligible elements.
+            Use these to determine the centers of the arrows. """
         path = PathInversion()
-        p1, p2 = map(self._get_offset, elems)
+        p1, p2 = [getattr(elem, "offset", 0j) for elem in elems]
         path.draw(p1, p2)
         path.draw(p2, p1)
         # Add the stroke style for inversion arrows followed by the path string data.
         super().__init__(self._STYLE, d=path.finish(), **attrib)
-
-    def _get_offset(self, elem:SVGElement):
-        return sum(complex(*elem.get(attr, ())) for attr in self._OFFSET_ATTRS)

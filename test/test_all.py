@@ -9,35 +9,37 @@ import re
 import pytest
 
 from spectra_lexer.plover.interface import PloverInterface
+from spectra_lexer.plover.types import PloverEngine
+from spectra_lexer.resource import RuleFlags
+from spectra_lexer.resource.resource import ResourceManager
 from spectra_lexer.steno.board import BoardRenderer
-from spectra_lexer.steno.graph import GraphRenderer
-from spectra_lexer.steno.index import IndexManager
+from spectra_lexer.steno.graph import StenoGraph
 from spectra_lexer.steno.lexer import StenoLexer
-from spectra_lexer.steno.rules import RuleFlags
 from spectra_lexer.steno.search import SearchEngine
-from spectra_lexer.steno.system import SystemManager
-from spectra_lexer.steno.translations import TranslationsManager
-from spectra_lexer.system.file import SYSFile, FileHandler
+from spectra_lexer.system.file.base import FileHandler
 from spectra_lexer.types.codec import CSONDict
 from test import get_test_filename
 
-# Create the file handler and make a fake engine call method just to load files.
+# Create the file handler and use its attributes to update others for loading files.
 FILE = FileHandler()
-FILE.asset_path = FILE.user_path = "spectra_lexer"
-def file_call(key, *args, call_table={v: getattr(FILE, k) for k, v in vars(SYSFile).items()}, **kwargs):
-    if key in call_table:
-        return call_table[key](*args, **kwargs)
-
-
-# Create components and load resources for the tests in order as we need them.
-SYSTEM = SystemManager()
-SYSTEM.engine_call = file_call
-SYSTEM_LAYOUT, SYSTEM_RULES, SYSTEM_BOARD = SYSTEM.load()
+FILE.ASSET_PATH = FILE.USER_PATH = "spectra_lexer"
+def with_file(cmp):
+    for attr in vars(FileHandler):
+        setattr(cmp, attr, getattr(FILE, attr))
+    return cmp
+# Load all resources and update components with them as we need them.
+RESOURCE = with_file(ResourceManager())
+RESOURCE.Load()
+def with_rs(cmp):
+    for attr in vars(RESOURCE):
+        if attr.upper() == attr:
+            setattr(cmp, attr, getattr(RESOURCE, attr))
+    return cmp
 
 
 def test_layout():
     """ Test various properties of a key layout for correctness. """
-    layout = SYSTEM_LAYOUT
+    layout = RESOURCE.LAYOUT
     # There cannot be duplicate keys within a side.
     sides = [layout.LEFT, layout.CENTER, layout.RIGHT]
     left, center, right = sets = list(map(set, sides))
@@ -56,10 +58,14 @@ def test_layout():
         assert {shift_key, *shift_transform.values()} <= all_keys
 
 
+RULES_DICT = RESOURCE.RULES
+
+
 def test_rule_conflicts():
     """ If the size of the full dict is less than the sum of its components, some rule names must be identical. """
-    dicts = [CSONDict.decode(p) for p in FILE.read_all([os.path.join(SYSTEM.path, SYSTEM.RULES_PATH)])]
-    if len(SYSTEM_RULES) < sum(map(len, dicts)):
+    path_iter = FILE._expand([os.path.join(RESOURCE.system_path, "*.cson")])
+    dicts = [CSONDict.decode(p.read()) for p in path_iter]
+    if len(RULES_DICT) < sum(map(len, dicts)):
         conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
         assert not conflicts, f"Found rule keys appearing in more than one file: {conflicts}"
 
@@ -68,7 +74,7 @@ VALID_FLAGS = set(vars(RuleFlags).values())
 IGNORED_KEYS = Counter({"/": 999, "-": 999})
 
 
-@pytest.mark.parametrize("r", SYSTEM_RULES.values())
+@pytest.mark.parametrize("r", RULES_DICT.values())
 def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
     # If the entry has flags, verify that all of them are valid.
@@ -83,15 +89,11 @@ def test_rules(r):
         assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
 
 
-TRANSLATIONS = TranslationsManager()
-TRANSLATIONS.engine_call = file_call
-TRANSLATIONS_DICT = TRANSLATIONS.load(get_test_filename("translations"))
+LEXER = with_rs(StenoLexer())
+LEXER.Load()
+TRANSLATIONS_DICT = RESOURCE.RSTranslationsLoad(get_test_filename("translations"))
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
-LEXER = StenoLexer()
-LEXER.layout = SYSTEM_LAYOUT
-LEXER.rules = SYSTEM_RULES
-LEXER.on_app_start()
-TEST_RESULTS = [LEXER.query(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
+TEST_RESULTS = [LEXER.LXLexerQuery(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
@@ -101,14 +103,9 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-INDEX = IndexManager()
-INDEX.engine_call = file_call
-INDEX_DICT = INDEX.load(get_test_filename("index"))
+SEARCH = with_rs(SearchEngine())
+INDEX_DICT = RESOURCE.RSIndexLoad(get_test_filename("index"))
 TEST_INDEX = list(INDEX_DICT.items())
-SEARCH = SearchEngine()
-SEARCH.rules = SYSTEM_RULES
-SEARCH.translations = TRANSLATIONS_DICT
-SEARCH.index = INDEX_DICT
 
 
 @pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
@@ -116,56 +113,39 @@ def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
     # For both keys and word, and in either mode, search should return a list with only the item itself.
-    assert SEARCH.search(word, strokes=False) == [word]
-    assert SEARCH.search(keys, strokes=True) == [keys]
-    assert SEARCH.search(re.escape(keys), strokes=True, regex=True) == [keys]
-    assert SEARCH.search(re.escape(word), strokes=False, regex=True) == [word]
-
-
-# def test_rules_search():
-#     """ A rules prefix search with no body should return every rule we have after expanding it all we can. """
-#     results = SEARCH.search("/")
-#     while "(more...)" in results:
-#         SEARCH._add_page_to_count()
-#         results = SEARCH._repeat_search()
-#     assert len(results) == len(RULES_DICT)
+    assert SEARCH.LXSearchQuery(word, strokes=False) == [word]
+    assert SEARCH.LXSearchQuery(keys, strokes=True) == [keys]
+    assert SEARCH.LXSearchQuery(re.escape(keys), strokes=True, regex=True) == [keys]
+    assert SEARCH.LXSearchQuery(re.escape(word), strokes=False, regex=True) == [word]
 
 
 @pytest.mark.parametrize("trial", TEST_INDEX)
 def test_index_search(trial):
     # Any rule with translations in the index should have its keys and letters somewhere in every entry.
     rname, tdict = trial
-    rule = SYSTEM_RULES[rname]
-    wresults = SEARCH.search(f"//{rname}", strokes=False)
+    rule = RULES_DICT[rname]
+    wresults = SEARCH.LXSearchQuery(f"//{rname}", strokes=False)
     assert all([rule.letters in r for r in wresults])
-    kresults = SEARCH.search(f"//{rname}", strokes=True)
+    kresults = SEARCH.LXSearchQuery(f"//{rname}", strokes=True)
     all_keys = set(rule.keys) - set("/-")
     assert all_keys == all_keys.intersection(*kresults)
 
 
-BOARD = BoardRenderer()
-BOARD.engine_call = file_call
-BOARD.layout = SYSTEM_LAYOUT
-BOARD.rules = SYSTEM_RULES
-BOARD.board = SYSTEM_BOARD
-BOARD.on_app_start()
+BOARD = with_file(with_rs(BoardRenderer()))
+BOARD.Load()
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_board(result):
     """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
-    BOARD.from_keys(result.keys)
-    BOARD.from_rule(result)
-
-
-GRAPH = GraphRenderer()
-GRAPH.layout = SYSTEM_LAYOUT
+    BOARD.LXBoardFromKeys(result.keys)
+    BOARD.LXBoardFromRule(result)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
-    graph = GRAPH._make_graph(result, True, True)
+    graph = StenoGraph(result, RESOURCE.LAYOUT.SEP, RESOURCE.LAYOUT.SPLIT, True, True)
     # The root node uses the top-level rule and has no parent.
     root = graph.from_rule(result)
     assert root.parent is None
@@ -180,9 +160,11 @@ def test_graph(result):
 
 
 PLOVER = PloverInterface()
+PLOVER.PLOVER_ENGINE = PloverEngine()
 
 
 def test_plover():
-    """ Make sure the Plover interface can convert dicts between tuple-based keys and string-based keys. """
-    test_dc = PLOVER.test(TRANSLATIONS_DICT, split_count=3).dictionaries
-    assert len(PLOVER._convert_dicts(test_dc)) == len(TRANSLATIONS_DICT)
+    """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
+    test_engine = PloverEngine.test(TRANSLATIONS_DICT, split_count=3)
+    PLOVER.FoundDicts(test_engine.dictionaries)
+    assert PLOVER.TRANSLATIONS == TRANSLATIONS_DICT

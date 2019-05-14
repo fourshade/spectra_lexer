@@ -1,7 +1,7 @@
 """ Utility module for iterables and iteration. """
 
-import operator
 from collections.abc import Container
+from operator import attrgetter
 
 
 def ensure_iterable(obj:object, *, blacklist:Container=(str,), empty:Container=(type(None),), iter_items:bool=True):
@@ -30,7 +30,7 @@ def traverse(obj:object, next_attr:str="next", sentinel:object=None):
 
 def recurse(obj:object, iter_fn=iter, max_level:int=-1):
     """ Starting with a container object that can contain other similar container objects,
-        recursively yield objects from its contents, depth-first.
+        yield that object, then recursively yield objects from its contents, depth-first.
         <iter_fn> is the function that gets the iterable contents, defaulting to iter.
         Recursion stops if the object evaluates False or is not iterable.
         If <max_level> is not negative, it will also stop after that many levels.
@@ -46,4 +46,4 @@ def recurse(obj:object, iter_fn=iter, max_level:int=-1):
 
 def recurse_attr(obj:object, attr:str, max_level:int=-1):
     """ Recurse over objects that have contents in an iterable attribute. """
-    return recurse(obj, operator.attrgetter(attr), max_level)
+    return recurse(obj, attrgetter(attr), max_level)

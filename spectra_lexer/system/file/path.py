@@ -1,15 +1,11 @@
-""" Module for raw I/O operations as well as parsing file and resource paths. """
-
 import fnmatch
 import glob
 import os
-from typing import Iterable, List
+from typing import List
 
 from appdirs import user_data_dir
-from pkg_resources import resource_listdir, resource_string
+from pkg_resources import resource_string, resource_listdir
 
-from .app import SYSApp
-from spectra_lexer.core import Command, Component
 from spectra_lexer.types import prefix_index
 
 # Records resource types to check for membership by prefix.
@@ -42,50 +38,13 @@ class AbstractPath(str):
     def _search(self) -> List[str]:
         raise TypeError("Searching of this resource type is not supported.")
 
-
-class SYSFile:
-
-    @Command
-    def read(self, file_path:str, *, ignore_missing:bool=False) -> bytes:
-        """ Attempt to load a resource given by file path. Missing files may return b"" instead of raising. """
-        raise NotImplementedError
-
-    @Command
-    def read_all(self, file_paths:Iterable[str], *, ignore_missing:bool=False) -> List[bytes]:
-        """ Attempt to load all resources in the given file paths. Missing files may be ignored instead of raising. """
-        raise NotImplementedError
-
-    @Command
-    def write(self, file_path:str, data:bytes) -> None:
-        """ Attempt to save byte data to a file given by path. """
-        raise NotImplementedError
-
-
-class FileHandler(Component, SYSFile,
-                  SYSApp.AssetPath, SYSApp.UserPath):
-
-    def read(self, file_path:str, *, ignore_missing:bool=False) -> bytes:
-        try:
-            return self._to_path(file_path).read()
-        except OSError:
-            if not ignore_missing:
-                raise
-            return b""
-
-    def read_all(self, file_paths:Iterable[str], **kwargs) -> List[bytes]:
-        """ Try to expand each path as a wildcard pattern before reading. """
-        expanded = [path for f in file_paths for path in self._to_path(f).search()]
-        return [*filter(None, [self.read(path, **kwargs) for path in expanded])]
-
-    def _to_path(self, s:str) -> AbstractPath:
+    @classmethod
+    def from_string(cls, s:str, **kwargs):
         """ Determine the type of resource from a string by its prefix and create the appropriate path identifier. """
-        if isinstance(s, AbstractPath):
+        if isinstance(s, cls):
             return s
-        stripped, cls = TYPES_BY_PREFIX[s]
-        return cls(stripped, asset_path=self.asset_path, user_path=self.user_path)
-
-    def write(self, file_path:str, data:bytes) -> None:
-        self._to_path(file_path).write(data)
+        stripped, subcls = TYPES_BY_PREFIX[s]
+        return subcls(stripped, **kwargs)
 
 
 @use_if_path_startswith.default()

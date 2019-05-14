@@ -4,9 +4,9 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
-from .base import QtCommandTool, ToolDialog
-from .menu import MenuCommand
-from spectra_lexer.system import SYSConsole
+from .base import GUIQT_TOOL
+from .dialog import DialogContainer, ToolDialog
+from spectra_lexer.system import SYS
 
 
 class HistoryTracker(list):
@@ -123,25 +123,37 @@ class ConsoleDialog(ToolDialog):
         self.add_text = w_text.add_text
 
 
-class GUIQTConsole:
+class _GUIQT_TOOL_CONSOLE(GUIQT_TOOL):
 
-    @MenuCommand("Debug", "Open Console...")
-    def open(self) -> None:
-        """ Open a new dialog and start the interpreter. """
+    @SYS.SYSConsoleOpen.response
+    def on_console_open(self, text:str) -> None:
+        """ If a dialog exists, send the opening console text there. """
+        raise NotImplementedError
+
+    @SYS.SYSConsoleInput.response
+    def on_console_output(self, text:str) -> None:
+        """ If a dialog exists, send all console output text there. """
         raise NotImplementedError
 
 
-class QtConsoleTool(QtCommandTool, GUIQTConsole,
-                    SYSConsole.Output):
+class QtConsoleTool(_GUIQT_TOOL_CONSOLE):
     """ Qt component for system interpreter I/O. """
 
-    DIALOG_CLASS = ConsoleDialog
+    _dialog: DialogContainer
 
-    def open(self) -> None:
-        self.new_dialog(SYSConsole.input)
-        self.engine_call(SYSConsole.open)
+    def __init__(self) -> None:
+        self._dialog = DialogContainer(ConsoleDialog)
+
+    def debug_console_open(self) -> None:
+        dlg = self._dialog.open(self.WINDOW, self.SYSConsoleInput)
+        self._dialog_write = dlg.add_text
+        self.SYSConsoleOpen({"__app__": self.ALL_COMPONENTS})
+
+    def on_console_open(self, text:str) -> None:
+        self._dialog_write(text)
 
     def on_console_output(self, text:str) -> None:
-        """ If a dialog exists, send all console output text there. """
-        if self._dialog is not None:
-            self._dialog.add_text(text)
+        self._dialog_write(text)
+
+    def _dialog_write(self, text:str) -> None:
+        """ This attribute will be overridden if a dialog exists. Do nothing if there isn't one. """

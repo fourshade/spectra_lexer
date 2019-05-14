@@ -1,1 +1,1 @@
-from .base import ConsoleCommand, ConsoleManager, SYSConsole
+from .base import ConsoleCommand, ConsoleManager

@@ -2,8 +2,8 @@ from typing import Callable, Iterator, List, Tuple
 
 from .generate import LexerRuleGenerator
 from .match import LexerRuleMatcher
+from spectra_lexer.resource import RuleMapItem, StenoRule
 from spectra_lexer.utils import str_without
-from ..rules import RuleMapItem, StenoRule
 
 
 class LexerProcessor:

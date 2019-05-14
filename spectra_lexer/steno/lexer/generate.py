@@ -2,7 +2,7 @@ from functools import reduce
 from operator import attrgetter
 from typing import Callable, Iterable, List, Sequence, Tuple
 
-from ..rules import RuleFlags, RuleMapItem, StenoRule
+from spectra_lexer.resource import RuleFlags, RuleMapItem, StenoRule
 
 # Flag constants for rule generation.
 _RARE_FLAG = RuleFlags.RARE

@@ -1,73 +1,85 @@
-from code import InteractiveInterpreter
-import sys
 from traceback import TracebackException
+from typing import Callable, Iterable, Iterator
 
-from ..app import SYSApp
-from ..control import SYSControl
+from ..base import SYS
 from .interpreter import ConsoleIO
-from .tools import WrappedCommand, xhelp
-from spectra_lexer.core import Command, CommandClass, Component, COREEngine, Signal
+from .tools import HelpWrapper, xhelp
+from spectra_lexer.core import Command
 from spectra_lexer.types.importer import AutoImporter
 
-# Decorator for a string command available as a function in the console. Must return or save a useful value.
-ConsoleCommand = CommandClass(console_key="")
+
+class ConsoleCommand(Command):
+    """ Decorator for a string command available as a function in the console. """
+
+    _COMMANDS = {}  # Dict of all commands directly available in the console.
+
+    def bind(self, *args) -> Iterable[Callable]:
+        """ Only one component may answer each function, and it should return or save a useful value. """
+        for meth in super().bind(*args):
+            self._COMMANDS[self.__name__] = HelpWrapper(meth, self)
+            yield meth
+
+    @classmethod
+    def make_namespace(cls):
+        """ Use a namespace dict that automatically imports top-level modules for convenience. """
+        return AutoImporter.make_namespace(cls._COMMANDS, help=xhelp())
 
 
-class SYSConsole:
-
-    @Command
-    def open(self, **kwargs) -> str:
-        """ Open the console with all engine commands, each wrapped in the original function info. """
-        raise NotImplementedError
-
-    @Command
-    def input(self, text_in:str) -> str:
-        """ Process a string of input text and send any resulting output to the engine. """
-        raise NotImplementedError
-
-    class Output:
-        @Signal
-        def on_console_output(self, text:str) -> None:
-            raise NotImplementedError
-
-
-class ConsoleManager(Component, SYSConsole, SYSControl,
-                     SYSApp.Components,
-                     COREEngine.Exception):
+class ConsoleManager(SYS):
     """ Component for engine and system interpreter operations.
         Handles the most fundamental operations of the system, including status and exceptions. """
 
     _console: ConsoleIO = None  # Main interpreter console IO interface.
 
-    def open(self, **kwargs) -> str:
-        """ Use a namespace dict that automatically imports top-level modules for convenience. """
-        wrapped_commands = {k: WrappedCommand(k, v, self.engine_call) for k, v in ConsoleCommand.items()}
-        locals_ns = AutoImporter.make_namespace(wrapped_commands, __app__=tuple(self.components), help=xhelp())
-        self._console = ConsoleIO(InteractiveInterpreter(locals_ns), **kwargs)
-        return self._send_output()
+    def SYSConsoleOpen(self, *args, **kwargs) -> str:
+        self._new_console(*args, **kwargs)
+        return self._console.output()
 
-    def input(self, text_in:str) -> str:
+    def _new_console(self, *args, **kwargs) -> None:
+        """ Make a new namespace and console. If positional args are given, they add entries to the namespace. """
+        locals_ns = ConsoleCommand.make_namespace()
+        if args:
+            locals_ns.update(*args)
+        self._console = ConsoleIO(locals_ns, **kwargs)
+
+    def SYSConsoleInput(self, text_in:str) -> str:
         self._console.input(text_in)
-        return self._send_output()
+        return self._console.output()
 
-    def _send_output(self) -> str:
-        """ Read any available console output and send it to the engine. """
-        text_out = self._console.output()
-        self.engine_call(self.Output, text_out)
-        return text_out
+    def SYSConsoleBatch(self, *commands:str) -> int:
+        self._new_console(interactive=False)
+        return self._loop(self._console.run_batch(*commands))
 
-    def status(self, message:str) -> None:
-        """ Display status messages in the console by default. """
-        print(f"SPECTRA: {message}")
+    def SYSConsoleRepl(self, input_cb:Callable[[], str]=input) -> int:
+        self._new_console(interactive=True)
+        return self._loop(self._console.run_repl(input_cb))
 
-    def exit(self) -> None:
-        sys.exit()
+    def _loop(self, iterator:Iterator[str]) -> int:
+        """ Run an iterator operation and print all text to stdout. """
+        for text_out in iterator:
+            print(text_out, end='')
+        return 0
 
-    def on_engine_exception(self, exc_value:Exception) -> Exception:
-        """ Print an exception traceback to the console, if possible. Return the exception if unsuccessful. """
-        tb_lines = TracebackException.from_exception(exc_value).format()
-        tb_text = "".join(tb_lines)
+    def SYSStatus(self, status:str) -> None:
+        """ Display status messages on stdout by default. """
+        print(f"SPECTRA: {status}")
+
+    def Exception(self, *exc_args) -> bool:
+        """ Print an exception traceback to stdout, if possible.
+            Also send the traceback text to any other component that wants it. """
+        tb_text = ExceptionFormatter(*exc_args).format()
         try:
             print(tb_text)
         except Exception as e:
-            return e
+            # stdout might be locked or redirected. We're probably screwed, but there may be other handlers.
+            tb_text += f"\nFAILED TO WRITE STDOUT!\n{ExceptionFormatter.from_exception(e).format()}"
+        self.SYSTraceback(tb_text)
+        return True
+
+
+class ExceptionFormatter(TracebackException):
+
+    def format(self, **kwargs) -> str:
+        """ Perform custom formatting of a traceback and return a string. """
+        lines = super().format(**kwargs)
+        return "".join(lines)

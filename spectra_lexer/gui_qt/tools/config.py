@@ -1,9 +1,11 @@
+from collections import defaultdict
+
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout
 
-from .base import FormDialog, QtCommandTool
-from .menu import MenuCommand
-from spectra_lexer.system import SYSConfig
+from .base import GUIQT_TOOL
+from .dialog import DialogContainer, FormDialog
+from spectra_lexer.view import ConfigDictionary
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -65,26 +67,35 @@ class ConfigDialog(FormDialog):
         """ Validate all config values from each page and widget. Show a popup if there are one or more errors.
             Return a dict with the new values (not the setup info) to the callback on dialog accept. """
         try:
-            return self.save()
+            return ConfigDictionary(self.save())
         except TypeError:
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:
             QMessageBox.warning(self, "Config Error", "One or more config values was invalid.")
 
 
-class GUIQTConfig:
-
-    @MenuCommand("Tools", "Edit Configuration...")
-    def open(self) -> None:
-        """ Create and show GUI configuration manager dialog. """
-        raise NotImplementedError
-
-
-class QtConfigTool(QtCommandTool, GUIQTConfig,
-                   SYSConfig.Info):
+class QtConfigTool(GUIQT_TOOL):
     """ Config manager; allows editing of config values for any component. """
 
-    DIALOG_CLASS = ConfigDialog
+    _dialog: DialogContainer
 
-    def open(self) -> None:
-        self.new_dialog(SYSConfig.save, self.info)
+    def __init__(self) -> None:
+        self._dialog = DialogContainer(ConfigDialog)
+
+    def tools_config_open(self) -> None:
+        self._dialog.open(self.WINDOW, self.submit, self._get_info())
+
+    def submit(self, cfg:ConfigDictionary):
+        self.VIEWConfigSave(cfg)
+        self.CONFIG = cfg
+
+    def _get_info(self) -> dict:
+        """ Make a dict with detailed config info from active components and data from disk. """
+        info = defaultdict(dict)
+        data = defaultdict(dict, self.CONFIG)
+        for sect, name, default, desc in self.CONFIG_INFO:
+            v = data[sect].get(name, default)
+            tp = type(v)
+            label = name.replace("_", " ").title()
+            info[sect][name] = [v, tp, label, desc]
+        return info
