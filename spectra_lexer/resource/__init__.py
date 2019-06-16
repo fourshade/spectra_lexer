@@ -1,6 +1,6 @@
 """ Package for steno resources loaded from disk and pre-processed. """
 
-from .base import BoardElementTree, ConfigDictionary, RS
+from .base import ConfigDictionary, RS
 from .index import StenoIndex
 from .keys import KeyLayout
 from .rules import RuleFlags, RuleMapItem, RulesDictionary, StenoRule

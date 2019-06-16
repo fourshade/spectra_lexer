@@ -7,7 +7,7 @@ from ..base import GUIQT_TOOL
 from ..dialog import DialogContainer
 from spectra_lexer.types.codec import SVGElement
 
-_ICON_DATA = get_data(__package__, "/treeicons.svg")  # File with all object tree icons.
+_ICON_PATH = "/treeicons.svg"  # File with all object tree icons.
 
 
 class ObjectTree(GUIQT_TOOL):
@@ -19,15 +19,16 @@ class ObjectTree(GUIQT_TOOL):
         __slots__ = ()
 
     def generate_resources(self) -> None:
-        icons = {}
-        self._resources = {"root_item": self._root_item(), "icons": icons}
+        icon_data = []
+        self._resources = {"root_item": self._root_item(), "icon_data": icon_data}
         # Decode the SVG icons.
-        svg_tree = SVGElement.decode(_ICON_DATA)
+        svg_data = get_data(__package__, _ICON_PATH)
+        svg_tree = SVGElement.decode(svg_data)
         # Elements with at least one type alias are valid icons. Encode a new SVG byte string for each one.
         for elem in svg_tree.iter():
             types = elem.get("spectra_types")
             if types:
-                icons[types] = svg_tree.encode_with_defs(elem)
+                icon_data.append((types.split(), svg_tree.encode_with_defs(elem)))
 
     def _root_item(self) -> dict:
         """ Make a root dict with packages containing all modules and the first level of components. """

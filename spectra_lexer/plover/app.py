@@ -47,7 +47,7 @@ class PloverPluginProxy(_PloverPluginApplication):
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':/spectra_lexer/icon.svg'
+    ICON = 'asset:spectra_lexer:gui_qt/widgets/icon.svg'
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 

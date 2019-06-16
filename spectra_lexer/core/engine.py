@@ -7,18 +7,6 @@ from .command import AbstractCommand
 from spectra_lexer.types.dict import multidict
 
 
-class Executor(multidict):
-    """ Holds engine commands, each associated with a key. Executes *all* callables under that key when called.
-        The return value, if any, is the one from the last callable executed in order. """
-
-    def __call__(self, key:Hashable, *args, **kwargs) -> Any:
-        """ Run all callables matching a key and return the last result. """
-        value = None
-        for func in self[key]:
-            value = func(*args, **kwargs)
-        return value
-
-
 class ExceptionHandler:
 
     _depth: int = 0          # Tracks levels of re-entrancy. 0 is the top level.
@@ -38,33 +26,47 @@ class ExceptionHandler:
         return self._exc_callback(exc_type, exc_value, exc_traceback)
 
 
+class Executor(multidict):
+    """ Holds engine commands, each associated with a key. Executes *all* callables under that key when called.
+        The return value, if any, is the one from the last callable executed in order. """
+
+    _exc_handler: ExceptionHandler  # Context manager to handle exceptions.
+
+    def __init__(self, exc_callback:Callable):
+        super().__init__()
+        self._exc_handler = ExceptionHandler(exc_callback)
+
+    def __call__(self, key:Hashable, *args, **kwargs) -> Any:
+        """ Run all callables matching a key and return the last result. Handle any exceptions. """
+        value = None
+        with self._exc_handler:
+            for func in self[key]:
+                value = func(*args, **kwargs)
+        return value
+
+
 class Engine:
     """ Simple single-threaded engine class class for the Spectra program.
         Routes messages and data structures between all constituent components. """
 
-    _executor: Executor             # Holds and executes commands by key.
-    _exc_handler: ExceptionHandler  # Context manager to handle exceptions.
+    _exec: Executor  # Holds and executes commands by key.
 
     def __init__(self, components:Iterable[object], *, exc_command:Hashable=None):
         """ Bind commands from components and assemble the engine with an executor and/or exception handler. """
         super().__init__()
-        self._executor = Executor()
-        self._exc_handler = ExceptionHandler(partial(self._handle_exception, exc_command))
+        exc_callback = partial(self._handle_exception, exc_command)
+        self._exec = Executor(exc_callback)
         for cmp in components:
             self.connect(cmp)
 
     def connect(self, cmp:object) -> None:
         """ Bind this component to all engine commands. """
-        self._executor.update(AbstractCommand.bind_all(cmp, self))
+        commands = AbstractCommand.bind_all(cmp, self)
+        self._exec.update(commands)
 
     def __call__(self, *args, **kwargs) -> Any:
         """ Central method for components to call commands on other components. """
         return self._exec(*args, **kwargs)
-
-    def _exec(self, *args, **kwargs) -> Any:
-        """ Run an engine command and handle any exceptions. """
-        with self._exc_handler:
-            return self._executor(*args, **kwargs)
 
     def _handle_exception(self, exc_command:Callable, *exc_args) -> bool:
         """ C frameworks may crash if exceptions propagate back to them, so try to handle them here if possible. """

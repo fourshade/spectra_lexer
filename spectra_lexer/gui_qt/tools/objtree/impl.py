@@ -1,14 +1,14 @@
 from collections import defaultdict
 from functools import partialmethod
 from itertools import islice
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
-from PyQt5.QtGui import QColor, QFont, QImage, QPainter, QIcon, QPixmap
-from PyQt5.QtSvg import QSvgRenderer
+from PyQt5.QtGui import QColor, QFont, QIcon
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
-from spectra_lexer.gui_qt.tools.dialog import ToolDialog
+from ..dialog import ToolDialog
+from ...icon import IconRenderer
 from spectra_lexer.utils import memoize
 
 # Default maximum number of child objects to show for each object.
@@ -18,42 +18,31 @@ HEADINGS = ["Name", "Type/Item Count", "Value"]
 HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-class _IconRenderer(dict):
-    """ SVG icon dict that renders static icons on transparent bitmap images. """
-
-    def __init__(self, icons:Dict[str, bytes]):
-        """ Create an icon dict using the alias key strings and corresponding SVG data. """
-        super().__init__()
-        for alias_str, xml in icons.items():
-            # For each SVG element, create a blank template, render the element in place, and convert it to an icon.
-            gfx = QSvgRenderer(xml)
-            im = QImage(gfx.viewBox().size(), QImage.Format_ARGB32)
-            im.fill(QColor.fromRgb(255, 255, 255, 0))
-            with QPainter(im) as p:
-                # Icons are small but important; set render hints for every new painter to render in best quality.
-                p.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
-                gfx.render(p)
-            icon = QIcon(QPixmap.fromImage(im))
-            # If there are multiple aliases, they are separated by spaces. Split them and add the icon under each one.
-            for n in alias_str.split():
-                self[n] = icon
-
-    def __call__(self, choices:Iterable[str]) -> QIcon:
-        """ Return an available icon from a sequence of choices from most wanted to least. """
-        return next(filter(None, map(self.get, choices)), None)
-
-
 class _ItemFormatter:
 
     _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
-    _role_map: List[tuple]  # Maps string keys to Qt roles, with a formatting function applied to the data.
+    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
+    _role_map: List[tuple]    # Maps string keys to Qt roles, with a formatting function applied to the data.
 
     def __init__(self, **kwargs):
-        """ Create the role data map with the [caching] color generator and icon finder. """
+        """ Create the icon dict and role data map with the [caching] color generator. """
+        self._render_icons(**kwargs)
         self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
                           ("tooltip",      Qt.ToolTipRole,    lambda x: x),
-                          ("icon_choices", Qt.DecorationRole, _IconRenderer(**kwargs)),
+                          ("icon_choices", Qt.DecorationRole, self.get_icon),
                           ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
+
+    def _render_icons(self, icon_data:List[Tuple[List[str], bytes]]):
+        """ Render each icon from bytes data and add them to a dict under each alias. """
+        self._icons = {}
+        for aliases, xml in icon_data:
+            icon = IconRenderer(xml).generate()
+            for n in aliases:
+                self._icons[n] = icon
+
+    def get_icon(self, choices:Iterable[str]) -> QIcon:
+        """ Return an available icon from a sequence of choices from most wanted to least. """
+        return next(filter(None, map(self._icons.get, choices)), None)
 
     def __call__(self, data:dict):
         """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """

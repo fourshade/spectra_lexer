@@ -4,17 +4,17 @@ from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.core import Resource
 from spectra_lexer.system import ConsoleCommand, SYS
-from spectra_lexer.types.codec import CFGDict, XMLElement
+from spectra_lexer.types.codec import CFGDict, JSONDict, XMLElement
 
-BoardElementTree = XMLElement
 ConfigDictionary = CFGDict
 
 
 class RS(SYS):
 
     LAYOUT: KeyLayout = Resource()
-    BOARD: BoardElementTree = Resource()
     RULES: RulesDictionary = Resource()
+    BOARD_DEFS: JSONDict = Resource()
+    BOARD_ELEMS: XMLElement = Resource()
     TRANSLATIONS: TranslationsDictionary = Resource(TranslationsDictionary())
     INDEX: StenoIndex = Resource(StenoIndex())
     CONFIG: ConfigDictionary = Resource(ConfigDictionary())

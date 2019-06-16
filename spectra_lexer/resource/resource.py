@@ -2,13 +2,13 @@ import json
 import os
 from typing import List
 
-from .base import BoardElementTree, ConfigDictionary, RS
+from .base import ConfigDictionary, RS
 from .index import StenoIndex
 from .keys import KeyLayout
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.system import CmdlineOption
-from spectra_lexer.types.codec import CFGDict
+from spectra_lexer.types.codec import CFGDict, JSONDict, XMLElement
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"
@@ -20,7 +20,7 @@ class ResourceManager(RS):
         Assets including a key layout, rules, and (optional) board graphics comprise the system.
         Other files from user space include a translations dictionary and examples index. """
 
-    system_path: str = CmdlineOption("system-dir", default=":/assets/default/",
+    system_path: str = CmdlineOption("system-dir", default=":/assets/",
                                      desc="Directory with system resources")
     translation_files: List[str] = CmdlineOption("translations-files", default=[],
                                                  desc="JSON translation files to load on start.")
@@ -33,9 +33,10 @@ class ResourceManager(RS):
     rules_out: str = CmdlineOption("rules-out", default="./rules.json",
                                    desc="Output file name for lexer-generated rules.")
 
-    DIR_INFO = (("layout.json", KeyLayout,        "LAYOUT"),  # File name for the steno key constants.
-                ("*.cson",      RulesDictionary,  "RULES"),   # Glob pattern for JSON-based rules files.
-                ("board.xml",   BoardElementTree, "BOARD"))   # File name for the XML steno board graphics.
+    DIR_INFO = (("layout.json",     KeyLayout,       "LAYOUT"),   # File name for the steno key constants.
+                ("*.cson",          RulesDictionary,  "RULES"),   # Glob pattern for JSON-based rules files.
+                ("board_defs.json", JSONDict,    "BOARD_DEFS"),   # File name for the board shape definitions.
+                ("board_elems.xml", XMLElement, "BOARD_ELEMS"))   # File name for the XML steno board elements.
 
     def Load(self) -> None:
         """ Load every available asset into its global resource attribute before startup.

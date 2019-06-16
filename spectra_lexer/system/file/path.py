@@ -43,7 +43,7 @@ class AbstractPath(str):
         """ Determine the type of resource from a string by its prefix and create the appropriate path identifier. """
         if isinstance(s, cls):
             return s
-        stripped, subcls = TYPES_BY_PREFIX[s]
+        stripped, subcls = TYPES_BY_PREFIX.find(s)
         return subcls(stripped, **kwargs)
 
 

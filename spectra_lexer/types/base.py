@@ -55,10 +55,10 @@ class prefix_index(polymorph_index):
 
     def default(self):
         """ Set a default class, which is chosen if no other prefixes match. """
-        return self.__call__("")
+        return self("")
 
-    def __getitem__(self, key:str) -> tuple:
+    def find(self, key:str) -> tuple:
         """ Try prefixes in order from longest to shortest. Return the prefix and class if we find a valid one. """
         for prefix in sorted(self, key=len, reverse=True):
             if key.startswith(prefix):
-                return key[len(prefix):], super().__getitem__(prefix)
+                return key[len(prefix):], self[prefix]

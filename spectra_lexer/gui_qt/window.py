@@ -6,15 +6,16 @@ class QtWindow(GUIQT):
     """ Qt operations class for the main window. """
 
     def Load(self) -> None:
-        """ Connect and enable all GUI controls. """
+        """ Create the window and connect all GUI controls. """
+        self.WINDOW = MainWindow()
         self._set_widgets()
         self.GUIQTConnect()
         self.GUIQTShowWindow()
         self.GUIQTSetEnabled(True)
 
     def _set_widgets(self) -> None:
-        """ Create the window and map all Python widget classes to internal Qt Designer names. """
-        window = self.WINDOW = MainWindow()
+        """ Map all Python widget classes to internal Qt Designer names. """
+        window = self.WINDOW
         self.W_MENU = window.m_menu
         self.W_BOARD = window.w_display_board
         self.W_DESC = window.w_display_desc
