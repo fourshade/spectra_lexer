@@ -1,0 +1,142 @@
+<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Spectra Project</title>
+    <link rel="icon" href="icon.svg">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <script>
+    var state = {board_aspect_ratio: 2.0};
+    function setHTML(sel){
+        return function(value){$(sel).html(value)};
+    }
+    function setProp(sel, prop){
+        return function(value){$(sel).prop(prop, value)};
+    }
+    function HTMLfromOpt(opt){
+        return "<option value='" + opt + "'>" + opt + "</option>";
+    }
+    function setOptions(sel){
+        return function(optarray){setHTML(sel)(optarray.map(HTMLfromOpt).join(""));};
+    }
+    function setLink(sel){
+        return function(value){setProp(sel, "style")(value ? "" : "display: none;");};
+    }
+    var updateTable = {
+        input_text:       setProp("#w_search_input", "value"),
+        matches:          setOptions("#w_search_matches"),
+        match_selected:   setProp("#w_search_matches", "value"),
+        mappings:         setOptions("#w_search_mappings"),
+        mapping_selected: setProp("#w_search_mappings", "value"),
+        graph_title:      setHTML("#w_display_title"),
+        graph_text:       setHTML("#w_display_text"),
+        board_caption:    setHTML("#w_display_desc"),
+        board_xml_data:   setHTML("#w_display_board"),
+        link_ref:         setLink("#w_display_link"),
+    };
+    var excludeAttrs = new Set(["matches", "mappings", "board_caption", "board_xml_data", "graph_title", "graph_text"]);
+    function updateState(new_state){
+        for(var attr in updateTable){
+            if(attr in new_state){
+                updateTable[attr](new_state[attr]);
+            }
+        }
+        for(var attr in new_state){
+            if(!excludeAttrs.has(attr)){
+                state[attr] = new_state[attr];
+            }
+        }
+    }
+    function processAction(action){
+        state.action = action;
+        $.ajax({
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(state),
+            success: updateState,
+        });
+    }
+    $(document).ready(function(){
+        $("#w_search_input").on("input", null, null, function(){
+            state.input_text = this.value;
+            processAction("VIEWSearch");
+        });
+        $("#w_search_matches").change(function(){
+            state.match_selected = this.value;
+            processAction("VIEWLookup");
+        });
+        $("#w_search_mappings").change(function(){
+            state.mapping_selected = this.value;
+            processAction("VIEWQuery");
+        });
+        $("#w_search_type").change(function(){
+            state.mode_strokes = this.checked;
+            processAction("VIEWSearch");
+        });
+        $("#w_search_regex").change(function(){
+            state.mode_regex = this.checked;
+            processAction("VIEWSearch");
+        });
+        $("#w_display_link").click(function(){
+            processAction("VIEWSearchExamples");
+        });
+        graph = $("#w_display_text")
+        graph.click(function(){
+            processAction("VIEWGraphClick");
+        });
+        graph.mousemove(function(event){
+           var row = event.offsetX;
+           var col = event.offsetY;
+           state.graph_location = [0, 0];
+           //processAction("VIEWGraphOver");
+        });
+        $("#w_display_board").resize(function(){
+            state.board_aspect_ratio = this.width / this.height;
+        });
+    });
+    </script>
+    <style>
+    .row1 {line-height: 20px;}
+    .row2 {height: 210px;}
+    .row3 {vertical-align: top;}
+    .col1 {width: 150px;}
+    .col2 {min-width: 350px;}
+    td {margin: 0px;
+        padding: 4px;
+        border-width: 1px;
+        border-style: solid;}
+    input[type="checkbox"]  {margin: 8px 10px 8px 10px}
+    a     {position: absolute;
+           bottom: 4px;
+           right: 4px;
+           font: 8pt Arial;}
+    pre   {margin: 2px;
+           font: 10pt Courier New;}
+    div, select {width: inherit;
+                 height: inherit;}
+	svg   {height: 250px;}
+    </style>
+</head><body>
+<table>
+    <tr>
+        <td><input class="row1 col1" id="w_search_input" placeholder="Search..."></td>
+        <td class="row1 col2"><pre id="w_display_title">Spectra HTTP Test</pre></td>
+    </tr>
+    <tr>
+        <td class="row2 col1"><select id="w_search_matches" multiple></select></td>
+        <td class="row2 col2"><div id="w_display_text" style="overflow: auto;"><pre>Search for any word to see its breakdown.</pre></div></td>
+    </tr>
+    <tr>
+        <td class="row3 col1">
+            <select id="w_search_mappings" style="height: 120px;" multiple></select>
+            <div><input type="checkbox" id="w_search_type"><span>Stroke Search</span></div>
+            <div><input type="checkbox" id="w_search_regex"><span>Regex Search</span></div>
+        </td>
+        <td class="row3 col2" style="position: relative;">
+            <div style="text-align:center;"><pre id="w_display_desc">No translation selected.</pre></div>
+            <div style="text-align:center;" id="w_display_board"><svg></svg></div>
+            <a id="w_display_link" href="#">More Examples</a>
+        </td>
+    </tr>
+</table>
+</body></html>

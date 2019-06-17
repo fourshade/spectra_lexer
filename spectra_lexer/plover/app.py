@@ -23,11 +23,9 @@ class _PloverPluginApplication(QtApplication, PLOVER):
         if not compat_check or PloverCompatibilityTester(self.SYSStatus)(VERSION_REQUIRED):
             self.PLOVER_ENGINE = plover_engine
 
-    def _class_paths(self) -> list:
+    def _worker_class_paths(self) -> list:
         """ Parsing large dictionaries is expensive, so the Plover plugin components run on the worker thread. """
-        main_path, worker_path = paths = super()._class_paths()
-        worker_path.append(plover)
-        return paths
+        return [*super()._worker_class_paths(), plover]
 
     def run(self) -> None:
         """ Plover engine signals can only be caught by the main thread, so connect them here. """

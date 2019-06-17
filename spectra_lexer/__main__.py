@@ -3,7 +3,7 @@
 import sys
 
 # Be sure to import every package with at least one entry point.
-from spectra_lexer import core, gui_qt, plover, steno
+from spectra_lexer import core, gui_http, gui_qt, plover, steno
 
 
 def main() -> int:

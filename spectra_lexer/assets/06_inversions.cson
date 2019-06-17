@@ -21,6 +21,7 @@
   ".cr":   ["-RBG", "(.c)(.r)",     ["INV"], "r/c inversion"],
   ".kr":   ["-RBG", "(.k)(.r)",     ["INV"], "r/k inversion"],
   ".xtr":  ["-RBGS","(.x)t(.r)",    ["INV"], "r/x inversion"],
+  ".tr":   ["-RT",  "(.t)(.r)",     ["INV"], "r/t inversion"],
   ".dr":   ["-RD",  "(.d)(.r)",     ["INV"], "r/d inversion"],
 
   ".gly":  ["-LG",  "(.g)(.ly)",    ["INV"], "folded -ly"],

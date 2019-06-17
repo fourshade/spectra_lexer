@@ -75,27 +75,30 @@ class ViewLayer(InnerViewLayer):
     """ Implementation layer for handling text graphs, selections, and steno board diagrams. """
 
     def _search_examples(self, state:ViewState) -> None:
-        ref = state.link_ref
-        strokes = state.mode_strokes
-        text, selection = self._call_examples(ref, strokes)
-        state.input_text = text
-        state.matches = self._call_search(text, 0, strokes)
+        state.input_text, selection = self._call_examples(state.link_ref, state.mode_strokes)
+        self._search(state)
         state.match_selected = selection
+        self._lookup(state)
 
-    def _search(self, state:ViewState, existing_count:int=0) -> None:
-        """ Look up a pattern in the dictionary and populate the upper matches list. """
-        matches = self._call_search(state.input_text, existing_count, state.mode_strokes, state.mode_regex)
+    def _user_search(self, state:ViewState, existing_count:int=0) -> None:
+        self._search(state, existing_count)
+        matches = state.matches
         # Automatically select the match if there was only one.
-        state.matches = matches
-        state.mappings = []
         if len(matches) == 1:
             state.match_selected = matches[0]
             self._lookup(state)
 
+    def _search(self, state:ViewState, existing_count:int=0) -> None:
+        """ Look up a pattern in the dictionary and populate the upper matches list. """
+        matches = self._call_search(state.input_text, existing_count, state.mode_strokes, state.mode_regex)
+        state.matches = matches
+        state.match_count = len(matches)
+        state.mappings = []
+
     def _user_lookup(self, state:ViewState) -> None:
         """ If the user clicked "more", search again with another page. """
         if self._wants_more(state.match_selected):
-            self._search(state, len(state.matches))
+            self._user_search(state, state.match_count)
         else:
             self._lookup(state)
 
@@ -146,14 +149,13 @@ class ViewLayer(InnerViewLayer):
             node = graph.from_rule(self.RULES.get(ref))
         highlighted = graph.get_rule(node)
         board_rule = highlighted or main_rule
-        if highlighted:
-            state.link_ref = self._call_find_link(highlighted)
         if intense:
             state.graph_has_selection = bool(highlighted)
         state.graph_title = str(main_rule)
         state.graph_text = graph.to_html(*filter(None, [node]), intense=intense)
         state.board_caption = board_rule.caption()
         state.board_xml_data = self._call_board(board_rule, ratio)
+        state.link_ref = self._call_find_link(highlighted)
 
 
 class OuterViewLayer(ViewLayer):
@@ -161,11 +163,10 @@ class OuterViewLayer(ViewLayer):
 
     def VIEWSearchExamples(self, state:ViewState) -> None:
         self._search_examples(state)
-        self._lookup(state)
 
     def VIEWSearch(self, state:ViewState) -> None:
         if state.input_text:
-            self._search(state)
+            self._user_search(state)
 
     def VIEWLookup(self, state:ViewState) -> None:
         self._user_lookup(state)
@@ -180,7 +181,8 @@ class OuterViewLayer(ViewLayer):
     def VIEWGraphClick(self, state:ViewState) -> None:
         self._graph_action(state, intense=True)
 
-    def VIEWAction(self, state:ViewState, action:str) -> ViewState:
+    def VIEWAction(self, state:ViewState) -> ViewState:
+        action = state.action
         if hasattr(self, action) and action.startswith("VIEW"):
             getattr(self, action)(state)
         return state

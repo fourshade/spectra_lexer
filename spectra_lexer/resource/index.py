@@ -25,7 +25,10 @@ class StenoIndex(JSONDict):
         return d.search(pattern, prefix=False, **kwargs)
 
     def lookup(self, index_key:str, match:str, **kwargs) -> List[str]:
-        return self[index_key].lookup(match, **kwargs)
+        d = self.get(index_key)
+        if not d:
+            return []
+        return d.lookup(match, **kwargs)
 
     def find_example(self, index_key:str) -> Tuple[str, str]:
         """ Given a rule/index key by name, return one translation using it at random. """

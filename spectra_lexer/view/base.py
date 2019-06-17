@@ -46,7 +46,7 @@ class VIEW(LX):
         raise NotImplementedError
 
     @Command
-    def VIEWAction(self, state:ViewState, action:str) -> ViewState:
+    def VIEWAction(self, state:ViewState) -> ViewState:
         """ Perform any action above with the given state, then return it with the changes. """
         raise NotImplementedError
 

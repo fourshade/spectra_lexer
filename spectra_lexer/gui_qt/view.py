@@ -41,11 +41,10 @@ class QtView(_GUIQT_VIEW):
                                graph_text=self.W_TEXT.set_interactive_text)
 
     def _connect(self, signal, action:str, *attrs) -> None:
-        """ Send a command with a copy of the entire state after updating zero or more attributes. """
+        """ Send a command with a copy of the entire state after updating attributes. """
         def call(*args):
-            if attrs:
-                self._state.update(zip(attrs, args))
-            self._execute(action)
+            self._state.update(zip(attrs, args), action=action)
+            self._execute()
         signal.connect(call)
 
     def _on_resize(self, ratio:float) -> None:
@@ -53,15 +52,12 @@ class QtView(_GUIQT_VIEW):
 
     def _graph_action(self, row:int, col:int, clicked:bool) -> None:
         self._state.graph_location = [row, col]
-        self._execute("VIEWGraphClick" if clicked else "VIEWGraphOver")
+        self._state.action = "VIEWGraphClick" if clicked else "VIEWGraphOver"
+        self._execute()
 
     def on_view_finished(self, state:ViewState) -> None:
-        old_state = self._state
-        update_methods = self._changemap
-        for k, v in state:
-            if k in update_methods:
-                update_methods[k](v)
-        old_state.update(state)
+        state.do_updates(self._changemap)
+        self._state.update(state)
 
-    def _execute(self, action:str) -> None:
-        self.VIEWAction(ViewState(self._state), action)
+    def _execute(self) -> None:
+        self.VIEWAction(ViewState(self._state))

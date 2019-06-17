@@ -7,9 +7,8 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 from .base import GUIQT
-from spectra_lexer import gui_qt, view
-from spectra_lexer.core.engine import ThreadedEngineGroup
-from spectra_lexer.steno.app import StenoApplication
+from spectra_lexer import gui_qt
+from spectra_lexer.view.app import ViewApplication
 
 
 class _Connection(QObject):
@@ -27,7 +26,7 @@ class _Connection(QObject):
     signal = pyqtSignal(tuple)
 
 
-class QtApplication(StenoApplication, GUIQT):
+class QtApplication(ViewApplication, GUIQT):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
     DESCRIPTION = "Run the application as a standalone GUI."
@@ -35,14 +34,13 @@ class QtApplication(StenoApplication, GUIQT):
     # We can create the QApplication at class level since only one is ever allowed to run.
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
-    def _class_paths(self) -> list:
-        """ Run the GUI on the main thread, and the other layers on worker threads. """
-        return [[gui_qt], [*super()._class_paths(), view]]
+    def _main_class_paths(self) -> list:
+        """ Run the GUI on the main thread. """
+        return [gui_qt]
 
-    def _engine(self, **kwargs) -> Callable:
-        """ We use multiple threads to avoid overwhelming the main GUI thread with heavy computations.
-            To send commands to the GUI, the child threads send a Qt signal to the main thread. """
-        return ThreadedEngineGroup(self._components, passthrough=_Connection, **kwargs)
+    def _engine(self, **kwargs):
+        """ To send commands to the GUI, the child threads send a Qt signal to the main thread. """
+        return super()._engine(passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. The full component list is useful for debugging. """
