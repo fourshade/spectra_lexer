@@ -1,3 +1,5 @@
+from functools import partial
+
 from .base import GUIQT
 from spectra_lexer.view import ViewState, VIEW
 
@@ -20,14 +22,17 @@ class QtView(_GUIQT_VIEW):
         """ Connect all Qt signals on GUI load and initialize the board size.
             When a mode checkbox changes, retry the last search with the new state. """
         self._state = ViewState()
-        self._connect(self.W_STROKES.toggled, "VIEWSearch", "mode_strokes")
-        self._connect(self.W_REGEX.toggled, "VIEWSearch", "mode_regex")
-        self._connect(self.W_INPUT.textEdited, "VIEWSearch", "input_text")
-        self._connect(self.W_MATCHES.itemSelected, "VIEWLookup", "match_selected")
-        self._connect(self.W_MAPPINGS.itemSelected, "VIEWQuery", "mapping_selected")
-        self._connect(self.W_BOARD.onActivateLink, "VIEWSearchExamples")
-        self.W_BOARD.onResize.connect(self._on_resize)
-        self.W_TEXT.textMouseAction.connect(self._graph_action)
+        actions = [(self.W_STROKES.toggled,       "VIEWSearch",         "mode_strokes"),
+                   (self.W_REGEX.toggled,         "VIEWSearch",         "mode_regex"),
+                   (self.W_INPUT.textEdited,      "VIEWSearch",         "input_text"),
+                   (self.W_MATCHES.itemSelected,  "VIEWLookup",         "match_selected"),
+                   (self.W_MAPPINGS.itemSelected, "VIEWQuery",          "mapping_selected"),
+                   (self.W_BOARD.onActivateLink,  "VIEWSearchExamples", None),
+                   (self.W_BOARD.onResize,        "VIEWGraphOver",      "board_aspect_ratio"),
+                   (self.W_TEXT.graphOver,        "VIEWGraphOver",      "graph_node_ref"),
+                   (self.W_TEXT.graphClick,       "VIEWGraphClick",     "graph_node_ref")]
+        for signal, action, attr in actions:
+            signal.connect(partial(self._call, action, attr))
         self.W_BOARD.resizeEvent()
         self._changemap = dict(input_text=self.W_INPUT.setText,
                                matches=self.W_MATCHES.set_items,
@@ -40,24 +45,13 @@ class QtView(_GUIQT_VIEW):
                                graph_title=self.W_TITLE.set_text,
                                graph_text=self.W_TEXT.set_interactive_text)
 
-    def _connect(self, signal, action:str, *attrs) -> None:
-        """ Send a command with a copy of the entire state after updating attributes. """
-        def call(*args):
-            self._state.update(zip(attrs, args), action=action)
-            self._execute()
-        signal.connect(call)
-
-    def _on_resize(self, ratio:float) -> None:
-        self._state.board_aspect_ratio = ratio
-
-    def _graph_action(self, row:int, col:int, clicked:bool) -> None:
-        self._state.graph_location = [row, col]
-        self._state.action = "VIEWGraphClick" if clicked else "VIEWGraphOver"
-        self._execute()
+    def _call(self, action:str, attr:str, *args) -> None:
+        """ Update an attribute and/or send an action command with a copy of the entire state. """
+        if attr is not None:
+            self._state[attr], = args
+        if action is not None:
+            self.VIEWAction(ViewState(self._state, action=action))
 
     def on_view_finished(self, state:ViewState) -> None:
         state.do_updates(self._changemap)
         self._state.update(state)
-
-    def _execute(self) -> None:
-        self.VIEWAction(ViewState(self._state))

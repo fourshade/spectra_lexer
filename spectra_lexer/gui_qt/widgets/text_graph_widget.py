@@ -1,43 +1,16 @@
-from typing import Callable
-
-from PyQt5.QtCore import pyqtSignal, QPoint
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QTextEdit
-
-# Pixel offset to add when calculating character position from mouse cursor.
-_CURSOR_OFFSET = QPoint(-1, 0)
-# Pixel offset to add when the character position is ambiguous.
-_TEST_SHIFT = QPoint(0, 1)
+from PyQt5.QtCore import pyqtSignal, QUrl
+from PyQt5.QtWidgets import QTextBrowser
 
 
-class MouseEventSignaller:
-
-    _last_row: int = -1                        # Row number of last detected character under mouse cursor.
-    _last_col: int = -1                        # Column number of last detected character under mouse cursor.
-    _signal: Callable[[int, int, bool], None]  # Call to send a mouse event (row, col, clicked) to the engine.
-
-    def __init__(self, signal:Callable):
-        self._signal = signal
-
-    def check_event(self, row:int, col:int, clicked:bool=False) -> None:
-        """ Check to see if any events need to be sent.
-            Don't waste time if there's no click and the row and column haven't changed. """
-        if clicked or (self._last_row != row or self._last_col != col):
-            self._last_row = row
-            self._last_col = col
-            self._signal(row, col, clicked)
-
-
-class TextGraphWidget(QTextEdit):
+class TextGraphWidget(QTextBrowser):
     """ Formatted text widget meant to display a monospaced HTML text graph of the breakdown of English text
         by steno rules as well as plaintext interpreter output such as error messages and exceptions. """
 
-    _signaller: MouseEventSignaller  # Sends mouse events for character position changes.
-    _mouse_enabled: bool = True      # Does moving the mouse over the text do anything?
+    _mouse_enabled: bool = False  # Does moving the mouse over the text do anything?
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._signaller = MouseEventSignaller(self.textMouseAction.emit)
+        self.highlighted.connect(self.hover_link)
 
     def set_plaintext(self, text:str) -> None:
         """ Add plaintext to the widget. If it was in interactive mode before, completely replace the text instead. """
@@ -49,7 +22,7 @@ class TextGraphWidget(QTextEdit):
 
     def set_interactive_text(self, text:str, *, scroll_to:str=None) -> None:
         """ Enable the mouse and replace the current text with new HTML formatted text.
-            Optionally <scroll_to> the "top" or "bottom" (or don't if scroll_to=None). """
+            Optionally <scroll_to> the "top", or don't if scroll_to=None. """
         self._mouse_enabled = True
         sx, sy = self.horizontalScrollBar(), self.verticalScrollBar()
         px, py = sx.value(), sy.value()
@@ -59,36 +32,25 @@ class TextGraphWidget(QTextEdit):
             # The scroll values must be manually restored to negate any scrolling effect.
             sx.setValue(px)
             sy.setValue(py)
-        elif scroll_to == "bottom":
-            # To keep up with scrolling text, the vertical scroll position can be fixed at the bottom as well.
-            sy.setValue(sy.maximum())
 
-    def mouseMoveEvent(self, event:QMouseEvent) -> None:
-        """ If the mouse has moved over the text, try to find out where it is to display information. """
-        if not self._try_mouse(event, clicked=False):
-            super().mouseMoveEvent(event)
+    def hover_link(self, url:QUrl) -> None:
+        """ Mouseovers are error-prone, so they only select new targets with actual rules. """
+        s = self._last_ref = url.toString()
+        if s:
+            self.graphOver.emit(s)
 
-    def mousePressEvent(self, event:QMouseEvent) -> None:
-        """ A mouse click always sends an event for the current character position (if enabled).
-            If not enabled, pass the event up so that manual text selection and copy is possible. """
-        if not self._try_mouse(event, clicked=True):
-            super().mousePressEvent(event)
+    def leaveEvent(self, *args) -> None:
+        """ Treat a mouse leave event as a mouseover on nothing (which is usually blocked). """
+        super().leaveEvent(*args)
+        self.graphOver.emit("")
 
-    def _try_mouse(self, event:QMouseEvent, clicked:bool) -> bool:
-        """ If the mouse is enabled, get its position and find the character it's pointing at. """
+    def mousePressEvent(self, *args) -> None:
+        """ Mouse clicks always select their target, even if that target is nothing.
+            Don't pass the event along to parents (unless disabled); they will tend to do their own selections. """
         if not self._mouse_enabled:
-            return False
-        # The mouse's position relative to the top-left corner of the text display is what we're interested in.
-        # Take the position of the text display, plus an empirically determined offset based on the GUI layout.
-        local_pos = event.pos() + _CURSOR_OFFSET
-        location_cursor = self.cursorForPosition(local_pos)
-        if location_cursor.atBlockEnd():
-            # If the cursor is between rows, it may erroneously read as being at the end of the text.
-            # Add a tiny amount and test again. If it really is at the end of the text, it won't matter.
-            location_cursor = self.cursorForPosition(local_pos + _TEST_SHIFT)
-        row, col = location_cursor.blockNumber(), location_cursor.columnNumber()
-        self._signaller.check_event(row, col, clicked)
-        return True
+            super().mousePressEvent(*args)
+        self.graphClick.emit(self._last_ref)
 
     # Signals
-    textMouseAction = pyqtSignal([int, int, bool])
+    graphOver = pyqtSignal([str])
+    graphClick = pyqtSignal([str])

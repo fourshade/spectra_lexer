@@ -143,11 +143,11 @@
       <property name="lineWrapMode">
        <enum>QTextEdit::NoWrap</enum>
       </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
       <property name="placeholderText">
        <string>Search for any word to see its breakdown.</string>
+      </property>
+      <property name="openLinks">
+       <bool>false</bool>
       </property>
      </widget>
     </item>
@@ -365,7 +365,7 @@
   </customwidget>
   <customwidget>
    <class>TextGraphWidget</class>
-   <extends>QTextEdit</extends>
+   <extends>QTextBrowser</extends>
    <header>spectra_lexer.gui_qt.widgets.text_graph_widget</header>
   </customwidget>
   <customwidget>

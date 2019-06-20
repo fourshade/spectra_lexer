@@ -1,83 +1,88 @@
 from collections import defaultdict
-from typing import Tuple
+from typing import Dict, List, Optional
 
-from .node import GraphNode
-from .text import SectionedTextField
-from spectra_lexer.utils import memoize
+from .node import BranchNode, GraphNode
 
-# RGB 0-255 color tuples of the root node and starting color of other nodes when highlighted.
-_ROOT_COLOR = (255, 64, 64)
-_BASE_COLOR = (0, 0, 255)
-# Format strings for HTML color, boldface, and full-text finishing style.
-_COLOR_FORMAT = """<span style="color:#{0:02x}{1:02x}{2:02x};">{{}}</span>"""
-_BOLD_FORMAT = "<b>{}</b>"
-_FINISH_FORMAT = "<pre>{}</pre>"
-# Columns to add to attach positions to account for <b>.
-_ATTACH_COL_OFFSET = 3
-# Appearance flags which dictate a default format for nodes, even if not selected.
-# Every node with children is bold by default, as is the root.
-_FORMAT_FLAGS = defaultdict(tuple, {GraphNode.Appearance.INVERSION: (_BOLD_FORMAT,),
-                                    GraphNode.Appearance.BRANCH:    (_BOLD_FORMAT,),
-                                    GraphNode.Appearance.ROOT:      (_BOLD_FORMAT,)})
+_HEADER = '<style>.graph > a {color: black; text-decoration: none;}</style><pre class="graph">'
+_FOOTER = '</pre>'
 
 
-def _rgb_color(depth:int, row:int) -> Tuple[int, int, int]:
-    """ Return an RGB 0-255 color tuple for any possible text row position and node depth. """
-    if depth == 0:
-        return _ROOT_COLOR
-    r, g, b = _BASE_COLOR
-    r += min(192, depth * 64)
-    g += min(192, row * 8)
-    return r, g, b
+class HTMLTextField(List[str]):
+    """ A list of text lines with explicit HTML formatting. Each is divided into sections based on ownership.
+        The list is indexed by section only. Each section is owned by a single object, and is formatted as a whole.
+        Each row is terminated by an unowned newline section. Joining all sections produces the final text.
+        Includes a dictionary of info to help apply formatting for any given node when highlighted. """
 
+    _ref_list: List[GraphNode]        # List of all node references in order of first appearance.
+    _ref_dict: Dict[GraphNode, list]  # Node references each mapped to a list of (row, section) indices that node owns.
 
-@memoize
-def _color_format(depth:int, row:int) -> str:
-    """ Return an HTML color format string for a specific position. """
-    r, g, b = _rgb_color(depth, row)
-    return _COLOR_FORMAT.format(r, g, b)
+    def __init__(self, lines:List[str], ref_grid:List[List[GraphNode]]):
+        """ From a 2D reference grid and corresponding list of character strings, find contiguous ranges of characters
+            owned by a single reference and create a section for each of them. Add each section of characters to the
+            main list and record the row number and section index in the dict under the owner reference. """
+        super().__init__([_HEADER])
+        append = self.append
+        ref_dict = self._ref_dict = defaultdict(list)
+        row = 0
+        for chars, refs in zip(lines, ref_grid):
+            refs = [*refs, None]
+            last_ref = refs[0]
+            last_col = 0
+            for col, ref in enumerate(refs):
+                if ref is not last_ref:
+                    if last_ref is not None:
+                        ref_dict[last_ref].append((row, len(self)))
+                    append(chars[last_col:col])
+                    last_col, last_ref = col, ref
+            append("\n")
+            row += 1
+        append(_FOOTER)
+        self._ref_list = list(ref_dict)
 
-
-class HTMLTextField(SectionedTextField):
-    """ Dictionary of text sections with instructions on formatting to apply in various places when any given
-        node is highlighted. Creates structured text with explicit HTML formatting to be used by the GUI. """
-
-    def start(self) -> None:
-        """ Format the body of every node with a special appearance. """
-        for n in self._ref_dict:
-            for fmt in _FORMAT_FLAGS[n.appearance]:
-                self._format_last_row(n, fmt)
-
-    def _format_last_row(self, node:GraphNode, fmt:str) -> None:
-        """ Format the last section (i.e. the body) of a node. """
-        _, section_index = self._ref_dict[node][-1]
-        self.format(section_index, fmt)
-
-    def highlight(self, node:GraphNode, intense:bool=False) -> None:
-        """ Format a copy of the current text with highlights and/or bold for a given node. """
-        # All of the node's characters above the text will be box-drawing characters.
-        # These mess up when bolded, so only bold the last section, and only if it isn't bolded already.
-        if _BOLD_FORMAT not in _FORMAT_FLAGS[node.appearance]:
-            self._format_last_row(node, _BOLD_FORMAT)
-        # Get the column positions of the node's original attach points.
-        start = node.attach_start + _ATTACH_COL_OFFSET
+    def _highlight(self, node:GraphNode, intense:bool) -> None:
+        """ Highlight the full ancestry line of the selected node (starting with itself) up to the root. """
+        start = 0
         length = node.attach_length
-        # Highlight the full ancestry line of the selected node.
-        for n in node.ancestors():
-            indices = self._ref_dict[n][:]
-            depth = n.depth * (1 + intense)
-            # For the last section of any ancestor node, only highlight the text our node derives from.
-            if n is not node and indices:
-                self._highlight_sections([indices.pop()], depth, start, start + length)
-                start += n.attach_start
-            # Highlight all other sections, which should only be box-drawing characters.
-            self._highlight_sections(indices, depth)
+        args = ()
+        while node is not None:
+            # Highlight the entire original node and all fragments of ancestors directly above it.
+            self._highlight_section(node, intense, *args)
+            # Add the attach start offset for each node as we climb the ladder.
+            start += node.attach_start
+            args = (start, start + length)
+            node = node.parent
 
-    def _highlight_sections(self, indices, depth:int, start:int=None, end:int=None) -> None:
-        # Highlight all sections of a node, with an optional column range.
-        for row, section_index in indices:
-            self.format(section_index, _color_format(depth, row), start, end)
+    def _highlight_section(self, node:GraphNode, intense:bool, start:int=None, end:int=None) -> None:
+        for row, sect in self._ref_dict[node][::-1]:
+            r, g, b = node.color(row, intense)
+            text = self[sect]
+            if start is not None:
+                pfx, text, sfx = text[:start], text[start:end], text[end:]
+            self[sect] = f'<span style="color:#{r:02x}{g:02x}{b:02x};">{text}</span>'
+            if start is not None:
+                self[sect] = f'{pfx}{self[sect]}{sfx}'
+                start = None
 
-    def finish(self) -> str:
-        """ Finish the text string by joining the list of section strings and setting the preformatted tag. """
-        return _FINISH_FORMAT.format(self.to_string())
+    def to_html(self, highlight_node:GraphNode=None, intense:bool=False) -> str:
+        """ Render the graph inside preformatted tags with an optional node highlighted and bolded.
+            Save the text before starting and restore it to its original state after. """
+        saved = self[:]
+        if highlight_node is not None:
+            self._highlight(highlight_node, intense)
+        # In addition to those highlighted, every node with children is bold by default (as is the root).
+        for index, node in enumerate(self._ref_list):
+            sections = self._ref_dict[node]
+            if isinstance(node, BranchNode) or node is highlight_node:
+                _, sect = sections[-1]
+                self[sect] = f'<b>{self[sect]}</b>'
+            for row, sect in sections:
+                self[sect] = f'<a href="{index}">{self[sect]}</a>'
+        text = "".join(self)
+        self[:] = saved
+        return text
+
+    def node_at(self, index:str) -> Optional[GraphNode]:
+        try:
+            return self._ref_list[int(index)]
+        except (IndexError, ValueError):
+            return None

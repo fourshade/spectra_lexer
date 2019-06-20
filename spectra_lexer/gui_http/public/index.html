@@ -79,17 +79,18 @@
         });
         $("#w_display_link").click(function(){
             processAction("VIEWSearchExamples");
+            return false
         });
-        graph = $("#w_display_text")
-        graph.click(function(){
+        $("#w_display_text").on("click", "pre > a", function(){
+            state.graph_node_ref = this.href.split("/").pop();
+            processAction("VIEWGraphClick");
+            return false
+        });
+        $("#w_display_text").click(function(){
+            state.graph_node_ref = "";
             processAction("VIEWGraphClick");
         });
-        graph.mousemove(function(event){
-           var row = event.offsetX;
-           var col = event.offsetY;
-           state.graph_location = [0, 0];
-           //processAction("VIEWGraphOver");
-        });
+        //$("#w_display_text").mousemove(function(){processAction("VIEWGraphOver");});
         $("#w_display_board").resize(function(){
             state.board_aspect_ratio = this.width / this.height;
         });
@@ -101,20 +102,23 @@
     .row3 {vertical-align: top;}
     .col1 {width: 150px;}
     .col2 {min-width: 350px;}
-    td {margin: 0px;
-        padding: 4px;
-        border-width: 1px;
-        border-style: solid;}
-    input[type="checkbox"]  {margin: 8px 10px 8px 10px}
-    a     {position: absolute;
-           bottom: 4px;
-           right: 4px;
-           font: 8pt Arial;}
-    pre   {margin: 2px;
-           font: 10pt Courier New;}
+
+    td   {margin: 0px;
+          padding: 4px;
+          border-width: 1px;
+          border-style: solid;}
+    pre  {margin: 2px;
+          font: 10pt Courier New;}
     div, select {width: inherit;
                  height: inherit;}
-	svg   {height: 250px;}
+    svg  {height: 250px;}
+
+    #w_search_type  {margin: 8px 10px 8px 10px}
+    #w_search_regex {margin: 8px 10px 8px 10px}
+    #w_display_link {position: absolute;
+                     bottom: 4px;
+                     right: 4px;
+                     font: 8pt Arial;}
     </style>
 </head><body>
 <table>

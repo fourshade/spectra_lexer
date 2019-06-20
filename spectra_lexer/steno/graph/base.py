@@ -1,58 +1,39 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
-from typing import Dict, List, Optional
+from typing import Iterable, List, Optional
 
-from .generator import TextGenerator
 from .html import HTMLTextField
-from .node import GraphNode, NodeOrganizer
+from .layout import CascadedGraphLayout, CompressedGraphLayout
+from .node import GraphNode, NodeFactory
 from spectra_lexer.resource import StenoRule
 
 
 class StenoGraph:
-    """ Class for a formatted monospaced text graph of a rule. """
+    """ Class for a formatted monospaced text graph of a rule. Layouts arrange the children however they want. """
 
-    _rules_by_node: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
-    _grid: List[list]             # List of lists of object references in [row][col] format.
-    _formatter: HTMLTextField     # Formats the output text based on which node is selected (if any).
+    _factory: NodeFactory             # Creates nodes and contains mappings of each one to its rule.
+    _ref_grid: List[List[GraphNode]]  # List of lists of node references in [row][col] format.
+    _formatter: HTMLTextField         # Formats the output text based on which node is selected (if any).
 
-    def __init__(self, rule:StenoRule, sep:str, split:str, recursive:bool, compressed:bool):
-        """ Make a node tree layout and mapping out of the given rule and parameters. """
-        organizer = NodeOrganizer(sep, split, recursive)
-        root = organizer.make_tree(rule)
-        node_map = organizer.last_tree_mapping()
-        # Generate and render all text objects into standard strings and node grids indexed by position.
-        lines, nodes = TextGenerator(root, compressed).render()
-        # Add everything we generated to the graph object.
-        self._rules_by_node = node_map
-        self._grid = nodes
+    def __init__(self, rule:StenoRule, sep:str, split:str, recursive:bool=True, compressed:bool=True):
+        """ Make a node tree layout out of the given rule and parameters.
+            Lay out and render all text objects into character lines and node reference lists. """
+        self._factory = NodeFactory(sep, split, recursive)
+        root = self._factory(rule)
+        layout_cls = CompressedGraphLayout if compressed else CascadedGraphLayout
+        lines, nodes = layout_cls(root).render()
+        self._ref_grid = nodes
         self._formatter = HTMLTextField(lines, nodes)
 
-    def from_character(self, row:int, col:int) -> Optional[GraphNode]:
-        """ Return the node that was responsible for the graphical element at position (row, col).
-            Return None if no element is there, no node owns the element, or an index is out of range. """
-        if 0 <= row < len(self._grid):
-            row = self._grid[row]
-            if 0 <= col < len(row):
-                return row[col]
+    def process(self, *, ref:str="", rule:StenoRule=None, select:bool=False) -> tuple:
+        """ Process and render a graph with a section index and/or rule selected.
+            If <select> is True, highlight these as well. Return the finished text and any valid rule selection. """
+        if rule is None:
+            node = self._formatter.node_at(ref)
+        else:
+            node = self._factory.rule_to_node(rule)
+        return self._formatter.to_html(node, intense=select), self._factory.node_to_rule(node)
 
-    def from_rule(self, rule:StenoRule) -> Optional[GraphNode]:
-        """ Given a rule, find the first node that used it (if any) in the graph. """
-        for n, r in self._rules_by_node.items():
-            if r is rule:
-                return n
 
-    def get_rule(self, node:GraphNode) -> Optional[StenoRule]:
-        """ Given a node from the graph, look up its rule. Return None if not found. """
-        return self._rules_by_node.get(node)
-
-    def to_html(self, *nodes:GraphNode, intense:bool=False) -> str:
-        """ Render the graph with zero or more nodes highlighted.
-            Save the text before starting and restore it to its original state after. """
-        formatter = self._formatter
-        formatter.save()
-        formatter.start()
-        for n in nodes:
-            formatter.highlight(n, intense)
-        text = formatter.finish()
-        formatter.restore()
-        return text
+def _filtermap(fn, iterable) -> list:
+    return [*filter(None, map(fn, iterable))]

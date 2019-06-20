@@ -46,4 +46,7 @@ def recurse(obj:object, iter_fn=iter, max_level:int=-1):
 
 def recurse_attr(obj:object, attr:str, max_level:int=-1):
     """ Recurse over objects that have contents in an iterable attribute. """
-    return recurse(obj, attrgetter(attr), max_level)
+    yield obj
+    if max_level:
+        for item in getattr(obj, attr, ()):
+            yield from recurse_attr(item, attr, max_level - 1)

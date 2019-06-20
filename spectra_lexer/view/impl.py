@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Callable, Optional
 
 from .base import ConfigOption, VIEW
 from .state import ViewState
@@ -45,9 +45,6 @@ class InnerViewLayer(VIEW):
     def _call_lookup(self, pattern:str, match:str, strokes:bool) -> List[str]:
         _, kwargs = self._parse_pattern(pattern)
         return self.LXSearchLookup(match, strokes=strokes, **kwargs)
-
-    def _order_selection(self, match:str, mapping:str, strokes:bool) -> List[str]:
-        return [match, mapping] if strokes else [mapping, match]
 
     def _call_query(self, keys, letters) -> StenoRule:
         if isinstance(keys, str):
@@ -115,47 +112,46 @@ class ViewLayer(InnerViewLayer):
         elif mappings:
             # If there is more than one mapping, make a product query to select the best combination.
             result = self._call_query(mappings, [match])
-            keys = state.mapping_selected = result.keys
+            keys = result.keys
+            state.mapping_selected = keys
             state.graph_translation = [keys, match]
             self._new_query(state)
 
     def _query_from_selection(self, state:ViewState) -> None:
-        """ Generate a new graph from a lexer rule and set the title.
-            The order of strokes/word in the lexer command is reversed for strokes mode. """
-        state.graph_translation = self._order_selection(state.match_selected, state.mapping_selected, state.mode_strokes)
+        """ The order of strokes/word in the lexer command is reversed for strokes mode. """
+        translation = [state.match_selected, state.mapping_selected]
+        if not state.mode_strokes:
+            translation.reverse()
+        state.graph_translation = translation
         self._new_query(state)
 
     def _new_query(self, state:ViewState) -> None:
-        state.graph_location = None
-        self._graph_action(state, intense=True)
+        """ Make a new query and draw the initial graph. Only a previous linked example rule may be selected. """
+        if state.graph_has_selection:
+            self._select_node(state, select=True, rule=self.RULES.get(state.link_ref))
+        else:
+            self._select_node(state)
 
-    def _graph_action(self, state, intense:bool=False) -> None:
+    def _graph_action(self, state:ViewState, clicked:bool) -> None:
+        """ Handle a mouseover or click action. Mouseovers should do nothing as long as a selection is active. """
+        if clicked or not state.graph_has_selection:
+            if state.graph_translation is not None:
+                self._select_node(state, select=clicked, ref=state.graph_node_ref)
+
+    def _select_node(self, state:ViewState, select:bool=False, **kwargs) -> None:
+        """ Generate a new rule with the lexer and set the graph title. """
         translation = state.graph_translation
-        if translation is not None:
-            rule = self._call_query(*translation)
-            self._set_graph(state, rule, intense)
+        rule = self._call_query(*translation)
+        graph = self._call_graph(rule)
+        state.graph_title = str(rule)
+        state.graph_text, selection = graph.process(select=select, **kwargs)
+        state.graph_has_selection = bool(selection and select)
+        self._set_board(state, selection or rule)
 
-    def _set_graph(self, state:ViewState, main_rule:StenoRule, intense:bool) -> None:
-        """ Select a rule and format the graph with its reference highlighted. """
-        ref = state.link_ref
-        has_selection = state.graph_has_selection
-        location = state.graph_location
-        ratio = state.board_aspect_ratio
-        graph = self._call_graph(main_rule)
-        node = None
-        if location is not None and (not has_selection or intense):
-            node = graph.from_character(*location)
-        elif has_selection:
-            node = graph.from_rule(self.RULES.get(ref))
-        highlighted = graph.get_rule(node)
-        board_rule = highlighted or main_rule
-        if intense:
-            state.graph_has_selection = bool(highlighted)
-        state.graph_title = str(main_rule)
-        state.graph_text = graph.to_html(*filter(None, [node]), intense=intense)
-        state.board_caption = board_rule.caption()
-        state.board_xml_data = self._call_board(board_rule, ratio)
-        state.link_ref = self._call_find_link(highlighted)
+    def _set_board(self, state:ViewState, rule:StenoRule) -> None:
+        state.link_ref = self._call_find_link(rule)
+        state.board_caption = rule.caption()
+        state.board_xml_data = self._call_board(rule, state.board_aspect_ratio)
 
 
 class OuterViewLayer(ViewLayer):
@@ -175,11 +171,10 @@ class OuterViewLayer(ViewLayer):
         self._query_from_selection(state)
 
     def VIEWGraphOver(self, state:ViewState) -> None:
-        if not state.graph_has_selection:
-            self._graph_action(state)
+        self._graph_action(state, False)
 
     def VIEWGraphClick(self, state:ViewState) -> None:
-        self._graph_action(state, intense=True)
+        self._graph_action(state, True)
 
     def VIEWAction(self, state:ViewState) -> ViewState:
         action = state.action

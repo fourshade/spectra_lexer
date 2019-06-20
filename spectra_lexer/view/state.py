@@ -11,11 +11,11 @@ class ViewState(JSONDict):
     mapping_selected: str = ""         # Last selected match from the lower list.
     mode_strokes: bool = False         # If True, search for strokes instead of translations.
     mode_regex: bool = False           # If True, perform search using regex characters.
-    graph_location: list = None        # Last (row, col) character position on the graph.
+    graph_node_ref: str = ""           # Last node identifier on the graph ("" for empty space).
     board_aspect_ratio: float = 100.0  # Last aspect ratio for board viewing area.
 
     # The user typically can't change these values directly. They are held for future reference.
-    link_ref: str = ""                 # Name for the most recent rule with examples in the index
+    link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
     match_count: int = 0               # Number of items in the upper list.
     graph_translation: list = None     # Currently diagrammed translation on graph.
     graph_has_selection: bool = False  # Is there a selected rule on the graph?

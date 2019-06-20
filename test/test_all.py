@@ -18,6 +18,7 @@ from spectra_lexer.steno.lexer import StenoLexer
 from spectra_lexer.steno.search import SearchEngine
 from spectra_lexer.system.file.base import FileHandler
 from spectra_lexer.types.codec import CSONDict
+from spectra_lexer.utils import recurse_attr
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.
@@ -145,15 +146,15 @@ def test_board(result):
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
-    graph = StenoGraph(result, RESOURCE.LAYOUT.SEP, RESOURCE.LAYOUT.SPLIT, True, True)
+    graph = StenoGraph(result, RESOURCE.LAYOUT.SEP, RESOURCE.LAYOUT.SPLIT)
     # The root node uses the top-level rule and has no parent.
-    root = graph.from_rule(result)
+    root = graph._ref_grid[0][0]
     assert root.parent is None
     # Every other node descends from it and is unique.
-    nodes_list = list(root.descendents())
+    nodes_list = list(recurse_attr(root, "children"))
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
-    # Going the other direction, all nodes except the root must have its parent in the set.
+    # Going the other direction, every node except the root must have its parent in the set.
     assert all(node.parent in nodes_set for node in nodes_list[1:])
     # The nodes available for interaction must be a subset of our collection.
     assert nodes_set >= set(graph._formatter._ref_dict)
