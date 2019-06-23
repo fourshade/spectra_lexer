@@ -7,20 +7,31 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
     <script>
     var state = {board_aspect_ratio: 2.0};
+    function setCSS(sel, prop){
+        return function(value){$(sel).css(prop, value)};
+    }
     function setHTML(sel){
         return function(value){$(sel).html(value)};
     }
     function setProp(sel, prop){
         return function(value){$(sel).prop(prop, value)};
     }
+    function setText(sel){
+        return function(value){$(sel).text(value)};
+    }
     function HTMLfromOpt(opt){
-        return "<option value='" + opt + "'>" + opt + "</option>";
+        var e = document.createElement("option");
+        e.textContent = opt;
+        return e;
     }
     function setOptions(sel){
-        return function(optarray){setHTML(sel)(optarray.map(HTMLfromOpt).join(""));};
+        return function(optarray){
+            $(sel).empty();
+            $(sel).append(optarray.map(HTMLfromOpt));
+        };
     }
     function setLink(sel){
-        return function(value){setProp(sel, "style")(value ? "" : "display: none;");};
+        return function(value){setCSS(sel, "display")(value ? "" : "none");};
     }
     var updateTable = {
         input_text:       setProp("#w_search_input", "value"),
@@ -28,9 +39,9 @@
         match_selected:   setProp("#w_search_matches", "value"),
         mappings:         setOptions("#w_search_mappings"),
         mapping_selected: setProp("#w_search_mappings", "value"),
-        graph_title:      setHTML("#w_display_title"),
+        graph_title:      setText("#w_display_title"),
         graph_text:       setHTML("#w_display_text"),
-        board_caption:    setHTML("#w_display_desc"),
+        board_caption:    setText("#w_display_desc"),
         board_xml_data:   setHTML("#w_display_board"),
         link_ref:         setLink("#w_display_link"),
     };
@@ -90,10 +101,11 @@
             state.graph_node_ref = "";
             processAction("VIEWGraphClick");
         });
-        //$("#w_display_text").mousemove(function(){processAction("VIEWGraphOver");});
-        $("#w_display_board").resize(function(){
-            state.board_aspect_ratio = this.width / this.height;
+        var boardContainer = $("#w_display_board")
+        $(window).resize(function(){
+            state.board_aspect_ratio = boardContainer.width() / 250;
         });
+        updateTable.link_ref("");
     });
     </script>
     <style>
@@ -101,24 +113,25 @@
     .row2 {height: 210px;}
     .row3 {vertical-align: top;}
     .col1 {width: 150px;}
-    .col2 {min-width: 350px;}
-
-    td   {margin: 0px;
-          padding: 4px;
-          border-width: 1px;
-          border-style: solid;}
-    pre  {margin: 2px;
-          font: 10pt Courier New;}
+    .col2 {min-width: 450px;}
+    table {width: 100%;
+           height: 100%;}
+    td    {margin: 0px;
+           padding: 4px;
+           border-width: 1px;
+           border-style: solid;}
+    pre   {margin: 2px;
+           font: 10pt Courier New;}
     div, select {width: inherit;
                  height: inherit;}
-    svg  {height: 250px;}
+    svg   {max-height: 250px;}
 
     #w_search_type  {margin: 8px 10px 8px 10px}
     #w_search_regex {margin: 8px 10px 8px 10px}
     #w_display_link {position: absolute;
                      bottom: 4px;
                      right: 4px;
-                     font: 8pt Arial;}
+                     font: 10pt Arial;}
     </style>
 </head><body>
 <table>
@@ -127,12 +140,12 @@
         <td class="row1 col2"><pre id="w_display_title">Spectra HTTP Test</pre></td>
     </tr>
     <tr>
-        <td class="row2 col1"><select id="w_search_matches" multiple></select></td>
+        <td class="row2 col1"><select id="w_search_matches" size="2"></select></td>
         <td class="row2 col2"><div id="w_display_text" style="overflow: auto;"><pre>Search for any word to see its breakdown.</pre></div></td>
     </tr>
     <tr>
         <td class="row3 col1">
-            <select id="w_search_mappings" style="height: 120px;" multiple></select>
+            <select id="w_search_mappings" style="height: 100px;" size="2"></select>
             <div><input type="checkbox" id="w_search_type"><span>Stroke Search</span></div>
             <div><input type="checkbox" id="w_search_regex"><span>Regex Search</span></div>
         </td>

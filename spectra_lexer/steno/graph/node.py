@@ -10,7 +10,6 @@ class GraphNode:
     """ Abstract class representing a node in a tree structure of steno rules.
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
-
     COLOR = ClipMatrix([0,   64,  0,   64],  # Vary red with nesting depth and selection (for purple),
                        [0,   0,   8,   0],   # vary green with the row index,
                        [255, 0,   0,   0],   # starting from pure blue,
@@ -23,24 +22,24 @@ class GraphNode:
 
     parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
     children: Sequence = ()  # Direct children of the node.
+
     text: str                # Text characters drawn on the last row.
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
-    depth: int               # Nesting depth of the node. It is 0 for the root, 1 for direct children, and so on.
     bottom_length: int       # Length of the bottom attach point. Is the length of the text unless start is !=0.
 
-    def __init__(self, text:str, start:int, length:int, depth:int):
+    def __init__(self, text:str, start:int, length:int):
         self.text = text
         self.attach_start = start
         self.attach_length = length or 1
-        self.depth = depth
         self.bottom_length = len(text)
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
-        raise NotImplementedError
+        """ Write the main primitive: a text row starting at the origin. """
+        write(PrimitiveRow(self.text, self), row, col)
 
     def connectors(self, write:Callable, row:int, col:int, p_width:int) -> None:
-        """ Write connectors of a child at index <row, col>. The parent is by definition at row index 0.
+        """ Write connectors of a node at index <row, col>. The parent is by definition at row index 0.
             <p_width> is the total width of the parent, past which endpieces must be added. """
         # If there's a space available, add a bottom container ├--┐ next.
         if row > 2:
@@ -56,9 +55,21 @@ class GraphNode:
         if gap_height > 0:
             write(self.CONNECTOR(gap_height), 2, col)
 
-    def color(self, row:int, intense:bool=False) -> Sequence[int]:
-        """ Return an RGB 0-255 color tuple for a given row index and selection status. Use nesting depth as well. """
-        return self.COLOR(1, self.depth, row, intense)
+    @classmethod
+    def color(cls, *args) -> str:
+        """ Return an RGB color string for a given nesting depth, row index and selection status. """
+        rgb = cls.COLOR(1, *args)
+        return f'<span style="color:#{bytes(rgb).hex()};">{{}}</span>'
+
+    @classmethod
+    def bold(cls, selected:bool=False) -> str:
+        """ Nodes are bold only when highlighted. """
+        return '<b>{}</b>' if selected else "{}"
+
+    @classmethod
+    def anchor(cls, index:int) -> str:
+        """ The anchor link is simply the index converted to a string. """
+        return f'<a href="{index}">{{}}</a>'
 
 
 class SeparatorNode(GraphNode):
@@ -67,7 +78,7 @@ class SeparatorNode(GraphNode):
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ The only primitive is a row substitution operation. """
-        write(PrimitiveRowReplace(self.text), row, col)
+        write(PrimitiveRowReplace(self.text, self), row, col)
 
     def connectors(self, *args) -> None:
         pass
@@ -84,7 +95,7 @@ class LeafNode(GraphNode):
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ Write the main primitive: a text row starting at the origin with a shift to account for hyphens. """
-        write(PrimitiveRow(self.text, self), row, col - self.bottom_start)
+        super().body(write, row, col - self.bottom_start)
 
 
 class UnmatchedNode(LeafNode):
@@ -119,15 +130,10 @@ class BranchNode(GraphNode):
     CONNECTOR = PatternColumn("║")
     ENDPIECE = PatternRow("╗", "╦╦╗")
 
-    def set_children(self, children:Sequence[GraphNode]):
-        """ Set the list of children and propagate recursive attributes. """
-        self.children = children
-        for c in children:
-            c.parent = self
-
-    def body(self, write:Callable, row:int=0, col:int=0) -> None:
-        """ Write the main primitive: a text row starting at the origin. """
-        write(PrimitiveRow(self.text, self), row, col)
+    @classmethod
+    def bold(cls, selected:bool=False) -> str:
+        """ Branch nodes are bold regardless of selection. """
+        return super().bold(True)
 
 
 class InversionNode(BranchNode):
@@ -146,9 +152,9 @@ class RootNode(BranchNode):
 
 class NodeFactory:
 
-    _key_sep: str      # Steno key used as stroke separator.
-    _key_split: str    # Steno key used to split sides in RTFCRE.
-    _recursive: bool   # If True, also generate children of children (and so on).
+    _key_sep: str     # Steno key used as stroke separator.
+    _key_split: str   # Steno key used to split sides in RTFCRE.
+    _recursive: bool  # If True, also generate children of children (and so on).
     _rules_by_node: Dict[StenoRule, GraphNode]  # Mapping of each rule to its generated node.
     _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
 
@@ -162,9 +168,11 @@ class NodeFactory:
     def __call__(self, rule:StenoRule) -> GraphNode:
         """ Generate a full output tree starting with the given rule as root.
             The root node has a depth of 0 and no parent, so its attach points are arbitrary. """
-        return self._make_derived(rule)
+        root = RootNode(rule.letters, 0, 0)
+        self._add_children(root, rule)
+        return root
 
-    def _make_child(self, rule:StenoRule, *args) -> GraphNode:
+    def _make_node(self, rule:StenoRule, *args) -> GraphNode:
         """ Only create derived type nodes if a rule has children and we are allowed to draw them. """
         if rule.rulemap and self._recursive:
             node = self._make_derived(rule, *args)
@@ -180,27 +188,29 @@ class NodeFactory:
         text = rule.keys
         if text == self._key_sep:
             return SeparatorNode(text, *args)
-        elif RuleFlags.UNMATCHED in rule.flags:
-            node_cls = UnmatchedNode
-        else:
-            node_cls = LeafNode
         # The text is shifted one to the right if the keys start with '-'.
         shift = (len(text) > 1 and text[0] == self._key_split)
-        return node_cls(shift, text, *args)
+        if RuleFlags.UNMATCHED in rule.flags:
+            return UnmatchedNode(shift, text, *args)
+        else:
+            return LeafNode(shift, text, *args)
 
-    def _make_derived(self, rule:StenoRule, start:int=0, length:int=0, depth:int=0):
-        """ Derived rules (i.e. branch nodes) show their letters and recursively add children from the rulemap. """
+    def _make_derived(self, rule:StenoRule, *args):
+        """ Derived rules (i.e. branch nodes) show their letters. """
         text = rule.letters
-        if not depth:
-            node_cls = RootNode
-        elif RuleFlags.INVERSION in rule.flags:
+        if RuleFlags.INVERSION in rule.flags:
             node_cls = InversionNode
         else:
             node_cls = BranchNode
-        node = node_cls(text, start, length, depth)
-        child_depth = depth + 1
-        node.set_children([self._make_child(i.rule, i.start, i.length, child_depth) for i in rule.rulemap])
+        node = node_cls(text, *args)
+        self._add_children(node, rule)
         return node
+
+    def _add_children(self, node:BranchNode, rule:StenoRule) -> None:
+        """ Recursively add children from a rulemap. """
+        children = node.children = [self._make_node(i.rule, i.start, i.length) for i in rule.rulemap]
+        for c in children:
+            c.parent = node
 
     def rule_to_node(self, rule:StenoRule) -> Optional[GraphNode]:
         """ Given a rule, find the first node that used it (if any). """

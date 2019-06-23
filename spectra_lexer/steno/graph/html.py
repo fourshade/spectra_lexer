@@ -1,7 +1,9 @@
+import html
 from collections import defaultdict
 from typing import Dict, List, Optional
 
-from .node import BranchNode, GraphNode
+from spectra_lexer.utils import traverse
+from .node import GraphNode
 
 _HEADER = '<style>.graph > a {color: black; text-decoration: none;}</style><pre class="graph">'
 _FOOTER = '</pre>'
@@ -20,15 +22,14 @@ class HTMLTextField(List[str]):
         """ From a 2D reference grid and corresponding list of character strings, find contiguous ranges of characters
             owned by a single reference and create a section for each of them. Add each section of characters to the
             main list and record the row number and section index in the dict under the owner reference. """
-        super().__init__([_HEADER])
+        super().__init__()
         append = self.append
         ref_dict = self._ref_dict = defaultdict(list)
         row = 0
         for chars, refs in zip(lines, ref_grid):
-            refs = [*refs, None]
-            last_ref = refs[0]
             last_col = 0
-            for col, ref in enumerate(refs):
+            last_ref, *refs = *refs, None
+            for col, ref in enumerate(refs, 1):
                 if ref is not last_ref:
                     if last_ref is not None:
                         ref_dict[last_ref].append((row, len(self)))
@@ -36,53 +37,51 @@ class HTMLTextField(List[str]):
                     last_col, last_ref = col, ref
             append("\n")
             row += 1
-        append(_FOOTER)
         self._ref_list = list(ref_dict)
 
-    def _highlight(self, node:GraphNode, intense:bool) -> None:
-        """ Highlight the full ancestry line of the selected node (starting with itself) up to the root. """
-        start = 0
-        length = node.attach_length
-        args = ()
-        while node is not None:
-            # Highlight the entire original node and all fragments of ancestors directly above it.
-            self._highlight_section(node, intense, *args)
-            # Add the attach start offset for each node as we climb the ladder.
-            start += node.attach_start
-            args = (start, start + length)
-            node = node.parent
-
-    def _highlight_section(self, node:GraphNode, intense:bool, start:int=None, end:int=None) -> None:
-        for row, sect in self._ref_dict[node][::-1]:
-            r, g, b = node.color(row, intense)
-            text = self[sect]
-            if start is not None:
-                pfx, text, sfx = text[:start], text[start:end], text[end:]
-            self[sect] = f'<span style="color:#{r:02x}{g:02x}{b:02x};">{text}</span>'
-            if start is not None:
-                self[sect] = f'{pfx}{self[sect]}{sfx}'
-                start = None
-
-    def to_html(self, highlight_node:GraphNode=None, intense:bool=False) -> str:
-        """ Render the graph inside preformatted tags with an optional node highlighted and bolded.
-            Save the text before starting and restore it to its original state after. """
-        saved = self[:]
-        if highlight_node is not None:
-            self._highlight(highlight_node, intense)
-        # In addition to those highlighted, every node with children is bold by default (as is the root).
+    def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
+        """ Render the graph inside preformatted tags, escaping, coloring and bolding nodes that require it.
+            Highlight the full ancestry line of the target node (if any), starting with itself up to the root. """
+        str_ops = [[] for _ in range(len(self))]
+        for node in self._ref_list:
+            # Escaping is expensive. Only escape those strings which originate with the user.
+            # Both branch nodes and the selected node itself (if it is not a branch) are bolded after that.
+            _, sect = self._ref_dict[node][-1]
+            str_ops[sect] = [html.escape, node.bold(node is target).format]
+        if target is not None:
+            ladder = list(traverse(target, "parent"))
+            for depth, node in enumerate(reversed(ladder)):
+                # For nodes that are ancestors of the selected node, add color tags first.
+                for row, sect in self._ref_dict[node]:
+                    str_ops[sect].append(node.color(depth, row, intense).format)
+            start = target.attach_start
+            length = target.attach_length
+            for node in ladder[1:]:
+                # For ancestors that are not the target object, only highlight the part directly above the target.
+                _, sect = self._ref_dict[node][-1]
+                def format_part(text:str, start=start, end=start+length, fmts=str_ops[sect]):
+                    *fmts, color = fmts
+                    pfx, body, sfx = [_apply(fmts, s) for s in (text[:start], text[start:end], text[end:])]
+                    return f"{pfx}{color(body)}{sfx}"
+                str_ops[sect] = [format_part]
+                # Add the attach start offset for each node as we climb the ladder.
+                start += node.attach_start
         for index, node in enumerate(self._ref_list):
-            sections = self._ref_dict[node]
-            if isinstance(node, BranchNode) or node is highlight_node:
-                _, sect = sections[-1]
-                self[sect] = f'<b>{self[sect]}</b>'
-            for row, sect in sections:
-                self[sect] = f'<a href="{index}">{self[sect]}</a>'
-        text = "".join(self)
-        self[:] = saved
-        return text
+            # All non-empty nodes have anchor tags.
+            a_fmt = node.anchor(index).format
+            for row, sect in self._ref_dict[node]:
+                str_ops[sect].append(a_fmt)
+        # Apply format strings for every section in the order they were added and join them.
+        return "".join([_HEADER, *map(_apply, str_ops, self), _FOOTER])
 
     def node_at(self, index:str) -> Optional[GraphNode]:
         try:
             return self._ref_list[int(index)]
         except (IndexError, ValueError):
             return None
+
+
+def _apply(fns, text):
+    for fn in fns:
+        text = fn(text)
+    return text

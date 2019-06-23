@@ -6,6 +6,7 @@ class TextGraphWidget(QTextBrowser):
     """ Formatted text widget meant to display a monospaced HTML text graph of the breakdown of English text
         by steno rules as well as plaintext interpreter output such as error messages and exceptions. """
 
+    _last_ref: str = ""
     _mouse_enabled: bool = False  # Does moving the mouse over the text do anything?
 
     def __init__(self, *args):

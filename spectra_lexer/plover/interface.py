@@ -11,7 +11,7 @@ class PloverInterface(PLOVER):
 
     def __init__(self):
         super().__init__()
-        self._state = TranslationsState()
+        self._reset()
 
     def FoundDicts(self, steno_dc:PloverStenoDictCollection) -> None:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
@@ -53,8 +53,8 @@ class PloverInterface(PLOVER):
             return ()
 
     def _reset(self) -> None:
-        self._state.reset()
+        self._state = TranslationsState()
 
     def _send_translation(self) -> None:
         """ User strokes may be composed of all sorts of custom briefs, so do not attempt to match every key. """
-        self.VIEWQuery(*self._state, need_all_keys=False)
+        self.VIEWQuery(TranslationsState(self._state))  # need_all_keys=False

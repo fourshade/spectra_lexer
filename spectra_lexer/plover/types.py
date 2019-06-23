@@ -7,6 +7,7 @@ import pkg_resources
 from spectra_lexer.resource import TranslationsDictionary
 from spectra_lexer.types import delegate_to
 from spectra_lexer.utils import nop
+from spectra_lexer.view import ViewState
 
 # Key constants and functions for Plover stroke strings.
 _PLOVER_SEP = "/"
@@ -91,24 +92,10 @@ class PloverTranslationsDictionary(TranslationsDictionary):
         super().__init__(converted_dict)
 
 
-class TranslationsState:
+class TranslationsState(ViewState):
     """ Keeps running buffers of strokes and text. """
-
-    _BLANK_STATE = ((), "")  # Starting/reset state of translation buffer.
-
-    _strokes: Tuple[str, ...] = ()  # Current sets of contiguous strokes and text.
-    _text: str = ""
-
-    def reset(self) -> None:
-        self._strokes = ()
-        self._text = ""
 
     def combine(self, new_strokes:Iterable[str], new_text:str) -> None:
         """ Combine all new strokes and text into the current state. """
-        self._strokes += new_strokes
-        self._text += new_text
-
-    def __iter__(self) -> Iterable[str]:
-        """ Yield the joined strokes and current text for lexer queries. """
-        yield join_strokes(self._strokes)
-        yield self._text
+        strokes, text = self.graph_translation or ["", ""]
+        self.graph_translation = [join_strokes([strokes, *new_strokes]), text + new_text]

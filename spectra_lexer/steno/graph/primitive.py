@@ -77,14 +77,17 @@ class PrimitiveColumn(Primitive):
 class PrimitiveRowReplace(Primitive):
     """ Replaces every space in the given row with its character. """
 
-    width = 0  # Row substitution operations should advance one row, but no columns.
+    text: str    # String to draw.
+    tag: object  # Identifier for the node.
+    width = 0    # Row substitution operations should advance one row, but no columns.
 
-    def __init__(self, s:str):
+    def __init__(self, s:str, tag:object):
         self.text = s
+        self.tag = tag
 
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
         """ Replace every space in the row with unowned separators. """
-        canvas.row_str_op(row, str.replace, " ", self.text)
+        canvas.row_replace(row, " ", self.text)
 
 
 class Composite(list, Primitive):

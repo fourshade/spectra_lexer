@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Sequence
 
 from .node import GraphNode, SeparatorNode
 from .primitive import Composite
@@ -17,24 +17,25 @@ class GraphLayout(Composite):
             # Reverse the list in order to ensure that the leftmost objects get drawn last.
             self.reverse()
 
-    def _layout(self, nodes:Iterable[GraphNode], p_width:int) -> None:
+    def _layout(self, nodes:Sequence[GraphNode], p_width:int) -> None:
         """ Add a row index with every child, in order. To filter out a child, do not use that iteration. """
         raise NotImplementedError
+
+    def _first_row(self, node:GraphNode):
+        return self._START_ROW - (node.bottom_length == 1)
 
 
 class CascadedGraphLayout(GraphLayout):
 
-    def _layout(self, nodes:Iterable[GraphNode], p_width:int) -> None:
+    def _layout(self, nodes:Sequence[GraphNode], p_width:int) -> None:
         """ Nodes are drawn in descending order like a waterfall from the top-down going left-to-right.
             Recursive construction with one line per node means everything fits naturally with no overlap.
             Window space economy is poor (the triangle shape means half the space is wasted off the top).
             Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
-        row = None
+        # Only start two rows down if the first child attaches at the bottom with a single connector.
+        row = self._first_row(nodes[0])
         right_bound = 0
         for node in nodes:
-            # Only start two rows down if the first child attaches at the bottom with a single connector.
-            if row is None:
-                row = self._START_ROW - (node.bottom_length == 1)
             # Advance to the next free row. Move down one more if this child shares columns with the last one.
             obj = self.__class__(node)
             col = node.attach_start
@@ -50,7 +51,7 @@ class CompressedGraphLayout(GraphLayout):
 
     _MAX_WIDTH: int = 50  # Graphs should never be wider than this many columns.
 
-    def _layout(self, nodes:Iterable[GraphNode], p_width:int) -> None:
+    def _layout(self, nodes:Sequence[GraphNode], p_width:int) -> None:
         """ Graph layout that attempts to arrange nodes and connections in the minimum number of rows.
             Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
         row = self._START_ROW
@@ -66,7 +67,7 @@ class CompressedGraphLayout(GraphLayout):
                 right_bound = end
                 continue
             # Index 2 can only be occupied by nodes that attach at the bottom with a single connector.
-            start = self._START_ROW - (node.bottom_length == 1)
+            start = self._first_row(node)
             valid_range = range(start, end)
             # If this node starts where the last one ended, attempt the slot next to it first.
             if col >= right_bound and row >= start:
