@@ -2,4 +2,3 @@
 
 from . import app
 from .base import LX
-from .graph import StenoGraph

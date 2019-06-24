@@ -28,17 +28,13 @@ class QtWindow(GUIQT):
         self.W_REGEX = window.w_search_regex
 
     def GUIQTSetEnabled(self, enabled:bool) -> None:
-        self.W_INPUT.clear()
-        self.W_INPUT.setPlaceholderText("Search..." if enabled else "")
-        self.W_MATCHES.clear()
-        self.W_MAPPINGS.clear()
-        self.W_BOARD.set_link("")
+        self.W_MENU.setEnabled(enabled)
         self.W_INPUT.setEnabled(enabled)
+        self.W_INPUT.setPlaceholderText("Search..." if enabled else "")
         self.W_MATCHES.setEnabled(enabled)
         self.W_MAPPINGS.setEnabled(enabled)
         self.W_STROKES.setEnabled(enabled)
         self.W_REGEX.setEnabled(enabled)
-        self.W_MENU.setEnabled(enabled)
 
     def GUIQTShowWindow(self) -> None:
         self.WINDOW.show()

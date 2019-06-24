@@ -1,12 +1,14 @@
-from typing import Callable, Iterator, List, Tuple
+from typing import Callable, Iterable, Iterator, List, Tuple
 
 from .generate import LexerRuleGenerator
 from .match import LexerRuleMatcher
 from spectra_lexer.resource import RuleMapItem, StenoRule
-from spectra_lexer.utils import str_without
+from spectra_lexer.utils import str_without, par_starmap
 
 
 class LexerProcessor:
+    """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
+        patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
 
     _match_rules: LexerRuleMatcher      # Master rule-matching dictionary.
     _generate_rule: LexerRuleGenerator  # Makes rules from lexer matches.
@@ -24,10 +26,22 @@ class LexerProcessor:
         """ Return the best rule that maps the given key string to the given word. """
         return self._generate_rule(list(self._process(keys, word)), keys, word)
 
-    def query_best(self, pairs:List[Tuple[str, str]]) -> StenoRule:
+    def query_best(self, pairs:Iterable[Tuple[str, str]]) -> StenoRule:
         """ Return the best rule out of all (keys, word) pairs. """
+        pairs = list(pairs)
         rules = [r for p in pairs for r in self._process(*p)]
         return self._generate_rule(rules, *pairs[0])
+
+    def query_parallel(self, items:Iterable[Tuple[str, str]],
+                       filter_in:Callable=None, filter_out:Callable=None) -> List[StenoRule]:
+        """ Run the lexer in parallel on all translation items and return a list of results.
+            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
+        if filter_in is not None:
+            items = filter(filter_in, items)
+        results = par_starmap(self.query, items)
+        if filter_out is not None:
+            results = list(filter(filter_out, results))
+        return results
 
     def _process(self, keys:str, word:str) -> Iterator[Tuple[List[RuleMapItem], str, str, str]]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed

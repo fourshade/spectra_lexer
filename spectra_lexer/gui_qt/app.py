@@ -43,8 +43,7 @@ class QtApplication(ViewApplication, GUIQT):
         return super()._engine(passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
-        """ Start the GUI event loop and run it indefinitely. The full component list is useful for debugging. """
-        self.ALL_COMPONENTS = list(self._components.recurse_items())
+        """ Start the GUI event loop and run it indefinitely. """
         return self.QT_APP.exec_()
 
 

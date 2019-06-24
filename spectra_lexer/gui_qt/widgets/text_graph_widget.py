@@ -7,7 +7,7 @@ class TextGraphWidget(QTextBrowser):
         by steno rules as well as plaintext interpreter output such as error messages and exceptions. """
 
     _last_ref: str = ""
-    _mouse_enabled: bool = False  # Does moving the mouse over the text do anything?
+    _mouse_enabled: bool = True  # Does moving the mouse over the text do anything?
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -18,7 +18,7 @@ class TextGraphWidget(QTextBrowser):
         if self._mouse_enabled:
             self._mouse_enabled = False
         else:
-            text = f"{self.toPlainText()}\n\n{text}"
+            text = f"{self.toPlainText()}\n{text}"
         self.setPlainText(text)
 
     def set_interactive_text(self, text:str, *, scroll_to:str=None) -> None:

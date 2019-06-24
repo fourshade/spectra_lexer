@@ -1,9 +1,8 @@
-from typing import List, Tuple, Callable, Optional
+from typing import List, Tuple
 
 from .base import ConfigOption, VIEW
 from .state import ViewState
 from spectra_lexer.resource import StenoRule
-from spectra_lexer.steno import StenoGraph
 
 
 class InnerViewLayer(VIEW):
@@ -19,18 +18,19 @@ class InnerViewLayer(VIEW):
     compressed_graph: bool = ConfigOption("graph", "compressed", default=True,
                                           desc="Compress the graph vertically to save space.")
     match_limit: int = ConfigOption("search", "match_limit", default=100,
-                                    desc="Maximum number of matches returned by a search.")
+                                    desc="Maximum number of matches returned on one page of a search.")
     show_links: bool = ConfigOption("search", "example_links", default=True,
                                     desc="Show hyperlinks to other examples of a selected rule from an index.")
     need_all_keys: bool = ConfigOption("search", "need_all_keys", default=False,
                                        desc="Only return lexer results that match every key in the stroke.")
 
     def _call_examples(self, link_ref:str, strokes:bool) -> Tuple[str, str]:
-        match = self.LXSearchExamples(link_ref)[not strokes]
+        match = self.LXSearchExamples(link_ref, strokes=strokes)
         pattern = self._INDEX_DELIM.join([link_ref, match])
         return pattern, match
 
     def _call_search(self, pattern:str, existing_count:int=0, strokes:bool=False, regex:bool=False) -> List[str]:
+        """ However many items are currently saved on the list (usually none), add one full page to that number. """
         count = existing_count + self.match_limit
         pattern, kwargs = self._parse_pattern(pattern)
         matches = self.LXSearchQuery(pattern, count=count, strokes=strokes, regex=regex, **kwargs)
@@ -44,7 +44,7 @@ class InnerViewLayer(VIEW):
 
     def _call_lookup(self, pattern:str, match:str, strokes:bool) -> List[str]:
         _, kwargs = self._parse_pattern(pattern)
-        return self.LXSearchLookup(match, strokes=strokes, **kwargs)
+        return self.LXSearchQuery(match, count=None, strokes=strokes, **kwargs)
 
     def _call_query(self, keys, letters) -> StenoRule:
         if isinstance(keys, str):
@@ -53,8 +53,8 @@ class InnerViewLayer(VIEW):
             cmd = self.LXLexerQueryProduct
         return cmd(keys, letters, need_all_keys=self.need_all_keys)
 
-    def _call_graph(self, main_rule:StenoRule) -> StenoGraph:
-        return self.LXGraphGenerate(main_rule, recursive=self.recursive_graph, compressed=self.compressed_graph)
+    def _call_graph(self, rule:StenoRule, **kwargs) -> Tuple[str, StenoRule]:
+        return self.LXGraphGenerate(rule, recursive=self.recursive_graph, compressed=self.compressed_graph, **kwargs)
 
     def _call_find_link(self, rule:StenoRule) -> str:
         return self.LXSearchFindLink(rule) if self.show_links else ""
@@ -69,7 +69,7 @@ class InnerViewLayer(VIEW):
 
 
 class ViewLayer(InnerViewLayer):
-    """ Implementation layer for handling text graphs, selections, and steno board diagrams. """
+    """ Implementation layer for handling searches, text graphs, selections, and steno board diagrams. """
 
     def _search_examples(self, state:ViewState) -> None:
         state.input_text, selection = self._call_examples(state.link_ref, state.mode_strokes)
@@ -78,12 +78,13 @@ class ViewLayer(InnerViewLayer):
         self._lookup(state)
 
     def _user_search(self, state:ViewState, existing_count:int=0) -> None:
-        self._search(state, existing_count)
-        matches = state.matches
-        # Automatically select the match if there was only one.
-        if len(matches) == 1:
-            state.match_selected = matches[0]
-            self._lookup(state)
+        if state.input_text:
+            self._search(state, existing_count)
+            matches = state.matches
+            # Automatically select the match if there was only one.
+            if len(matches) == 1:
+                state.match_selected = matches[0]
+                self._lookup(state)
 
     def _search(self, state:ViewState, existing_count:int=0) -> None:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
@@ -114,39 +115,38 @@ class ViewLayer(InnerViewLayer):
             result = self._call_query(mappings, [match])
             keys = result.keys
             state.mapping_selected = keys
-            state.graph_translation = [keys, match]
-            self._new_query(state)
+            self._new_query(state, [keys, match])
 
     def _query_from_selection(self, state:ViewState) -> None:
         """ The order of strokes/word in the lexer command is reversed for strokes mode. """
         translation = [state.match_selected, state.mapping_selected]
         if not state.mode_strokes:
             translation.reverse()
-        state.graph_translation = translation
-        self._new_query(state)
+        self._new_query(state, translation)
 
-    def _new_query(self, state:ViewState) -> None:
-        """ Make a new query and draw the initial graph. Only a previous linked example rule may be selected. """
+    def _new_query(self, state:ViewState, translation:list) -> None:
+        """ Make a new query and set the graph title. Only a previous linked example rule may be selected. """
+        state.graph_translation = translation
+        rule = self._call_query(*translation)
+        state.graph_title = str(rule)
         if state.graph_has_selection:
-            self._select_node(state, select=True, rule=self.RULES.get(state.link_ref))
+            kwargs = dict(select=True, prev=self.RULES.get(state.link_ref))
         else:
-            self._select_node(state)
+            kwargs = {}
+        self._set_graph(state, rule, **kwargs)
 
     def _graph_action(self, state:ViewState, clicked:bool) -> None:
         """ Handle a mouseover or click action. Mouseovers should do nothing as long as a selection is active. """
         if clicked or not state.graph_has_selection:
-            if state.graph_translation is not None:
-                self._select_node(state, select=clicked, ref=state.graph_node_ref)
+            translation = state.graph_translation
+            if translation is not None:
+                rule = self._call_query(*translation)
+                self._set_graph(state, rule, select=clicked, ref=state.graph_node_ref)
 
-    def _select_node(self, state:ViewState, select:bool=False, **kwargs) -> None:
-        """ Generate a new rule with the lexer and set the graph title. """
-        translation = state.graph_translation
-        rule = self._call_query(*translation)
-        graph = self._call_graph(rule)
-        state.graph_title = str(rule)
-        state.graph_text, selection = graph.process(select=select, **kwargs)
+    def _set_graph(self, state:ViewState, main_rule:StenoRule, select:bool=False, **kwargs) -> None:
+        state.graph_text, selection = self._call_graph(main_rule, select=select, **kwargs)
         state.graph_has_selection = bool(selection and select)
-        self._set_board(state, selection or rule)
+        self._set_board(state, selection or main_rule)
 
     def _set_board(self, state:ViewState, rule:StenoRule) -> None:
         state.link_ref = self._call_find_link(rule)
@@ -161,8 +161,7 @@ class OuterViewLayer(ViewLayer):
         self._search_examples(state)
 
     def VIEWSearch(self, state:ViewState) -> None:
-        if state.input_text:
-            self._user_search(state)
+        self._user_search(state)
 
     def VIEWLookup(self, state:ViewState) -> None:
         self._user_lookup(state)

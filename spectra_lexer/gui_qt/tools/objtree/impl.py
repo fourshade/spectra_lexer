@@ -18,31 +18,33 @@ HEADINGS = ["Name", "Type/Item Count", "Value"]
 HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-class _ItemFormatter:
+class _IconFinder(Dict[str, QIcon]):
+    """ Dict of pre-rendered icons corresponding to data types. """
 
-    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
-    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
-    _role_map: List[tuple]    # Maps string keys to Qt roles, with a formatting function applied to the data.
-
-    def __init__(self, **kwargs):
-        """ Create the icon dict and role data map with the [caching] color generator. """
-        self._render_icons(**kwargs)
-        self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
-                          ("tooltip",      Qt.ToolTipRole,    lambda x: x),
-                          ("icon_choices", Qt.DecorationRole, self.get_icon),
-                          ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
-
-    def _render_icons(self, icon_data:List[Tuple[List[str], bytes]]):
+    def __init__(self, icon_data:List[Tuple[List[str], bytes]]):
         """ Render each icon from bytes data and add them to a dict under each alias. """
-        self._icons = {}
+        super().__init__()
         for aliases, xml in icon_data:
             icon = IconRenderer(xml).generate()
             for n in aliases:
-                self._icons[n] = icon
+                self[n] = icon
 
-    def get_icon(self, choices:Iterable[str]) -> QIcon:
+    def __call__(self, choices:Iterable[str]) -> QIcon:
         """ Return an available icon from a sequence of choices from most wanted to least. """
-        return next(filter(None, map(self._icons.get, choices)), None)
+        return next(filter(None, map(self.get, choices)), None)
+
+
+class _ItemFormatter:
+
+    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
+    _role_map: List[tuple]    # Maps string keys to Qt roles, with a formatting function applied to the data.
+
+    def __init__(self, icon_finder:_IconFinder):
+        """ Create the role data map with the icon finder and [caching] color generator. """
+        self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
+                          ("tooltip",      Qt.ToolTipRole,    lambda x: x),
+                          ("icon_choices", Qt.DecorationRole, icon_finder),
+                          ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
 
     def __call__(self, data:dict):
         """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """
@@ -54,14 +56,15 @@ class _ItemFormatter:
 class ObjectTreeModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
-    _format_item: _ItemFormatter            # Formats each item data dict with flags and roles.
+    _format_item: _ItemFormatter           # Formats each item data dict with flags and roles.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
-    def __init__(self, root_item:dict, **kwargs):
-        """ Create the formatter and index dictionaries and fill out the root level of the tree. """
+    def __init__(self, root_item:dict, **resources):
+        """ Create the icon finder, formatter, and index dictionaries and fill out the root level of the tree. """
         super().__init__()
-        self._format_item = _ItemFormatter(**kwargs)
+        icon_finder = _IconFinder(**resources)
+        self._format_item = _ItemFormatter(icon_finder)
         self._d = defaultdict(list)
         root_idx = QModelIndex()
         self._idx_to_item = defaultdict(dict, {root_idx: root_item})

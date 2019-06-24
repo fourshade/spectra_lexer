@@ -27,13 +27,12 @@ class LexerRuleGenerator:
             return _rule_from_params(default_keys, default_word)
         rulemap, unmatched, keys, letters = reduce(_keep_better, reversed(results))
         if unmatched:
+            # The output is nowhere near reliable if some keys couldn't be matched.
             desc = "Incomplete match. Not reliable."
             last_match_end = rulemap[-1].start + rulemap[-1].length
             rulemap.append(_unmatched_item(self._convert_to_rtfcre(unmatched), letters, last_match_end))
         else:
-            # The caption only shows a percentage if all of the keys were matched.
-            # All-whitespace rules shouldn't happen, but let's not ruin someone's day by dividing by zero.
-            desc = f"Found {_letters_matched(rulemap) / (_letters_matchable(letters) or 1):.0%} match."
+            desc = "Found complete match."
         # Freeze the rulemap and make a new rule.
         return _rule_from_params(keys, letters, desc, tuple(rulemap))
 
@@ -66,11 +65,6 @@ def _keep_better(self:tuple, other:tuple) -> tuple:
 def _letters_matched(rulemap:Iterable[RuleMapItem], _get_letters=attrgetter("rule.letters")) -> int:
     """ Get the number of characters matched by mapped rules. """
     return sum(map(len, map(_get_letters, rulemap)))
-
-
-def _letters_matchable(letters:str) -> int:
-    """ Get the number of characters possible to match (i.e. not spaces). """
-    return sum([c != ' ' for c in letters])
 
 
 def _rare_count(rulemap:Iterable[RuleMapItem]) -> int:

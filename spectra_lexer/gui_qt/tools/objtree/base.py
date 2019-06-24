@@ -1,7 +1,8 @@
+from functools import partial
 from pkgutil import get_data
 import sys
 
-from .collection import ContainerCollection
+from .row import RowFactory
 from .impl import ObjectTreeDialog
 from ..base import GUIQT_TOOL
 from ..dialog import DialogContainer
@@ -10,18 +11,61 @@ from spectra_lexer.types.codec import SVGElement
 _ICON_PATH = "/treeicons.svg"  # File with all object tree icons.
 
 
+class package(dict):
+    """ Class for packaging objects and modules under string keys in a nested dict. """
+
+    __slots__ = ()
+
+    @classmethod
+    def nested(cls, d:dict, delim:str= ".", root_key:str= "__init__") -> dict:
+        """ Split all keys on <delim> and nest package dicts in a hierarchy based on these splits.
+            If one key is a prefix of another, it may occupy a slot needed for another level of dicts.
+            If this happens, move the value one level deeper under <root_key>. """
+        pkg = cls()
+        for k, v in d.items():
+            d = pkg
+            *first, last = k.split(delim)
+            for i in first:
+                if i not in d:
+                    d[i] = cls()
+                elif not isinstance(d[i], cls):
+                    d[i] = cls(root_key=d[i])
+                d = d[i]
+            if last not in d or not isinstance(d[last], cls):
+                d[last] = v
+            else:
+                d[last][root_key] = v
+        return pkg
+
+
 class ObjectTree(GUIQT_TOOL):
+    """ Base class for the object tree. The fields are expensive to create and probably unused most of the time,
+        so each one is a descriptor that computes itself only when accessed. """
 
-    _resources: dict = None  # Dict of all resources such as object type icons.
+    class lazy_field(partial):
+        """ A field that computes its value only when needed, then sets it on the instance, overriding the getter. """
+        def __get__(self, instance:object, owner:type):
+            val = self(instance)
+            setattr(instance, self.func.__name__, val)
+            return val
 
-    class package(dict):
-        """ Class for packaging objects and modules under string keys in a nested dict. """
-        __slots__ = ()
+    @lazy_field
+    def root_item(self) -> dict:
+        """ Make a raw root item by making an initial row and taking the first item. """
+        row = RowFactory.generate(self.root_dict)
+        return row[0]
 
-    def generate_resources(self) -> None:
+    @lazy_field
+    def root_dict(self):
+        """ Make a root dict with packages containing all modules and the first level of components. """
+        root_dict = self._components_by_path()
+        root_dict["modules"] = package.nested(sys.modules)
+        return root_dict
+
+    @lazy_field
+    def icon_data(self) -> list:
+        """ Decode the SVG icon resource file and create individual icons for each type. """
         icon_data = []
-        self._resources = {"root_item": self._root_item(), "icon_data": icon_data}
-        # Decode the SVG icons.
         svg_data = get_data(__package__, _ICON_PATH)
         svg_tree = SVGElement.decode(svg_data)
         # Elements with at least one type alias are valid icons. Encode a new SVG byte string for each one.
@@ -29,15 +73,7 @@ class ObjectTree(GUIQT_TOOL):
             types = elem.get("spectra_types")
             if types:
                 icon_data.append((types.split(), svg_tree.encode_with_defs(elem)))
-
-    def _root_item(self) -> dict:
-        """ Make a root dict with packages containing all modules and the first level of components. """
-        root_dict = self._components_by_path()
-        root_dict["modules"] = self._nest(sys.modules)
-        # Make a raw root item by making an initial container from a 1-tuple containing this dict.
-        container = ContainerCollection((root_dict,))
-        # Rows of item data are produced upon iterating over the contents. Take the first item from the only row.
-        return next(iter(container))[0]
+        return icon_data
 
     def _components_by_path(self) -> dict:
         """ Return a nested dict with each component indexed by its class's module path. """
@@ -47,38 +83,29 @@ class ObjectTree(GUIQT_TOOL):
             if ks[-1] == "base":
                 ks.pop()
             d[".".join(ks[1:])] = cmp
-        return self._nest(d)
-
-    def _nest(self, d:dict, pkg_cls:type=package, delim:str=".", root_key:str="__init__") -> dict:
-        """ Split all keys on <delim> and nest package dicts in a hierarchy based on these splits.
-            If one key is a prefix of another, it may occupy a slot needed for another level of dicts.
-            If this happens, move the value one level deeper under <root_key>. """
-        pkg = pkg_cls()
-        for k, v in d.items():
-            d = pkg
-            *first, last = k.split(delim)
-            for i in first:
-                if i not in d:
-                    d[i] = pkg_cls()
-                elif not isinstance(d[i], pkg_cls):
-                    d[i] = pkg_cls({root_key: d[i]})
-                d = d[i]
-            if last not in d or not isinstance(d[last], pkg_cls):
-                d[last] = v
-            else:
-                d[last][root_key] = v
-        return pkg
+        return package.nested(d)
 
 
 class ObjectTreeTool(ObjectTree):
     """ Component for interactive tree operations. """
 
     _dialog: DialogContainer
+    _last_exception: Exception = None  # Holds last exception caught from the engine.
 
     def __init__(self) -> None:
         self._dialog = DialogContainer(ObjectTreeDialog)
 
     def debug_tree_open(self) -> None:
-        if self._resources is None:
-            self.generate_resources()
-        self._dialog.open(self.WINDOW, self._resources)
+        """ Add the last engine exception to the root dict if any were caught. """
+        if self._last_exception is not None:
+            self.root_dict["last_exception"] = self._last_exception
+        resources = {"root_item": self.root_item, "icon_data": self.icon_data}
+        self._dialog.open(self.WINDOW, resources)
+
+    def HandleException(self, exc:Exception) -> bool:
+        """ Save the last exception for introspection. If THAT fails, the system is beyond help. """
+        try:
+            self._last_exception = exc
+        except Exception:
+            pass
+        return True

@@ -6,7 +6,7 @@
     <link rel="icon" href="icon.svg">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
     <script>
-    var state = {board_aspect_ratio: 2.0};
+    var state = {};
     function setCSS(sel, prop){
         return function(value){$(sel).css(prop, value)};
     }
@@ -101,10 +101,11 @@
             state.graph_node_ref = "";
             processAction("VIEWGraphClick");
         });
-        var boardContainer = $("#w_display_board")
-        $(window).resize(function(){
-            state.board_aspect_ratio = boardContainer.width() / 250;
-        });
+        function onBoardResize(){
+            state.board_aspect_ratio = $("#w_display_board").width() / 250;
+        }
+        $(window).resize(onBoardResize);
+        onBoardResize()
         updateTable.link_ref("");
     });
     </script>

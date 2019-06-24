@@ -50,20 +50,23 @@ class HTMLTextField(List[str]):
             str_ops[sect] = [html.escape, node.bold(node is target).format]
         if target is not None:
             ladder = list(traverse(target, "parent"))
-            for depth, node in enumerate(reversed(ladder)):
-                # For nodes that are ancestors of the selected node, add color tags first.
-                for row, sect in self._ref_dict[node]:
-                    str_ops[sect].append(node.color(depth, row, intense).format)
-            start = target.attach_start
+            depths = range(len(ladder))[::-1]
+            start = 0
             length = target.attach_length
-            for node in ladder[1:]:
-                # For ancestors that are not the target object, only highlight the part directly above the target.
-                _, sect = self._ref_dict[node][-1]
-                def format_part(text:str, start=start, end=start+length, fmts=str_ops[sect]):
-                    *fmts, color = fmts
-                    pfx, body, sfx = [_apply(fmts, s) for s in (text[:start], text[start:end], text[end:])]
-                    return f"{pfx}{color(body)}{sfx}"
-                str_ops[sect] = [format_part]
+            for node, depth in zip(ladder, depths):
+                # For nodes that are ancestors of the selected node, add color tags first.
+                sections = self._ref_dict[node]
+                for row, sect in sections:
+                    str_ops[sect].append(node.color(depth, row, intense).format)
+                # It is rare, but possible to have a node with no sections, so test for that.
+                if node is not target and sections:
+                    # For ancestors that are not the target object, only highlight the part directly above the target.
+                    _, sect = sections[-1]
+                    def format_part(text:str, start=start, end=start+length, fmts=str_ops[sect]):
+                        *fmts, color = fmts
+                        pfx, body, sfx = [_apply(fmts, s) for s in (text[:start], text[start:end], text[end:])]
+                        return f"{pfx}{color(body)}{sfx}"
+                    str_ops[sect] = [format_part]
                 # Add the attach start offset for each node as we climb the ladder.
                 start += node.attach_start
         for index, node in enumerate(self._ref_list):

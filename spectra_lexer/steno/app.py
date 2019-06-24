@@ -20,7 +20,7 @@ class StenoAnalyzeApplication(StenoApplication):
     DESCRIPTION = "Run the lexer on every item in a JSON steno translations dictionary."
 
     def run(self) -> int:
-        return self.SYSConsoleBatch("RSRulesSave(LXAnalyzerMakeRules())")
+        return self.SYSConsoleBatch("RSRulesSave(LXLexerQueryAll())")
 
 
 class StenoIndexApplication(StenoApplication):
@@ -28,7 +28,7 @@ class StenoIndexApplication(StenoApplication):
     DESCRIPTION = "Analyze a translations file and index each translation by the rules it uses."
 
     def run(self) -> int:
-        return self.SYSConsoleBatch("RSIndexSave(LXAnalyzerMakeIndex())")
+        return self.SYSConsoleBatch("RSIndexSave(LXLexerMakeIndex())")
 
 
 StenoApplication.set_entry_point("console")

@@ -7,8 +7,6 @@ from spectra_lexer.view import VIEW
 
 class GUIQT(VIEW):
 
-    ALL_COMPONENTS: list = Resource([])  # Contains every component definition in the application.
-
     WINDOW: MainWindow = Resource()  # Main GUI window. All GUI activity is coupled to this window.
     W_MENU: QMenuBar = Resource()
     W_BOARD: StenoBoardWidget = Resource()
@@ -39,4 +37,9 @@ class GUIQT(VIEW):
     @Command
     def GUIQTCloseWindow(self) -> None:
         """ Closing the main window should kill the program in standalone mode, but not as a plugin. """
+        raise NotImplementedError
+
+    @Command
+    def GUIQTAction(self, action:str, attrs:tuple=(), *args) -> None:
+        """ Update attributes and/or send an action command. """
         raise NotImplementedError

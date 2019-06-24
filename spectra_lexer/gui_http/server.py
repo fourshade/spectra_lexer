@@ -24,7 +24,7 @@ class SpectraRequestHandler(SimpleHTTPRequestHandler):
         data = self.rfile.read(size)
         self._callback(data, self.finish_POST)
 
-    def finish_POST(self, response) -> None:
+    def finish_POST(self, response:bytes) -> None:
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(response)))
@@ -52,13 +52,12 @@ class HttpServer(_GUIHTTP_VIEW):
         httpd.serve_forever()
         return 0
 
-    def run(self, data:bytes, req_call) -> None:
-        """ Process a state obtained from a client query string. """
+    def run(self, data:bytes, req_call:Callable) -> None:
+        """ Process a state obtained from a client query string. Attach the callback so we don't lose it. """
         state = ViewState.decode(data)
         state._req = req_call
         self.VIEWAction(state)
 
     def on_view_finished(self, state:ViewState) -> None:
-        req_call = state._req
-        del state._req
-        req_call(state.encode())
+        """ Encode any changes and send them back to the client with the callback. """
+        state._req(state.encode())

@@ -79,7 +79,7 @@ class _GUIQT_TOOL_INDEX(GUIQT_TOOL):
         """ If there is no index file (first start), present a dialog for the user to make a default-sized index. """
         raise NotImplementedError
 
-    @LX.LXAnalyzerMakeIndex.response
+    @LX.LXLexerMakeIndex.response
     def on_new_index(self, index:StenoIndex) -> None:
         """ Once the new index has been received, we can save it and reload it to be active. """
         raise NotImplementedError
@@ -99,24 +99,22 @@ class QtIndexTool(_GUIQT_TOOL_INDEX):
             button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
             # Make the starting index on accept, otherwise save an empty one so the message doesn't appear again.
             if button == yes:
-                self._send_index_commands()
+                self.size_submit(DEFAULT_SIZE)
             else:
                 self._store_index(StenoIndex(EMPTY={}))
                 self._msg("Skipped index creation.")
 
     def tools_index_open(self) -> None:
+        """ If the index size was positive, the dialog was accepted. """
         self._dialog.open(self.WINDOW, self.size_submit)
 
     def size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted, so create the custom index. """
         if index_size:
-            self._send_index_commands(index_size)
-
-    def _send_index_commands(self, index_size:int=DEFAULT_SIZE) -> None:
-        """ Set the size and run the command. Disable the GUI while the thread is busy. """
-        self._msg("Making new index...")
-        self.GUIQTSetEnabled(False)
-        self.LXAnalyzerMakeIndex(size=index_size)
+            # Disable the GUI while the thread is busy.
+            self._msg("Making new index...")
+            self.GUIQTSetEnabled(False)
+            self.LXLexerMakeIndex(index_size)
 
     def on_new_index(self, index:StenoIndex) -> None:
         """ Re-enable the GUI once the thread is clear. """

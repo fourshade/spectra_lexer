@@ -20,9 +20,9 @@ class ConsoleCommand(Command):
             yield meth
 
     @classmethod
-    def make_namespace(cls):
+    def make_namespace(cls, **kwargs):
         """ Use a namespace dict that automatically imports top-level modules for convenience. """
-        return AutoImporter.make_namespace(cls._COMMANDS, help=xhelp())
+        return AutoImporter.make_namespace(cls._COMMANDS, help=xhelp(), **kwargs)
 
 
 class ConsoleManager(SYS):
@@ -37,7 +37,7 @@ class ConsoleManager(SYS):
 
     def _new_console(self, *args, **kwargs) -> None:
         """ Make a new namespace and console. If positional args are given, they add entries to the namespace. """
-        locals_ns = ConsoleCommand.make_namespace()
+        locals_ns = ConsoleCommand.make_namespace(__app__=self.ALL_COMPONENTS)
         if args:
             locals_ns.update(*args)
         self._console = ConsoleIO(locals_ns, **kwargs)
@@ -64,22 +64,20 @@ class ConsoleManager(SYS):
         """ Display status messages on stdout by default. """
         print(f"SPECTRA: {status}")
 
-    def Exception(self, *exc_args) -> bool:
+    def HandleException(self, exc:Exception) -> bool:
         """ Print an exception traceback to stdout, if possible.
             Also send the traceback text to any other component that wants it. """
-        tb_text = ExceptionFormatter(*exc_args).format()
+        tb_text = _format_traceback(exc)
         try:
             print(tb_text)
         except Exception as e:
             # stdout might be locked or redirected. We're probably screwed, but there may be other handlers.
-            tb_text += f"\nFAILED TO WRITE STDOUT!\n{ExceptionFormatter.from_exception(e).format()}"
+            tb_text += f"\nFAILED TO WRITE STDOUT!\n{_format_traceback(e)}"
         self.SYSTraceback(tb_text)
         return True
 
 
-class ExceptionFormatter(TracebackException):
-
-    def format(self, **kwargs) -> str:
-        """ Perform custom formatting of a traceback and return a string. """
-        lines = super().format(**kwargs)
-        return "".join(lines)
+def _format_traceback(exc:Exception, **kwargs) -> str:
+    """ Perform custom formatting of a traceback and return a string. """
+    tb = TracebackException.from_exception(exc, **kwargs)
+    return "".join(tb.format())

@@ -22,8 +22,8 @@ class AutoImporter(dict):
 
 
 def add_hook(module) -> None:
-    """  If the module does not have __path__, it is not a package. There is nothing more to import from it.
-         If the module has __getattr__, it may have been hooked already. Do not override it. """
+    """ If the module does not have __path__, it is not a package. There is nothing more to import from it.
+        If the module has __getattr__, it may have been hooked already. Do not override it. """
     if hasattr(module, "__path__") and not hasattr(module, "__getattr__"):
         module.__getattr__ = partial(auto_import, module.__dict__)
 

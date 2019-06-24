@@ -1,17 +1,17 @@
 from itertools import product
-from typing import Callable, Iterable, List
+from typing import Callable, Iterable
 
 from .generate import LexerRuleGenerator
 from .match import LexerMatch, LexerRuleMatcher
 from .process import LexerProcessor
 from ..base import LX
-from spectra_lexer.resource import StenoRule
-from spectra_lexer.utils import par_starmap
+from spectra_lexer.resource import RulesDictionary, StenoIndex, StenoRule
 
 
 class StenoLexer(LX):
-    """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno
-        patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
+    """ The primary steno analysis engine. Generates rules from translations and creates indices. """
+
+    _DEFAULT_INDEX_SIZE: int = 12  # Default size of generated indices (maximum word size).
 
     _matcher: LexerRuleMatcher = None      # Master rule-matching dictionary.
     _generator: LexerRuleGenerator = None  # Makes rules from lexer matches.
@@ -28,16 +28,21 @@ class StenoLexer(LX):
         return self._make_processor(**kwargs).query(keys, word)
 
     def LXLexerQueryProduct(self, keys:Iterable[str], words:Iterable[str], **kwargs) -> StenoRule:
-        return self._make_processor(**kwargs).query_best(list(product(keys, words)))
+        return self._make_processor(**kwargs).query_best(product(keys, words))
 
-    def LXQueryAll(self, filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> List[StenoRule]:
+    def LXLexerQueryAll(self, *args, **kwargs) -> RulesDictionary:
+        results = self._query_all(*args, **kwargs)
+        return RulesDictionary(zip(map(str, results), results), **self.RULES)
+
+    def LXLexerMakeIndex(self, size:int=_DEFAULT_INDEX_SIZE) -> StenoIndex:
+        """ Only keep results with all keys matched to reduce garbage. """
+        filter_in, filter_out = StenoIndex.filters(size)
+        results = self._query_all(filter_in, filter_out, need_all_keys=True)
+        return StenoIndex.compile(results, self.RULES.inverse)
+
+    def _query_all(self, *args, **kwargs):
         items = self.TRANSLATIONS.items()
-        if filter_in is not None:
-            items = filter(filter_in, items)
-        results = par_starmap(self._make_processor(**kwargs).query, items)
-        if filter_out is not None:
-            results = list(filter(filter_out, results))
-        return results
+        return self._make_processor(**kwargs).query_parallel(items, *args)
 
     def _make_processor(self, *, need_all_keys:bool=False) -> LexerProcessor:
         return LexerProcessor(self._matcher, self._generator, self._cleanse, need_all_keys)

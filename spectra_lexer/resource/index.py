@@ -9,34 +9,37 @@ from spectra_lexer.types.codec import JSONDict
 
 class StenoIndex(JSONDict):
     """ A resource-heavy index dict-of-dicts for finding translations that contain a particular steno rule.
-        Index search is a two-part search. The first part goes by rule name, and is very precise.
-        It is a key to generate translation dict objects, so only exact matches will work. """
+        Index search is a two-part search. The first part goes by rule name; only exact matches will work. """
 
     def search(self, index_key:str, pattern:str, **kwargs) -> List[str]:
+        """ Translation search dicts are memory hogs, and users tend to look at many results under the same rule.
+            Convert native dicts (from JSON) to full-featured search dicts only on demand. """
         d = self.get(index_key)
         if not d:
             return []
         if not isinstance(d, TranslationsDictionary):
-            # Search indices are memory hogs, and users tend to look at many results under the same rule.
-            # We convert each dict to a full translations search index only on demand.
             d = self[index_key] = TranslationsDictionary(d)
-        # Manually set the search flags to avoid regex search.
-        kwargs["regex"] = False
-        return d.search(pattern, prefix=False, **kwargs)
+        # Manually set the search flags.
+        kwargs.update(prefix=False, regex=False)
+        return d.search(pattern, **kwargs)
 
-    def lookup(self, index_key:str, match:str, **kwargs) -> List[str]:
-        d = self.get(index_key)
-        if not d:
-            return []
-        return d.lookup(match, **kwargs)
-
-    def find_example(self, index_key:str) -> Tuple[str, str]:
+    def find_example(self, index_key:str, strokes:bool=False) -> str:
         """ Given a rule/index key by name, return one translation using it at random. """
-        d = self.get(index_key)
-        if not d:
-            return "", ""
+        d = self.get(index_key) or {"": ""}
         k = random.choice(list(d))
-        return k, d[k]
+        return k if strokes else d[k]
+
+    @classmethod
+    def filters(cls, size:int) -> tuple:
+        """ Generate filters to control index size. Larger translations are excluded with smaller index sizes.
+            The parameter <size> determines the relative size of a generated index (range 1-20). """
+        def filter_in(translation:tuple) -> bool:
+            """ Filter function to eliminate larger entries from the index depending on the size factor. """
+            return max(map(len, translation)) <= size
+        def filter_out(rule:StenoRule) -> bool:
+            """ Filter function to eliminate lexer results that are unmatched or basic rules themselves. """
+            return len(rule.rulemap) > 1
+        return (filter_in if size < 20 else None, filter_out)
 
     @classmethod
     def compile(cls, rules:Iterable[StenoRule], rev_rules:Dict[StenoRule, str]):

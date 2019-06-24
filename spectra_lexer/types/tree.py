@@ -34,7 +34,7 @@ class PrefixTree:
 
     def __getitem__(self, k:Sequence) -> list:
         """ From a given sequence, return a list of all of the values that match
-            any prefix of it in order from shortest prefix matched to longest. """
+            any prefix of it in order from longest prefix matched to shortest. """
         node = self._root
         for element in k:
             if element not in node:

@@ -18,12 +18,12 @@ class ExceptionHandler:
     def __enter__(self) -> None:
         self._depth += 1
 
-    def __exit__(self, exc_type:type, exc_value:Exception, exc_traceback) -> bool:
+    def __exit__(self, exc_type:type, exc_value:BaseException, exc_traceback) -> bool:
         """ If there's an exception and we're at the top level, try to handle it with the callback. """
         self._depth -= 1
         if exc_type is None or self._depth:
             return False
-        return self._exc_callback(exc_type, exc_value, exc_traceback)
+        return self._exc_callback(exc_value)
 
 
 class Executor(multidict):
@@ -51,7 +51,7 @@ class Engine:
 
     _exec: Executor  # Holds and executes commands by key.
 
-    def __init__(self, components:Iterable[object], *, exc_command:Hashable=None):
+    def __init__(self, components:Iterable, *, exc_command:Hashable=None):
         """ Bind commands from components and assemble the engine with an executor and/or exception handler. """
         super().__init__()
         exc_callback = partial(self._handle_exception, exc_command)
@@ -68,11 +68,12 @@ class Engine:
         """ Central method for components to call commands on other components. """
         return self._exec(*args, **kwargs)
 
-    def _handle_exception(self, exc_command:Callable, *exc_args) -> bool:
-        """ C frameworks may crash if exceptions propagate back to them, so try to handle them here if possible. """
-        if exc_command is None:
+    def _handle_exception(self, exc_command:Callable, exc_value:BaseException) -> bool:
+        """ C frameworks may crash if exceptions propagate back to them, so try to handle them here if possible.
+            Do NOT handle BaseExceptions - these are typically caused by the user wanting to exit the program. """
+        if exc_command is None or not isinstance(exc_value, Exception):
             return False
-        self(exc_command, *exc_args)
+        self(exc_command, exc_value)
         return True
 
 
@@ -83,7 +84,7 @@ class ThreadedEngine(Engine, Queue):
     connections: Iterable[Callable] = ()  # All connected engine queue callbacks.
     start: Callable[[], None]             # Thread start method.
 
-    def __init__(self, components:Iterable[object], **kwargs):
+    def __init__(self, components:Iterable, **kwargs):
         """ Make a new thread to service this engine until program exit. Must be daemonic to die with the program. """
         super().__init__(components, **kwargs)
         self.start = Thread(target=self._loop, name=f"THREAD: {components}", daemon=True).start
@@ -109,10 +110,9 @@ class ThreadedEngine(Engine, Queue):
 class ThreadedEngineGroup(ThreadedEngine):
     """ A composite threaded engine consisting of multiple component groups. """
 
-    def __init__(self, groups:Iterable[Iterable[object]], passthrough:Callable=None, **kwargs):
+    def __init__(self, main_group:Iterable, *worker_groups:Iterable, passthrough:Callable=None, **kwargs):
         """ The first component group is designated the "main group", and is directly connected to this engine.
             Each further group is a "worker group", which gets its own thread and child engine. """
-        main_group, *worker_groups = groups
         super().__init__(main_group, **kwargs)
         child_engines = [ThreadedEngine(group, **kwargs) for group in worker_groups]
         if passthrough is not None:

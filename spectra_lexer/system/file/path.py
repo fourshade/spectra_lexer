@@ -6,10 +6,26 @@ from typing import List
 from appdirs import user_data_dir
 from pkg_resources import resource_string, resource_listdir
 
-from spectra_lexer.types import prefix_index
+
+class PrefixTypeIndex(list):
+    """ Class decorator for recording polymorphic subtypes corresponding to a prefix of a string key. """
+
+    def __call__(self, key:str):
+        def recorder(tp):
+            self.append((len(key), key, tp))
+            self.sort(key=lambda x: -x[0])
+            return tp
+        return recorder
+
+    def from_prefix(self, key:str, **kwargs):
+        """ Try prefixes in order from longest to shortest. Return a new class instance if we find a valid one. """
+        for length, prefix, tp in self:
+            if key.startswith(prefix):
+                return tp(key[length:], **kwargs)
+
 
 # Records resource types to check for membership by prefix.
-TYPES_BY_PREFIX = use_if_path_startswith = prefix_index()
+PATH_TYPES = if_path_startswith = PrefixTypeIndex()
 
 
 class AbstractPath(str):
@@ -43,11 +59,10 @@ class AbstractPath(str):
         """ Determine the type of resource from a string by its prefix and create the appropriate path identifier. """
         if isinstance(s, cls):
             return s
-        stripped, subcls = TYPES_BY_PREFIX.find(s)
-        return subcls(stripped, **kwargs)
+        return PATH_TYPES.from_prefix(s, **kwargs)
 
 
-@use_if_path_startswith.default()
+@if_path_startswith("")
 class FilePath(AbstractPath):
     """ A file identifier, created from an ordinary file path. Will be used if nothing else matches. """
 
@@ -69,7 +84,7 @@ class FilePath(AbstractPath):
         return glob.glob(self)
 
 
-@use_if_path_startswith("~")
+@if_path_startswith("~")
 class UserFilePath(FilePath):
     """ An identifier for a file in the user's app data directory. """
 
@@ -81,7 +96,7 @@ class UserFilePath(FilePath):
         return FilePath(os.path.join(directory, filename))
 
 
-@use_if_path_startswith(":/")
+@if_path_startswith(":/")
 class AssetPath(AbstractPath):
     """ A built-in asset identifier, created by using pkg_resources. """
 
@@ -101,10 +116,10 @@ class AssetPath(AbstractPath):
         return [os.path.join(pathname, n) for n in asset_names]
 
 
-@use_if_path_startswith("NUL")
+@if_path_startswith("NUL")
 class NullPath(AbstractPath):
     """ A dummy class that reads nothing and writes to a black hole. """
 
-    read = lambda self: b""
+    read = bytes
     write = lambda *args: None
     _search = lambda self: [self]

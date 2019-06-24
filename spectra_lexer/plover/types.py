@@ -5,9 +5,7 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
 import pkg_resources
 
 from spectra_lexer.resource import TranslationsDictionary
-from spectra_lexer.types import delegate_to
-from spectra_lexer.utils import nop
-from spectra_lexer.view import ViewState
+from spectra_lexer.types import dummy
 
 # Key constants and functions for Plover stroke strings.
 _PLOVER_SEP = "/"
@@ -30,9 +28,7 @@ class PloverTranslatorState:
 
 class PloverStenoDict:
     _dict: dict = {}
-    __len__ = delegate_to("_dict")
-    __iter__ = delegate_to("_dict")
-    items = delegate_to("_dict")
+    def items(self): return self._dict.items()
     enabled: bool = True
 
 
@@ -43,9 +39,9 @@ class PloverStenoDictCollection:
 class PloverEngine:
     dictionaries: PloverStenoDictCollection = PloverStenoDictCollection()
     translator_state: PloverTranslatorState = PloverTranslatorState()
-    signal_connect: Callable[[str, Callable], None] = nop
-    __enter__: Callable[[], None] = nop
-    __exit__: Callable[..., None] = nop
+    signal_connect: Callable[[str, Callable], None] = dummy
+    __enter__: Callable[[], None] = dummy
+    __exit__: Callable[..., None] = dummy
 
     @classmethod
     def test(cls, d:dict=None, split_count:int=1):
@@ -90,12 +86,3 @@ class PloverTranslationsDictionary(TranslationsDictionary):
         for d in dicts:
             converted_dict.update(zip(map(join_strokes, d), d.values()))
         super().__init__(converted_dict)
-
-
-class TranslationsState(ViewState):
-    """ Keeps running buffers of strokes and text. """
-
-    def combine(self, new_strokes:Iterable[str], new_text:str) -> None:
-        """ Combine all new strokes and text into the current state. """
-        strokes, text = self.graph_translation or ["", ""]
-        self.graph_translation = [join_strokes([strokes, *new_strokes]), text + new_text]

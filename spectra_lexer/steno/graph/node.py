@@ -1,6 +1,6 @@
 """ Module for higher-level text objects such as graph nodes for text operations. """
 
-from typing import Callable, Dict, Optional, Sequence
+from typing import Callable, Sequence
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
 from spectra_lexer.resource import RuleFlags, StenoRule
@@ -10,9 +10,9 @@ class GraphNode:
     """ Abstract class representing a node in a tree structure of steno rules.
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
-    COLOR = ClipMatrix([0,   64,  0,   64],  # Vary red with nesting depth and selection (for purple),
-                       [0,   0,   8,   0],   # vary green with the row index,
-                       [255, 0,   0,   0],   # starting from pure blue,
+    COLOR = ClipMatrix([0,   64,  0,   -64],  # Vary red with nesting depth and selection (for purple),
+                       [0,   0,   8,   100],   # vary green with the row index and selection,
+                       [255, 0,   0,   0],    # starting from pure blue,
                        upper_bound=(192, 192, 255))  # and stopping short of invisible white.
 
     BOTTOM = PatternRow("│", "├─┐")    # Primitive constructor for the section above the text.
@@ -146,8 +146,8 @@ class RootNode(BranchNode):
     """ The root node always appears as a branch, even if it has no children. """
 
     COLOR = ClipMatrix([255, 0,   0,   0],  # It has a bright red color, or orange if selected.
-                       [64,  0,   0,   100],
-                       [64,  0,   0,   0])
+                       [0,   0,   0,   120],
+                       [0,   0,   0,   0])
 
 
 class NodeFactory:
@@ -155,17 +155,13 @@ class NodeFactory:
     _key_sep: str     # Steno key used as stroke separator.
     _key_split: str   # Steno key used to split sides in RTFCRE.
     _recursive: bool  # If True, also generate children of children (and so on).
-    _rules_by_node: Dict[StenoRule, GraphNode]  # Mapping of each rule to its generated node.
-    _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
 
     def __init__(self, key_sep:str, key_split:str, recursive:bool=True):
         self._key_sep = key_sep
         self._key_split = key_split
         self._recursive = recursive
-        self._rules_by_node = {}
-        self._nodes_by_rule = {}
 
-    def __call__(self, rule:StenoRule) -> GraphNode:
+    def make_tree(self, rule:StenoRule) -> GraphNode:
         """ Generate a full output tree starting with the given rule as root.
             The root node has a depth of 0 and no parent, so its attach points are arbitrary. """
         root = RootNode(rule.letters, 0, 0)
@@ -175,13 +171,9 @@ class NodeFactory:
     def _make_node(self, rule:StenoRule, *args) -> GraphNode:
         """ Only create derived type nodes if a rule has children and we are allowed to draw them. """
         if rule.rulemap and self._recursive:
-            node = self._make_derived(rule, *args)
+            return self._make_derived(rule, *args)
         else:
-            node = self._make_base(rule, *args)
-        # Keep track of the node and its rule in case we need one from the other.
-        self._rules_by_node[rule] = node
-        self._nodes_by_rule[node] = rule
-        return node
+            return self._make_base(rule, *args)
 
     def _make_base(self, rule:StenoRule, *args) -> GraphNode:
         """ Base rules (i.e. leaf nodes) show their keys. """
@@ -211,11 +203,3 @@ class NodeFactory:
         children = node.children = [self._make_node(i.rule, i.start, i.length) for i in rule.rulemap]
         for c in children:
             c.parent = node
-
-    def rule_to_node(self, rule:StenoRule) -> Optional[GraphNode]:
-        """ Given a rule, find the first node that used it (if any). """
-        return self._rules_by_node.get(rule)
-
-    def node_to_rule(self, node:GraphNode) -> Optional[StenoRule]:
-        """ Given a node reference, look up its rule. """
-        return self._nodes_by_rule.get(node)

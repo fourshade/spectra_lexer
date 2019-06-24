@@ -1,13 +1,13 @@
 from typing import Sequence
 
 from .base import PLOVER
-from .types import PloverAction, PloverStenoDictCollection, PloverTranslationsDictionary, TranslationsState
+from .types import join_strokes, PloverAction, PloverStenoDictCollection, PloverTranslationsDictionary
 
 
 class PloverInterface(PLOVER):
     """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
-    _state: TranslationsState  # Current set of contiguous strokes and text.
+    _translation: Sequence[str]  # Current set of contiguous strokes and text.
 
     def __init__(self):
         super().__init__()
@@ -40,8 +40,8 @@ class PloverInterface(PLOVER):
         # Use the current state if the new text attaches to it, otherwise start fresh.
         if not any([a.prev_attach for a in new_actions]):
             self._reset()
-        self._state.combine(strokes, text)
-        self._send_translation()
+        self._combine(strokes, text)
+        self._send()
 
     def _get_last_strokes(self) -> Sequence[str]:
         """ Lock the Plover engine thread to access the Plover translator state and get the newest strokes. """
@@ -53,8 +53,15 @@ class PloverInterface(PLOVER):
             return ()
 
     def _reset(self) -> None:
-        self._state = TranslationsState()
+        """ Reset the translator state to blank strokes and text. """
+        self._translation = ["", ""]
 
-    def _send_translation(self) -> None:
+    def _combine(self, new_strokes:Sequence[str], new_text:str) -> None:
+        """ Combine all new strokes and text into the current state. """
+        strokes, text = self._translation
+        new_strokes = filter(None, [strokes, *new_strokes])
+        self._translation = [join_strokes(new_strokes), text + new_text]
+
+    def _send(self) -> None:
         """ User strokes may be composed of all sorts of custom briefs, so do not attempt to match every key. """
-        self.VIEWQuery(TranslationsState(self._state))  # need_all_keys=False
+        self.GUIQTAction("VIEWGraphClick", ("graph_translation",), self._translation)  # TODO: need_all_keys=False

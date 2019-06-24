@@ -113,11 +113,13 @@ TEST_INDEX = list(INDEX_DICT.items())
 def test_search(trial):
     """ Go through each loaded test translation and check the search engine in all modes. """
     keys, word = trial
-    # For both keys and word, and in either mode, search should return a list with only the item itself.
-    assert SEARCH.LXSearchQuery(word, strokes=False) == [word]
-    assert SEARCH.LXSearchQuery(keys, strokes=True) == [keys]
-    assert SEARCH.LXSearchQuery(re.escape(keys), strokes=True, regex=True) == [keys]
-    assert SEARCH.LXSearchQuery(re.escape(word), strokes=False, regex=True) == [word]
+    # Search should return a list with only the item itself (or its value) in any mode.
+    assert SEARCH.LXSearchQuery(keys, count=2, strokes=True) == [keys]
+    assert SEARCH.LXSearchQuery(word, count=2, strokes=False) == [word]
+    assert SEARCH.LXSearchQuery(keys, count=None, strokes=True) == [word]
+    assert SEARCH.LXSearchQuery(word, count=None, strokes=False) == [keys]
+    assert SEARCH.LXSearchQuery(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
+    assert SEARCH.LXSearchQuery(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
 @pytest.mark.parametrize("trial", TEST_INDEX)

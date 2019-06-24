@@ -17,11 +17,10 @@ class Application(CORE):
     def __init__(self):
         """ Build the components and assemble the engine with them to get a top-level callable. """
         self._components = InstanceGroup(self._class_paths(), whitelist=CORE, blacklist=Application)
-        self._engine(exc_command=CORE.Exception).connect(self)
+        self._engine(exc_command=CORE.HandleException).connect(self)
 
     def _class_paths(self) -> list:
-        """ Return a list of modules or classes to draw components from.
-            For multi-threaded applications, there may be a separate list for each thread. """
+        """ Return a list of modules or classes to draw components from. """
         raise NotImplementedError
 
     def _engine(self, **kwargs) -> Engine:
@@ -29,6 +28,8 @@ class Application(CORE):
         return Engine(self._components, **kwargs)
 
     def start(self) -> int:
+        """ Start all auxiliary components and create a full component list for debugging. """
+        self.ALL_COMPONENTS = list(self._components.recurse_items())
         self.Load()
         return self.run()
 
