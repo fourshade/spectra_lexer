@@ -4,6 +4,7 @@
   "'":   ["AE",     "'",       [],       "' (single quote)"],
   "-'s": ["AES",    "(')(.s)", ["STRK"], "possessive suffix `'s`"],
   "+":   ["PHR*US", "+",       ["STRK"], "+ (plus sign)"],
+  "=":   ["KWA*LS", "=",       ["STRK"], "= (equals sign)"],
   "*":   ["STA*R",  "*",       ["STRK"], "* (asterisk)"],
   ".":   ["-FPLT",  ".",       [],       ". (period)"],
   ",":   ["-RBGS",  ",",       [],       ", (comma)"]

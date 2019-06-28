@@ -217,4 +217,30 @@
 	<rule id="."     pos="f" shape="4rect"  text="."/>
 	<rule id=","     pos="r" shape="4wide"  text=","/>
 </g>
+<!-- Briefs  -->
+<g fill="#F08000">
+	<rule id="is"    pos="S"  shape="tall"   text="is"/>
+	<rule id="and"   pos="S2" shape="and"    text="and"/>
+	<rule id="just"  pos="S2" shape="4wide"  text="just"/>
+	<rule id="have"  pos="S2" shape="r__r"   text="have"/>
+	<rule id="it"    pos="T"  shape="square" text="it"/>
+	<rule id="did"   pos="T"  shape="tall"   text="did"/>
+	<rule id="go"    pos="T"  shape="2x2"    text="go"/>
+	<rule id="if"    pos="T"  shape="rect"   text="if"/>
+	<rule id="in"    pos="T"  shape="3rect"  text="in"/>
+	<rule id="can"   pos="K"  shape="round"  text="can"/>
+	<rule id="why"   pos="K"  shape="3wide"  text="why"/>
+	<rule id="about" pos="P"  shape="tall"   text="about"/>
+	<rule id="with"  pos="W"  shape="round"  text="with"/>
+	<rule id="had"   pos="H"  shape="square" text="had"/>
+	<rule id="will"  pos="H"  shape="tall"   text="will"/>
+	<rule id="are"   pos="R"  shape="round"  text="are"/>
+	<rule id="he"    pos="E"  shape="round"  text="he"/>
+	<rule id="you"   pos="U"  shape="round"  text="you"/>
+	<rule id="of"    pos="f"  shape="square" text="of"/>
+	<rule id="are+"  pos="r"  shape="round"  text="are"/>
+	<rule id="an"    pos="p"  shape="tall"   text="an"/>
+	<rule id="be"    pos="b"  shape="round"  text="be"/>
+	<rule id="the"   pos="t"  shape="square" text="the"/>
+</g>
 </board>

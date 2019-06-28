@@ -2,8 +2,10 @@
 -----
 * Total refactoring of the framework
 * SVG board diagrams are now compatible with major web browsers
+* Added simple briefs to the board diagram
 * Added rule selection in text graph by mouse click
 * Object tree and console can now auto-import missing modules
+* Object tree can now inspect the last exception traceback
 
 5.0.0
 -----

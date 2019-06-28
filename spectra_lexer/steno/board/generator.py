@@ -4,7 +4,7 @@ from math import ceil
 from typing import Callable, Dict, Iterable, List, Sequence, Tuple
 
 from .elements import XMLElementDict
-from .path import SVGPathInversion
+from .path import SVGInversion
 from .svg import SVGDocument, SVGElement, SVGGroup
 from spectra_lexer.resource import RuleFlags, StenoRule
 
@@ -54,7 +54,7 @@ class RuleMatcher:
             elems += self(item.rule)
         # Rules using inversions may be drawn with arrows.
         if RuleFlags.INVERSION in rule.flags:
-            elems.append(SVGPathInversion(*elems))
+            elems.append(SVGInversion(*elems))
         return elems
 
 

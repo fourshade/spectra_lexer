@@ -1,7 +1,7 @@
 from cmath import phase, pi, rect
 from typing import List
 
-from .svg import SVGElement, SVGPath
+from .svg import SVGElement, SVGPath, SVGGroup
 
 
 class PathGenerator(List[str]):
@@ -28,7 +28,7 @@ class PathGenerator(List[str]):
 
     def close(self) -> None:
         """ After drawing with the above commands, close and fill a complete path. """
-        self._add_coords("z")
+        self.append("z")
 
     def finish(self) -> str:
         return "".join(self)
@@ -36,38 +36,50 @@ class PathGenerator(List[str]):
 
 class PathInversion(PathGenerator):
 
-    _SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
+    _ENDPOINT_SHIFT = 12.0      # Amount to pull the arrow endpoints back away from the element centers.
+    _CURVE_SHIFT = 15.0         # Amount to "bend" the arrow body outward perpendicular from the straight case.
     _HEAD_LENGTH_RATIO = 0.033  # Extra length for head edges per unit of overall arrow length.
     _MIN_HEAD_LENGTH = 5.0      # Minimum length for head edges (the lines that make the "point" of the arrow).
-    _CURVE_SHIFT = 15.0         # Amount to "bend" the arrow body outward perpendicular from the straight case.
-    _ENDPOINT_SHIFT = 12.0      # Amount to pull the arrow endpoints back away from the element centers
+    _SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
 
-    def draw(self, tail:complex, head:complex) -> None:
-        """ Draw a bent arrow path from <tail> to <head>. The midpoint is used to back up the endpoints.
+    def __init__(self, *args, width:float=0.0):
+        super().__init__(*args)
+        self._wshift = width / 2
+
+    def draw(self, tail:complex, head:complex) -> str:
+        """ Draw a bent arrow path from <tail> to <head>. Back up endpoints to avoid covering up letters.
             The control point starts on the line connecting the endpoints, then is shifted perpendicular to it. """
-        control = self._get_control_point(head, tail)
-        tail = self._shift_endpoint_to(tail, control)
-        head = self._shift_endpoint_to(head, control)
-        control = self._get_control_point(head, tail)
+        self.clear()
+        i_control = self._get_control_point(tail, head)
+        tail = self._shift_endpoint_to(tail, i_control)
+        head = self._shift_endpoint_to(head, i_control)
+        control = self._get_control_point(tail, head)
+        self._draw_body(tail, head, control)
+        self._draw_head(tail, head, control)
+        return self.finish()
+
+    def _draw_body(self, tail:complex, head:complex, control:complex) -> None:
+        """ Shift the endpoints back a small amount to compensate for stroke width and draw the body. """
+        ext_head = _shift_toward(head, control, -self._wshift)
+        ext_tail = _shift_toward(tail, control, -self._wshift)
+        self.move_to(ext_head)
+        self.quad_to(control, ext_tail)
+        self.quad_to(control, ext_head)
+
+    def _draw_head(self, tail:complex, head:complex, control:complex) -> None:
+        """ Draw the arrow head with length based on the overall body length and the stroke width adjustment. """
         body_length = abs(tail - head)
-        h_len = self._MIN_HEAD_LENGTH + body_length * self._HEAD_LENGTH_RATIO
+        h_len = self._MIN_HEAD_LENGTH + self._wshift + body_length * self._HEAD_LENGTH_RATIO
         spread = self._SPREAD_ANGLE
-        head_pos = _shift_toward(head, control, h_len, -spread)
-        head_neg = _shift_toward(head, control, h_len, spread)
-        # Perform the actual drawing commands.
-        self.move_to(head)
-        self.quad_to(control, tail)
-        self.quad_to(control, head)
-        self.move_to(head)
-        self.line_to(head_pos)
-        self.move_to(head)
-        self.line_to(head_neg)
+        for angle in (-spread, spread):
+            self.move_to(head)
+            self.line_to(_shift_toward(head, control, h_len, angle))
 
     def _shift_endpoint_to(self, ep:complex, control:complex) -> complex:
         """ Back up an endpoint toward the control point to avoid covering up letters. """
         return _shift_toward(ep, control, self._ENDPOINT_SHIFT)
 
-    def _get_control_point(self, head:complex, tail:complex) -> complex:
+    def _get_control_point(self, tail:complex, head:complex) -> complex:
         midpoint = (tail + head) / 2
         return _shift_toward(midpoint, head, self._CURVE_SHIFT, pi / 2)
 
@@ -76,23 +88,18 @@ def _shift_toward(ep:complex, cp:complex, shift_mag:float, angle_offset:float=0.
     return ep + rect(shift_mag, phase(cp - ep) + angle_offset)
 
 
-class SVGPathInversion(SVGPath):
+class SVGInversion(SVGGroup):
     """ Inversions are denoted by bent arrows drawn using a quadratic Bezier curve. """
 
-    _STYLE = {"stroke": "#FF0000", "stroke-width": "1.5"}
-
-    _ENDPOINT_SHIFT = 12.0      # Amount to pull the arrow endpoints back away from the element centers
-    _CURVE_SHIFT = 15.0         # Amount to "bend" the arrow body outward perpendicular from the straight case.
-    _MIN_HEAD_LENGTH = 5.0      # Minimum length for head edges (the lines that make the "point" of the arrow).
-    _HEAD_LENGTH_RATIO = 0.033  # Extra length for head edges per unit of overall arrow length.
-    _SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
+    _STYLES = [{"stroke": "#800000", "stroke-width": "2.5"},
+               {"stroke": "#FF0000", "stroke-width": "1.5"}]
 
     def __init__(self, *elems:SVGElement, **attrib):
         """ The SVG parser should have added offsets to eligible elements.
             Use these to determine the centers of the arrows. """
-        path = PathInversion()
+        super().__init__(**attrib)
         p1, p2 = [getattr(elem, "offset", 0j) for elem in elems]
-        path.draw(p1, p2)
-        path.draw(p2, p1)
-        # Add the stroke style for inversion arrows followed by the path string data.
-        super().__init__(self._STYLE, d=path.finish(), **attrib)
+        for style in self._STYLES:
+            path_gen = PathInversion(width=float(style["stroke-width"]))
+            for endpoints in ((p1, p2), (p2, p1)):
+                self.append(SVGPath(style, d=path_gen.draw(*endpoints)))

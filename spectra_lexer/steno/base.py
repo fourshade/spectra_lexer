@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 from spectra_lexer.core import Command
 from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, StenoRule
