@@ -38,6 +38,7 @@ def with_rs(cmp):
     return cmp
 
 
+
 def test_layout():
     """ Test various properties of a key layout for correctness. """
     layout = RESOURCE.LAYOUT
@@ -63,12 +64,13 @@ RULES_DICT = RESOURCE.RULES
 
 
 def test_rule_conflicts():
-    """ If the size of the full dict is less than the sum of its components, some rule names must be identical. """
-    path_iter = FILE._expand([os.path.join(RESOURCE.system_path, "*.cson")])
-    dicts = [CSONDict.decode(p.read()) for p in path_iter]
-    if len(RULES_DICT) < sum(map(len, dicts)):
-        conflicts = {k: f"{v} files" for k, v in Counter(sum(map(list, dicts), [])).items() if v > 1}
-        assert not conflicts, f"Found rule keys appearing in more than one file: {conflicts}"
+    """ If the size of the dict is less than the sum of its components, some rule names must be identical. """
+    pairs = []
+    RESOURCE.SYSFileLoad(CSONDict, os.path.join(RESOURCE.system_path, "*.cson"), object_pairs_hook=pairs.__iadd__)
+    if len(RULES_DICT) < len(pairs):
+        keys = next(zip(*pairs))
+        conflicts = {k: f"{v} times" for k, v in Counter(keys).items() if v > 1}
+        assert not conflicts, f"Found rule keys appearing more than once: {conflicts}"
 
 
 VALID_FLAGS = set(vars(RuleFlags).values())

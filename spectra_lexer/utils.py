@@ -1,19 +1,12 @@
 """ Module for generic utility functions that could be useful in many applications.
     Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments. """
 
-from functools import lru_cache, reduce
+from functools import reduce
 from itertools import starmap
 from multiprocessing import cpu_count, Pool
 import sys
 from traceback import print_exc
 from typing import Container, Iterable
-
-
-def memoize(func):
-    """ Decorator to memoize a function using the fastest method possible for unlimited size.
-        There used to be Python tricks for fast caching, but functools.lru_cache now has a C implementation.
-        The unbounded (non-LRU) case outperforms any cache system written in pure Python now. """
-    return lru_cache(maxsize=None)(func)
 
 
 def ensure_iterable(obj:object, *, blacklist:Container=(str,), empty:Container=(type(None),), iter_items:bool=True):

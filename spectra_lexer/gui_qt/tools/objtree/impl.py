@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import lru_cache
 from itertools import islice
 from typing import Dict, Iterable, List, Tuple
 
@@ -9,7 +10,6 @@ from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 from .row import RowData
 from ..dialog import ToolDialog
 from ...icon import IconRenderer
-from spectra_lexer.utils import memoize
 
 # Default maximum number of child objects to show for each object.
 CHILD_LIMIT = 200
@@ -18,7 +18,7 @@ HEADINGS = ["Name", "Type/Item Count", "Value"]
 HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-@memoize
+@lru_cache(maxsize=None)
 def _color(t:tuple=None) -> QColor:
     """ Caching color generator. """
     if t is None:

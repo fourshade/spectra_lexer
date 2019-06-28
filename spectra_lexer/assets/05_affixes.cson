@@ -23,7 +23,6 @@
   ".kly":    ["-LG",    "kly",                [], "`kly`: special case for suffix after `k`"],
 
   "-st":     ["*FT",    "(.s.)(.t)(*:PS)",    [], "standalone suffix stroke"],
-  "-st":     ["*FT",    "(.s.)(.t)(*:PS)",    [], "standalone suffix stroke"],
   "-nd":     ["*PBD",   "(.n)(.d)(*:PS)",     [], "standalone suffix stroke"],
   "-rd":     ["*RD",    "(.r)(.d)(*:PS)",     [], "standalone suffix stroke"],
 

@@ -144,8 +144,8 @@
 	<rule id=".xt"  pos="l"  shape="diag" text="xt"/>
 </g>
 <!-- Rules using the asterisk, including fingerspelling -->
-<rule fill="#7F7FFF" id="-P:FS" pos="p" shape="square uparrow"/>
 <g fill="#7F7FFF">
+	<rule id="-P:FS" pos="p" shape="square" path="uparrow"/>
 	<rule id="a*"><elem pos="*" shape="tall" text="*"/><elem pos="A"   shape="round"  text="a"/></rule>
 	<rule id="b*"><elem pos="*" shape="tall" text="*"/><elem pos="P"   shape="tall"   text="b"/></rule>
 	<rule id="c*"><elem pos="*" shape="tall" text="*"/><elem pos="K"   shape="r_r"    text="c"/></rule>
@@ -201,7 +201,7 @@
 	<rule id="4"     pos="H" shape="square" text="4"/>
 	<rule id="5"     pos="A" shape="round"  text="5"/>
 	<rule id="0"     pos="O" shape="round"  text="0"/>
-	<rule id="EU:NM" pos="E" shape="wide lrarrows"/>
+	<rule id="EU:NM" pos="E" shape="wide"   path="lrarrows"/>
 	<rule id="6"     pos="f" shape="square" text="6"/>
 	<rule id="7"     pos="p" shape="square" text="7"/>
 	<rule id=":00"   pos="b" shape="wide"   text="##:00"/>

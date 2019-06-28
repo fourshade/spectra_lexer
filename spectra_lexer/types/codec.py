@@ -1,8 +1,7 @@
 from ast import literal_eval
 from configparser import ConfigParser
-from io import BytesIO, StringIO
+from io import StringIO
 import json
-from xml.etree.ElementTree import Element, ElementTree
 from xml.parsers import expat
 
 
@@ -90,56 +89,90 @@ class CFGDict(dict, AbstractCodec):
         return stream.getvalue().encode(encoding)
 
 
-class XMLElement(Element, AbstractCodec):
-    """ Codec for the root element of an XML file. """
+class XMLElement(dict, AbstractCodec):
+    """ Generic XML element with a tree structure. """
+
+    tag: str = "UNDEFINED"  # Tag name enclosed in <> at element start (and end, if children are included).
+    text: str = ""          # Includes all text after the start tag but before the first child (if any).
+    tail: str = ""          # Includes all text after the end tag but before the next element's start tag.
+    _children: list         # List of all child nodes in order as read from the source document.
+
+    def __init__(self, *elems, **attrib):
+        """ Positional args are children, keyword args are attributes. """
+        super().__init__(attrib)
+        self._children = [*elems]
+
+    # append, extend, iter, and len methods work on the child list. All others work on the attributes as a dict.
+    def append(self, child) -> None:
+        self._children.append(child)
+
+    def extend(self, children) -> None:
+        self._children += children
+
+    def __iter__(self):
+        return iter(self._children)
+
+    def __len__(self):
+        return len(self._children)
 
     @classmethod
     def decode(cls, *all_data:bytes, **kwargs):
         """ Decode and parse XML element trees from byte strings.
             Merged documents will have the first document's root node and child nodes from all documents combined. """
-        documents = [XMLStackParser()(data, **kwargs) for data in all_data if data]
-        if not documents:
-            return cls("null")
-        self, *others = documents
+        self, *others = [cls.parse(data, **kwargs) for data in all_data if data] or [cls()]
         for doc in others:
             self.extend(doc)
         return self
 
-    def encode(self, *, encoding:str='utf-8', **kwargs) -> bytes:
-        """ Encode this entire object into an XML byte string. """
-        stream = BytesIO()
-        ElementTree(self).write(stream, encoding, **kwargs)
-        return stream.getvalue()
-
-
-class XMLStackParser(list):
-    """ Minimal parser for XML without namespaces. """
-
-    factory: type = XMLElement
-    _last: XMLElement = None
-
-    def __call__(self, data:bytes, encoding:str='utf-8'):
-        """ Feed encoded data to parser and return element structure. """
-        parser = expat.ParserCreate(encoding)
-        parser.StartElementHandler = self._start
-        parser.EndElementHandler = self._end
-        parser.CharacterDataHandler = self._data
+    @classmethod
+    def parse(cls, data:bytes, *, encoding:str='utf-8', **kwargs):
+        """ Minimal parser for XML without namespace support (they are left alone, so may be parsed separately). """
+        stack = []
+        last = None
+        def _start(tag:str, attrib:dict) -> None:
+            nonlocal last
+            last = cls(**attrib)
+            last.tag = tag
+            if stack:
+                stack[-1].append(last)
+            stack.append(last)
+        def _end(tag:str) -> None:
+            nonlocal last
+            last = stack.pop()
+        def _data(text:str) -> None:
+            if last is stack[-1]:
+                last.text = text
+            else:
+                last.tail = text
+        parser = expat.ParserCreate(encoding, **kwargs)
         parser.buffer_text = True
+        parser.StartElementHandler = _start
+        parser.EndElementHandler = _end
+        parser.CharacterDataHandler = _data
         parser.Parse(data, True)
-        return self._last
+        return last
 
-    def _start(self, *args) -> None:
-        self._last = elem = self.factory(*args)
-        if self:
-            self[-1].append(elem)
-        self.append(elem)
+    def encode(self, encoding:str='utf-8') -> bytes:
+        """ Encode this entire object into an XML byte string.
+            The stdlib uses an I/O stream for this, but adding strings to a list and joining them is faster. """
+        s_list = ['<?xml version="1.0" encoding="', encoding, '"?>\n', *self.serialize()]
+        return "".join(s_list).encode(encoding)
 
-    def _end(self, *args) -> None:
-        self._last = self.pop()
-
-    def _data(self, text:str) -> None:
-        last = self._last
-        if last is self[-1]:
-            last.text = text
+    def serialize(self) -> list:
+        """ Recursively write strings representing this object to a list (which will be joined at the end).
+            Use += when possible to avoid method call overhead. This is even faster than using f-strings. """
+        tag = self.tag
+        text = self.text
+        tail = self.tail
+        children = self._children
+        s_list = ['<', tag]
+        for k, v in self.items():
+            s_list += ' ', k, '="', v, '"'
+        if children or text:
+            s_list += '>', text
+            for child in children:
+                s_list += child.serialize()
+            s_list += '</', tag, '>', tail
         else:
-            last.tail = text
+            s_list += '/>', tail
+        return s_list

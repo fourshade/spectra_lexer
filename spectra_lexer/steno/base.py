@@ -53,11 +53,11 @@ class LX(RS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXBoardFromKeys(self, keys:str, ratio:float=None) -> bytes:
-        """ Generate board diagram layouts arranged in columns according to <ratio> from a set of steno keys. """
+    def LXBoardFromKeys(self, keys:str, aspect_ratio:float=None) -> bytes:
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno keys. """
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXBoardFromRule(self, rule:StenoRule, ratio:float=None) -> bytes:
-        """ Generate board diagram layouts arranged in columns according to <ratio> from a steno rule. """
+    def LXBoardFromRule(self, rule:StenoRule, aspect_ratio:float=None) -> bytes:
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a steno rule. """
         raise NotImplementedError

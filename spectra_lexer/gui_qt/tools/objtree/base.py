@@ -7,6 +7,7 @@ from .row import RowData
 from ..base import GUIQT_TOOL
 from ..dialog import DialogContainer
 from spectra_lexer.types.codec import XMLElement
+from spectra_lexer.utils import recurse
 
 _ICON_PATH = "/treeicons.svg"  # File with all object tree icons.
 
@@ -63,13 +64,13 @@ class ObjectTree(GUIQT_TOOL):
         root = XMLElement.decode(data)
         defs = [e for e in root if e.tag == "defs"]
         icon_list = []
-        for elem in root.iter():
+        for elem in recurse(root):
             # Elements with at least one type alias are valid icons.
             types = elem.get("spectra_types")
             if types:
                 # Make an encoded copy of the root node with only its defs and this element.
-                icon = XMLElement(root.tag, root.attrib)
-                icon[:] = [*defs, elem]
+                icon = XMLElement(*defs, elem, **root)
+                icon.tag = root.tag
                 icon_list.append((types.split(), icon.encode()))
         return icon_list
 

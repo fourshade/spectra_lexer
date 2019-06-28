@@ -14,6 +14,7 @@ class RuleFlags(FrozenSet[str]):
     RARE = "RARE"      # Rule applies to very few words and could specifically cause false positives.
     OPTIONAL = "OPT"   # Optional or redundant rule. May be informational; removal will cause little effect.
     INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to the parent.
+    LINKED = "LINK"    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
     GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
 
@@ -91,15 +92,21 @@ class RulesDictionary(dict, AbstractCodec):
         """ Decode a collection of commented JSON dicts and parse every entry using mutual recursion.
             This will parse entries in a semi-arbitrary order, so make sure not to redo any. """
         self = cls()
-        self._src_dict = CSONDict.decode(*all_data, **kwargs)
-        for k in self._src_dict:
+        d = CSONDict.decode(*all_data, **kwargs)
+        self.update_raw(d)
+        return self
+
+    def update_raw(self, src_dict:Dict[str, list]) -> None:
+        """ Parse and add every entry from a raw JSON-decoded dict using mutual recursion.
+            This will parse entries in a semi-arbitrary order, so make sure not to redo any. """
+        self._src_dict = src_dict
+        for k in src_dict:
             try:
                 if k not in self:
                     self._parse(k)
             except KeyError as e:
                 raise KeyError(f"Illegal reference descended from rule {k}") from e
         self._update_inverse()
-        return self
 
     def _parse(self, k:str) -> None:
         """ Parse a raw source dictionary rule into a StenoRule object and store it. """
@@ -108,7 +115,7 @@ class RulesDictionary(dict, AbstractCodec):
         letters, built_map = self._substitute(raw.pattern)
         # The flags and built rulemap must be frozen before final inclusion in an immutable rule.
         flags = RuleFlags(raw.flag_list)
-        rulemap = tuple(built_map)
+        rulemap = (*built_map,)
         self[k] = StenoRule(raw.keys, letters, flags, raw.description, rulemap)
 
     def _substitute(self, pattern:str, ref_rx=_SUBRULE_RX, delim=_ALIAS_DELIM) -> Tuple[str, List[RuleMapItem]]:
@@ -130,7 +137,7 @@ class RulesDictionary(dict, AbstractCodec):
             if rule_str[0] == '(':
                 letters = None
             else:
-                (letters, rule_key) = rule_key.split(delim, 1)
+                letters, rule_key = rule_key.split(delim, 1)
             # Look up the child rule and parse it if it hasn't been yet. Even if we aren't using its letters,
             # we still need to parse it at this stage so that the correct reference goes in the rulemap.
             if rule_key not in self:
@@ -154,7 +161,7 @@ class RulesDictionary(dict, AbstractCodec):
         # The pattern must be deduced from the letters, the rulemap, and the reference dict.
         pattern = self._inv_substitute(r.letters, r.rulemap)
         # Put the flags into a list. The keys and description are copied verbatim.
-        return _RawRule(r.keys, pattern, list(r.flags), r.desc)
+        return _RawRule(r.keys, pattern, [*r.flags], r.desc)
 
     def _inv_substitute(self, letters:str, rulemap:Sequence[RuleMapItem]) -> str:
         """ For each mapped rule with a name reference, replace the mapped letters with the reference. """
@@ -165,10 +172,11 @@ class RulesDictionary(dict, AbstractCodec):
             if not name:
                 continue
             # Some rules take up no letters. Don't add these even if references exist.
-            start = item.start
-            end = start + item.length
-            if start == end:
+            length = item.length
+            if not length:
                 continue
             # Replace the letters this rule takes up with a standard parenthesized reference.
-            letters = letters[:start] + f"({name})" + letters[end:]
+            start = item.start
+            end = start + length
+            letters = f"{letters[:start]}({name}){letters[end:]}"
         return letters

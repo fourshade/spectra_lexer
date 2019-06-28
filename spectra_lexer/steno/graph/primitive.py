@@ -1,9 +1,9 @@
 """ Module for primitive operations consisting of drawing lines and columns of text. """
 
+from functools import lru_cache
 from typing import Callable, List, Sequence, Tuple
 
 from .canvas import Canvas
-from spectra_lexer.utils import memoize
 
 
 class Primitive:
@@ -124,7 +124,7 @@ def _pattern_generator(prim_cls:type) -> Callable:
                 middle - A character repeated to fill the rest of the space in all patterns with length > 2.
                 last - Ending character for all patterns with length > 1. """
         first, middle, last = (pattern or single * 3)
-        @memoize
+        @lru_cache(maxsize=None)
         def constructor(length:int) -> str:
             """ Return a pattern string with unique ends based on a set of construction symbols and a length. """
             if length < 2:
@@ -156,7 +156,7 @@ class ClipMatrix(tuple):
     def __matmul__(self, col:Sequence[int]) -> Tuple[int, ...]:
         return tuple([sum([a * b for a, b in zip(row, col)]) for row in self])
 
-    @memoize
+    @lru_cache(maxsize=None)
     def __call__(self, *col:int) -> Tuple[int, ...]:
         """ Combine all factors using matrix multiplication, clip at the optional bounds and cache the results. """
         val = self @ col

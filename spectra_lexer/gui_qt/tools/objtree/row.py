@@ -1,20 +1,20 @@
 """ Module for formatting and displaying types and values of arbitrary Python objects. """
 
 from collections import defaultdict
+from functools import lru_cache
 from io import TextIOWrapper
 
 from .container import ContainerData
 from .repr import ValueRepr
-from spectra_lexer.utils import memoize
 
 
-@memoize
+@lru_cache(maxsize=None)
 def _mro_names(tp:type) -> tuple:
     """ Compute and cache a tuple of name strings for a type's MRO. """
     return (*[cls.__name__ for cls in tp.__mro__],)
 
 
-@memoize
+@lru_cache(maxsize=None)
 def _mro_tree(tp:type) -> str:
     """ Compute and cache a string representation of a type's MRO. """
     levels = defaultdict(int)
