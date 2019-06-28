@@ -2,11 +2,11 @@ from functools import partial
 from pkgutil import get_data
 import sys
 
-from .row import RowFactory
 from .impl import ObjectTreeDialog
+from .row import RowData
 from ..base import GUIQT_TOOL
 from ..dialog import DialogContainer
-from spectra_lexer.types.codec import SVGElement
+from spectra_lexer.types.codec import XMLElement
 
 _ICON_PATH = "/treeicons.svg"  # File with all object tree icons.
 
@@ -29,7 +29,7 @@ class package(dict):
                 if i not in d:
                     d[i] = cls()
                 elif not isinstance(d[i], cls):
-                    d[i] = cls(root_key=d[i])
+                    d[i] = cls({root_key: d[i]})
                 d = d[i]
             if last not in d or not isinstance(d[last], cls):
                 d[last] = v
@@ -50,12 +50,6 @@ class ObjectTree(GUIQT_TOOL):
             return val
 
     @lazy_field
-    def root_item(self) -> dict:
-        """ Make a raw root item by making an initial row and taking the first item. """
-        row = RowFactory.generate(self.root_dict)
-        return row[0]
-
-    @lazy_field
     def root_dict(self):
         """ Make a root dict with packages containing all modules and the first level of components. """
         root_dict = self._components_by_path()
@@ -67,12 +61,12 @@ class ObjectTree(GUIQT_TOOL):
         """ Decode the SVG icon resource file and create individual icons for each type. """
         icon_data = []
         svg_data = get_data(__package__, _ICON_PATH)
-        svg_tree = SVGElement.decode(svg_data)
+        svg_tree = XMLElement.decode(svg_data)
         # Elements with at least one type alias are valid icons. Encode a new SVG byte string for each one.
         for elem in svg_tree.iter():
             types = elem.get("spectra_types")
             if types:
-                icon_data.append((types.split(), svg_tree.encode_with_defs(elem)))
+                icon_data.append((types.split(), svg_tree.encode_with("defs", elem)))
         return icon_data
 
     def _components_by_path(self) -> dict:
@@ -99,7 +93,7 @@ class ObjectTreeTool(ObjectTree):
         """ Add the last engine exception to the root dict if any were caught. """
         if self._last_exception is not None:
             self.root_dict["last_exception"] = self._last_exception
-        resources = {"root_item": self.root_item, "icon_data": self.icon_data}
+        resources = {"root_data": RowData(self.root_dict), "icon_data": self.icon_data}
         self._dialog.open(self.WINDOW, resources)
 
     def HandleException(self, exc:Exception) -> bool:

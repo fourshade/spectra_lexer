@@ -9,7 +9,7 @@ CmdlineOption = Option()
 class SYS(CORE):
     """ Simple interface definition for general system commands and resources with no specific category. """
 
-    CMDLINE_INFO: Option = CmdlineOption  # Keeps track of command line options in a master dict.
+    CMDLINE_INFO: list = CmdlineOption  # Keeps track of command line options in a master dict.
 
     @Command
     def SYSStatus(self, status:str) -> None:

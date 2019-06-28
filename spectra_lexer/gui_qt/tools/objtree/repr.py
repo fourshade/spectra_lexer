@@ -1,58 +1,15 @@
-""" Module for formatting and displaying types and values of arbitrary Python objects. """
-
-from collections import defaultdict
 from itertools import islice
 
-from spectra_lexer.utils import memoize
 
+class ValueRepr:
+    """ Special repr utility for displaying values of various Python objects in a node tree. """
 
-class KeyItem(dict):
-    """ Column 0 is the primary tree item with the key and icon. Possible icons are based on type. """
-
-    def set_object(self, obj:object) -> None:
-        self["icon_choices"] = self._mro_names(type(obj))
-
-    @staticmethod
-    @memoize
-    def _mro_names(tp:type) -> tuple:
-        """ Compute and cache a tuple of name strings for a type's MRO. """
-        return (*[cls.__name__ for cls in tp.__mro__],)
-
-
-class TypeItem(dict):
-    """ Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO. """
-
-    def set_object(self, obj:object) -> None:
-        tp = type(obj)
-        self["text"] = tp.__name__
-        self["tooltip"] = self._mro_tree(tp)
-
-    @staticmethod
-    @memoize
-    def _mro_tree(tp:type) -> str:
-        """ Compute and cache a string representation of a type's MRO. """
-        levels = defaultdict(int)
-        for cls in tp.__mro__[::-1]:
-            levels[cls] = max([levels[b] for b in cls.__bases__], default=-1) + 1
-        return "\n".join([("--" * i) + cls.__name__ for cls, i in levels.items()])
-
-
-class ValueItem(dict):
-    """ Column 2 contains the string value of the object. It may be edited if mutable. """
-
-    MAX_LEVEL = 2
+    _level = 2
     MAX_LEN = 100
     MAX_ITEMS = 6
     PLACEHOLDER = '...'
 
-    _level = 0
-
-    def set_object(self, obj:object):
-        self._level = self.MAX_LEVEL
-        self["text"] = self.repr(obj)
-
     def repr(self, x:object) -> str:
-        """ Special repr utility for displaying values of various Python objects in a node tree. """
         self._level -= 1
         tp = type(x)
         tp_name = tp.__name__

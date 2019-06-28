@@ -2,7 +2,8 @@ from ast import literal_eval
 from configparser import ConfigParser
 from io import BytesIO, StringIO
 import json
-from xml.etree.ElementTree import Element, ElementTree, XML
+from xml.etree.ElementTree import Element, ElementTree
+from xml.parsers import expat
 
 
 class AbstractCodec:
@@ -65,7 +66,8 @@ class CFGDict(dict, AbstractCodec):
         cfg = ConfigParser(**kwargs)
         for data in all_data:
             cfg.read_string(data.decode(encoding))
-        self = cls({k: dict(v) for k, v in cfg.items() if k != "DEFAULT"})
+        d = {k: dict(v) for k, v in cfg.items() if k != "DEFAULT"}
+        self = cls(d)
         self._eval_strings()
         return self
 
@@ -92,15 +94,14 @@ class XMLElement(Element, AbstractCodec):
     """ Codec for the root element of an XML file. """
 
     @classmethod
-    def decode(cls, *all_data:bytes, encoding:str='utf-8', **kwargs):
-        """ Decode XML element trees from byte strings.
-            If more than one is given, the merged document will have the first root node and all child nodes. """
-        documents = [XML(data.decode(encoding), **kwargs) for data in all_data if data]
+    def decode(cls, *all_data:bytes, **kwargs):
+        """ Decode and parse XML element trees from byte strings.
+            Merged documents will have the first document's root node and child nodes from all documents combined. """
+        documents = [XMLStackParser()(data, **kwargs) for data in all_data if data]
         if not documents:
             return cls("null")
-        root = documents[0]
-        self = cls(root.tag, root.attrib)
-        for doc in documents:
+        self, *others = documents
+        for doc in others:
             self.extend(doc)
         return self
 
@@ -110,31 +111,42 @@ class XMLElement(Element, AbstractCodec):
         ElementTree(self).write(stream, encoding, **kwargs)
         return stream.getvalue()
 
-
-class SVGElement(XMLElement):
-    """ Codec for SVG files containing large numbers of elements, only some of which are displayed.
-        Primarily used to create new SVG element trees containing only a subset of the file's elements. """
-
-    @classmethod
-    def decode(cls, *all_data:bytes, **kwargs):
-        """ Every tag in an SVG file ends up prefixed with namespace garbage after parsing.
-            The parser is on the C level, and there are no options to disable this.
-            Despite having generated it, the parser *will* choke on this garbage trying to re-encode it.
-            Tag searches are more difficult as well. It is best for the namespaces to be removed manually. """
-        self = super().decode(*all_data, **kwargs)
-        for elem in self.iter():
-            elem.tag = elem.tag.rsplit("}", 1)[-1]
-            # Nobody can decide if the xlink namespace belongs on href. Some SVG renderers will complain; most don't.
-            # The parser 'solves' this by breaking these elements entirely with its own namespace. Shred it.
-            for k in list(elem.attrib):
-                if k.endswith("href"):
-                    elem.attrib["href"] = elem.attrib.pop(k)
-        # And despite all of this, the parser *removes* the one namespace declaration that SVG requires. Add it back.
-        self.set("xmlns", "http://www.w3.org/2000/svg")
-        return self
-
-    def encode_with_defs(self, *elements:Element, **kwargs) -> bytes:
-        """ Make a copy of this node with all SVG <defs> nodes and the given elements and return it encoded. """
+    def encode_with(self, tag:str, *elements:Element, **kwargs) -> bytes:
+        """ Make a copy of this node with all <tag> nodes and the given elements and return it encoded. """
         elem = self.__class__(self.tag, self.attrib)
-        elem[:] = [*self.findall("defs"), *elements]
+        elem[:] = [e for e in self if e.tag == tag]
+        elem.extend(elements)
         return elem.encode(**kwargs)
+
+
+class XMLStackParser(list):
+    """ Minimal parser for XML without namespaces. """
+
+    factory: type = XMLElement
+    _last: Element = None
+
+    def __call__(self, data:bytes, encoding:str='utf-8'):
+        """ Feed encoded data to parser and return element structure. """
+        parser = expat.ParserCreate(encoding)
+        parser.StartElementHandler = self._start
+        parser.EndElementHandler = self._end
+        parser.CharacterDataHandler = self._data
+        parser.buffer_text = True
+        parser.Parse(data, True)
+        return self._last
+
+    def _start(self, *args) -> None:
+        self._last = elem = self.factory(*args)
+        if self:
+            self[-1].append(elem)
+        self.append(elem)
+
+    def _end(self, *args) -> None:
+        self._last = self.pop()
+
+    def _data(self, text:str) -> None:
+        last = self._last
+        if last is self[-1]:
+            last.text = text
+        else:
+            last.tail = text

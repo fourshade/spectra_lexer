@@ -8,11 +8,26 @@ ConfigOption = Option()
 
 class VIEW(LX):
 
-    CONFIG_INFO: Option = ConfigOption  # Keeps track of configuration options in a master dict.
+    CONFIG_INFO: list = ConfigOption  # Keeps track of configuration options in a master dict.
 
     @Command
     def VIEWConfigUpdate(self, cfg:ConfigDictionary) -> None:
         """ Update all config values on existing components. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogNoIndex(self) -> bool:
+        """ Send this command if there is no index loaded on start. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogMakeIndex(self, index_size:int) -> None:
+        """ Make a normal index if <index_size> > 0, otherwise make an empty one. Save and send out the result. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogFileLoad(self, filenames:list, res_type:str) -> None:
+        """ Attempt to load resources from files chosen in a dialog. Print a status message if successful. """
         raise NotImplementedError
 
     @Command
@@ -27,7 +42,7 @@ class VIEW(LX):
 
     @Command
     def VIEWLookup(self, state:ViewState) -> None:
-        """ Do a lookup after special checks. """
+        """ Do a value lookup after special checks. """
         raise NotImplementedError
 
     @Command
@@ -49,12 +64,3 @@ class VIEW(LX):
     def VIEWAction(self, state:ViewState) -> ViewState:
         """ Perform any action above with the given state, then return it with the changes. """
         raise NotImplementedError
-
-
-class ViewConfig(VIEW):
-
-    def Load(self) -> None:
-        self.VIEWConfigUpdate(self.CONFIG)
-
-    def VIEWConfigUpdate(self, cfg:ConfigDictionary) -> None:
-        self.CONFIG_INFO = [(sect, name, val) for sect, page in cfg.items() for name, val in page.items()]

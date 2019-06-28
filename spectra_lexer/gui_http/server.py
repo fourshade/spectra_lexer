@@ -49,8 +49,7 @@ class HttpServer(_GUIHTTP_VIEW):
         """ Add data kwargs to every instantiated handler. """
         handler_cls_with_data = partial(SpectraRequestHandler, directory=self._HTTP_PUBLIC, callback=self.run)
         httpd = HTTPServer(self._ADDRESS, handler_cls_with_data)
-        httpd.serve_forever()
-        return 0
+        return httpd.serve_forever()
 
     def run(self, data:bytes, req_call:Callable) -> None:
         """ Process a state obtained from a client query string. Attach the callback so we don't lose it. """

@@ -92,14 +92,20 @@
             processAction("VIEWSearchExamples");
             return false
         });
-        $("#w_display_text").on("click", "pre > a", function(){
-            state.graph_node_ref = this.href.split("/").pop();
+        $("#w_display_text").on("mouseenter", "pre > a", function(){
+            var ref = this.href.split("/").pop();
+            if(state.graph_node_ref!=ref){
+                state.graph_node_ref = ref
+                processAction("VIEWGraphOver");
+            }
+            return false
+        }).on("click", "pre > a", function(){
             processAction("VIEWGraphClick");
             return false
-        });
-        $("#w_display_text").click(function(){
+        }).click(function(){
             state.graph_node_ref = "";
             processAction("VIEWGraphClick");
+            return false
         });
         function onBoardResize(){
             state.board_aspect_ratio = $("#w_display_board").width() / 250;

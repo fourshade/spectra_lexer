@@ -10,7 +10,7 @@ class HttpApplication(ViewApplication, GUIHTTP):
 
     DESCRIPTION = "Run the application as an HTTP web server."
 
-    def _main_class_paths(self) -> list:
+    def _class_paths(self) -> list:
         """ Run the server on the main thread. """
         return [gui_http]
 

@@ -218,7 +218,7 @@
 	<rule id=","     pos="r" shape="4wide"  text=","/>
 </g>
 <!-- Briefs  -->
-<g fill="#F08000">
+<g fill="#FF7F00">
 	<rule id="is"    pos="S"  shape="tall"   text="is"/>
 	<rule id="and"   pos="S2" shape="and"    text="and"/>
 	<rule id="just"  pos="S2" shape="4wide"  text="just"/>

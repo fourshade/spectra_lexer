@@ -2,7 +2,7 @@ from typing import Callable, List
 
 
 class Main(dict):
-    """ Formal entry point dictionary for an application. Add them at the module level after defining classes. """
+    """ Formal entry point dictionary for an application. Add entries at the module level after defining classes. """
 
     _DEFAULT: str = None  # Last set default entry point mode.
     _descriptions: list   # List of all description strings.
@@ -24,7 +24,8 @@ class Main(dict):
             With no mode argument (or a blank one), redirect to the default mode. """
         matches = self._get_matches(mode or self._DEFAULT)
         if len(matches) == 1:
-            return self[matches[0]](*args, **kwargs)
+            entry_point = self[matches[0]]
+            return entry_point(*args, **kwargs)
         if not matches:
             # If nothing matches, display all entry point modes and their description strings.
             print(f'No matches for operation "{mode}". Currently available operations:')

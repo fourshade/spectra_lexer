@@ -1,11 +1,11 @@
-import html
 from collections import defaultdict
+import html
 from typing import Dict, List, Optional
 
 from spectra_lexer.utils import traverse
 from .node import GraphNode
 
-_HEADER = '<style>.graph > a {color: black; text-decoration: none;}</style><pre class="graph">'
+_HEADER = '<style>pre > a {color: black; text-decoration: none;}</style><pre>'
 _FOOTER = '</pre>'
 
 
@@ -15,8 +15,8 @@ class HTMLTextField(List[str]):
         Each row is terminated by an unowned newline section. Joining all sections produces the final text.
         Includes a dictionary of info to help apply formatting for any given node when highlighted. """
 
-    _ref_list: List[GraphNode]        # List of all node references in order of first appearance.
-    _ref_dict: Dict[GraphNode, list]  # Node references each mapped to a list of (row, section) indices that node owns.
+    _refs: Dict[str, GraphNode]    # Index of all node references in order of first appearance.
+    _nodes: Dict[GraphNode, list]  # Node references each mapped to a list of (row, section) indices that node owns.
 
     def __init__(self, lines:List[str], ref_grid:List[List[GraphNode]]):
         """ From a 2D reference grid and corresponding list of character strings, find contiguous ranges of characters
@@ -24,7 +24,7 @@ class HTMLTextField(List[str]):
             main list and record the row number and section index in the dict under the owner reference. """
         super().__init__()
         append = self.append
-        ref_dict = self._ref_dict = defaultdict(list)
+        nodes = self._nodes = defaultdict(list)
         row = 0
         for chars, refs in zip(lines, ref_grid):
             last_col = 0
@@ -32,21 +32,21 @@ class HTMLTextField(List[str]):
             for col, ref in enumerate(refs, 1):
                 if ref is not last_ref:
                     if last_ref is not None:
-                        ref_dict[last_ref].append((row, len(self)))
+                        nodes[last_ref].append((row, len(self)))
                     append(chars[last_col:col])
                     last_col, last_ref = col, ref
             append("\n")
             row += 1
-        self._ref_list = list(ref_dict)
+        self._refs = {f"#{i}": ref for i, ref in enumerate(nodes)}
 
     def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
         """ Render the graph inside preformatted tags, escaping, coloring and bolding nodes that require it.
             Highlight the full ancestry line of the target node (if any), starting with itself up to the root. """
         str_ops = [[] for _ in range(len(self))]
-        for node in self._ref_list:
+        for node, sections in self._nodes.items():
             # Escaping is expensive. Only escape those strings which originate with the user.
             # Both branch nodes and the selected node itself (if it is not a branch) are bolded after that.
-            _, sect = self._ref_dict[node][-1]
+            _, sect = sections[-1]
             str_ops[sect] = [html.escape, node.bold(node is target).format]
         if target is not None:
             ladder = list(traverse(target, "parent"))
@@ -55,7 +55,7 @@ class HTMLTextField(List[str]):
             length = target.attach_length
             for node, depth in zip(ladder, depths):
                 # For nodes that are ancestors of the selected node, add color tags first.
-                sections = self._ref_dict[node]
+                sections = self._nodes[node]
                 for row, sect in sections:
                     str_ops[sect].append(node.color(depth, row, intense).format)
                 # It is rare, but possible to have a node with no sections, so test for that.
@@ -69,19 +69,16 @@ class HTMLTextField(List[str]):
                     str_ops[sect] = [format_part]
                 # Add the attach start offset for each node as we climb the ladder.
                 start += node.attach_start
-        for index, node in enumerate(self._ref_list):
+        for ref, node in self._refs.items():
             # All non-empty nodes have anchor tags.
-            a_fmt = node.anchor(index).format
-            for row, sect in self._ref_dict[node]:
+            a_fmt = node.anchor(ref).format
+            for row, sect in self._nodes[node]:
                 str_ops[sect].append(a_fmt)
         # Apply format strings for every section in the order they were added and join them.
         return "".join([_HEADER, *map(_apply, str_ops, self), _FOOTER])
 
-    def node_at(self, index:str) -> Optional[GraphNode]:
-        try:
-            return self._ref_list[int(index)]
-        except (IndexError, ValueError):
-            return None
+    def node_at(self, ref:str) -> Optional[GraphNode]:
+        return self._refs.get(ref)
 
 
 def _apply(fns, text):

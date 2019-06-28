@@ -1,8 +1,8 @@
 """ Module for auto-generated container classes with formats for specific objects. """
 
 import builtins
+import dis
 import types
-from types import FrameType
 
 from .base import Container, if_hasattr, if_isinstance
 
@@ -21,7 +21,7 @@ class GeneratedContainer(Container):
         return {}
 
 
-@if_hasattr("__class__")
+@if_hasattr("__dict__")
 class ClassContainer(GeneratedContainer):
     """ A container that displays the class hierarchy for custom classes. """
 
@@ -31,9 +31,7 @@ class ClassContainer(GeneratedContainer):
         """ Allow class access if the object has an instance dict, or metaclass access if the object *is* a class.
             The main exception is type, which is its own class and would expand indefinitely.
             Others include built-in types which provide next to nothing useful in their attr listings. """
-        if hasattr(obj, "__dict__"):
-            return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
-        return {}
+        return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
 
 @if_isinstance(BaseException)
@@ -54,11 +52,36 @@ class ExceptionContainer(GeneratedContainer):
         return d
 
 
-@if_isinstance(FrameType)
+@if_isinstance(types.FrameType)
 class FrameContainer(GeneratedContainer):
     """ Shows all information about a stack frame. """
 
-    def _gen_dict(self, obj:FrameType) -> dict:
-        code = obj.f_code
-        return dict(name=code.co_name, filename=code.co_filename, lineno=obj.f_lineno,
-                    globals=obj.f_globals, locals=obj.f_locals, code=code)
+    def _gen_dict(self, f) -> dict:
+        code = f.f_code
+        return dict(name=code.co_name, filename=code.co_filename, lineno=f.f_lineno,
+                    globals=f.f_globals, locals=f.f_locals, code=code)
+
+
+@if_isinstance((types.MethodType, types.FunctionType, types.CodeType, classmethod, staticmethod))
+class CodeContainer(GeneratedContainer):
+    """ Shows disassembly of a code object. """
+
+    class instruction(str):
+        __slots__ = ()
+        __len__ = int
+
+    def _gen_dict(self, obj) -> dict:
+        return {f'{inst.offset} {inst.opname}': inst for inst in dis.get_instructions(obj)}
+
+    def __getitem__(self, key:str):
+        """ Return the instruction's argument as a string. If it is another code object, return that directly. """
+        inst = self._obj[key]
+        if inst.arg is None:
+            v = ""
+        elif not inst.argrepr:
+            v = f'{inst.arg}'
+        elif hasattr(inst.argval, 'co_code'):
+            return inst.argval
+        else:
+            v = f'{inst.arg} ({inst.argrepr})'
+        return self.instruction(v)

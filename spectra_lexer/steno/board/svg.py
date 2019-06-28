@@ -9,21 +9,18 @@ class SVGElement(dict):
     def transform(self, scale_x:float=1.0, scale_y:float=1.0, dx:float=0.0, dy:float=0.0) -> None:
         """ If only translation is involved, add the simpler translate attribute. """
         if scale_x == 1.0 and scale_y == 1.0:
-            tf_string = f"translate({dx}, {dy})"
+            tf_string = f'translate({dx}, {dy})'
         else:
-            tf_string = f"matrix({scale_x}, 0, 0, {scale_y}, {dx}, {dy})"
+            tf_string = f'matrix({scale_x}, 0, 0, {scale_y}, {dx}, {dy})'
         # If a transform already exists, just add it to the end of the string after a space to compose it.
-        old_tf = self.get("transform")
-        if old_tf is not None:
-            tf_string = f"{old_tf} {tf_string}"
+        if "transform" in self:
+            tf_string = f'{self["transform"]} {tf_string}'
         self["transform"] = tf_string
 
     def serialize(self, write):
         write(f'<{self.TAG}')
         for k in self:
-            text = self[k]
-            if type(text) is str:
-                write(f' {k}="{text}"')
+            write(f' {k}="{self[k]}"')
         self._write_ending(write)
 
     def _write_ending(self, write):

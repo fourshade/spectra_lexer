@@ -159,7 +159,7 @@ def test_graph(result):
     # Going the other direction, every node except the root must have its parent in the set.
     assert all(node.parent in nodes_set for node in nodes_list[1:])
     # The nodes available for interaction must be a subset of our collection.
-    assert nodes_set >= set(graph._formatter._ref_dict)
+    assert nodes_set >= set(graph._formatter._nodes)
 
 
 PLOVER = PloverInterface()

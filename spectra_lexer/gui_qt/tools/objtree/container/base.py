@@ -29,19 +29,18 @@ class Container(Mapping):
     def __getitem__(self, key):
         return self._obj[key]
 
-    def contents(self) -> Iterator:
-        for key in self:
-            yield (self[key], self._key_data(key), self._type_data(key), self._value_data(key))
+    def item_data(self) -> Iterator:
+        """ Yield all objects and data associated with this container. """
+        for k in self:
+            yield self[k], self._data(k)
 
-    def _key_data(self, key) -> dict:
-        """ Use str(key) by default for the key display value. """
-        return {"color": self.color, "tooltip": self.key_tooltip, "text": str(key)}
+    def _data(self, key) -> dict:
+        """ Add all base data and any additional data from subclasses. """
+        return {"color": self.color, "key_tooltip": self.key_tooltip,
+                "key_text": self._key_str(key), "value_tooltip": self.value_tooltip}
 
-    def _type_data(self, key) -> dict:
-        return {"color": self.color}
-
-    def _value_data(self, key) -> dict:
-        return {"color": self.color, "tooltip": self.value_tooltip}
+    # Use str(key) by default for the key display value.
+    _key_str = str
 
 
 class MutableContainer(Container):
@@ -57,11 +56,11 @@ class MutableContainer(Container):
     def __setitem__(self, key, value) -> None:
         self._obj[key] = value
 
-    def _value_data(self, key) -> dict:
+    def _data(self, key) -> dict:
         """ Include a callback for editing of values in the data dict with Python expressions. """
-        d = super()._value_data(key)
-        d["edit"] = EvalEditCallback(self.__setitem__, key)
-        return d
+        data = super()._data(key)
+        data["value_edit"] = EvalEditCallback(self.__setitem__, key)
+        return data
 
 
 class MutableKeyContainer(MutableContainer):
@@ -73,11 +72,11 @@ class MutableKeyContainer(MutableContainer):
         self[new_key] = self[old_key]
         del self[old_key]
 
-    def _key_data(self, key) -> dict:
+    def _data(self, key) -> dict:
         """ Include a callback for editing of string keys in the data dict. """
-        d = super()._key_data(key)
-        d["edit"] = EditCallback(self.moveitem, key)
-        return d
+        data = super()._data(key)
+        data["key_edit"] = EditCallback(self.moveitem, key)
+        return data
 
 
 class EditCallback(partial):
@@ -116,43 +115,64 @@ class EvalEditCallback(EditCallback):
         return cls._EVAL_NAMESPACE
 
 
-class ContainerIndex:
-    """ Decorator for container classes that attempt to match some property of an object.
-        The object provided as the key for .matches is always the first argument to a comparison function.
-        Each recorded decorator has a property that is tested against this object as the second argument.
-        If the comparison is True, that container class will be instantiated and may add items to the tree. """
+class ContainerIter:
+
+    _containers: List[Container]
+    _factory: Callable
+
+    def __init__(self, containers, factory):
+        self._containers = containers
+        self._factory = factory
+
+    def __iter__(self) -> Iterator:
+        """ Create and yield rows from each container in turn. """
+        for container in self._containers:
+            try:
+                for obj, data in container.item_data():
+                    yield self._factory(obj, data)
+            except Exception as e:
+                # Unpredictable exceptions may arise during introspection, so just present an error for any one.
+                yield self._factory(e, {"key_text": "ERROR"})
+
+
+class ContainerData(dict):
+    """ Handles data for all containers that display the contents of an object. """
 
     _INDICES: list = []
 
-    _classes: list  # List of registered container classes.
-    _cmp: Callable  # A binary comparison function that returns True/False.
-
-    def __init__(self, cmp:Callable):
-        self._classes = []
-        self._cmp = cmp
-        self._INDICES.append(self)
-
-    def __call__(self, prop:object) -> Callable:
-        """ Record a container subtype by the property to be compared. """
-        def recorder(tp:type) -> type:
-            self._classes.append((prop, tp))
-            return tp
-        return recorder
-
-    def matches(self, obj:object) -> List[Container]:
-        """ Get a list of registered container classes that compare True against the object's properties. """
-        return [tp for prop, tp in self._classes if self._cmp(obj, prop)]
+    def __init__(self, obj, factory:Callable):
+        super().__init__()
+        classes = self._match_classes(obj)
+        containers = [cls(obj) for cls in _filter_classes(classes)]
+        if any(containers):
+            self["child_data"] = ContainerIter(containers, factory)
+            item_counts = [len(c) for c in containers if c.show_item_count]
+            if item_counts:
+                self["item_count"] = sum(item_counts)
 
     @classmethod
-    def match_all(cls, obj:object) -> List[Container]:
-        """ Get container classes from each index that match the object's properties and instantiate them.
-            If any classes from the same index are in a direct inheritance line, only keep the most derived class. """
-        containers = []
-        for index in cls._INDICES:
-            matches = index.matches(obj)
-            containers += [tp(obj) for tp in matches if sum([issubclass(m, tp) for m in matches]) == 1]
-        return containers
+    def index(cls, cmp:Callable) -> Callable:
+        """ Decorator for container classes that attempt to match some property of an object.
+            The object provided as the key for .matches is always the first argument to a comparison function.
+            Each recorded decorator has a property that is tested against this object as the second argument.
+            If the comparison is True, that container class will be instantiated and may add items to the tree. """
+        def deco(prop:object) -> Callable:
+            def record(tp:type) -> type:
+                cls._INDICES.append((cmp, prop, tp))
+                return tp
+            return record
+        return deco
+
+    @classmethod
+    def _match_classes(cls, obj:object) -> List[type]:
+        """ Get container classes from each index that match the object's properties. """
+        return [tp for cmp, prop, tp in cls._INDICES if cmp(obj, prop)]
 
 
-if_hasattr = ContainerIndex(hasattr)
-if_isinstance = ContainerIndex(isinstance)
+def _filter_classes(matches:List[type]) -> List[type]:
+    """ If any container classes are in a direct inheritance line, only keep the most derived class. """
+    return [tp for tp in matches if sum([issubclass(m, tp) for m in matches]) == 1]
+
+
+if_hasattr = ContainerData.index(hasattr)
+if_isinstance = ContainerData.index(isinstance)

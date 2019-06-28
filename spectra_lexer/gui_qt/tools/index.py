@@ -3,8 +3,7 @@ from PyQt5.QtWidgets import QLabel, QLayout, QMessageBox, QSlider, QToolTip, QVB
 
 from .base import GUIQT_TOOL
 from .dialog import FormDialog, DialogContainer
-from spectra_lexer.resource import RS, StenoIndex
-from spectra_lexer.steno import LX
+from spectra_lexer.view import VIEW
 
 _STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
@@ -74,14 +73,9 @@ class IndexDialog(FormDialog):
 
 class _GUIQT_TOOL_INDEX(GUIQT_TOOL):
 
-    @RS.RSIndexLoad.response
-    def on_index_load(self, index:StenoIndex) -> None:
-        """ If there is no index file (first start), present a dialog for the user to make a default-sized index. """
-        raise NotImplementedError
-
-    @LX.LXLexerMakeIndex.response
-    def on_new_index(self, index:StenoIndex) -> None:
-        """ Once the new index has been received, we can save it and reload it to be active. """
+    @VIEW.VIEWDialogMakeIndex.response
+    def on_index_done(self, *args) -> None:
+        """ Re-enable the GUI once the thread is clear. """
         raise NotImplementedError
 
 
@@ -93,39 +87,25 @@ class QtIndexTool(_GUIQT_TOOL_INDEX):
     def __init__(self) -> None:
         self._dialog = DialogContainer(IndexDialog)
 
-    def on_index_load(self, index:StenoIndex) -> None:
-        if not index:
-            yes, no = QMessageBox.Yes, QMessageBox.No
-            button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
-            # Make the starting index on accept, otherwise save an empty one so the message doesn't appear again.
-            if button == yes:
-                self.size_submit(DEFAULT_SIZE)
-            else:
-                self._store_index(StenoIndex(EMPTY={}))
-                self._msg("Skipped index creation.")
+    def VIEWDialogNoIndex(self) -> None:
+        """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
+            Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
+        yes, no = QMessageBox.Yes, QMessageBox.No
+        button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
+        self._make_index(DEFAULT_SIZE * (button == yes))
 
     def tools_index_open(self) -> None:
+        self._dialog.open(self.WINDOW, self._size_submit)
+
+    def _size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted. """
-        self._dialog.open(self.WINDOW, self.size_submit)
-
-    def size_submit(self, index_size:int) -> None:
-        """ If the index size was positive, the dialog was accepted, so create the custom index. """
         if index_size:
-            # Disable the GUI while the thread is busy.
-            self._msg("Making new index...")
-            self.GUIQTSetEnabled(False)
-            self.LXLexerMakeIndex(index_size)
+            self._make_index(index_size)
 
-    def on_new_index(self, index:StenoIndex) -> None:
-        """ Re-enable the GUI once the thread is clear. """
-        self._store_index(index)
+    def _make_index(self, index_size:int) -> None:
+        """ Disable the GUI while the thread is busy. """
+        self.GUIQTSetEnabled(False)
+        self.VIEWDialogMakeIndex(index_size)
+
+    def on_index_done(self, *args) -> None:
         self.GUIQTSetEnabled(True)
-        self._msg("Successfully created index!")
-
-    def _store_index(self, index:StenoIndex) -> None:
-        self.RSIndexSave(index)
-        self.INDEX = index
-
-    def _msg(self, msg:str) -> None:
-        """ Send a message that we've started or finished with analysis. """
-        self.SYSStatus(msg)

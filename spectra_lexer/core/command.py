@@ -105,6 +105,11 @@ class Resource(AbstractCommand):
         except AttributeError:
             next(self.bind(instance))(value)
 
+    def __set_name__(self, owner:type, name:str) -> None:
+        """ Resources bound directly to names should use those names. """
+        super().__set_name__(owner, name)
+        self._rs_attr = f"RS_{name}"
+
 
 class Option(dict):
     """ Dict of option resources declared by components. """

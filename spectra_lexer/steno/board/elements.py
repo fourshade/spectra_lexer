@@ -7,7 +7,8 @@ from .svg import SVGGroup, SVGPath
 class SVGGroupEx(SVGGroup):
     """ SVG group element with metadata for additional processing. """
 
-    offset: complex = 0j  # Holds the total offset for use in annotations (such as inversion arrows).
+    text_attrs: dict = {}  # Holds text drawing attributes from the last shape.
+    offset: complex = 0j   # Holds the total offset for use in annotations (such as inversion arrows).
 
     def add_offset(self, dx:float, dy:float) -> None:
         """ Offsets are stored and added as complex numbers, which work well for 2D points. """
@@ -51,7 +52,7 @@ class SVGElementParser(dict):
             for id in ids.split():
                 shape = self[id].copy()
                 path = shape.pop("d")
-                elem.update(shape)
+                elem.text_attrs = shape
                 elem.append(SVGPath(d=path))
 
     class ProcText(dict):
@@ -65,10 +66,11 @@ class SVGElementParser(dict):
             """ SVG fonts are not supported on any major browsers, so we must draw them as paths. """
             n = len(text)
             if n:
-                cx, cy = elem[self.CENTER]
+                attrs = elem.text_attrs
+                cx, cy = attrs[self.CENTER]
                 elem.add_offset(cx, cy)
-                spacing = elem[self.SPACING]
-                scale = min(1.0, elem[self.MAXWIDTH] / (n * spacing))
+                spacing = attrs[self.SPACING]
+                scale = min(1.0, attrs[self.MAXWIDTH] / (n * spacing))
                 spacing *= scale
                 x = cx - ((spacing / 2) * n)
                 y = cy + (10 * scale) - 3

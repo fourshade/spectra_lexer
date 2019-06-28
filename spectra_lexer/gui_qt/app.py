@@ -34,13 +34,13 @@ class QtApplication(ViewApplication, GUIQT):
     # We can create the QApplication at class level since only one is ever allowed to run.
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
-    def _main_class_paths(self) -> list:
+    def _class_paths(self) -> list:
         """ Run the GUI on the main thread. """
         return [gui_qt]
 
-    def _engine(self, **kwargs):
+    def _build_engine(self, **kwargs):
         """ To send commands to the GUI, the child threads send a Qt signal to the main thread. """
-        return super()._engine(passthrough=_Connection, **kwargs)
+        return super()._build_engine(passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. """

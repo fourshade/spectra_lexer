@@ -40,11 +40,9 @@ class SetContainer(UnorderedContainer):
             return key
         raise KeyError(key)
 
-    def _key_data(self, key) -> dict:
+    def _key_str(self, key) -> str:
         """ Since the items are both the keys and the values, display hashes in the key field. """
-        d = super()._key_data(key)
-        d["text"] = f"#{hash(key)}"
-        return d
+        return f"#{hash(key)}"
 
 
 @if_isinstance(MutableSet)
@@ -65,15 +63,23 @@ class SequenceContainer(Container):
 
     show_item_count = True
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[int]:
         """ Generate sequential index numbers as the keys. """
-        return iter(range(len(self)))
+        return iter(range(len(self._obj)))
 
-    def _key_data(self, key:int) -> dict:
+    def _key_str(self, key:int) -> str:
         """ Add a dot in front of each index for clarity. """
-        d = super()._key_data(key)
-        d["text"] = f".{key}"
-        return d
+        return f".{key}"
+
+
+@if_isinstance(tuple)
+class TupleContainer(SequenceContainer):
+
+    def _key_str(self, key:int) -> str:
+        """ By default, namedtuples display as regular tuples. Show them with their named fields instead. """
+        if hasattr(self._obj, "_fields"):
+            return f".{key} - {self._obj._fields[key]}"
+        return super()._key_str(key)
 
 
 @if_isinstance(MutableSequence)

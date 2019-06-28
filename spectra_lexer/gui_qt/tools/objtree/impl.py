@@ -7,6 +7,7 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
+from .row import RowData
 from ..dialog import ToolDialog
 from ...icon import IconRenderer
 from spectra_lexer.utils import memoize
@@ -18,8 +19,18 @@ HEADINGS = ["Name", "Type/Item Count", "Value"]
 HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-class _IconFinder(Dict[str, QIcon]):
+@memoize
+def _color(t:tuple=None) -> QColor:
+    """ Caching color generator. """
+    if t is None:
+        return QColor(0, 0, 0)
+    return QColor(*t)
+
+
+class _RowFormatter(Dict[str, QIcon]):
     """ Dict of pre-rendered icons corresponding to data types. """
+
+    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
 
     def __init__(self, icon_data:List[Tuple[List[str], bytes]]):
         """ Render each icon from bytes data and add them to a dict under each alias. """
@@ -29,44 +40,50 @@ class _IconFinder(Dict[str, QIcon]):
             for n in aliases:
                 self[n] = icon
 
-    def __call__(self, choices:Iterable[str]) -> QIcon:
+    def _get_icon(self, choices:Iterable[str]) -> QIcon:
         """ Return an available icon from a sequence of choices from most wanted to least. """
         return next(filter(None, map(self.get, choices)), None)
 
-
-class _ItemFormatter:
-
-    _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
-    _role_map: List[tuple]    # Maps string keys to Qt roles, with a formatting function applied to the data.
-
-    def __init__(self, icon_finder:_IconFinder):
-        """ Create the role data map with the icon finder and [caching] color generator. """
-        self._role_map = [("text",         Qt.DisplayRole,    lambda x: x),
-                          ("tooltip",      Qt.ToolTipRole,    lambda x: x),
-                          ("icon_choices", Qt.DecorationRole, icon_finder),
-                          ("color",        Qt.ForegroundRole, memoize(lambda t: QColor(*t)))]
-
-    def __call__(self, data:dict):
-        """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """
-        data.update({r: f(data[k]) for k, r, f in self._role_map if k in data}, flags=Qt.ItemFlags(self._FLAGS))
-        if data.get("edit"):
-            data["flags"] |= Qt.ItemIsEditable
+    def __call__(self, data:RowData, parent:object=None) -> List[dict]:
+        """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display.
+            Column 0 is the primary tree item with the key and icon. Possible icons are based on type.
+            Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO.
+            Column 2 contains the string value of the object. It may be edited if mutable. """
+        color = _color(data.get("color"))
+        row = [{"parent": parent, "flags": Qt.ItemFlags(self._FLAGS), Qt.ForegroundRole: color} for _ in range(3)]
+        for item, s in zip(row, ("key", "type", "value")):
+            item[Qt.DisplayRole] = data.get(f"{s}_text", "")
+            item[Qt.ToolTipRole] = data.get(f"{s}_tooltip", "")
+            edit = data.get(f"{s}_edit")
+            if edit is not None:
+                item["edit"] = edit
+                item["flags"] |= Qt.ItemIsEditable
+        key_item, type_item, _ = row
+        children = data.get("child_data")
+        if children is not None:
+            key_item["hasChildren"] = True
+            key_item["child_data"] = children
+        key_item[Qt.DecorationRole] = self._get_icon(data.get("icon_choices", ""))
+        count = data.get("item_count")
+        if count is not None:
+            type_item[Qt.DisplayRole] += f' - {count} item{"s" * (count != 1)}'
+        return row
 
 
 class ObjectTreeModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
-    _format_item: _ItemFormatter           # Formats each item data dict with flags and roles.
+    _format_row: _RowFormatter           # Formats each item data dict with flags and roles.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
-    def __init__(self, root_item:dict, **resources):
-        """ Create the icon finder, formatter, and index dictionaries and fill out the root level of the tree. """
+    def __init__(self, root_data:RowData, **resources):
+        """ Create the row formatter and index dictionaries and fill out the root level of the tree. """
         super().__init__()
-        icon_finder = _IconFinder(**resources)
-        self._format_item = _ItemFormatter(icon_finder)
+        self._format_row = _RowFormatter(**resources)
         self._d = defaultdict(list)
         root_idx = QModelIndex()
+        root_item = self._format_row(root_data)[0]
         self._idx_to_item = defaultdict(dict, {root_idx: root_item})
         self.expand(root_idx)
 
@@ -82,9 +99,13 @@ class ObjectTreeModel(QAbstractItemModel):
     def data(self, idx:QModelIndex, role=None, default=None):
         return self._idx_to_item[idx].get(role, default)
 
+    # Required model data
     parent = partialmethod(data, role="parent")
     flags = partialmethod(data, role="flags")
-    hasChildren = partialmethod(data, role="has_children", default=False)
+    hasChildren = partialmethod(data, role="hasChildren", default=False)
+    # Other model data
+    edit = partialmethod(data, role="edit")
+    child_data = partialmethod(data, role="child_data")
 
     def rowCount(self, idx:QModelIndex=None, *args) -> int:
         return len(self._d[idx])
@@ -102,7 +123,7 @@ class ObjectTreeModel(QAbstractItemModel):
         if not new_data:
             return False
         # Either the value or the color will change, and either will affect the display, so return True.
-        if self.data(idx, "edit")(new_data):
+        if self.edit(idx)(new_data):
             self.expand(self.parent(idx))
         else:
             # The item will return to the normal color after re-expansion.
@@ -120,12 +141,9 @@ class ObjectTreeModel(QAbstractItemModel):
         if self.hasChildren(idx):
             # Rows of raw data items are generated only when iterating over the "child_data" entry.
             # It is a lazy iterator, so we can limit the rows generated using islice.
-            new_rows = list(islice(self.data(idx, "child_data"), CHILD_LIMIT))
-            # Format every item in each new row with flags and Qt roles for display.
-            for row in new_rows:
-                for item in row:
-                    item["parent"] = idx
-                    self._format_item(item)
+            child_iter = islice(self.child_data(idx), CHILD_LIMIT)
+            # Format each new row with items containing flags and Qt roles for display.
+            new_rows = [self._format_row(data, idx) for data in child_iter]
             # Add every new row at once.
             self.beginInsertRows(idx, 0, len(new_rows))
             rows += new_rows

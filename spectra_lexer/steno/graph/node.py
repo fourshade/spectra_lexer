@@ -11,7 +11,7 @@ class GraphNode:
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child sequence may be mutable, hashing is by identity only. """
     COLOR = ClipMatrix([0,   64,  0,   -64],  # Vary red with nesting depth and selection (for purple),
-                       [0,   0,   8,   100],   # vary green with the row index and selection,
+                       [0,   0,   8,   100],  # vary green with the row index and selection,
                        [255, 0,   0,   0],    # starting from pure blue,
                        upper_bound=(192, 192, 255))  # and stopping short of invisible white.
 
@@ -67,9 +67,9 @@ class GraphNode:
         return '<b>{}</b>' if selected else "{}"
 
     @classmethod
-    def anchor(cls, index:int) -> str:
-        """ The anchor link is simply the index converted to a string. """
-        return f'<a href="{index}">{{}}</a>'
+    def anchor(cls, ref:str) -> str:
+        """ The anchor link is simply the ref string. """
+        return f'<a href="{ref}">{{}}</a>'
 
 
 class SeparatorNode(GraphNode):

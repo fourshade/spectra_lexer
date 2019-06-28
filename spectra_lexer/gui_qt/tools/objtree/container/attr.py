@@ -2,43 +2,27 @@
 
 from typing import Iterator
 
-from .base import Container, if_hasattr, MutableKeyContainer
+from .base import if_hasattr, MutableKeyContainer
 
 
-@if_hasattr("__slots__")
-class AttrContainer(Container):
+@if_hasattr("__dict__")
+class AttrContainer(MutableKeyContainer):
 
-    _ATTR = "__slots__"
-
-    # Slots are tricky to modify. Keep them as read-only for now.
-    key_tooltip = value_tooltip = "Attributes are slots; cannot edit."
-
-    def __init__(self, obj):
-        """ The chosen attribute container object is saved for easy access. """
-        super().__init__(obj)
-        self._attrs = getattr(obj, self._ATTR)
+    key_tooltip: str = "Double-click to change this attribute name."
+    value_tooltip: str = "Double-click to edit this attribute value."
 
     def __iter__(self) -> Iterator:
-        return iter(self._attrs)
+        return iter(vars(self._obj))
 
     def __len__(self) -> int:
-        return len(self._attrs)
+        return len(vars(self._obj))
 
     def __getitem__(self, key:str):
         """ Return the attribute under <key> by any method we can. """
         try:
+            return vars(self._obj)[key]
+        except KeyError:
             return getattr(self._obj, key)
-        except (AttributeError, TypeError):
-            return self._attrs[key]
-
-
-@if_hasattr("__dict__")
-class DictAttrContainer(AttrContainer, MutableKeyContainer):
-
-    _ATTR = "__dict__"
-
-    key_tooltip: str = "Double-click to change this attribute name."
-    value_tooltip: str = "Double-click to edit this attribute value."
 
     def __delitem__(self, key:str) -> None:
         """ Delete the attribute under <key> if it exists. """
