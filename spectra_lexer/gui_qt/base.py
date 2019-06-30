@@ -40,6 +40,11 @@ class GUIQT(VIEW):
         raise NotImplementedError
 
     @Command
-    def GUIQTAction(self, action:str, attrs:tuple=(), *args) -> None:
-        """ Update attributes and/or send an action command. """
+    def GUIQTUpdate(self, **kwargs) -> None:
+        """ Update state attributes and the GUI to match them. """
+        raise NotImplementedError
+
+    @Command
+    def GUIQTAction(self, action:str) -> None:
+        """ Send an action command with the current state. """
         raise NotImplementedError

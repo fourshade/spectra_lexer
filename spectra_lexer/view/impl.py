@@ -125,10 +125,11 @@ class ViewLayer(InnerViewLayer):
         self._new_query(state, translation)
 
     def _new_query(self, state:ViewState, translation:list) -> None:
-        """ Make a new query and set the graph title. Only a previous linked example rule may be selected. """
+        """ Make a new query and set the graph title and ref. Only a previous linked example rule may be selected. """
         state.graph_translation = translation
         rule = self._call_query(*translation)
         state.graph_title = str(rule)
+        state.graph_node_ref = ""
         if state.graph_has_selection:
             kwargs = dict(select=True, prev=self.RULES.get(state.link_ref))
         else:
@@ -175,8 +176,7 @@ class OuterViewLayer(ViewLayer):
     def VIEWGraphClick(self, state:ViewState) -> None:
         self._graph_action(state, True)
 
-    def VIEWAction(self, state:ViewState) -> ViewState:
-        action = state.action
+    def VIEWAction(self, action:str, state:ViewState) -> None:
         if hasattr(self, action) and action.startswith("VIEW"):
             getattr(self, action)(state)
-        return state
+        self.VIEWActionResult(state)
