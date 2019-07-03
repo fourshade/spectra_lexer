@@ -1,4 +1,4 @@
-Each asset subdirectory contains the files for a complete steno system, with one system (English) available by default.
+The assets directory contains the files for a complete English steno system.
 A system includes include a config file with the key layout, a series of rules files, and an XML board graphics file.
 Rule files may not be loaded individually; all must be in the same directory/system for cross-references to work.
 
@@ -78,7 +78,7 @@ flag        ::=  string
 ; "SPEC" = special rule used internally, do not match directly using lexer
 ; "STRK" = only matches a full stroke (i.e. fingerspelling)
 ; "WORD" = only matches a full word (i.e. common briefs)
-; "RARE" = rarely found in practice and/or may cause false positives, matches are less reliable
+; "RARE" = rarely found in practice and/or may cause false positives. Matches are less reliable.
 ; "OPT" = optional/redundant/strict combination of other rules. May be omitted with little consequence.
 ; "INV" = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
 

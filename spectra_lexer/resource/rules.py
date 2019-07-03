@@ -137,7 +137,7 @@ class RulesDictionary(dict, AbstractCodec):
                 self._parse(rule_key)
             rule = self[rule_key]
             # Add the rule to the map and substitute in the letters if necessary.
-            if not letters:
+            if letters is None:
                 letters = rule.letters
             built_map.append(RuleMapItem(rule, m.start(), len(letters)))
             pattern = pattern.replace(rule_str, letters)

@@ -8,7 +8,7 @@
 
   "C.+":    ["KR",     "c",          [], "used to disambiguate soft `c` vs. `s`"],
   ".v.":    ["W",      "v",    ["RARE"], "rarely used as middle `v` (TKWOUR → devour, KAUPB/WHRAOUGS → convolution)"],
-  "z.+":    ["STKPW",  "z",    ["RARE"], "used for `z` when asterisk is used elsewhere (STKPW*EUPBG → zinc)"],
+  "z.*":    ["STKPW",  "z",    ["RARE"], "used for `z` when asterisk is used elsewhere (STKPW*EUPBG → zinc)"],
 
   # right bank
   ".ch":    ["-FP",    "ch",         [], "right side `ch`"],

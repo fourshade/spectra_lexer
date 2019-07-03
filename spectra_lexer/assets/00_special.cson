@@ -11,6 +11,7 @@
   "*:OB":    ["*",    "", ["SPEC"], "indicates an obscenity\n(and makes it harder to be the result of a misstroke)"],
 
   # affix/connection modifiers
+  "~/~":     ["/",    "", ["SPEC"], "split stroke"],
   "KWR:PS":  ["KWR",  "", ["RARE"], "connects multiple strokes"],
   "SKWR:PS": ["SKWR", "", ["RARE"], "uncommon prefix/suffix modifier"],
   "-RBGS:PS":["-RBGS","", ["RARE"], "uncommon prefix modifier"],
