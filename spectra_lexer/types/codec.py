@@ -111,19 +111,12 @@ class XMLElement(Element, AbstractCodec):
         ElementTree(self).write(stream, encoding, **kwargs)
         return stream.getvalue()
 
-    def encode_with(self, tag:str, *elements:Element, **kwargs) -> bytes:
-        """ Make a copy of this node with all <tag> nodes and the given elements and return it encoded. """
-        elem = self.__class__(self.tag, self.attrib)
-        elem[:] = [e for e in self if e.tag == tag]
-        elem.extend(elements)
-        return elem.encode(**kwargs)
-
 
 class XMLStackParser(list):
     """ Minimal parser for XML without namespaces. """
 
     factory: type = XMLElement
-    _last: Element = None
+    _last: XMLElement = None
 
     def __call__(self, data:bytes, encoding:str='utf-8'):
         """ Feed encoded data to parser and return element structure. """

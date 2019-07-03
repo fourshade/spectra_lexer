@@ -1,5 +1,4 @@
 from collections import defaultdict
-from functools import partialmethod
 from itertools import islice
 from typing import Dict, Iterable, List, Tuple
 
@@ -99,13 +98,20 @@ class ObjectTreeModel(QAbstractItemModel):
     def data(self, idx:QModelIndex, role=None, default=None):
         return self._idx_to_item[idx].get(role, default)
 
-    # Required model data
-    parent = partialmethod(data, role="parent")
-    flags = partialmethod(data, role="flags")
-    hasChildren = partialmethod(data, role="hasChildren", default=False)
-    # Other model data
-    edit = partialmethod(data, role="edit")
-    child_data = partialmethod(data, role="child_data")
+    def parent(self, idx:QModelIndex=None) -> QModelIndex:
+        return self.data(idx, "parent")
+
+    def flags(self, idx:QModelIndex) -> Qt.ItemFlags:
+        return self.data(idx, "flags")
+
+    def hasChildren(self, idx:QModelIndex=None, *args) -> bool:
+        return self.data(idx, "hasChildren", False)
+
+    def edit(self, idx:QModelIndex):
+        return self.data(idx, "edit")
+
+    def child_data(self, idx:QModelIndex) -> Iterable[RowData]:
+        return self.data(idx, "child_data", ())
 
     def rowCount(self, idx:QModelIndex=None, *args) -> int:
         return len(self._d[idx])

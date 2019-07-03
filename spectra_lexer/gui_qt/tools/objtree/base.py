@@ -17,7 +17,7 @@ class package(dict):
     __slots__ = ()
 
     @classmethod
-    def nested(cls, d:dict, delim:str= ".", root_key:str= "__init__") -> dict:
+    def nested(cls, d:dict, delim:str=".", root_key:str="__init__"):
         """ Split all keys on <delim> and nest package dicts in a hierarchy based on these splits.
             If one key is a prefix of another, it may occupy a slot needed for another level of dicts.
             If this happens, move the value one level deeper under <root_key>. """
@@ -50,7 +50,7 @@ class ObjectTree(GUIQT_TOOL):
             return val
 
     @lazy_field
-    def root_dict(self):
+    def root_dict(self) -> package:
         """ Make a root dict with packages containing all modules and the first level of components. """
         root_dict = self._components_by_path()
         root_dict["modules"] = package.nested(sys.modules)
@@ -59,18 +59,22 @@ class ObjectTree(GUIQT_TOOL):
     @lazy_field
     def icon_data(self) -> list:
         """ Decode the SVG icon resource file and create individual icons for each type. """
-        icon_data = []
-        svg_data = get_data(__package__, _ICON_PATH)
-        svg_tree = XMLElement.decode(svg_data)
-        # Elements with at least one type alias are valid icons. Encode a new SVG byte string for each one.
-        for elem in svg_tree.iter():
+        data = get_data(__package__, _ICON_PATH)
+        root = XMLElement.decode(data)
+        defs = [e for e in root if e.tag == "defs"]
+        icon_list = []
+        for elem in root.iter():
+            # Elements with at least one type alias are valid icons.
             types = elem.get("spectra_types")
             if types:
-                icon_data.append((types.split(), svg_tree.encode_with("defs", elem)))
-        return icon_data
+                # Make an encoded copy of the root node with only its defs and this element.
+                icon = XMLElement(root.tag, root.attrib)
+                icon[:] = [*defs, elem]
+                icon_list.append((types.split(), icon.encode()))
+        return icon_list
 
-    def _components_by_path(self) -> dict:
-        """ Return a nested dict with each component indexed by its class's module path. """
+    def _components_by_path(self) -> package:
+        """ Return a nested package dict with each component indexed by its class's module path. """
         d = {}
         for cmp in self.ALL_COMPONENTS:
             ks = type(cmp).__module__.split(".")

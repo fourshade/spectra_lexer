@@ -49,7 +49,8 @@ class HttpView(GUIHTTP):
 
     def GUIHTTPServe(self) -> int:
         httpd = SpectraHTTPServer(self._ADDRESS, callback=self.process_request, directory=self._HTTP_PUBLIC)
-        return httpd.serve_forever()
+        httpd.serve_forever()
+        return 0
 
     def process_request(self, data:bytes, req_call:Callable) -> None:
         state = HttpState.from_request(data, req_call)
