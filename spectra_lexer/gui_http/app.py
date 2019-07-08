@@ -16,7 +16,8 @@ class HttpApplication(ViewApplication, GUIHTTP):
 
     def run(self) -> int:
         """ Start the server and run it indefinitely. """
-        return self.GUIHTTPServe()
+        self.GUIHTTPServe()
+        return 0
 
 
 HttpApplication.set_entry_point("http")

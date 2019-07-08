@@ -142,6 +142,14 @@ class InversionNode(BranchNode):
     BOTTOM = PatternRow("║", "◄═►")
 
 
+class LinkedNode(BranchNode):
+    """ Pattern for nodes describing two strokes linked together. """
+
+    BOTTOM = PatternRow("♦", "♦═╗")
+    TOP = PatternRow("♦", "♦═╝")
+    CONNECTOR = PatternColumn("♦")
+
+
 class RootNode(BranchNode):
     """ The root node always appears as a branch, even if it has no children. """
 
@@ -190,8 +198,11 @@ class NodeFactory:
     def _make_derived(self, rule:StenoRule, *args):
         """ Derived rules (i.e. branch nodes) show their letters. """
         text = rule.letters
-        if RuleFlags.INVERSION in rule.flags:
+        flags = rule.flags
+        if RuleFlags.INVERSION in flags:
             node_cls = InversionNode
+        elif RuleFlags.LINKED in flags:
+            node_cls = LinkedNode
         else:
             node_cls = BranchNode
         node = node_cls(text, *args)

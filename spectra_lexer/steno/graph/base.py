@@ -25,8 +25,8 @@ class StenoGraph(NodeFactory):
         self._rules_by_node = {}
         self._nodes_by_rule = {}
         root = self.make_tree(rule)
-        layout_cls = CompressedGraphLayout if compressed else CascadedGraphLayout
-        lines, nodes = layout_cls(root).render()
+        layout = CompressedGraphLayout(root) if compressed else CascadedGraphLayout(root)
+        lines, nodes = layout.render()
         self._ref_grid = nodes
         self._formatter = HTMLTextField(lines, nodes)
 

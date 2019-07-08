@@ -3,7 +3,7 @@
 from math import ceil
 from typing import Callable, Iterable
 
-from .path import PathChain, PathInversion
+from .path import PathChain, PathGenerator, PathInversion
 from .svg import SVGDefs, SVGDocument, SVGElement, SVGPath
 
 
@@ -25,9 +25,8 @@ class BoardElement(SVGElement):
     txtspacing: float = 14.4
     offset: complex = 0j  # Offsets are stored and added as complex numbers, which work well for 2D points.
 
-    def _append_offset(self, child) -> None:
-        child.translate(self.offset.real, self.offset.imag)
-        self.append(child)
+    def _add_offset(self, dx:float, dy:float):
+        self.offset += complex(dx, dy)
 
     def process(self, proc_defs:dict) -> None:
         """ Parse XML proc attributes and child nodes. Merge any redundant elements at the end. """
@@ -39,41 +38,76 @@ class BoardElement(SVGElement):
 
     def proc_path(self, id:str, d:dict) -> None:
         elem = SVGPath(d=d[id])
-        self._append_offset(elem)
+        elem.translate(self.offset.real, self.offset.imag)
+        self.append(elem)
 
     def proc_pos(self, id:str, d:dict) -> None:
         """ Add to the total offset used in text and annotations (such as inversion arrows)."""
-        self.offset += complex(*d[id])
+        self._add_offset(*d[id])
 
     def proc_shape(self, id:str, d:dict) -> None:
         attrs = d[id]
         self.proc_path("d", attrs)
-        self.offset += complex(*attrs["txtcenter"])
+        self._add_offset(*attrs["txtcenter"])
         self.txtmaxwidth = attrs["txtwidth"]
         self.txtspacing = attrs["txtspacing"]
 
-    FONT_SIZE = 24  # Size is 24 pt.
-    EM_SIZE = 1000  # Text paths are defined with an em box of 1000 units.
-    RELATIVE_SIZE: float = FONT_SIZE / EM_SIZE
-
-    def proc_text(self, text:str, glyphs:dict) -> None:
-        """ SVG fonts are not supported on any major browsers, so we must draw them as paths. """
+    def proc_text(self, text:str, glyphs:dict, _FONT_SIZE:int=24, _EM_SIZE:int=1000) -> None:
+        """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
+            Max font size is 24 pt. Text paths are defined with an em box of 1000 units. """
         n = len(text) or 1
         spacing = self.txtspacing
         scale = min(1.0, self.txtmaxwidth / (n * spacing))
         spacing *= scale
-        font_scale = scale * self.RELATIVE_SIZE
-        x = - n * spacing / 2
-        y = (10 * scale) - 3
+        font_scale = scale * _FONT_SIZE / _EM_SIZE
+        x = - n * spacing / 2 + self.offset.real
+        y = (10 * scale) - 3 + self.offset.imag
         for k in text:
             char = SVGPath(fill="#000000", d=glyphs[k])
-            self._append_offset(char)
             char.transform(font_scale, -font_scale, x, y)
+            self.append(char)
             x += spacing
 
     def add_final(self, add:Callable) -> None:
         """ Add any required elements to the final group. """
         add(self)
+
+
+class PathConnector(PathGenerator):
+    """ Abstract class for a special element connection. """
+
+    LAYER_DATA: list = [("#000000", "1", 0j)]
+
+    def connection(self, start_elem:BoardElement, end_elem:BoardElement) -> BoardElement:
+        """ Create paths between two elements, layered to create a drop shadow appearance. """
+        p1, p2 = start_elem.offset, end_elem.offset
+        return self._make_connector(p1, p2)
+
+    def _make_connector(self, p1:complex, p2:complex) -> BoardElement:
+        """ Create paths in both directions between two points shifted by an optional offset after each iteration. """
+        elem = BoardElement()
+        for reverse in (False, True):
+            path = ""
+            for color, width, offset in self.LAYER_DATA:
+                # If the path hasn't moved, don't regenerate the string data; it will be the same.
+                if offset or not path:
+                    self.clear()
+                    self.draw(p1 + offset, p2 + offset, reverse)
+                    path = self.to_string()
+                elem.append(SVGPath(d=path, fill="none", stroke=color, **{"stroke-width": width}))
+        return elem
+
+
+class PathConnectorInversion(PathConnector, PathInversion):
+
+    LAYER_DATA = [("#800000", "1.5", 0j),
+                  ("#FF0000", "1.5", -1j)]
+
+
+class PathConnectorChain(PathConnector, PathChain):
+
+    LAYER_DATA = [("#000000", "5.0", 0j),
+                  ("#B0B0B0", "2.0", 0j)]
 
 
 class BoardStrokeGap(BoardElement):
@@ -83,74 +117,38 @@ class BoardStrokeGap(BoardElement):
         add(None)
 
 
-class BoardConnectorGroup(BoardElement):
-    """ Abstract class for a group of elements with a special connection. """
-
-    PATH_DATA_CLS: type  # Constructor for a path data string from two complex endpoints.
-    LAYER_DATA: list = []
-    LAYER_OFFSET: complex = 0j
-
-    def connector(self) -> BoardElement:
-        """ Create paths in both directions between children shifted by an optional offset after each iteration.
-            Useful to create a layered or drop shadow appearance. Requires at least two children. """
-        elem = BoardElement()
-        if len(self) < 2:
-            return elem
-        first, *_, last = self
-        endpoints = first.offset, last.offset
-        data_cls = self.PATH_DATA_CLS
-        layer_data = self.LAYER_DATA
-        offset = self.LAYER_OFFSET
-        for reverse in (False, True):
-            pts = endpoints
-            for color, width in layer_data:
-                path_data = data_cls(*pts, reverse).to_string()
-                elem.append(SVGPath(d=path_data, fill="none", stroke=color, **{"stroke-width": width}))
-                pts = [p + offset for p in pts]
-        return elem
-
-
-class BoardInversionGroup(BoardConnectorGroup):
+class BoardInversionGroup(BoardElement):
     """ Draws bent arrows pointing between its children. """
-
-    PATH_DATA_CLS = PathInversion
-    LAYER_DATA = [("#800000", "1.5"),
-                  ("#FF0000", "1.5")]
-    LAYER_OFFSET = -1j
 
     def add_final(self, add:Callable) -> None:
         for elem in self:
             add(elem)
-        add(self.connector())
+        first, *_, last = self
+        arrows = PathConnectorInversion().connection(first, last)
+        add(arrows)
 
 
-class BoardLinkedGroup(BoardConnectorGroup):
-    """ Draws a chain connecting its children."""
-
-    PATH_DATA_CLS = PathChain
-    LAYER_DATA = [("#000000", "5.0"),
-                  ("#B0B0B0", "2.0")]
+class BoardLinkedGroup(BoardElement):
+    """ Draws a chain connecting its children, which are shifted independently of the main stroke groupings. """
 
     class _LinkedElement(BoardElement):
         """ Chain endpoint element wrapper. """
         def set_offset(self, dx:float, dy:float) -> None:
-            """ Shift chain elements independently of the main stroke groupings. """
             base, = self
+            self.offset = base.offset
             self.translate(dx, dy)
-            self.offset = base.offset + complex(dx, dy)
-
-    def __init__(self, *elems):
-        """ Wrap elements involved in a chain so the originals aren't mutated. """
-        super().__init__(*map(self._LinkedElement, elems))
+            self._add_offset(dx, dy)
 
     def add_final(self, add:Callable) -> None:
         add(None, on_tf=self.add_chain)
 
     def add_chain(self, sx:float, sy:float, ex:float, ey:float) -> BoardElement:
-        first, *_, last = self
+        """ Wrap elements involved in a chain so the originals aren't mutated. """
+        first, *_, last = map(self._LinkedElement, self)
         first.set_offset(sx, sy)
         last.set_offset(ex, ey)
-        return BoardElement(self.connector(), first, last)
+        chain = PathConnectorChain().connection(first, last)
+        return BoardElement(chain, first, last)
 
 
 class DocumentGroups(list):
@@ -182,7 +180,7 @@ class DocumentGroups(list):
             self[-1].on_tf = on_tf
 
     def transform(self, tfrms:list) -> None:
-        for i, (dx, dy), in enumerate(tfrms):
+        for i, (dx, dy) in enumerate(tfrms):
             group = self[i]
             group.translate(dx, dy)
             if hasattr(group, "on_tf"):

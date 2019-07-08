@@ -58,6 +58,9 @@
             }
         }
     }
+    function updateError(jqXHR, textStatus, errorThrown){
+        updateTable.graph_title("CONNECTION ERROR")
+    }
     function processAction(action){
         state.action = action;
         $.ajax({
@@ -65,6 +68,7 @@
             contentType: 'application/json',
             data: JSON.stringify(state),
             success: updateState,
+            error: updateError,
         });
     }
     $(document).ready(function(){

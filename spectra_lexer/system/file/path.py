@@ -1,9 +1,9 @@
 import fnmatch
 import glob
 import os
+import sys
 from typing import List
 
-from appdirs import user_data_dir
 from pkg_resources import resource_string, resource_listdir
 
 
@@ -88,12 +88,20 @@ class FilePath(AbstractPath):
 class UserFilePath(FilePath):
     """ An identifier for a file in the user's app data directory. """
 
+    # Default path components are for Linux, since it has several possible platform identifiers.
+    DEFAULT_PATH_COMPONENTS = (".local", "share", "{0}")
+    # Path components specific to Windows and Mac OS.
+    PLATFORM_PATH_COMPONENTS = {"win32": ("AppData", "Local", "{0}", "{0}"),
+                                "darwin": ("Library", "Application Support", "{0}")}
+
     def __new__(cls, s:str, user_path:str="", **options):
         """ If the prefix is ~appname/, it is a file from the user's application-specific data directory.
             If the prefix is ~/, it is specifically a file from THIS application's user data directory. """
         app_prefix, filename = s.split("/", 1)
-        directory = user_data_dir(app_prefix or user_path)
-        return FilePath(os.path.join(directory, filename))
+        path_components = cls.PLATFORM_PATH_COMPONENTS.get(sys.platform) or cls.DEFAULT_PATH_COMPONENTS
+        path_fmt = os.path.join("~", *path_components, filename)
+        path = path_fmt.format(app_prefix or user_path)
+        return FilePath(os.path.expanduser(path))
 
 
 @if_path_startswith(":/")
@@ -122,4 +130,4 @@ class NullPath(AbstractPath):
 
     read = bytes
     write = lambda *args: None
-    _search = lambda self: [self]
+    _search = list

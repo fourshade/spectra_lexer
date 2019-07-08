@@ -16,10 +16,11 @@ CMDCLASS_DICT = {}
 
 
 class _EntrancyCounter:
-    """ Simple context manager to count stack depth. """
-    def __init__(self): self.depth = 0
+    """ Simple context manager to count stack depth and print corresponding indentations. """
+    depth = 0
     def __enter__(self): self.depth += 1
     def __exit__(self, *args): self.depth -= 1
+    def indent_for_depth(self, count): print(" " * (self.depth * count), end='')
 
 
 class Command:
@@ -33,16 +34,15 @@ class Command:
     def finalize_options(self):
         """ Run all commands in order, including dependencies. Make sure not to redo any. """
         super().finalize_options()
-        dist = self.distribution
-        if not hasattr(dist, "done"):
-            dist.done = set()
-            dist.counter = _EntrancyCounter()
-        with dist.counter:
+        getvar = vars(self.distribution).setdefault
+        stack = getvar("stack", _EntrancyCounter())
+        tracker = getvar("tracker", set())
+        with stack:
             for cmd in self.requires.split():
-                if cmd not in dist.done:
-                    print(" " * dist.counter.depth * 2, end='')
+                if cmd not in tracker:
+                    stack.indent_for_depth(4)
                     self.run_command(cmd)
-                dist.done.add(cmd)
+                    tracker.add(cmd)
 
 
 class CustomCommand(setuptools.Command):
@@ -56,32 +56,21 @@ class build_ui(Command, CustomCommand):
     description = "Build new/modified UI files."
     requires = "clean"
 
-    def _build_ui(self, src):
-        """ Build Python code from a QT UI file. """
-        dst = os.path.splitext(src)[0] + '_ui.py'
-        if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
-            return
-        cmd = (sys.executable, '-m', 'PyQt5.uic.pyuic', '--from-import', src)
-        contents = subprocess.check_output(cmd).decode('utf-8')
-        with open(dst, 'w') as fp:
-            fp.write(contents)
-
-    def _build_resources(self, src):
-        """ Build Python code from a QT resource package. """
-        dst = os.path.join(os.path.dirname(src), '..', os.path.splitext(os.path.basename(src))[0]) + '_rc.py'
-        cmd = (sys.executable, '-m', 'PyQt5.pyrcc_main', src, '-o', dst)
-        subprocess.check_call(cmd)
-
     def run(self):
-        for src in glob('**/*.qrc', recursive=True):
-            self._build_resources(src)
+        """ Build Python code from QT UI files. """
         for src in glob('**/*.ui', recursive=True):
-            self._build_ui(src)
+            dst = os.path.splitext(src)[0] + '_ui.py'
+            if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+                continue
+            cmd = (sys.executable, '-m', 'PyQt5.uic.pyuic', '--from-import', src)
+            contents = subprocess.check_output(cmd).decode('utf-8')
+            with open(dst, 'w') as fp:
+                fp.write(contents)
 
 
 class clean(Command, CustomCommand):
     description = "Remove all build and test-generated files."
-    patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py', '**/*_rc.py')
+    patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py')
 
     def run(self):
         matches = [m for p in self.patterns for m in glob(p, recursive=True)]

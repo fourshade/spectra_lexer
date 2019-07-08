@@ -27,15 +27,19 @@ class PathGenerator(List[str]):
         """ Draw a cubic Bezier curve from the current position to <ep> with control points <cp>, <dp>. """
         self += "c" if relative else "C", _fmt(cp), _fmt(dp), _fmt(ep)
 
-    def arc_to(self, rc:complex, ep:complex, sweep_cw:bool=False, large_arc:bool=False, relative:bool=False) -> None:
-        """ Draw an elliptical arc with radii <rc> from the current position to <ep>.
+    def arc_to(self, radii:complex, ep:complex, sweep_cw:bool=False, large_arc:bool=False, relative:bool=False) -> None:
+        """ Draw an elliptical arc with x and y <radii> from the current position to <ep>.
             If <sweep_cw> is True, a clockwise arc is drawn, else it will be counter-clockwise.
             If <large_arc> is True, out of the two possible arc lengths, the one greater than 180 will be used. """
-        self += "a" if relative else "A", _fmt(rc), f"0 {large_arc:d},{sweep_cw:d}", _fmt(ep)
+        self += "a" if relative else "A", _fmt(radii), f"0 {large_arc:d},{sweep_cw:d}", _fmt(ep)
 
     def close(self) -> None:
         """ After drawing with the above commands, close and fill a complete path. """
         self += "z",
+
+    def draw(self, start:complex, end:complex, reverse:bool=False) -> None:
+        """ Draw a path between two complex endpoints. """
+        pass
 
     def to_string(self) -> str:
         return " ".join(self)
@@ -50,10 +54,9 @@ class PathInversion(PathGenerator):
     MIN_HEAD_LENGTH = 5.0      # Minimum length for head edges (the lines that make the "point" of the arrow).
     SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
 
-    def __init__(self, tail:complex, head:complex, reverse:bool=False):
+    def draw(self, tail:complex, head:complex, reverse:bool=False) -> None:
         """ Draw a bent arrow path from <tail> to <head>. Back up endpoints to avoid covering up letters.
             The control point starts on the line connecting the endpoints, then is shifted perpendicular to it. """
-        super().__init__()
         if reverse:
             tail, head = head, tail
         i_control = self._get_control_point(tail, head)
@@ -96,23 +99,22 @@ class PathChain(PathGenerator):
            This requires multiple passes with different stroke widths and cannot be done using only path data.
         2. Any overlap on one half must be reversed for the other half to give the chain its linked appearance.
         An optimal solution is, for each data pass, draw *alternating* halves of the chain. After one pass, we have:
-                                  //-----\\ //-----\\ //-----\\ //-----\\
-                                  ||     || ||     || ||     || ||     ||
-                                       ||     || ||     || ||     || ||     ||
-                                       \\-----// \\-----// \\-----// \\-----//
-        None of these will interfere, so each layer can be immediately composited. The other set of alternating
-        halves is drawn by switching the start and end points, creating a horizontal reflection.
+            //--------\\  //--------\\  //--------\\  //--------\\
+            ||        ||  ||        ||  ||        ||  ||        ||
+                   ||        ||  ||        ||  ||        ||  ||        ||
+                   \\--------//  \\--------//  \\--------//  \\--------//
+        None of these will interfere, so each layer can be immediately composited.
+        The other set of alternating halves is drawn by switching the arc direction.
         All of the overlap happens in this second stage, and all links are intertwined in the correct manner. """
 
-    LINK_RADIUS = 5.0  # Radius of the circular portion of a chain link.
+    LINK_RADIUS = 5.0  # Radius of the circular portions of a chain link.
     LINK_EXTEND = 5.0  # Length of the straight portion of a chain link.
     LINK_OFFSET = 3.0  # Approximate amount to shift each chain link inward toward its predecessor.
 
     _LINK_LENGTH = 2 * LINK_RADIUS + LINK_EXTEND  # Computed length of a single chain link.
 
-    def __init__(self, start:complex, end:complex, reverse:bool=False):
+    def draw(self, start:complex, end:complex, reverse:bool=False) -> None:
         """ Draw a chain path from <start> to <end> with alternating halves of each link. """
-        super().__init__()
         length, angle = polar(end - start)
         offsets = [start + rect(off, angle) for off in self._link_offsets(length)]
         for half in (False, True):
@@ -132,17 +134,15 @@ class PathChain(PathGenerator):
         return [i * actual_spacing for i in range(link_count)]
 
     def _draw_hemilinks(self, offsets:List[complex], angle:float, direction_cw:bool=False):
-        """ Draw one half of a chain link starting at every position in <offsets>. """
-        r = self.LINK_RADIUS
-        rc = complex(r, r)
-        r_move = rect(r, angle)
-        shift_angle = pi * (0.5 - direction_cw)
-        shift = rect(r, angle + shift_angle)
-        arc_move_out = r_move + shift
+        """ Draw one half of a chain link starting at every position in <offsets>.
+            The first two moves can be relative, but the last one should be absolute for accurate shape closing. """
+        radii = self.LINK_RADIUS * (1 + 1j)
+        angle_out = (angle - pi / 4) if direction_cw else (angle + pi / 4)
+        arc_move_out = rect(abs(radii), angle_out)
         line_move = rect(self.LINK_EXTEND, angle)
         arc_move_in = rect(self._LINK_LENGTH, angle)
         for start in offsets:
             self.move_to(start)
-            self.arc_to(rc, arc_move_out, direction_cw, relative=True)
+            self.arc_to(radii, arc_move_out, direction_cw, relative=True)
             self.line_to(line_move, relative=True)
-            self.arc_to(rc, start + arc_move_in, direction_cw)
+            self.arc_to(radii, start + arc_move_in, direction_cw)

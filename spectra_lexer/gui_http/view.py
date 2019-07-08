@@ -1,60 +1,49 @@
 from typing import Callable
 
 from .base import GUIHTTP
-from .server import SpectraHTTPServer
 from spectra_lexer.types.codec import JSONDict
 from spectra_lexer.view import ViewState
 
 
-class HttpData(JSONDict):
-
-    _SIZE_LIMIT = 1000000  # No way should user JSON data be over 1 MB.
-
-    @classmethod
-    def _decode(cls, data:bytes, **kwargs) -> dict:
-        """ Perform a basic data size check before parsing. """
-        if len(data) > cls._SIZE_LIMIT:
-            raise ValueError("Data payload too large.")
-        return super()._decode(data, **kwargs)
-
-    def encode(self, *, encoding:str='utf-8', **kwargs) -> bytes:
-        """ Make sure all bytes objects are converted to normal strings before JSON encoding. """
-        for k, v in self.items():
-            if isinstance(v, bytes):
-                self[k] = v.decode(encoding)
-        return super().encode(encoding=encoding, **kwargs)
-
-
 class HttpState(ViewState):
+    """ Class for GUI state data submitted by HTTP with extra fields. """
 
     action: str = ""
-    req_call: Callable = None
-
-    @classmethod
-    def from_request(cls, data:bytes, req_call:Callable):
-        """ Process JSON data obtained from a client request. Save the callback so we don't lose it. """
-        d = HttpData.decode(data)
-        return cls(d, req_call=req_call)
-
-    def send(self) -> None:
-        """ Encode any relevant changes to JSON and send them back to the client with the callback. """
-        data = HttpData(self.changed()).encode()
-        self.req_call(data)
+    response_callback: Callable = None
 
 
 class HttpView(GUIHTTP):
-    """ Top-level component for the HTTP server. Handles JSON and communication with the view layer. """
+    """ Interface to handle JSON and communication with the view layer. """
 
-    _ADDRESS = "localhost", 80
+    _SIZE_LIMIT = 1000000        # No way should user JSON data be over 1 MB.
+    _CHAR_LIMITS = [(b"{", 20),  # Limits on special JSON characters.
+                    (b"[", 20)]
 
-    def GUIHTTPServe(self) -> int:
-        httpd = SpectraHTTPServer(self._ADDRESS, callback=self.process_request, directory=self._HTTP_PUBLIC)
-        httpd.serve_forever()
-        return 0
-
-    def process_request(self, data:bytes, req_call:Callable) -> None:
-        state = HttpState.from_request(data, req_call)
+    def GUIHTTPRequest(self, data:bytes, response_callback:Callable):
+        """ Validate and process JSON data obtained from a client. This data could contain ANYTHING...beware! """
+        self.check_size(data)
+        self.check_chars(data)
+        d = JSONDict.decode(data)
+        state = HttpState(d, response_callback=response_callback)
         self.VIEWAction(state.action, state)
 
-    def VIEWActionResult(self, state:HttpState) -> None:
-        state.send()
+    def check_size(self, data:bytes) -> None:
+        """ Perform a basic data size check. """
+        if len(data) > self._SIZE_LIMIT:
+            raise ValueError("Data payload too large.")
+
+    def check_chars(self, data:bytes) -> None:
+        """ The JSON parser is fast, but dumb. It does naive recursion on containers.
+            The stack can be overwhelmed by a long sequence of '{' and/or '[' characters. Do not let this happen. """
+        for c, limit in self._CHAR_LIMITS:
+            if data.count(c) > limit:
+                raise ValueError("Too many containers.")
+
+    def VIEWActionResult(self, state:HttpState, encoding:str='utf-8') -> None:
+        """ Encode any relevant changes to JSON and send them back to the client with the callback.
+            Make sure all bytes objects are converted to normal strings before encoding. """
+        d = JSONDict(state.changed(), encoding=encoding)
+        for k, v in d.items():
+            if isinstance(v, bytes):
+                d[k] = v.decode(encoding)
+        state.response_callback(d.encode())
