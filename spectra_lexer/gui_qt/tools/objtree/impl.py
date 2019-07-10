@@ -48,22 +48,31 @@ class _RowFormatter(Dict[str, QIcon]):
             Column 0 is the primary tree item with the key and icon. Possible icons are based on type.
             Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO.
             Column 2 contains the string value of the object. It may be edited if mutable. """
-        color = _color(data.get("color"))
-        row = [{"parent": parent, "flags": Qt.ItemFlags(self._FLAGS), Qt.ForegroundRole: color} for _ in range(3)]
-        for item, s in zip(row, ("key", "type", "value")):
-            item[Qt.DisplayRole] = data.get(f"{s}_text", "")
-            item[Qt.ToolTipRole] = data.get(f"{s}_tooltip", "")
-            edit = data.get(f"{s}_edit")
+        get = data.get
+        color = _color(get("color"))
+        row = []
+        for s in ("key", "type", "value"):
+            item = {"parent": parent,
+                    "flags": Qt.ItemFlags(self._FLAGS),
+                    Qt.ForegroundRole: color,
+                    Qt.DisplayRole: get(f'{s}_text', "")}
+            tooltip = get(f'{s}_tooltip')
+            if tooltip is not None:
+                item[Qt.ToolTipRole] = f'<pre>{tooltip}</pre>'
+            edit = get(f'{s}_edit')
             if edit is not None:
                 item["edit"] = edit
                 item["flags"] |= Qt.ItemIsEditable
+            row.append(item)
         key_item, type_item, _ = row
-        children = data.get("child_data")
+        children = get("child_data")
         if children is not None:
             key_item["hasChildren"] = True
             key_item["child_data"] = children
-        key_item[Qt.DecorationRole] = self._get_icon(data.get("icon_choices", ""))
-        count = data.get("item_count")
+        icon = get("icon_choices")
+        if icon is not None:
+            key_item[Qt.DecorationRole] = self._get_icon(icon)
+        count = get("item_count")
         if count is not None:
             type_item[Qt.DisplayRole] += f' - {count} item{"s" * (count != 1)}'
         return row

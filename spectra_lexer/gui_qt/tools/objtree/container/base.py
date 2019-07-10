@@ -144,8 +144,9 @@ class ContainerData(dict):
         super().__init__()
         classes = self._match_classes(obj)
         containers = [cls(obj) for cls in _filter_classes(classes)]
-        if any(containers):
-            self["child_data"] = ContainerIter(containers, factory)
+        if containers:
+            if any(containers):
+                self["child_data"] = ContainerIter(containers, factory)
             item_counts = [len(c) for c in containers if c.show_item_count]
             if item_counts:
                 self["item_count"] = sum(item_counts)
