@@ -48,3 +48,8 @@ class GUIQT(VIEW):
     def GUIQTAction(self, action:str) -> None:
         """ Send an action command with the current state. """
         raise NotImplementedError
+
+    @Command
+    def GUIQTQuery(self, keys:str, letters:str) -> None:
+        """ Execute a lexer query from an outside source. """
+        raise NotImplementedError

@@ -64,5 +64,4 @@ class PloverInterface(PLOVER):
 
     def _send(self) -> None:
         """ User strokes may be composed of all sorts of custom briefs, so do not attempt to match every key. """
-        self.GUIQTUpdate(graph_translation=self._translation)  # TODO: need_all_keys=False
-        self.GUIQTAction("VIEWQuery")
+        self.GUIQTQuery(*self._translation)  # TODO: need_all_keys=False

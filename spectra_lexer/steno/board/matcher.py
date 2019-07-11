@@ -18,21 +18,23 @@ class KeyElementFinder:
 
     def __call__(self, keys:str) -> List[BoardElement]:
         """ Return a board diagram element for each converted key. """
-        return [self._d[k] for k in self._convert_to_skeys(keys)]
+        d = self._d
+        return [d[k] for k in self._convert_to_skeys(keys) if k in d]
 
 
 class RuleElementFinder:
     """ Dict wrapper for finding board elements by steno rule. """
 
+    # Certain rule flags indicate the creation of special element groups.
+    _FLAG_GROUPS = {RuleFlags.INVERSION: BoardInversionGroup,
+                    RuleFlags.LINKED:    BoardLinkedGroup}
+
     _d: dict                               # Dict with elements for certain rules.
     _key_finders: Tuple[KeyElementFinder]  # Element finders for steno keys when matched[0] or unmatched[1].
-    _flag_groups: dict                     # Certain rule flags indicate the creation of special element groups.
 
     def __init__(self, rule_elems:dict, rules:dict, *key_finders:KeyElementFinder):
         self._d = {rules[k]: rule_elems[k] for k in rule_elems}
         self._key_finders = key_finders
-        self._flag_groups = {RuleFlags.INVERSION: BoardInversionGroup,
-                             RuleFlags.LINKED:    BoardLinkedGroup}
 
     def __call__(self, rule:StenoRule) -> List[BoardElement]:
         """ Return board diagram elements from a steno rule recursively, with a key finder as backup. """
@@ -47,6 +49,6 @@ class RuleElementFinder:
             return self._key_finders[RuleFlags.UNMATCHED in rule.flags](rule.keys)
         # Rules using inversions or linked strokes may be drawn with connectors.
         for f in rule.flags:
-            if f in self._flag_groups:
-                return [self._flag_groups[f](*elems)]
+            if f in self._FLAG_GROUPS:
+                return [self._FLAG_GROUPS[f](*elems)]
         return elems

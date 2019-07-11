@@ -31,10 +31,10 @@ class QtViewController:
         self._state.update(d)
         self._update_gui(d)
 
-    def reset(self, *, except_for:Iterable[str]=()) -> None:
-        """ Clear the GUI widgets and state except for certain given attributes. """
-        self._state = {k: self._state[k] for k in except_for}
-        self._update_gui({**self._RESET_STATE, **self._state})
+    def reset(self) -> None:
+        """ Clear the GUI widgets and state. """
+        self._state = {}
+        self._update_gui(self._RESET_STATE)
 
     def apply_changes(self, state:ViewState) -> None:
         """ After any action, run through the changes and update the state and widgets with any relevant ones. """
@@ -70,10 +70,11 @@ class QtView(GUIQT):
                 (self.W_INPUT.textEdited,      "VIEWSearch",     "input_text"),
                 (self.W_MATCHES.itemSelected,  "VIEWLookup",     "match_selected"),
                 (self.W_MAPPINGS.itemSelected, "VIEWSelect",     "mapping_selected"),
-                (self.W_BOARD.onActivateLink,  "VIEWSearchExamples"),
-                (self.W_BOARD.onResize,        "VIEWGraphOver",  "board_aspect_ratio"),
+                (self.W_TITLE.textEdited,      "VIEWQuery",      "translation"),
                 (self.W_TEXT.graphOver,        "VIEWGraphOver",  "graph_node_ref"),
-                (self.W_TEXT.graphClick,       "VIEWGraphClick", "graph_node_ref")]
+                (self.W_TEXT.graphClick,       "VIEWGraphClick", "graph_node_ref"),
+                (self.W_BOARD.onActivateLink,  "VIEWSearchExamples"),
+                (self.W_BOARD.onResize,        "VIEWGraphOver",  "board_aspect_ratio")]
 
     def _output_updater(self) -> GUIUpdater:
         """ Return a dict with all possible GUI methods to call when a particular part of the state changes. """
@@ -82,22 +83,30 @@ class QtView(GUIQT):
                           match_selected=self.W_MATCHES.select,
                           mappings=self.W_MAPPINGS.set_items,
                           mapping_selected=self.W_MAPPINGS.select,
-                          link_ref=self.W_BOARD.set_link,
+                          translation=self.W_TITLE.set_text,
+                          graph_text=self.W_TEXT.set_interactive_text,
                           board_caption=self.W_DESC.setText,
                           board_xml_data=self.W_BOARD.set_board_data,
-                          graph_title=self.W_TITLE.set_text,
-                          graph_text=self.W_TEXT.set_interactive_text)
+                          link_ref=self.W_BOARD.set_link)
 
     def GUIQTSetEnabled(self, enabled:bool) -> None:
         """ On disable, reset all widgets except the title. """
         if not enabled:
-            self._controller.reset(except_for=["graph_title"])
+            old_title = self.W_TITLE.text()
+            self._controller.reset()
+            self.W_TITLE.set_text(old_title)
 
     def GUIQTUpdate(self, **kwargs) -> None:
         self._controller.update(kwargs)
 
     def GUIQTAction(self, action:str) -> None:
         self._controller(action)
+
+    def GUIQTQuery(self, keys:str, letters:str) -> None:
+        state = ViewState()
+        state.set_query_params(keys, letters)
+        self.GUIQTUpdate(translation=state.translation)
+        self.GUIQTAction("VIEWQuery")
 
     def VIEWActionResult(self, *args) -> None:
         self._controller.apply_changes(*args)

@@ -7,19 +7,18 @@ class ViewState:
     mapping_selected: str = ""         # Last selected match from the lower list.
     mode_strokes: bool = False         # If True, search for strokes instead of translations.
     mode_regex: bool = False           # If True, perform search using regex characters.
+    translation: str = ""              # String form of currently diagrammed translation on graph.
     graph_node_ref: str = ""           # Last node identifier on the graph ("" for empty space).
     board_aspect_ratio: float = 100.0  # Last aspect ratio for board viewing area.
 
     # The user typically can't change these values directly. They are held for future reference.
     link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
     match_count: int = 0               # Number of items in the upper list.
-    graph_translation: list = None     # Currently diagrammed translation on graph.
     graph_has_selection: bool = False  # Is there a selected rule on the graph?
 
     # Pure output values.
     matches: list = []           # New items in the upper list.
     mappings: list = []          # New items in the lower list.
-    graph_title: str = ""        # New text in the title bar.
     graph_text: str = ""         # HTML formatted text for the graph.
     board_caption: str = ""      # Rule caption above the board.
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
@@ -39,3 +38,13 @@ class ViewState:
     def changed(self) -> dict:
         """ Return all items that have been changed since creation in a dict. """
         return self._changed
+
+    def get_query_params(self) -> tuple:
+        """ Return query parameters from the translation string, or None if there aren't enough. """
+        params = (*map(str.strip, self.translation.split('->', 1)),)
+        if len(params) == 2 and all(params):
+            return params
+
+    def set_query_params(self, keys:str, letters:str) -> None:
+        """ Set the translation string from query parameters. """
+        self.translation = f'{keys} -> {letters}'

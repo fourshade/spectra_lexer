@@ -10,8 +10,8 @@ MIN_DOTS = 3
 class TextTitleWidget(QLineEdit):
     """ Title bar widget with simple text animations for loading messages. """
 
-    _anim: Iterator[str] = None  # Animation string iterator. Should repeat.
-    _timer: QTimer = None        # Animation timer for loading messages.
+    _anim: Iterator[str] = iter(str, ...)  # Animation string iterator. Should repeat.
+    _timer: QTimer = None                  # Animation timer for loading messages.
 
     def __init__(self, *args) -> None:
         """ Set up the title bar animation timer. """
@@ -20,19 +20,24 @@ class TextTitleWidget(QLineEdit):
         self._timer.timeout.connect(self._animate_title)
 
     def set_text(self, s:str, dynamic:bool=True) -> None:
-        """ Set the text content of the title bar.
-            If it ends in an ellipsis and is marked dynamic, animate it until new text is shown. """
+        """ If the text ends in an ellipsis and is marked dynamic, animate it until new text is shown. """
         if self._timer is not None:
             self._timer.stop()
             n = len(s) - len(s.rstrip("."))
             if dynamic and n >= MIN_DOTS:
                 self._anim = _title_generator(s, n)
                 self._timer.start(200)
-        self.setText(s)
+        self._setText_safe(s)
 
     def _animate_title(self) -> None:
         """ Set the title to be the next item in the string generator. """
-        self.setText(next(self._anim))
+        self._setText_safe(next(self._anim))
+
+    def _setText_safe(self, s:str):
+        """ Programmatically set the text content of the title bar. Suppress signals to keep from tripping events. """
+        self.blockSignals(True)
+        self.setText(s)
+        self.blockSignals(False)
 
 
 def _title_generator(s:str, n:int) -> Iterator[str]:

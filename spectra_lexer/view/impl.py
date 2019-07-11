@@ -46,12 +46,11 @@ class InnerViewLayer(VIEW):
         _, kwargs = self._parse_pattern(pattern)
         return self.LXSearchQuery(match, count=None, strokes=strokes, **kwargs)
 
-    def _call_query(self, keys, letters) -> StenoRule:
-        if isinstance(keys, str):
-            cmd = self.LXLexerQuery
-        else:
-            cmd = self.LXLexerQueryProduct
-        return cmd(keys, letters, need_all_keys=self.need_all_keys)
+    def _call_query(self, keys:str, letters:str) -> StenoRule:
+        return self.LXLexerQuery(keys, letters, need_all_keys=self.need_all_keys)
+
+    def _call_multi_query(self, keys:List[str], letters:List[str]) -> StenoRule:
+        return self.LXLexerQueryProduct(keys, letters, need_all_keys=self.need_all_keys)
 
     def _call_graph(self, rule:StenoRule, **kwargs) -> Tuple[str, StenoRule]:
         return self.LXGraphGenerate(rule, recursive=self.recursive_graph, compressed=self.compressed_graph, **kwargs)
@@ -112,36 +111,38 @@ class ViewLayer(InnerViewLayer):
             self._query_from_selection(state)
         elif mappings:
             # If there is more than one mapping, make a product query to select the best combination.
-            result = self._call_query(mappings, [match])
-            keys = result.keys
+            rule = self._call_multi_query(mappings, [match])
+            keys = rule.keys
             state.mapping_selected = keys
-            state.graph_translation = [keys, match]
-            self._new_query(state)
+            state.set_query_params(keys, match)
+            state.graph_node_ref = ""
+            self._set_graph(state, rule)
 
     def _query_from_selection(self, state:ViewState) -> None:
         """ The order of strokes/word in the lexer command is reversed for strokes mode. """
-        translation = state.graph_translation = [state.match_selected, state.mapping_selected]
+        translation_params = [state.match_selected, state.mapping_selected]
         if not state.mode_strokes:
-            translation.reverse()
+            translation_params.reverse()
+        state.set_query_params(*translation_params)
         self._new_query(state)
 
     def _new_query(self, state:ViewState) -> None:
-        """ Make a new query and set the graph title and ref. Only a previous linked example rule may be selected. """
-        rule = self._call_query(*state.graph_translation)
-        state.graph_title = str(rule)
-        state.graph_node_ref = ""
-        if state.graph_has_selection:
-            kwargs = dict(select=True, prev=self.RULES.get(state.link_ref))
-        else:
+        """ Make and execute a new query. Only a previous linked example rule may be selected. """
+        params = state.get_query_params()
+        if params is not None:
+            rule = self._call_query(*params)
+            state.graph_node_ref = ""
             kwargs = {}
-        self._set_graph(state, rule, **kwargs)
+            if state.graph_has_selection:
+                kwargs.update(select=True, prev=self.RULES.get(state.link_ref))
+            self._set_graph(state, rule, **kwargs)
 
     def _graph_action(self, state:ViewState, clicked:bool) -> None:
         """ Handle a mouseover or click action. Mouseovers should do nothing as long as a selection is active. """
         if clicked or not state.graph_has_selection:
-            translation = state.graph_translation
-            if translation is not None:
-                rule = self._call_query(*translation)
+            params = state.get_query_params()
+            if params is not None:
+                rule = self._call_query(*params)
                 self._set_graph(state, rule, select=clicked, ref=state.graph_node_ref)
 
     def _set_graph(self, state:ViewState, main_rule:StenoRule, select:bool=False, **kwargs) -> None:
