@@ -75,9 +75,10 @@ class PathInversion(PathGenerator):
         body_length = abs(tail - head)
         h_len = self.MIN_HEAD_LENGTH + body_length * self.HEAD_LENGTH_RATIO
         spread = self.SPREAD_ANGLE
-        for angle in (-spread, spread):
-            self.move_to(head)
-            self.line_to(self._shift_toward(head, control, h_len, angle))
+        p_neg, p_pos = [self._shift_toward(head, control, h_len, angle) for angle in (-spread, spread)]
+        self.move_to(p_neg)
+        self.line_to(head)
+        self.line_to(p_pos)
 
     def _shift_endpoint_to(self, ep:complex, control:complex) -> complex:
         """ Back up an endpoint toward the control point to avoid covering up letters. """

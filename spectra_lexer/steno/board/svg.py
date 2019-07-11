@@ -6,12 +6,18 @@ class SVGElement(XMLElement):
 
     tag = "g"  # Default behavior is a simple group of other elements.
 
-    def transform(self, scale_x:float=1.0, scale_y:float=1.0, dx:float=0.0, dy:float=0.0) -> None:
-        """ A transform with scaling and translation is done in one step with a matrix. """
-        self._compose_transform(f'matrix({scale_x}, 0, 0, {scale_y}, {dx}, {dy})')
+    def transform(self, scale_x:float, shear_y:float, shear_x:float, scale_y:float, dx:float, dy:float) -> None:
+        """ A linear transform with scaling, rotation, translation, etc. can be done in one step with a matrix. """
+        self._compose_transform(f'matrix({scale_x}, {shear_y}, {shear_x}, {scale_y}, {dx}, {dy})')
 
-    def translate(self, dx:float=0.0, dy:float=0.0) -> None:
-        """ If only translation is involved, use the simpler translate attribute. """
+    # If only one type of transformation is involved, use the simpler attributes.
+    def rotate(self, rot:float) -> None:
+        self._compose_transform(f'rotate({rot})')
+
+    def scale(self, scale_x:float, scale_y:float) -> None:
+        self._compose_transform(f'scale({scale_x}, {scale_y})')
+
+    def translate(self, dx:float, dy:float) -> None:
         if dx or dy:
             self._compose_transform(f'translate({dx}, {dy})')
 

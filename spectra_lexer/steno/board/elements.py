@@ -21,12 +21,16 @@ BoardElementProcs = ProcsTable()
 @BoardElementProcs
 class BoardElement(SVGElement):
 
-    txtmaxwidth: float = 20.0
+    txtmaxarea: tuple = (20.0, 20.0)
     txtspacing: float = 14.4
     offset: complex = 0j  # Offsets are stored and added as complex numbers, which work well for 2D points.
 
-    def _add_offset(self, dx:float, dy:float):
+    def _add_offset(self, dx:float, dy:float) -> None:
         self.offset += complex(dx, dy)
+
+    def _append_at_offset(self, elem) -> None:
+        elem.translate(self.offset.real, self.offset.imag)
+        self.append(elem)
 
     def process(self, proc_defs:dict) -> None:
         """ Parse XML proc attributes and child nodes. Merge any redundant elements at the end. """
@@ -38,8 +42,7 @@ class BoardElement(SVGElement):
 
     def proc_path(self, id:str, d:dict) -> None:
         elem = SVGPath(d=d[id])
-        elem.translate(self.offset.real, self.offset.imag)
-        self.append(elem)
+        self._append_at_offset(elem)
 
     def proc_pos(self, id:str, d:dict) -> None:
         """ Add to the total offset used in text and annotations (such as inversion arrows)."""
@@ -49,23 +52,29 @@ class BoardElement(SVGElement):
         attrs = d[id]
         self.proc_path("d", attrs)
         self._add_offset(*attrs["txtcenter"])
-        self.txtmaxwidth = attrs["txtwidth"]
+        self.txtmaxarea = (*attrs["txtarea"],)
         self.txtspacing = attrs["txtspacing"]
 
     def proc_text(self, text:str, glyphs:dict, _FONT_SIZE:int=24, _EM_SIZE:int=1000) -> None:
         """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
             Max font size is 24 pt. Text paths are defined with an em box of 1000 units. """
+        elem = BoardElement(fill="#000000")
+        self._append_at_offset(elem)
         n = len(text) or 1
         spacing = self.txtspacing
-        scale = min(1.0, self.txtmaxwidth / (n * spacing))
+        w, h = self.txtmaxarea
+        scale = min(1.0, w / (n * spacing))
+        if scale < 0.5 and h > w:
+            scale = min(1.0, h / (n * spacing))
+            elem.rotate(90)
         spacing *= scale
         font_scale = scale * _FONT_SIZE / _EM_SIZE
-        x = - n * spacing / 2 + self.offset.real
-        y = (10 * scale) - 3 + self.offset.imag
+        x = - n * spacing / 2
+        y = (10 * scale) - 3
         for k in text:
-            char = SVGPath(fill="#000000", d=glyphs[k])
-            char.transform(font_scale, -font_scale, x, y)
-            self.append(char)
+            char = SVGPath(d=glyphs[k])
+            char.transform(font_scale, 0, 0, -font_scale, x, y)
+            elem.append(char)
             x += spacing
 
     def add_final(self, add:Callable) -> None:

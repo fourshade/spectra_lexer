@@ -59,7 +59,7 @@
         }
     }
     function updateError(jqXHR, textStatus, errorThrown){
-        updateTable.graph_title("CONNECTION ERROR")
+        $("#w_display_title").html('<span style="color: #d00000;">CONNECTION ERROR</span>')
     }
     function processAction(action){
         state.action = action;
@@ -137,8 +137,8 @@
                  height: inherit;}
     svg   {max-height: 250px;}
 
-    #w_search_type  {margin: 8px 10px 8px 10px}
-    #w_search_regex {margin: 8px 10px 8px 10px}
+    #w_search_type  {margin: 8px 10px 8px 10px;}
+    #w_search_regex {margin: 8px 10px 8px 10px;}
     #w_display_link {position: absolute;
                      bottom: 4px;
                      right: 4px;
@@ -148,7 +148,7 @@
 <table>
     <tr>
         <td><input class="row1 col1" id="w_search_input" placeholder="Search..."></td>
-        <td class="row1 col2"><pre id="w_display_title">Spectra HTTP Test</pre></td>
+        <td class="row1 col2"><pre id="w_display_title">Spectra HTTP Client</pre></td>
     </tr>
     <tr>
         <td class="row2 col1"><select id="w_search_matches" size="2"></select></td>
@@ -167,4 +167,7 @@
         </td>
     </tr>
 </table>
+<div style="text-align:right;">
+    <span><a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
+</div>
 </body></html>

@@ -238,6 +238,7 @@
 	<rule id="he"    pos="E"  shape="round"  text="he"/>
 	<rule id="you"   pos="U"  shape="round"  text="you"/>
 	<rule id="of"    pos="f"  shape="square" text="of"/>
+	<rule id="ever"  pos="f"  shape="tall"   text="ever"/>
 	<rule id="are+"  pos="r"  shape="round"  text="are"/>
 	<rule id="an"    pos="p"  shape="tall"   text="an"/>
 	<rule id="be"    pos="b"  shape="round"  text="be"/>
