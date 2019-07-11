@@ -115,19 +115,19 @@ class ViewLayer(InnerViewLayer):
             result = self._call_query(mappings, [match])
             keys = result.keys
             state.mapping_selected = keys
-            self._new_query(state, [keys, match])
+            state.graph_translation = [keys, match]
+            self._new_query(state)
 
     def _query_from_selection(self, state:ViewState) -> None:
         """ The order of strokes/word in the lexer command is reversed for strokes mode. """
-        translation = [state.match_selected, state.mapping_selected]
+        translation = state.graph_translation = [state.match_selected, state.mapping_selected]
         if not state.mode_strokes:
             translation.reverse()
-        self._new_query(state, translation)
+        self._new_query(state)
 
-    def _new_query(self, state:ViewState, translation:list) -> None:
+    def _new_query(self, state:ViewState) -> None:
         """ Make a new query and set the graph title and ref. Only a previous linked example rule may be selected. """
-        state.graph_translation = translation
-        rule = self._call_query(*translation)
+        rule = self._call_query(*state.graph_translation)
         state.graph_title = str(rule)
         state.graph_node_ref = ""
         if state.graph_has_selection:
@@ -167,8 +167,11 @@ class OuterViewLayer(ViewLayer):
     def VIEWLookup(self, state:ViewState) -> None:
         self._user_lookup(state)
 
-    def VIEWQuery(self, state:ViewState) -> None:
+    def VIEWSelect(self, state:ViewState) -> None:
         self._query_from_selection(state)
+
+    def VIEWQuery(self, state:ViewState) -> None:
+        self._new_query(state)
 
     def VIEWGraphOver(self, state:ViewState) -> None:
         self._graph_action(state, False)

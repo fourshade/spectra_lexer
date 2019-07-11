@@ -10,9 +10,9 @@ class ViewApplication(Application):
         """ We run the primary task on the main thread, and the other layers on a worker thread. """
         return [system, resource, steno, view]
 
-    def _build_engine(self, **kwargs) -> Engine:
+    def _build_engine(self, components:list, **kwargs) -> Engine:
         """ For multi-threaded applications, there is a separate path list for each thread. """
-        main_group = self._components
+        main_group = components[:]
         worker_group = self._build_components(self._worker_class_paths())
-        self._components = [*main_group, *worker_group]
+        components += worker_group
         return ThreadedEngineGroup(main_group, worker_group, **kwargs)

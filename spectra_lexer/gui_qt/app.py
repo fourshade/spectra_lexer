@@ -29,8 +29,6 @@ class _Connection(QObject):
 class QtApplication(ViewApplication, GUIQT):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
-    DESCRIPTION = "Run the application as a standalone GUI."
-
     # We can create the QApplication at class level since only one is ever allowed to run.
     QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
 
@@ -38,14 +36,10 @@ class QtApplication(ViewApplication, GUIQT):
         """ Run the GUI on the main thread. """
         return [gui_qt]
 
-    def _build_engine(self, **kwargs):
+    def _build_engine(self, *args, **kwargs):
         """ To send commands to the GUI, the child threads send a Qt signal to the main thread. """
-        return super()._build_engine(passthrough=_Connection, **kwargs)
+        return super()._build_engine(*args, passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. """
         return self.QT_APP.exec_()
-
-
-# With no mode arguments, the standalone GUI app is run by default.
-QtApplication.set_entry_point("gui", is_default=True)

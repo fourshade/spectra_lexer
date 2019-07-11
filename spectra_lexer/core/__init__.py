@@ -2,4 +2,3 @@
 
 from .base import CORE
 from .command import Command, Option, Resource
-from .main import main

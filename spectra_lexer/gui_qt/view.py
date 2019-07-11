@@ -69,7 +69,7 @@ class QtView(GUIQT):
                 (self.W_REGEX.toggled,         "VIEWSearch",     "mode_regex"),
                 (self.W_INPUT.textEdited,      "VIEWSearch",     "input_text"),
                 (self.W_MATCHES.itemSelected,  "VIEWLookup",     "match_selected"),
-                (self.W_MAPPINGS.itemSelected, "VIEWQuery",      "mapping_selected"),
+                (self.W_MAPPINGS.itemSelected, "VIEWSelect",     "mapping_selected"),
                 (self.W_BOARD.onActivateLink,  "VIEWSearchExamples"),
                 (self.W_BOARD.onResize,        "VIEWGraphOver",  "board_aspect_ratio"),
                 (self.W_TEXT.graphOver,        "VIEWGraphOver",  "graph_node_ref"),

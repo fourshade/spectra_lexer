@@ -46,6 +46,11 @@ class VIEW(LX):
         raise NotImplementedError
 
     @Command
+    def VIEWSelect(self, state:ViewState) -> None:
+        """ Do a lexer query based on the current search selections. """
+        raise NotImplementedError
+
+    @Command
     def VIEWQuery(self, state:ViewState) -> None:
         """ Execute and display a lexer query. """
         raise NotImplementedError

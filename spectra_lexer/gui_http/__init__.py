@@ -1,4 +1,4 @@
 """ Package for the HTTP web application. """
 
-from . import app
+from .app import HttpApplication as http
 from .base import GUIHTTP
