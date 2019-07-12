@@ -1,10 +1,10 @@
 import re
-from typing import Dict, FrozenSet, List, NamedTuple, Sequence, Tuple
+from typing import Dict, List, NamedTuple, Sequence, Tuple
 
 from spectra_lexer.types.codec import AbstractCodec, CSONDict
 
 
-class RuleFlags(FrozenSet[str]):
+class RuleFlags(frozenset):
     """ Immutable set of string flags that each indicate some property of a rule. """
 
     # These are the acceptable string values for flags, as read from JSON.

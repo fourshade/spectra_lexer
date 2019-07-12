@@ -169,13 +169,6 @@ class NodeFactory:
         self._key_split = key_split
         self._recursive = recursive
 
-    def make_tree(self, rule:StenoRule) -> GraphNode:
-        """ Generate a full output tree starting with the given rule as root.
-            The root node has a depth of 0 and no parent, so its attach points are arbitrary. """
-        root = RootNode(rule.letters, 0, 0)
-        self._add_children(root, rule)
-        return root
-
     def _make_node(self, rule:StenoRule, *args) -> GraphNode:
         """ Only create derived type nodes if a rule has children and we are allowed to draw them. """
         if rule.rulemap and self._recursive:

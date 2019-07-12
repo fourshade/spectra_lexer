@@ -30,6 +30,7 @@
 
   # right bank
   ".c+":    ["-RB",  "[c|.sh]",        ["RARE"], "phonetic"],
+  ".s*":    ["-RB",  "[s|.sh]",        ["RARE"], "phonetic"],
   ".t+":    ["-FP",  "[t|.ch]",        ["RARE"], "phonetic (TPHAFP/RAL → natural)"],
   ".nt.":   ["-FRPBLG","[nt|.nch+]",   ["RARE"], "phonetic"],
   ".nc":    ["*PBG", "[nc|.nk]",       ["RARE"], "phonetic"],

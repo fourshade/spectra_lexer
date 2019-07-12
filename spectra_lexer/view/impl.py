@@ -115,8 +115,7 @@ class ViewLayer(InnerViewLayer):
             keys = rule.keys
             state.mapping_selected = keys
             state.set_query_params(keys, match)
-            state.graph_node_ref = ""
-            self._set_graph(state, rule)
+            self._new_graph(state, rule)
 
     def _query_from_selection(self, state:ViewState) -> None:
         """ The order of strokes/word in the lexer command is reversed for strokes mode. """
@@ -127,15 +126,18 @@ class ViewLayer(InnerViewLayer):
         self._new_query(state)
 
     def _new_query(self, state:ViewState) -> None:
-        """ Make and execute a new query. Only a previous linked example rule may be selected. """
         params = state.get_query_params()
         if params is not None:
             rule = self._call_query(*params)
-            state.graph_node_ref = ""
-            kwargs = {}
-            if state.graph_has_selection:
-                kwargs.update(select=True, prev=self.RULES.get(state.link_ref))
-            self._set_graph(state, rule, **kwargs)
+            self._new_graph(state, rule)
+
+    def _new_graph(self, state:ViewState, rule:StenoRule) -> None:
+        """ Draw a new graph. Only a previous linked example rule may be selected. """
+        state.graph_node_ref = ""
+        kwargs = {}
+        if state.graph_has_selection:
+            kwargs.update(select=True, prev=self.RULES.get(state.link_ref))
+        self._set_graph(state, rule, **kwargs)
 
     def _graph_action(self, state:ViewState, clicked:bool) -> None:
         """ Handle a mouseover or click action. Mouseovers should do nothing as long as a selection is active. """

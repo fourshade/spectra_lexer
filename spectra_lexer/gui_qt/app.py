@@ -29,17 +29,18 @@ class _Connection(QObject):
 class QtApplication(ViewApplication, GUIQT):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
-    # We can create the QApplication at class level since only one is ever allowed to run.
-    QT_APP: QApplication = QApplication.instance() or QApplication(sys.argv)
+    qt_app: QApplication = None
 
     def _class_paths(self) -> list:
         """ Run the GUI on the main thread. """
         return [gui_qt]
 
     def _build_engine(self, *args, **kwargs):
-        """ To send commands to the GUI, the child threads send a Qt signal to the main thread. """
+        """ To send commands to the GUI, the child threads send a Qt signal to the main thread.
+            Create the QApplication at engine build to avoid interference with Plover. """
+        self.qt_app = QApplication.instance() or QApplication(sys.argv)
         return super()._build_engine(*args, passthrough=_Connection, **kwargs)
 
     def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. """
-        return self.QT_APP.exec_()
+        return self.qt_app.exec_()

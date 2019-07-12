@@ -13,6 +13,8 @@
   # right bank
   ".rf":   ["-FR",  "(.r)(.f)",     ["INV"], "f/r inversion"],
   ".rph":  ["-FR",  "(.r)(.ph)",    ["INV"], "f/r inversion"],
+  ".nf":   ["-FPB", "(.n)(.f)",     ["INV"], "f/n inversion"],
+  ".nv":   ["-FPB", "(.n)(.v)",     ["INV"], "f/n inversion"],
   ".lf":   ["-FL",  "(.l)(.f)",     ["INV"], "f/l inversion"],
   ".lph":  ["-FL",  "(.l)(.ph)",    ["INV"], "f/l inversion"],
   ".lv":   ["-FL",  "(.l)(.v)",     ["INV"], "f/l inversion"],

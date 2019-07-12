@@ -14,7 +14,7 @@ from http import HTTPStatus
 from mimetypes import MimeTypes
 from threading import Thread
 from traceback import format_exc
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from .base import GUIHTTP
 
@@ -23,23 +23,17 @@ class HTTPError(Exception):
 
     NO_BODY = {HTTPStatus.NO_CONTENT, HTTPStatus.RESET_CONTENT, HTTPStatus.NOT_MODIFIED}
 
-    def to_html(self) -> bytes:
-        """ There should be at least one arg: the HTTP code. Others are added as custom messages. """
+    def to_html(self) -> Optional[bytes]:
+        """ There should be at least one arg: the HTTP code. Others are added as custom messages.
+            The message body is omitted for 204 (No Content), 205 (Reset Content), 304 (Not Modified). """
         code, *messages = self.args
+        if code < 200 or code in self.NO_BODY:
+            return None
         lines = ['<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html"></head><body>',
                  f'<h1>HTTP Error {code}</h1>',
                  *[f'<h3>{html.escape(m, quote=False)}</h3>' for m in messages],
                  '</body></html>']
         return "".join(lines).encode('utf-8', 'replace')
-
-    def is_bodyless(self) -> bool:
-        """ Message body is omitted for 204 (No Content), 205 (Reset Content), 304 (Not Modified). """
-        code = self.args[0]
-        return code < 200 or code in self.NO_BODY
-
-    def __str__(self) -> str:
-        code, *messages = self.args
-        return " - ".join([f'ERROR {code:d}', *messages])
 
 
 class SpectraRequestHandler:
@@ -50,7 +44,6 @@ class SpectraRequestHandler:
     _GET_MIMETYPE = MimeTypes().guess_type
     _LOG = sys.stderr.write  # Callback to write formatted log strings.
 
-    # The default request version. Most web servers default to HTTP 0.9, i.e. don't send a status line.
     DEFAULT_REQUEST_VERSION = "HTTP/0.9"
     PROTOCOL_VERSION = "HTTP/1.1"  # HTTP 1.1 is required for automatic keepalive.
     VERSION_STRING = f"Spectra/0.1 Python/{sys.version.split()[0]}"  # The server software version string.
@@ -61,11 +54,13 @@ class SpectraRequestHandler:
     process_POST: Callable  # Main callback to process user state.
     directory: str          # Root directory for public HTTP files.
 
-    _headers_buffer: List[str]  # List of strings to be joined and encoded as the final header.
-    _rfile: io.BufferedReader   # Buffered file object from which the request is read.
+    _rfile: io.BufferedReader  # Buffered file object from which the request is read.
 
+    raw_requestline = b""
+    headers = None
     requestline = request_version = command = path = ''
-    close_connection = True
+
+    response_headers: List[str]  # List of strings to be joined and encoded as the final header.
 
     def __init__(self, request:socket.socket, address:str, port:int, *, callback:Callable, directory:str):
         self.request = request
@@ -73,19 +68,19 @@ class SpectraRequestHandler:
         self.port = port
         self.process_POST = callback
         self.directory = directory
-        self._headers_buffer = []
+        self.response_headers = []
         self._rfile = request.makefile('rb')
 
     def __call__(self) -> None:
-        """ Handle one or more HTTP requests. """
+        """ Process an HTTP connection and requests. May be overridden. """
+        self.process()
+
+    def process(self) -> None:
         try:
             self.log_message("Connection opened.")
-            self._handle_request()
-            while not self.close_connection:
-                self._handle_request()
+            self.handle_requests()
         except HTTPError as e:
-            self.log_message(str(e))
-            self.send_error(e)
+            self.handle_error(e)
         except socket.timeout as e:
             self.log_message(f"Request timed out: {e!r}")
         except OSError:
@@ -101,61 +96,70 @@ class SpectraRequestHandler:
             self.request.close()
             self.log_message("Connection terminated.")
 
-    def _handle_request(self) -> None:
-        """ Handle a single HTTP request. """
-        self.raw_requestline = self._readline_header()
-        if not self.raw_requestline:
-            self.close_connection = True
-            return
-        self.parse_request()
-        method = getattr(self, f'do_{self.command}', None)
-        if method is None:
-            raise HTTPError(HTTPStatus.NOT_IMPLEMENTED, f"Unsupported method: ({self.command})")
-        method()
+    def handle_requests(self) -> None:
+        """ Handle one or more HTTP requests. """
+        keep_alive = True
+        while keep_alive:
+            self.raw_requestline = self._readline_header()
+            if not self.raw_requestline:
+                return
+            keep_alive = self.parse_request()
+            method = getattr(self, f'do_{self.command}', None)
+            if method is None:
+                raise HTTPError(HTTPStatus.NOT_IMPLEMENTED, f"Unsupported method: ({self.command})")
+            method()
 
-    def parse_request(self) -> None:
-        """ Parse a request. The request should be stored in self.raw_requestline;
-            the results are in self.command, self.path, self.request_version and self.headers. """
+    def handle_error(self, err:HTTPError) -> None:
+        """ Send an error response and an HTML document explaining the error to the user. """
+        self.add_response(*err.args)
+        self.add_header('Connection', 'close')
+        body = err.to_html()
+        if body is None:
+            self.end_headers()
+        else:
+            self._send_data(body)
+
+    def parse_request(self) -> bool:
+        """ Parse a request and its headers. Return True if the connection should be kept alive. """
         self.request_version = self.DEFAULT_REQUEST_VERSION
-        self.close_connection = True
         self.requestline = requestline = str(self.raw_requestline, 'iso-8859-1').rstrip('\r\n')
         try:
             self.command, self.path, *opt_version = requestline.split()
         except ValueError:
             raise HTTPError(HTTPStatus.BAD_REQUEST, f"Bad request syntax: ({requestline!r})")
         keepalive_supported = (self.PROTOCOL_VERSION >= "HTTP/1.1")
+        keep_alive = False
         if opt_version:
             version = opt_version[-1]
             try:
                 if not version.startswith('HTTP/'):
                     raise ValueError
                 base_version_number = version.split('/', 1)[1]
-                # There can be only one "." and major and minor numbers MUST be treated as separate integers.
                 major, minor = map(int, base_version_number.split("."))
             except (ValueError, IndexError):
                 raise HTTPError(HTTPStatus.BAD_REQUEST, f"Bad request version: ({version!r})")
-            if (major, minor) >= (1, 1) and keepalive_supported:
-                self.close_connection = False
             if major >= 2:
                 raise HTTPError(HTTPStatus.HTTP_VERSION_NOT_SUPPORTED, f"Invalid HTTP version: ({base_version_number})")
+            if (major, minor) >= (1, 1) and keepalive_supported:
+                keep_alive = True
             self.request_version = version
         elif self.command != 'GET':
             raise HTTPError(HTTPStatus.BAD_REQUEST, f"Bad HTTP/0.9 request type: ({self.command!r})")
-        # Examine the headers and look for a Connection directive.
         self._parse_headers()
+        # Examine the headers and look for connection keep-alive and continue directives.
         conntype = self.headers.get('Connection', "").lower()
         if conntype == 'close':
-            self.close_connection = True
+            keep_alive = False
         elif conntype == 'keep-alive' and keepalive_supported:
-            self.close_connection = False
-        # Examine the headers and look for an Expect directive. Default is to always respond with a 100 Continue.
+            keep_alive = True
         expect = self.headers.get('Expect', "").lower()
         if expect == "100-continue" and keepalive_supported and self.request_version >= "HTTP/1.1":
-            self.add_response_only(HTTPStatus.CONTINUE)
+            self.add_response(HTTPStatus.CONTINUE, 'Continue')
             self.end_headers()
+        return keep_alive
 
     def _parse_headers(self, header_max_count:int=100) -> None:
-        """ Parse RFC2822 headers from a file pointer. """
+        """ Parse HTTP request headers from a file object. """
         header_lines = []
         line = None
         while line not in {b'\r\n', b'\n', b''}:
@@ -166,34 +170,21 @@ class SpectraRequestHandler:
         hstring = b''.join(header_lines).decode('iso-8859-1')
         self.headers = email.parser.Parser().parsestr(hstring)
 
-    def send_error(self, err:HTTPError) -> None:
-        """ Send an error reply, then send a piece of HTML explaining the error to the user. """
-        self.add_response(*err.args)
-        self.add_header('Connection', 'close')
-        if self.command == 'HEAD' or err.is_bodyless():
-            self.end_headers()
-        else:
-            self._send_data(err.to_html())
+    def add_header(self, keyword:str, value:str) -> None:
+        """ Add a header to the response headers buffer. """
+        self.response_headers.append(f"{keyword}: {value}")
 
-    def add_response(self, code:HTTPStatus, *args) -> None:
+    def add_response(self, code:int, message:str) -> None:
         """ Add the response header to the headers buffer and log the response code.
-            Also add two standard headers with the server software version and the current date. """
+            Also add standard headers with the server software version and the current date. """
         self.log_message(f'"{self.requestline}" {code}')
-        self.add_response_only(code, *args)
+        self.response_headers.append(f"{self.PROTOCOL_VERSION} {code} {message}")
         self.add_header('Server', self.VERSION_STRING)
         self.add_header('Date', self.date_time_string())
 
-    def add_response_only(self, code:HTTPStatus, message:str=None) -> None:
-        """ Add the response header only. """
-        self._headers_buffer.append(f"{self.PROTOCOL_VERSION} {code} {message or code.phrase}")
-
-    def add_header(self, keyword:str, value:str) -> None:
-        """ Add a header to the headers buffer. """
-        self._headers_buffer.append(f"{keyword}: {value}")
-
     def end_headers(self) -> None:
         """ Add the blank line ending the MIME headers and flush (assuming there is at least one line). """
-        buf = self._headers_buffer
+        buf = self.response_headers
         if buf and self.request_version != 'HTTP/0.9':
             buf += ("", "")
             header = "\r\n".join(buf)
@@ -220,11 +211,11 @@ class SpectraRequestHandler:
             fs = os.fstat(f.fileno())
             mtime = fs.st_mtime
             if not self._modified_since(mtime):
-                self.add_response(HTTPStatus.NOT_MODIFIED)
+                self.add_response(HTTPStatus.NOT_MODIFIED, 'Not Modified')
                 self.end_headers()
                 return
             ctype, _ = self._GET_MIMETYPE(file_path)
-            self.add_response(HTTPStatus.OK)
+            self.add_response(HTTPStatus.OK, 'OK')
             self._send_data(f.read(), ctype, mtime)
 
     do_GET = _do_GET_or_HEAD
@@ -232,9 +223,7 @@ class SpectraRequestHandler:
 
     def _translate_path(self) -> str:
         """ Translate self.path to the local filename syntax. Tokens special to the local file system are ignored. """
-        # Remove query parameters.
         path = self.path.split('?', 1)[0].split('#', 1)[0]
-        # Don't forget explicit trailing slash when normalizing.
         trailing_slash = path.rstrip().endswith('/')
         path = urllib.parse.unquote(path)
         path = posixpath.normpath(path)
@@ -247,7 +236,7 @@ class SpectraRequestHandler:
         return path
 
     def _modified_since(self, mtime:float, tz=datetime.timezone.utc) -> bool:
-        """ Use browser cache if possible. Compare If-Modified-Since and time of last file modification. """
+        """ Return True if the file modification time is later than If-Modified-Since in the header. """
         header_mtime = self.headers.get("If-Modified-Since")
         if header_mtime is not None and "If-None-Match" not in self.headers:
             try:
@@ -257,9 +246,7 @@ class SpectraRequestHandler:
             if ims.tzinfo is None:
                 ims = ims.replace(tzinfo=tz)
             if ims.tzinfo is tz:
-                # compare to UTC datetime of last modification.
                 last_modif = datetime.datetime.fromtimestamp(mtime, tz)
-                # remove microseconds, like in If-Modified-Since.
                 last_modif = last_modif.replace(microsecond=0)
                 return last_modif > ims
         return True
@@ -270,8 +257,8 @@ class SpectraRequestHandler:
         self.process_POST(data, self.finish_POST)
 
     def finish_POST(self, response:bytes) -> None:
-        """ Finish the request by sending the processed data. """
-        self.add_response(HTTPStatus.OK)
+        """ Finish the request by sending the processed JSON data. """
+        self.add_response(HTTPStatus.OK, 'OK')
         self._send_data(response, "application/json")
 
     def _receive_data(self) -> bytes:
@@ -308,7 +295,7 @@ class ThreadedRequestHandler(SpectraRequestHandler):
 
     def __call__(self) -> None:
         """ Handle each request with a new thread. """
-        Thread(target=super().__call__, daemon=True).start()
+        Thread(target=self.process, daemon=True).start()
 
 
 class HttpServer(GUIHTTP):

@@ -1,7 +1,7 @@
 Spectra Lexer
 =============
 
-The Spectra Steno Lexer is an experimental tool for analyzing and matching patterns of steno keys against the text they produce using various rules from steno theories (mostly Plover theory). It also has advanced search functions for steno dictionaries which have been mostly lacking in Plover up to this point.
+The Spectra Steno Lexer is an experimental tool for analyzing and matching patterns of steno keys against the text they produce using various rules from steno theories (mostly Plover theory). It also has advanced search functions for steno dictionaries as well as a highly capable SVG generator for steno board diagrams.
 
 |Screenshot 1|
 
@@ -10,6 +10,10 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 |Screenshot 3|
 
 |Screenshot 4|
+
+|Screenshot 5|
+
+|Screenshot 6|
 
 Installation and Operation
 --------------------------
@@ -62,3 +66,5 @@ When searching from the lookup tool, if a word is chosen and there is more than 
 .. |Screenshot 2| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot2.png
 .. |Screenshot 3| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot3.png
 .. |Screenshot 4| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot4.png
+.. |Screenshot 5| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot5.png
+.. |Screenshot 6| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot6.png

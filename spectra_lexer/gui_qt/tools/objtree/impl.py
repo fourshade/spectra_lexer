@@ -26,22 +26,24 @@ def _color(t:tuple=None) -> QColor:
     return QColor(*t)
 
 
-class _RowFormatter(Dict[str, QIcon]):
-    """ Dict of pre-rendered icons corresponding to data types. """
+class _RowFormatter:
+    """ Formats each tree item as a single row with a dict of parameters. """
 
     _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
 
+    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
+
     def __init__(self, icon_data:List[Tuple[List[str], bytes]]):
         """ Render each icon from bytes data and add them to a dict under each alias. """
-        super().__init__()
+        self._icons = {}
         for aliases, xml in icon_data:
             icon = IconRenderer(xml).generate()
             for n in aliases:
-                self[n] = icon
+                self._icons[n] = icon
 
     def _get_icon(self, choices:Iterable[str]) -> QIcon:
         """ Return an available icon from a sequence of choices from most wanted to least. """
-        return next(filter(None, map(self.get, choices)), None)
+        return next(filter(None, map(self._icons.get, choices)), None)
 
     def __call__(self, data:RowData, parent:object=None) -> List[dict]:
         """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display.

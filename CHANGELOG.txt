@@ -1,9 +1,10 @@
 6.0.0
 -----
-* Total refactoring of the framework
+* Total refactoring of the framework with new HTTP support
 * SVG board diagrams are now compatible with major web browsers
-* Added simple briefs to the board diagram
+* Added linked strokes and simple briefs to the board diagram
 * Added rule selection in text graph by mouse click
+* Added manual translation entry in the graph title bar
 * Object tree and console can now auto-import missing modules
 * Object tree can now inspect the last exception traceback
 

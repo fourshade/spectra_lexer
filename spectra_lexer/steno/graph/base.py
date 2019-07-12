@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .html import HTMLTextField
 from .layout import CascadedGraphLayout, CompressedGraphLayout
-from .node import GraphNode, NodeFactory
+from .node import GraphNode, NodeFactory, RootNode
 from ..base import LX
 from spectra_lexer.resource import StenoRule
 
@@ -19,12 +19,14 @@ class StenoGraph(NodeFactory):
     _formatter: HTMLTextField         # Formats the output text based on which node is selected (if any).
 
     def __init__(self, rule:StenoRule, sep:str, split:str, recursive:bool=True, compressed:bool=True):
-        """ Make a node tree layout out of the given rule and parameters, tracking the node<->rule relationships.
-            Lay out and render all text objects into character lines and node reference lists. """
+        """ Make a node tree layout out of the given rule and parameters, tracking the node<->rule relationships. """
         super().__init__(sep, split, recursive)
-        self._rules_by_node = {}
-        self._nodes_by_rule = {}
-        root = self.make_tree(rule)
+        # The root node has a depth of 0 and no parent, so its attach points are arbitrary.
+        root = RootNode(rule.letters, 0, 0)
+        self._rules_by_node = {rule: root}
+        self._nodes_by_rule = {root: rule}
+        self._add_children(root, rule)
+        # Lay out and render all text objects into character lines and node reference lists.
         layout = CompressedGraphLayout(root) if compressed else CascadedGraphLayout(root)
         lines, nodes = layout.render()
         self._ref_grid = nodes
