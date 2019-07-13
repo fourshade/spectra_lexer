@@ -1,31 +1,12 @@
+""" Module for raw I/O operations as well as parsing file and resource paths. """
+
 import fnmatch
 import glob
 import os
 import sys
-from typing import List
+from typing import Iterator, List
 
 from pkg_resources import resource_string, resource_listdir
-
-
-class PrefixTypeIndex(list):
-    """ Class decorator for recording polymorphic subtypes corresponding to a prefix of a string key. """
-
-    def __call__(self, key:str):
-        def recorder(tp):
-            self.append((len(key), key, tp))
-            self.sort(key=lambda x: -x[0])
-            return tp
-        return recorder
-
-    def from_prefix(self, key:str, **kwargs):
-        """ Try prefixes in order from longest to shortest. Return a new class instance if we find a valid one. """
-        for length, prefix, tp in self:
-            if key.startswith(prefix):
-                return tp(key[length:], **kwargs)
-
-
-# Records resource types to check for membership by prefix.
-PATH_TYPES = if_path_startswith = PrefixTypeIndex()
 
 
 class AbstractPath(str):
@@ -54,15 +35,7 @@ class AbstractPath(str):
     def _search(self) -> List[str]:
         raise TypeError("Searching of this resource type is not supported.")
 
-    @classmethod
-    def from_string(cls, s:str, **kwargs):
-        """ Determine the type of resource from a string by its prefix and create the appropriate path identifier. """
-        if isinstance(s, cls):
-            return s
-        return PATH_TYPES.from_prefix(s, **kwargs)
 
-
-@if_path_startswith("")
 class FilePath(AbstractPath):
     """ A file identifier, created from an ordinary file path. Will be used if nothing else matches. """
 
@@ -84,7 +57,6 @@ class FilePath(AbstractPath):
         return glob.glob(self)
 
 
-@if_path_startswith("~")
 class UserFilePath(FilePath):
     """ An identifier for a file in the user's app data directory. """
 
@@ -104,7 +76,6 @@ class UserFilePath(FilePath):
         return FilePath(os.path.expanduser(path))
 
 
-@if_path_startswith(":/")
 class AssetPath(AbstractPath):
     """ A built-in asset identifier, created by using pkg_resources. """
 
@@ -124,10 +95,49 @@ class AssetPath(AbstractPath):
         return [os.path.join(pathname, n) for n in asset_names]
 
 
-@if_path_startswith("NUL")
 class NullPath(AbstractPath):
     """ A dummy class that reads nothing and writes to a black hole. """
 
     read = bytes
-    write = lambda *args: None
+    write = lambda data: None
     _search = list
+
+
+# Path prefixes and corresponding classes, in order of testing (should be from longest to shortest).
+PATH_TYPES_BY_PREFIX = [("NUL", NullPath),
+                        (":/",  AssetPath),
+                        ("~",   UserFilePath),
+                        ("",    FilePath)]
+
+
+class PathIO:
+
+    _root_paths: dict  # Contains base paths to search for assets and user data files.
+
+    def __init__(self, **root_paths):
+        self._root_paths = root_paths
+
+    def read(self, *patterns:str, ignore_missing:bool=False) -> Iterator[bytes]:
+        """ Expand each filename pattern by converting it to a path and using its path-dependent search.
+            Load binary data strings from each valid file. Missing files may be skipped instead of raising. """
+        for f in patterns:
+            for path in self.to_path(f).search():
+                try:
+                    yield path.read()
+                except OSError:
+                    if not ignore_missing:
+                        raise
+
+    def write(self, data:bytes, filename:str) -> None:
+        """ Write a binary data string to a file. """
+        path = self.to_path(filename)
+        path.write(data)
+
+    def to_path(self, s:str) -> AbstractPath:
+        """ Determine the type of resource path from a string by its prefix.
+            When a matching class is found, strip the prefix and create the appropriate path identifier. """
+        if isinstance(s, AbstractPath):
+            return s
+        for prefix, tp in PATH_TYPES_BY_PREFIX:
+            if s.startswith(prefix):
+                return tp(s[len(prefix):], **self._root_paths)

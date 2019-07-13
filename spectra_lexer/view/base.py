@@ -1,18 +1,25 @@
 from .state import ViewState
-from spectra_lexer.core import Command, Option
-from spectra_lexer.resource import ConfigDictionary
+from spectra_lexer.core import Command, Option, Resource
 from spectra_lexer.steno import LX
+from spectra_lexer.types.codec import CFGDict
 
+ConfigDictionary = CFGDict
 ConfigOption = Option()
 
 
 class VIEW(LX):
 
+    CONFIG: ConfigDictionary = Resource(ConfigDictionary())
     CONFIG_INFO: list = ConfigOption  # Keeps track of configuration options in a master dict.
 
     @Command
-    def VIEWConfigUpdate(self, cfg:ConfigDictionary) -> None:
-        """ Update all config values on existing components. """
+    def VIEWConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
+        """ Load and update all config options from disk. Ignore missing files. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
+        """ Update and save all config options to disk. If no save filename is given, use the default. """
         raise NotImplementedError
 
     @Command

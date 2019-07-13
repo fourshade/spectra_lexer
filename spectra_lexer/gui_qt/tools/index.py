@@ -94,7 +94,7 @@ class QtIndexTool(_GUIQT_TOOL_INDEX):
         button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
         self._make_index(DEFAULT_SIZE * (button == yes))
 
-    def tools_index_open(self) -> None:
+    def TOOLIndexOpen(self) -> None:
         self._dialog.open(self.WINDOW, self._size_submit)
 
     def _size_submit(self, index_size:int) -> None:

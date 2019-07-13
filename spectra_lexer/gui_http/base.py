@@ -7,11 +7,11 @@ from spectra_lexer.view import VIEW
 
 class GUIHTTP(VIEW):
 
-    ADDRESS = "localhost", 80
-    HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
+    HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")  # Root directory for public HTTP file service.
 
     @Command
     def GUIHTTPServe(self) -> int:
+        """ Handle HTTP requests indefinitely. """
         raise NotImplementedError
 
     @Command

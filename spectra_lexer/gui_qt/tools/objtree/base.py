@@ -94,7 +94,7 @@ class ObjectTreeTool(ObjectTree):
     def __init__(self) -> None:
         self._dialog = DialogContainer(ObjectTreeDialog)
 
-    def debug_tree_open(self) -> None:
+    def TOOLTreeOpen(self) -> None:
         """ Add the last engine exception to the root dict if any were caught. """
         if self._last_exception is not None:
             self.root_dict["last_exception"] = self._last_exception

@@ -67,5 +67,5 @@ class StenoIndex(JSONDict):
 
     def __repr__(self):
         """ Recursive reprs on index objects are deadly. Only show the first level with item counts. """
-        item_counts = ", ".join([f"{k!r}: {len(v)} items" for k, v in self.items()])
-        return f"<{type(self).__name__}: {{{item_counts}}}>"
+        item_counts = {k: f"{len(self[k])} items" for k in self}
+        return f"<{type(self).__name__}: {item_counts!r}>"

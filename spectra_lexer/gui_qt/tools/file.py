@@ -6,13 +6,13 @@ from .base import GUIQT_TOOL
 class QtFileTool(GUIQT_TOOL):
     """ Controls user-based file loading and program exit. """
 
-    def file_open_translations(self) -> None:
+    def TOOLFileOpenTranslations(self) -> None:
         self._load_dialog("translations", ".json")
 
-    def file_open_index(self) -> None:
+    def TOOLFileOpenIndex(self) -> None:
         self._load_dialog("index", ".json")
 
-    def file_exit(self) -> None:
+    def TOOLFileExit(self) -> None:
         self.Exit()
 
     def _load_dialog(self, res_type:str, *fmts:str) -> None:

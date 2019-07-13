@@ -6,7 +6,6 @@ from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
 from .base import GUIQT_TOOL
 from .dialog import DialogContainer, ToolDialog
-from spectra_lexer.system import SYS
 
 
 class HistoryTracker(list):
@@ -123,20 +122,7 @@ class ConsoleDialog(ToolDialog):
         self.add_text = w_text.add_text
 
 
-class _GUIQT_TOOL_CONSOLE(GUIQT_TOOL):
-
-    @SYS.SYSConsoleOpen.response
-    def on_console_open(self, text:str) -> None:
-        """ If a dialog exists, send the opening console text there. """
-        raise NotImplementedError
-
-    @SYS.SYSConsoleInput.response
-    def on_console_output(self, text:str) -> None:
-        """ If a dialog exists, send all console output text there. """
-        raise NotImplementedError
-
-
-class QtConsoleTool(_GUIQT_TOOL_CONSOLE):
+class QtConsoleTool(GUIQT_TOOL):
     """ Qt component for system interpreter I/O. """
 
     _dialog: DialogContainer
@@ -144,16 +130,11 @@ class QtConsoleTool(_GUIQT_TOOL_CONSOLE):
     def __init__(self) -> None:
         self._dialog = DialogContainer(ConsoleDialog)
 
-    def debug_console_open(self) -> None:
-        dlg = self._dialog.open(self.WINDOW, self.SYSConsoleInput)
-        self._dialog_write = dlg.add_text
-        self.SYSConsoleOpen({"__app__": self.ALL_COMPONENTS})
+    def TOOLDebugOpen(self) -> None:
+        self._dialog.open(self.WINDOW, self.SYSConsoleInput)
+        self.SYSConsoleOpen()
 
-    def on_console_open(self, text:str) -> None:
-        self._dialog_write(text)
-
-    def on_console_output(self, text:str) -> None:
-        self._dialog_write(text)
-
-    def _dialog_write(self, text:str) -> None:
-        """ This attribute will be overridden if a dialog exists. Do nothing if there isn't one. """
+    def SYSConsoleOutput(self, text_out:str) -> None:
+        """ Write console output to the dialog if it exists. Do nothing if there isn't one. """
+        if self._dialog:
+            self._dialog.add_text(text_out)

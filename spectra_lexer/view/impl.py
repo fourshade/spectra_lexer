@@ -157,10 +157,6 @@ class ViewLayer(InnerViewLayer):
         state.board_caption = rule.caption()
         state.board_xml_data = self._call_board(rule, state.board_aspect_ratio)
 
-
-class OuterViewLayer(ViewLayer):
-    """ Interface layer for exchanging state variables with the GUI. """
-
     def VIEWSearchExamples(self, state:ViewState) -> None:
         self._search_examples(state)
 
@@ -183,6 +179,7 @@ class OuterViewLayer(ViewLayer):
         self._graph_action(state, True)
 
     def VIEWAction(self, action:str, state:ViewState) -> None:
+        """ Interface for exchanging state variables with the GUI. """
         if hasattr(self, action) and action.startswith("VIEW"):
             getattr(self, action)(state)
         self.VIEWActionResult(state)

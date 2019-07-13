@@ -1,7 +1,6 @@
-from typing import Callable, Type
+from typing import List
 
 from spectra_lexer.core import Command, CORE, Option
-from spectra_lexer.types.codec import AbstractCodec
 
 CmdlineOption = Option()
 
@@ -9,7 +8,7 @@ CmdlineOption = Option()
 class SYS(CORE):
     """ Simple interface definition for general system commands and resources with no specific category. """
 
-    CMDLINE_INFO: list = CmdlineOption  # Keeps track of command line options in a master dict.
+    CMDLINE_INFO: list = CmdlineOption  # Keeps track of command line options in a master list.
 
     @Command
     def SYSStatus(self, status:str) -> None:
@@ -22,32 +21,26 @@ class SYS(CORE):
         raise NotImplementedError
 
     @Command
-    def SYSConsoleOpen(self, *args, interactive:bool=True) -> str:
+    def SYSConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
         """ Open the console with all engine commands, each wrapped in the original function info. """
         raise NotImplementedError
 
     @Command
-    def SYSConsoleInput(self, text_in:str) -> str:
-        """ Process a string of input text and return any resulting output. """
+    def SYSConsoleInput(self, text_in:str) -> None:
+        """ Process a string of input text as Python code and write the result to SYSConsoleOutput. """
         raise NotImplementedError
 
     @Command
-    def SYSConsoleBatch(self, *commands:str) -> int:
-        """ Run the given commands in batch mode while timing execution and exit. """
+    def SYSConsoleOutput(self, text_out:str) -> None:
+        """ Console output is written here as if to a stream. Forwards to stdout by default. """
         raise NotImplementedError
 
     @Command
-    def SYSConsoleRepl(self, input_cb:Callable[[], str]=input) -> int:
-        """ Run the console in an interactive read-eval-print loop. """
+    def SYSFileLoad(self, *patterns:str, ignore_missing:bool=False) -> List[bytes]:
+        """ Read one or more files, expanding wildcard patterns. Missing files may be ignored instead of raising. """
         raise NotImplementedError
 
     @Command
-    def SYSFileLoad(self, codec_cls:Type[AbstractCodec], *patterns:str, ignore_missing:bool=False, **kwargs):
-        """ Load one or more files and decode/merge them using a suitable codec.
-            Wildcard patterns are expanded before reading. Missing files may be ignored instead of raising. """
-        raise NotImplementedError
-
-    @Command
-    def SYSFileSave(self, obj:AbstractCodec, filename:str, **kwargs) -> None:
-        """ Save an encodable object to a file. """
+    def SYSFileSave(self, data:bytes, filename:str) -> None:
+        """ Save encoded bytes to a file. """
         raise NotImplementedError

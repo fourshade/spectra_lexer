@@ -61,22 +61,29 @@ class DialogContainer:
     """ Qt-based dialog container. Tracks a dialog object so that no more than one ever exists. """
 
     _dialog_cls: type        # Dialog class to instantiate (only one at a time).
-    _dialog: QDialog = None  # Previous dialog object. Must be set to None on deletion.
     _is_persistent: bool     # If True, new dialog requests will not destroy an existing dialog.
+    _dialog = None           # Previous dialog object. Must be set to None on deletion.
 
     def __init__(self, dialog_cls:type, persistent:bool=False):
         self._dialog_cls = dialog_cls
         self._is_persistent = persistent
 
-    def open(self, parent:QWidget, *args):
+    def __bool__(self) -> bool:
+        return self._dialog is not None
+
+    def __getattr__(self, attr:str):
+        return getattr(self._dialog, attr)
+
+    def open(self, *args) -> None:
         """ Respond to a command to open a new dialog. If a dialog exists but is not persistent, destroy it. """
-        dlg = self._dialog
-        if dlg is not None and not self._is_persistent:
-            dlg.close()
-            dlg = None
+        if self and not self._is_persistent:
+            self.close()
         # If no dialog exists (including because we destroyed it), make a new one.
-        if dlg is None:
-            dlg = self._dialog = self._dialog_cls(parent, *args)
-        # Show the new/old dialog in any case and return it.
-        dlg.show()
-        return dlg
+        if not self:
+            self._dialog = self._dialog_cls(*args)
+        # Show the new/old dialog in any case.
+        self.show()
+
+    def close(self):
+        self._dialog.close()
+        self._dialog = None

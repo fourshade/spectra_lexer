@@ -4,9 +4,7 @@ from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.core import Resource
 from spectra_lexer.system import ConsoleCommand, SYS
-from spectra_lexer.types.codec import CFGDict, JSONDict, XMLElement
-
-ConfigDictionary = CFGDict
+from spectra_lexer.types.codec import JSONDict, XMLElement
 
 
 class RS(SYS):
@@ -17,7 +15,6 @@ class RS(SYS):
     BOARD_ELEMS: XMLElement = Resource()
     TRANSLATIONS: TranslationsDictionary = Resource(TranslationsDictionary())
     INDEX: StenoIndex = Resource(StenoIndex())
-    CONFIG: ConfigDictionary = Resource(ConfigDictionary())
 
     @ConsoleCommand
     def RSSystemLoad(self, base_dir:str) -> dict:
@@ -35,11 +32,6 @@ class RS(SYS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def RSConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
-        """ Load all config options from disk. Ignore missing files. """
-        raise NotImplementedError
-
-    @ConsoleCommand
     def RSRulesSave(self, rules:RulesDictionary, filename:str= "", **kwargs) -> None:
         """ Parse a rules dictionary back into raw form and save it to JSON. """
         raise NotImplementedError
@@ -53,9 +45,4 @@ class RS(SYS):
     def RSIndexSave(self, index:StenoIndex, filename:str= "", **kwargs) -> None:
         """ Save an index structure directly into JSON. Sort all rules and translations by key and set them active.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
-        raise NotImplementedError
-
-    @ConsoleCommand
-    def RSConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
-        """ Update components and save all config options to disk. If no save filename is given, use the default. """
         raise NotImplementedError

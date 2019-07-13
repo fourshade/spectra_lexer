@@ -7,7 +7,6 @@ import posixpath
 import selectors
 import socket
 import sys
-import time
 import urllib.parse
 
 from http import HTTPStatus
@@ -17,6 +16,24 @@ from traceback import format_exc
 from typing import Callable, List, Optional
 
 from .base import GUIHTTP
+from spectra_lexer.system import CmdlineOption
+
+
+class HTTPLogger:
+    """ Logger wrapper that filters identical messages. """
+
+    logger: Callable
+    last_message = ""
+
+    def __init__(self, logger:Callable=sys.stderr.write):
+        self.logger = logger
+
+    def __call__(self, message:str) -> None:
+        if message != self.last_message:
+            self.logger(message)
+            self.last_message = message
+        else:
+            self.logger("*")
 
 
 class HTTPError(Exception):
@@ -36,13 +53,12 @@ class HTTPError(Exception):
         return "".join(lines).encode('utf-8', 'replace')
 
 
-class SpectraRequestHandler:
+class BaseRequestHandler:
     """ HTTP request handler class, instantiated once for each connection, followed by a single __call__.
         Usually handles only one request per instantiation, but sometimes more with keep-alive enabled.
         If this is the case, threading is required so that one client can't hog the entire server. """
 
     _GET_MIMETYPE = MimeTypes().guess_type
-    _LOG = sys.stderr.write  # Callback to write formatted log strings.
 
     DEFAULT_REQUEST_VERSION = "HTTP/0.9"
     PROTOCOL_VERSION = "HTTP/1.1"  # HTTP 1.1 is required for automatic keepalive.
@@ -51,8 +67,8 @@ class SpectraRequestHandler:
     request: socket.socket  # Main socket object to which the reply is written.
     address: str            # Client IP address.
     port: int               # Client TCP port.
-    process_POST: Callable  # Main callback to process user state.
     directory: str          # Root directory for public HTTP files.
+    logger: Callable        # Callback to write formatted log strings.
 
     _rfile: io.BufferedReader  # Buffered file object from which the request is read.
 
@@ -62,20 +78,17 @@ class SpectraRequestHandler:
 
     response_headers: List[str]  # List of strings to be joined and encoded as the final header.
 
-    def __init__(self, request:socket.socket, address:str, port:int, *, callback:Callable, directory:str):
+    def __init__(self, request:socket.socket, address:str, port:int=80, directory:str=None, logger:Callable=None):
         self.request = request
         self.address = address
         self.port = port
-        self.process_POST = callback
         self.directory = directory
+        self.logger = logger
         self.response_headers = []
         self._rfile = request.makefile('rb')
 
     def __call__(self) -> None:
-        """ Process an HTTP connection and requests. May be overridden. """
-        self.process()
-
-    def process(self) -> None:
+        """ Process an HTTP connection and requests. """
         try:
             self.log_message("Connection opened.")
             self.handle_requests()
@@ -193,7 +206,8 @@ class SpectraRequestHandler:
 
     def log_message(self, message:str) -> None:
         """ Log an arbitrary message using the log callback. """
-        self._LOG(f'{self.address} [{time.strftime("%b %d %Y %H:%M:%S")}] {message}\n')
+        if self.logger is not None:
+            self.logger(f'{self.address} - {message}')
 
     @staticmethod
     def date_time_string(timestamp:float=None) -> str:
@@ -229,7 +243,7 @@ class SpectraRequestHandler:
         path = posixpath.normpath(path)
         # Ignore components that are not a simple file/directory name.
         words = [word for word in path.split('/') if word and word[0] != '.' and not os.path.dirname(word)]
-        path = os.path.join(self.directory, *words)
+        path = os.path.join(self.directory or os.getcwd(), *words)
         # Route bare directory paths to index.html (whether or not it exists).
         if os.path.isdir(path) or trailing_slash:
             path = os.path.join(path, "index.html")
@@ -250,16 +264,6 @@ class SpectraRequestHandler:
                 last_modif = last_modif.replace(microsecond=0)
                 return last_modif > ims
         return True
-
-    def do_POST(self) -> None:
-        """ Start service of a POST request. """
-        data = self._receive_data()
-        self.process_POST(data, self.finish_POST)
-
-    def finish_POST(self, response:bytes) -> None:
-        """ Finish the request by sending the processed JSON data. """
-        self.add_response(HTTPStatus.OK, 'OK')
-        self._send_data(response, "application/json")
 
     def _receive_data(self) -> bytes:
         """ Return any request content data as a bytes object. """
@@ -291,43 +295,79 @@ class SpectraRequestHandler:
         return len(data)
 
 
-class ThreadedRequestHandler(SpectraRequestHandler):
+class SpectraRequestHandler(BaseRequestHandler):
+    """ Handler class specific to client JSON POST requests. """
 
-    def __call__(self) -> None:
-        """ Handle each request with a new thread. """
-        Thread(target=self.process, daemon=True).start()
+    process_POST: Callable  # Main callback to process user state.
+
+    def __init__(self, *args, process_POST:Callable, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.process_POST = process_POST
+
+    def do_POST(self) -> None:
+        """ Start service of a POST request with JSON data. """
+        data = self._receive_data()
+        self.process_POST(data, self.send_JSON)
+
+    def send_JSON(self, response:bytes) -> None:
+        """ Finish a request by sending the processed JSON data. """
+        self.add_response(HTTPStatus.OK, 'OK')
+        self._send_data(response, "application/json")
+
+
+class HttpServerSocket(socket.socket):
+
+    REQUEST_QUEUE_SIZE = 10  # Maximum allowed requests in the queue before dropping any.
+    POLL_INTERVAL = 0.5      # Poll for shutdown every <POLL_INTERVAL> seconds.
+
+    def __init__(self, address:str, port:int):
+        """ Bind and activate the TCP/IP socket. """
+        super().__init__()
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.bind((address, port))
+        self.listen(self.REQUEST_QUEUE_SIZE)
+
+    def __iter__(self):
+        """ Listen for and yield one request at a time until close. """
+        selector = selectors.SelectSelector()
+        selector.register(self, selectors.EVENT_READ)
+        with self, selector:
+            while not self._closed:
+                if selector.select(self.POLL_INTERVAL):
+                    try:
+                        yield self.accept()
+                    except OSError:
+                        pass
 
 
 class HttpServer(GUIHTTP):
     """ Class for socket-based synchronous TCP/IP stream server. """
 
-    _REQUEST_QUEUE_SIZE = 10  # Maximum allowed requests in the queue before dropping any.
-    _POLL_INTERVAL = 0.5      # Poll for shutdown every <POLL_INTERVAL> seconds.
+    address: str = CmdlineOption("http-addr", default="localhost", desc="IP address or hostname for server.")
+    port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
 
-    shutdown: bool = False    # Set to True to stop the server loop.
+    sock: HttpServerSocket = None
 
     def GUIHTTPServe(self) -> None:
-        """ Bind a TCP/IP socket, activate the server, and listen for one request at a time until shutdown. """
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(self.ADDRESS)
-            sock.listen(self._REQUEST_QUEUE_SIZE)
-            self._serve(sock)
+        """ Handle each request by instantiating a handler and calling it with a new thread. """
+        handler_kwargs = dict(process_POST=self.GUIHTTPRequest,
+                              directory=self.HTTP_PUBLIC,
+                              logger=HTTPLogger(self.SYSStatus))
+        Thread(target=self.repl, daemon=True).start()
+        self.sock = HttpServerSocket(self.address, self.port)
+        for request, addr in self.sock:
+            handler = SpectraRequestHandler(request, *addr, **handler_kwargs)
+            Thread(target=handler, daemon=True).start()
 
-    def _serve(self, sock:socket.socket) -> None:
-        with selectors.SelectSelector() as selector:
-            selector.register(sock, selectors.EVENT_READ)
-            while not self.shutdown:
-                if selector.select(self._POLL_INTERVAL):
-                    self._accept(sock)
-
-    def _accept(self, sock:socket.socket) -> None:
-        """ Handle each request by instantiating the handler with the required kwargs and calling it. """
-        try:
-            request, addr = sock.accept()
-        except OSError:
-            return
-        ThreadedRequestHandler(request, *addr, callback=self.GUIHTTPRequest, directory=self.HTTP_PUBLIC)()
+    def repl(self) -> None:
+        """ Open the console with stdin on a new thread. """
+        self.SYSConsoleOpen()
+        while True:
+            text = input()
+            if text.startswith("exit()"):
+                break
+            self.SYSConsoleInput(text)
+        self.GUIHTTPShutdown()
 
     def GUIHTTPShutdown(self) -> None:
-        self.shutdown = True
+        self.sock.close()

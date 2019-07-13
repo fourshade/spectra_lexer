@@ -16,17 +16,18 @@ from spectra_lexer.steno.board import BoardRenderer
 from spectra_lexer.steno.graph import StenoGraph
 from spectra_lexer.steno.lexer import StenoLexer
 from spectra_lexer.steno.search import SearchEngine
-from spectra_lexer.system.file.base import FileHandler
+from spectra_lexer.system.system import SystemManager
 from spectra_lexer.types.codec import CSONDict
 from spectra_lexer.utils import recurse_attr
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.
-FILE = FileHandler()
-FILE.ASSET_PATH = FILE.USER_PATH = "spectra_lexer"
+SYSTEM = SystemManager()
 def with_file(cmp):
-    for attr in vars(FileHandler):
-        setattr(cmp, attr, getattr(FILE, attr))
+    cls_attrs = vars(type(cmp))
+    for attr in vars(SystemManager):
+        if attr not in cls_attrs:
+            setattr(cmp, attr, getattr(SYSTEM, attr))
     return cmp
 # Load all resources and update components with them as we need them.
 RESOURCE = with_file(ResourceManager())
@@ -36,7 +37,6 @@ def with_rs(cmp):
         if attr.upper() == attr:
             setattr(cmp, attr, getattr(RESOURCE, attr))
     return cmp
-
 
 
 def test_layout():
@@ -66,7 +66,7 @@ RULES_DICT = RESOURCE.RULES
 def test_rule_conflicts():
     """ If the size of the dict is less than the sum of its components, some rule names must be identical. """
     pairs = []
-    RESOURCE.SYSFileLoad(CSONDict, os.path.join(RESOURCE.system_path, "*.cson"), object_pairs_hook=pairs.__iadd__)
+    RESOURCE._load(CSONDict, os.path.join(RESOURCE.system_path, "*.cson"), object_pairs_hook=pairs.__iadd__)
     if len(RULES_DICT) < len(pairs):
         keys = next(zip(*pairs))
         conflicts = {k: f"{v} times" for k, v in Counter(keys).items() if v > 1}
