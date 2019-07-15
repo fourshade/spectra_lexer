@@ -5,8 +5,6 @@ import email.utils
 from functools import partial
 from http import HTTPStatus
 from io import RawIOBase
-from mimetypes import MimeTypes
-import os
 import sys
 from traceback import format_exc
 from typing import Callable, List
@@ -114,12 +112,12 @@ class HTTPRequest:
 
     _headers = {}
 
-    def __init__(self, stream:RawIOBase):
+    def __init__(self, stream:RawIOBase, max_version:str="HTTP/1.1"):
         """ Parse HTTP request data from a stream object. Return True if the connection should be kept alive. """
         request_line, *header_lines = [*self._readline_headers(stream), ""]
         if not request_line:
             return
-        self._parse_requestline(request_line)
+        self._parse_requestline(request_line, max_version)
         self._headers = HTTPRequestHeaders(header_lines)
         len_str = self._headers.get("Content-Length")
         if len_str is not None:
@@ -136,16 +134,15 @@ class HTTPRequest:
                 break
             yield line
 
-    def _parse_requestline(self, request_line:str) -> None:
+    def _parse_requestline(self, request_line:str, max_version:str) -> None:
         """ Parse the request line into a method, URI components, and HTTP request version.  """
         try:
             self.method, uri, version = request_line.split()
-            if not version.startswith('HTTP/'):
+            if not version.startswith('HTTP/') or not float(version[5:]):
                 raise ValueError
-            major, minor = map(int, version[5:].split("."))
         except ValueError:
             raise HTTPError.BAD_REQUEST(request_line)
-        if major != 1 or minor < 1:
+        if version > max_version:
             raise HTTPError.HTTP_VERSION_NOT_SUPPORTED(version)
         uri = HTTPRequestURI(uri)
         self.path = uri.path
@@ -180,28 +177,25 @@ class HTTPRequest:
 
 class HTTPResponse:
 
-    PROTOCOL_VERSION = "HTTP/1.1"  # HTTP >= 1.1 is required for automatic keepalive.
-    VERSION_STRING = f"Spectra/0.1 Python/{sys.version.split()[0]}"  # Server software version string.
-
-    stream: RawIOBase  # Writable stream for the reply.
-    headers: List[str]  # List of strings to be joined and encoded as the final header.
-    content: bytes = b""
+    stream: RawIOBase     # Writable stream for the reply.
+    version: str          # HTTP protocol version.
+    headers: List[str]    # List of strings to be joined and encoded as the final header.
+    content: bytes = b""  # Entity content (blank if none).
     code: HTTPStatus = HTTPStatus.OK
 
-    def __init__(self, stream:RawIOBase, **kwargs):
-        """ Add standard headers with the server software version and the current date. """
+    def __init__(self, stream:RawIOBase, version:str="HTTP/1.1"):
         self.stream = stream
+        self.version = version
         self.headers = []
-        self.add_header('Server', self.VERSION_STRING)
-        self.add_time('Date')
-
-    def __call__(self, *args) -> None:
-        """ By default, just send the standard headers and status code. """
-        self.send()
 
     def add_header(self, keyword:str, value:str) -> None:
         """ Add a header to the response headers buffer. """
         self.headers.append(f"{keyword}: {value}")
+
+    def add_server_info(self, server_version:str) -> None:
+        """ Add standard headers with the server software version and the current date. """
+        self.add_header('Server', server_version)
+        self.add_time('Date')
 
     def add_time(self, keyword:str, timestamp:float=None) -> None:
         """ Add a header with a formatted date and time from a timestamp (or the current time if None). """
@@ -214,110 +208,17 @@ class HTTPResponse:
         self.add_header("Content-Length", str(len(content)))
         self.content = content
 
-    def send(self) -> None:
+    def send(self, code=HTTPStatus.OK) -> None:
         """ Add the status line header and the blank line ending and write everything. """
-        status = f"{self.PROTOCOL_VERSION} {self}"
-        header = "\r\n".join([status, *self.headers, "", ""])
+        self.code = code
+        header = "\r\n".join([str(self), *self.headers, "", ""])
         self.stream.write(header.encode('latin-1', 'strict'))
         if self.content:
             self.stream.write(self.content)
 
     def __str__(self) -> str:
-        """ Return the status code+phrase as the string value of the response. """
-        return f'{self.code} {self.code.phrase}'
-
-
-class HTTPResponse_GET(HTTPResponse):
-    """ Connection class specific to file GET and HEAD requests. """
-
-    _GET_MIMETYPE = MimeTypes().guess_type
-
-    directory: str  # Root directory for public HTTP files.
-
-    def __init__(self, *args, directory:str=None, **kwargs):
-        super().__init__(*args)
-        self.directory = directory
-
-    def __call__(self, request:HTTPRequest) -> None:
-        """ Common code for GET and HEAD commands. Sends the headers required for a file, then the file itself. """
-        uri_path = request.path
-        file_path = self._translate_path(uri_path)
-        try:
-            f = open(file_path, 'rb')
-        except OSError:
-            raise HTTPError.NOT_FOUND(uri_path)
-        with f:
-            fs = os.fstat(f.fileno())
-            mtime = fs.st_mtime
-            if not request.modified_since(mtime):
-                self.code = HTTPStatus.NOT_MODIFIED
-            else:
-                ctype, _ = self._GET_MIMETYPE(file_path)
-                self.add_time("Last-Modified", mtime)
-                self.add_content(f.read(), ctype)
-            self.send()
-
-    def _translate_path(self, uri_path:str) -> str:
-        """ Translate <uri_path> to the local filename syntax.
-            Ignore path components that are not files/directory names, or which point above the root folder. """
-        new_comps = []
-        for comp in uri_path.strip().split('/'):
-            if comp and comp != '.' and not os.path.dirname(comp):
-                if comp == '..':
-                    if new_comps:
-                        new_comps.pop()
-                else:
-                    new_comps.append(comp)
-        file_path = os.path.join(self.directory or os.getcwd(), *new_comps)
-        # Route bare directory paths to index.html (whether or not it exists).
-        if os.path.isdir(file_path):
-            file_path = os.path.join(file_path, "index.html")
-        return file_path
-
-
-class HTTPResponse_HEAD(HTTPResponse_GET):
-
-    def add_content(self, *args) -> None:
-        """ Erase any content body at the end if the command is HEAD. """
-        super().add_content(*args)
-        self.content = b""
-
-
-class HTTPResponse_POST(HTTPResponse):
-    """ Connection class specific to JSON POST requests. """
-
-    process_action: Callable  # Main callback to process user state.
-
-    def __init__(self, *args, process_action:Callable, **kwargs):
-        super().__init__(*args)
-        self.process_action = process_action
-
-    def __call__(self, request:HTTPRequest) -> None:
-        """ Start service of a POST request with JSON data and query parameters. """
-        self.process_action(request.content, self.send_JSON, **request.query)
-
-    def send_JSON(self, content:bytes) -> None:
-        """ Finish a request by sending the processed JSON data. """
-        self.add_content(content, "application/json")
-        self.send()
-
-
-class HTTPResponseContinue(HTTPResponse):
-    """ Send a continue response. This cannot have a message body. """
-
-    code = HTTPStatus.CONTINUE
-
-
-class HTTPResponseError(HTTPResponse):
-
-    def __call__(self, err:HTTPError) -> None:
-        """ Send an error response and an HTML document explaining the error to the user. """
-        self.add_header('Connection', 'close')
-        self.code = err.args[0]
-        body = err.html
-        if body is not None:
-            self.add_content(body)
-        self.send()
+        """ Return the status line as the string value of the response. """
+        return f'{self.version} {self.code} {self.code.phrase}'
 
 
 class HTTPConnectionLogger:
@@ -347,19 +248,18 @@ class HTTPConnection:
     """ HTTP request handler class, instantiated once for each connection, followed by a single __call__.
         Threading is required so that one client can't hog the entire server with a persistent connection. """
 
-    RESPONDERS = {'GET': HTTPResponse_GET,
-                  'HEAD': HTTPResponse_HEAD,
-                  'POST': HTTPResponse_POST}
+    PROTOCOL_VERSION = "HTTP/1.1"  # HTTP >= 1.1 is required for automatic keepalive.
+    VERSION_STRING = f"Spectra/0.1 Python/{sys.version.split()[0]}"  # Server software version string.
 
     stream: RawIOBase          # Stream for reading the request and writing the response.
+    dispatch: Callable         # Callback for HTTP request processing.
     log: HTTPConnectionLogger  # Callback for writing formatted log strings.
-    kwargs: dict
 
-    def __init__(self, stream:RawIOBase, addr:str, logger:Callable=sys.stderr.write, **kwargs):
+    def __init__(self, stream:RawIOBase, addr:str, dispatcher:Callable, logger:Callable=sys.stderr.write):
         """ Add the client address as a header to each logged message. """
         self.stream = stream
+        self.dispatch = dispatcher
         self.log = HTTPConnectionLogger(logger, addr)
-        self.kwargs = kwargs
 
     def __call__(self) -> None:
         """ Process an HTTP connection and requests. """
@@ -368,7 +268,7 @@ class HTTPConnection:
             try:
                 self.handle_requests()
             except HTTPError as e:
-                self.respond(HTTPResponseError, e)
+                self.handle_error(e)
         except OSError:
             self.log("Connection aborted by OS.")
         except Exception:
@@ -380,23 +280,36 @@ class HTTPConnection:
     def handle_requests(self) -> None:
         """ Handle one or more HTTP requests. """
         while True:
-            request = HTTPRequest(self.stream)
-            method_attr = request.method
-            if not method_attr:
+            request = HTTPRequest(self.stream, self.PROTOCOL_VERSION)
+            if not request.method:
                 return
             self.log.add(request)
-            cls = self.RESPONDERS[method_attr.upper()]
-            if cls is None:
-                raise HTTPError.NOT_IMPLEMENTED(method_attr)
             # Examine the headers and look for continue directives, then call the method.
             if request.expect_continue():
-                self.respond(HTTPResponseContinue, request)
-            self.respond(cls, request)
+                self.handle_continue()
+            response = self._new_response()
+            self.dispatch(request, response)
+            self.log(response)
             if not request.keep_alive():
                 return
 
-    def respond(self, cls:type, *args) -> None:
-        """ Create a new HTTP response from our current stream and kwargs and call it to send. """
-        response = cls(self.stream, **self.kwargs)
-        response(*args)
+    def handle_continue(self) -> None:
+        """ Send a continue response. This cannot have a message body. """
+        response = self._new_response()
+        response.send(HTTPStatus.CONTINUE)
         self.log(response)
+
+    def handle_error(self, err:HTTPError) -> None:
+        """ Send an error response and an HTML document explaining the error to the user. """
+        response = self._new_response()
+        response.add_header('Connection', 'close')
+        body = err.html
+        if body is not None:
+            response.add_content(body)
+        response.send(err.args[0])
+        self.log(response)
+
+    def _new_response(self) -> HTTPResponse:
+        response = HTTPResponse(self.stream, self.PROTOCOL_VERSION)
+        response.add_server_info(self.VERSION_STRING)
+        return response

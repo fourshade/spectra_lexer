@@ -158,8 +158,7 @@ class ViewLayer(InnerViewLayer):
         state.board_caption = rule.caption()
         state.board_xml_data = self._call_board(rule, state.board_aspect_ratio)
 
-    def VIEWAction(self, action:str, state:ViewState, **cfg_override) -> None:
-        """ Interface for exchanging state variables with the GUI. """
+    def VIEWAction(self, state:ViewState, action:str="", **cfg_override) -> None:
         if hasattr(self, action) and action.startswith("VIEW"):
             getattr(self, action)(state)
         self.VIEWActionResult(state)

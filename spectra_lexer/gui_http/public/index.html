@@ -73,9 +73,10 @@
         $("#w_display_desc").html('<span style="color: #d00000;">CONNECTION ERROR</span>')
     }
     function processAction(action){
-        state.action = action;
+        var query = window.location.search
         $.ajax({
             method: 'POST',
+            url: query + (query ? "&" : "?") + 'action=' + action,
             contentType: 'application/json',
             data: JSON.stringify(state),
             success: updateState,
@@ -112,7 +113,7 @@
             processAction("VIEWQuery");
         });
         $("#w_display_text").on("mouseenter", "pre > a", function(){
-            var ref = this.href.split("/").pop();
+            var ref = "#" + this.href.split("#").pop();
             if(state.graph_node_ref!=ref){
                 state.graph_node_ref = ref
                 processAction("VIEWGraphOver");
