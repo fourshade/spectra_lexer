@@ -1,5 +1,4 @@
 import os
-from typing import Callable
 
 from spectra_lexer.core import Command
 from spectra_lexer.view import VIEW
@@ -15,6 +14,6 @@ class GUIHTTP(VIEW):
         raise NotImplementedError
 
     @Command
-    def GUIHTTPAction(self, data:bytes, response_callback:Callable, **query) -> None:
-        """ Process action and state data obtained from a client request. """
+    def GUIHTTPShutdown(self) -> None:
+        """ Close any open sockets and files. """
         raise NotImplementedError

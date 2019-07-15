@@ -1,10 +1,10 @@
 from .state import ViewState
-from spectra_lexer.core import Command, Option, Resource
+from spectra_lexer.core import Command, OptionGroup, Resource
 from spectra_lexer.steno import LX
 from spectra_lexer.types.codec import CFGDict
 
 ConfigDictionary = CFGDict
-ConfigOption = Option()
+ConfigOption = OptionGroup()
 
 
 class VIEW(LX):
@@ -30,6 +30,11 @@ class VIEW(LX):
     @Command
     def VIEWDialogMakeIndex(self, index_size:int) -> None:
         """ Make a normal index if <index_size> > 0, otherwise make an empty one. Save and send out the result. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogIndexDone(self) -> None:
+        """ Send this command when an index creation finishes. """
         raise NotImplementedError
 
     @Command

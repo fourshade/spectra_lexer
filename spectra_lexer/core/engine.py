@@ -26,23 +26,27 @@ class ExceptionHandler:
         return self._exc_callback(exc_value)
 
 
-class Executor(multidict):
+class Executor:
     """ Holds engine commands, each associated with a key. Executes *all* callables under that key when called.
         The return value, if any, is the one from the last callable executed in order. """
 
+    _commands: multidict
     _exc_handler: ExceptionHandler  # Context manager to handle exceptions.
 
-    def __init__(self, exc_callback:Callable):
-        super().__init__()
+    def __init__(self, exc_callback:Callable, *args, **kwargs):
+        self._commands = multidict(*args, **kwargs)
         self._exc_handler = ExceptionHandler(exc_callback)
 
     def __call__(self, key:Hashable, *args, **kwargs) -> Any:
         """ Run all callables matching a key and return the last result. Handle any exceptions. """
         value = None
         with self._exc_handler:
-            for func in self[key]:
+            for func in self._commands[key]:
                 value = func(*args, **kwargs)
         return value
+
+    def update(self, *args, **kwargs) -> None:
+        self._commands.update(*args, **kwargs)
 
 
 class Engine:

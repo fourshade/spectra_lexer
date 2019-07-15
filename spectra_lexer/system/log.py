@@ -8,6 +8,8 @@ class SystemLogger:
     _FORMATTER = logging.Formatter('[%(asctime)s]: %(message)s', "%b %d %Y %H:%M:%S")
     _TB_MAX_LINES = 50
 
+    _last_info: str = ""  # Most recently logged info string.
+
     def __init__(self, level=logging.INFO):
         self._logger = logging.getLogger('spectra')
         self._logger.setLevel(level)
@@ -24,9 +26,13 @@ class SystemLogger:
         handler.setFormatter(self._FORMATTER)
         self._logger.addHandler(handler)
 
-    def status(self, status:str) -> None:
-        """ Log a status message as a basic info event. """
-        self._logger.info('%s', status)
+    def info(self, info:str) -> None:
+        """ Log a basic info event. Omit details if identical to the last info event. """
+        if info == self._last_info:
+            info = "*"
+        else:
+            self._last_info = info
+        self._logger.info('%s', info)
 
     def exception(self, exc:Exception) -> str:
         """ Log an exception as an error and return the formatted traceback. """

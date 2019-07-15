@@ -7,11 +7,7 @@ from typing import Any, Callable, Hashable, Iterable, Iterator, List, Tuple
 
 class AbstractCommand:
 
-    _INSTANCES: dict = defaultdict(list)  # Class-specific dict of instances keyed by owner component class.
-
-    def __init_subclass__(cls):
-        """ Add a data dict with component classes as keys and lists of mod instances as values. """
-        cls._INSTANCES = defaultdict(list)
+    _INSTANCES: dict = defaultdict(list)  # Dict of command instances keyed by owner component class.
 
     def __call__(self, *args, **kwargs):
         """ This can only be called if a component is not bound (i.e. during unit tests).
@@ -19,8 +15,7 @@ class AbstractCommand:
 
     def __set_name__(self, owner:type, name:str) -> None:
         """ Add the instance to the class data dicts. """
-        for base in type(self).__mro__[:-1]:
-            base._INSTANCES[owner].append(self)
+        self._INSTANCES[owner].append(self)
 
     @classmethod
     def bind_all(cls, cmp:object, call:Callable) -> List[Tuple[Hashable, Callable]]:
@@ -37,13 +32,12 @@ class AbstractCommand:
             return f"<COMMAND: {self.args[0].__name__}>"
 
     def wrap(self, instance:object):
-        return self.call_wrapper(instance.engine_call, self)
+        wrapper = self.call_wrapper(instance.engine_call, self)
+        return update_wrapper(wrapper, self)
 
 
 class Command(AbstractCommand):
     """ A basic command that binds to a component upon engine construction. """
-
-    _response = None  # Optional command sent with the return value of its parent after execution.
 
     def __init__(self, fn:Callable):
         """ Wrap the command with the attribute name assigned to this function as well as other details. """
@@ -56,29 +50,23 @@ class Command(AbstractCommand):
         if getattr(cmp.__class__, attr) is self:
             setattr(cmp, attr, self.wrap(cmp))
         else:
-            yield self._bind_method(cmp, attr)
+            yield getattr(cmp, attr)
 
-    def _bind_method(self, cmp:object, attr:str) -> Callable:
-        """ If another component needs to respond to the output of this command,
-            that response must be sent by the original component before returning. """
-        meth = getattr(cmp, attr)
-        rsp = self._response
-        if rsp is None:
-            return meth
-        respond = rsp.wrap(cmp)
-        def call_then_respond(*args, **kwargs):
-            value = meth(*args, **kwargs)
-            respond(value)
-            return value
-        setattr(cmp, attr, call_then_respond)
-        return call_then_respond
 
-    def response(self, fn:Callable):
-        """ Make a response command that is called with the return value of this one (if it does not exist). """
-        rsp = self._response
-        if rsp is None:
-            rsp = self._response = Command(fn)
-        return rsp
+class CommandGroup:
+    """ Group of engine commands declared by component classes. """
+
+    def __init__(self):
+        self._cmds: list = []
+
+    def __call__(self, fn:Callable) -> Command:
+        cmd = Command(fn)
+        self._cmds.append(cmd)
+        return cmd
+
+    def __get__(self, instance:object, owner:type) -> List[Callable]:
+        """ Bind the commands to any component that accesses this so it can call them. """
+        return [cmd.wrap(instance) for cmd in self._cmds]
 
 
 class Resource(AbstractCommand):
@@ -111,21 +99,24 @@ class Resource(AbstractCommand):
         self._rs_attr = f"RS_{name}"
 
 
-class Option(dict):
-    """ Dict of option resources declared by components. """
+class OptionGroup:
+    """ Group of option resources declared by component classes. """
+
+    def __init__(self):
+        self._options: dict = {}
 
     def __call__(self, *keys:str, default:Any=None, desc:str="") -> Resource:
         rs = Resource(default)
         rs.desc = desc
-        self[keys] = rs
+        self._options[keys] = rs
         return rs
 
     def __get__(self, instance:object, owner:type) -> List[tuple]:
-        return [(*keys, opt.default, opt.desc) for keys, opt in self.items()]
+        return [(*keys, opt.default, opt.desc) for keys, opt in self._options.items()]
 
     def __set__(self, instance:object, value:Iterable[tuple]) -> None:
         """ Update all options by setting descriptors manually. """
         for *keys, val in value:
-            opt = self.get(tuple(keys))
+            opt = self._options.get(tuple(keys))
             if opt is not None:
                 opt.__set__(instance, val)

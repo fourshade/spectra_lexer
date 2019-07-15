@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import QLabel, QLayout, QMessageBox, QSlider, QToolTip, QVB
 
 from .base import GUIQT_TOOL
 from .dialog import FormDialog, DialogContainer
-from spectra_lexer.view import VIEW
 
 _STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
@@ -71,15 +70,7 @@ class IndexDialog(FormDialog):
         QToolTip.showText(self.pos() + self.slider.pos(), str(value), self.slider)
 
 
-class _GUIQT_TOOL_INDEX(GUIQT_TOOL):
-
-    @VIEW.VIEWDialogMakeIndex.response
-    def on_index_done(self, *args) -> None:
-        """ Re-enable the GUI once the thread is clear. """
-        raise NotImplementedError
-
-
-class QtIndexTool(_GUIQT_TOOL_INDEX):
+class QtIndexTool(GUIQT_TOOL):
     """ Controls user-based index creation. """
 
     _dialog: DialogContainer
@@ -95,17 +86,15 @@ class QtIndexTool(_GUIQT_TOOL_INDEX):
         self._make_index(DEFAULT_SIZE * (button == yes))
 
     def TOOLIndexOpen(self) -> None:
-        self._dialog.open(self.WINDOW, self._size_submit)
-
-    def _size_submit(self, index_size:int) -> None:
         """ If the index size was positive, the dialog was accepted. """
-        if index_size:
-            self._make_index(index_size)
+        self._dialog.open(self.WINDOW, self._make_index)
 
     def _make_index(self, index_size:int) -> None:
         """ Disable the GUI while the thread is busy. """
-        self.GUIQTSetEnabled(False)
-        self.VIEWDialogMakeIndex(index_size)
+        if index_size:
+            self.GUIQTSetEnabled(False)
+            self.VIEWDialogMakeIndex(index_size)
 
-    def on_index_done(self, *args) -> None:
+    def VIEWDialogIndexDone(self, *args) -> None:
+        """ Re-enable the GUI once the thread is clear. """
         self.GUIQTSetEnabled(True)

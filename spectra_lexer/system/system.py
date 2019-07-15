@@ -32,7 +32,8 @@ class SystemManager(SYS):
         self._logger.add_file(log_path)
 
     def SYSConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
-        self._console = SystemConsole(self.SYSConsoleOutput, interactive, __app__=self.ALL_COMPONENTS, **kwargs)
+        kwargs["__app__"] = self.ALL_COMPONENTS
+        self._console = SystemConsole(self.SYSConsoleOutput, interactive, self.CONSOLE_COMMANDS, **kwargs)
 
     def SYSConsoleInput(self, text_in:str) -> None:
         if self._console is not None:
@@ -45,11 +46,11 @@ class SystemManager(SYS):
         self._io.write(data, filename)
 
     def SYSStatus(self, status:str) -> None:
-        """ Display status messages on stdout by default. """
-        self._logger.status(status)
+        """ Log and print status messages to stdout by default. """
+        self._logger.info(status)
 
     def HandleException(self, exc:Exception) -> bool:
-        """ Print an exception traceback to stdout, if possible.
+        """ Log and print an exception traceback to stdout, if possible.
             Also send the traceback text to any other component that wants it. """
         tb_text = self._logger.exception(exc)
         self.SYSTraceback(tb_text)

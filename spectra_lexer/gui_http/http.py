@@ -1,15 +1,26 @@
+""" Module for servicing HTTP connections and requests using I/O streams. """
+
 import datetime
 import email.utils
-import os
-import socket
-import sys
+from functools import partial
 from http import HTTPStatus
+from io import RawIOBase
 from mimetypes import MimeTypes
+import os
+import sys
 from traceback import format_exc
 from typing import Callable, List
 
 
-class HTTPError(Exception):
+class HTTPErrorMeta(type):
+
+    def __getattr__(cls, name:str) -> Callable:
+        """ Create an error exception corresponding directly to a member of HTTPStatus. """
+        code = getattr(HTTPStatus, name)
+        return partial(cls, code)
+
+
+class HTTPError(Exception, metaclass=HTTPErrorMeta):
 
     NO_BODY = {*range(100, 200), HTTPStatus.NO_CONTENT, HTTPStatus.RESET_CONTENT, HTTPStatus.NOT_MODIFIED}
     HTML_SUB = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
@@ -27,7 +38,7 @@ class HTTPError(Exception):
                          '</body></html>').encode('utf-8', 'replace')
 
 
-class HttpRequestURI:
+class HTTPRequestURI:
 
     _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
 
@@ -63,7 +74,7 @@ class HttpRequestURI:
         return ''.join(res)
 
 
-class HttpRequestHeaders:
+class HTTPRequestHeaders:
 
     raw: list  # Contains the raw string form of every header, even those with duplicate names.
     _d: dict   # Contains the last header with each unique lowercased name.
@@ -94,7 +105,7 @@ class HttpRequestHeaders:
         return self._d.get(name.lower(), *args)
 
 
-class HttpRequest:
+class HTTPRequest:
 
     method: str = ''
     path: str = ''
@@ -103,24 +114,24 @@ class HttpRequest:
 
     _headers = {}
 
-    def __init__(self, rfile) -> None:
-        """ Parse HTTP request data from a socket object. Return True if the connection should be kept alive. """
-        request_line, *header_lines = [*self._readline_headers(rfile), ""]
+    def __init__(self, stream:RawIOBase):
+        """ Parse HTTP request data from a stream object. Return True if the connection should be kept alive. """
+        request_line, *header_lines = [*self._readline_headers(stream), ""]
         if not request_line:
             return
         self._parse_requestline(request_line)
-        self._headers = HttpRequestHeaders(header_lines)
-        len_str = self._headers.get("Content-Length", "")
-        if len_str:
-            self.content = rfile.read(int(len_str))
+        self._headers = HTTPRequestHeaders(header_lines)
+        len_str = self._headers.get("Content-Length")
+        if len_str is not None:
+            self.content = stream.read(int(len_str))
 
-    def _readline_headers(self, rfile, size_left:int=65536) -> str:
+    def _readline_headers(self, stream:RawIOBase, size_left:int=65536) -> str:
         """ Read and decode each header line as a string. """
-        while True:
-            line = rfile.readline(size_left + 1).decode('iso-8859-1').strip()
+        for line in stream:
             size_left -= len(line)
             if size_left < 0:
-                raise HTTPError(HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE)
+                raise HTTPError.REQUEST_HEADER_FIELDS_TOO_LARGE()
+            line = line.decode('iso-8859-1').strip()
             if not line:
                 break
             yield line
@@ -133,10 +144,10 @@ class HttpRequest:
                 raise ValueError
             major, minor = map(int, version[5:].split("."))
         except ValueError:
-            raise HTTPError(HTTPStatus.BAD_REQUEST, request_line)
+            raise HTTPError.BAD_REQUEST(request_line)
         if major != 1 or minor < 1:
-            raise HTTPError(HTTPStatus.HTTP_VERSION_NOT_SUPPORTED, version)
-        uri = HttpRequestURI(uri)
+            raise HTTPError.HTTP_VERSION_NOT_SUPPORTED(version)
+        uri = HTTPRequestURI(uri)
         self.path = uri.path
         self.query = uri.query
 
@@ -167,141 +178,84 @@ class HttpRequest:
         return f'{self.method} {self.path}'
 
 
-class BaseHttpConnection:
-    """ HTTP request handler class, instantiated once for each connection, followed by a single __call__.
-        Threading is required so that one client can't hog the entire server with keep-alive. """
-
-    _GET_MIMETYPE = MimeTypes().guess_type
+class HTTPResponse:
 
     PROTOCOL_VERSION = "HTTP/1.1"  # HTTP >= 1.1 is required for automatic keepalive.
     VERSION_STRING = f"Spectra/0.1 Python/{sys.version.split()[0]}"  # Server software version string.
 
-    log: Callable   # Callback to write formatted log strings.
-    directory: str  # Root directory for public HTTP files.
+    stream: RawIOBase  # Writable stream for the reply.
+    headers: List[str]  # List of strings to be joined and encoded as the final header.
+    content: bytes = b""
+    code: HTTPStatus = HTTPStatus.OK
 
-    _rsocket: socket.socket    # Main socket object to which the reply is written.
+    def __init__(self, stream:RawIOBase, **kwargs):
+        """ Add standard headers with the server software version and the current date. """
+        self.stream = stream
+        self.headers = []
+        self.add_header('Server', self.VERSION_STRING)
+        self.add_time('Date')
 
-    request: HttpRequest = None
-    response_headers: List[str]  # List of strings to be joined and encoded as the final header.
-
-    def __init__(self, rsocket:socket.socket, directory:str=None, logger:Callable=sys.stderr.write):
-        self._rsocket = rsocket
-        self.log = logger
-        self.directory = directory
-        self.response_headers = []
-
-    def __call__(self) -> None:
-        """ Process an HTTP connection and requests. """
-        try:
-            self.log("Connection opened.")
-            try:
-                self.handle_requests()
-            except HTTPError as e:
-                self.handle_error(e)
-        except socket.timeout as e:
-            self.log(f"Request timed out: {e!r}")
-        except OSError:
-            self.log("Connection aborted by OS.")
-        except Exception:
-            self.log(format_exc())
-        finally:
-            try:
-                self._rsocket.shutdown(socket.SHUT_WR)
-            except OSError:
-                pass
-            self._rsocket.close()
-            self.log("Connection terminated.")
-
-    def handle_requests(self) -> None:
-        """ Handle one or more HTTP requests. """
-        with self._rsocket.makefile('rb') as rfile:  # Buffered file object from which the request is read.
-            while True:
-                self.request = request = HttpRequest(rfile)
-                method_attr = request.method
-                if not method_attr:
-                    return
-                # Examine the headers and look for continue directives, then call the method.
-                if request.expect_continue():
-                    self.add_response(HTTPStatus.CONTINUE)
-                    self.end_headers()
-                func = getattr(self, f'do_{method_attr}', None)
-                if func is None:
-                    raise HTTPError(HTTPStatus.NOT_IMPLEMENTED, method_attr)
-                func()
-                if not request.keep_alive():
-                    return
-
-    def handle_error(self, err:HTTPError) -> None:
-        """ Send an error response and an HTML document explaining the error to the user. """
-        self.add_response(err.args[0])
-        self.add_header('Connection', 'close')
-        body = err.html
-        if body is None:
-            self.end_headers()
-        else:
-            self._send_data(body)
-
-    def add_status(self, code:HTTPStatus):
-        self.response_headers.append(f"{self.PROTOCOL_VERSION} {code} {code.phrase}")
+    def __call__(self, *args) -> None:
+        """ By default, just send the standard headers and status code. """
+        self.send()
 
     def add_header(self, keyword:str, value:str) -> None:
         """ Add a header to the response headers buffer. """
-        self.response_headers.append(f"{keyword}: {value}")
+        self.headers.append(f"{keyword}: {value}")
 
-    def add_response(self, code:HTTPStatus) -> None:
-        """ Add the response header to the headers buffer and log the response code.
-            Also add standard headers with the server software version and the current date. """
-        self.log(f'"{self.request}" {code}')
-        self.add_status(code)
-        self.add_header('Server', self.VERSION_STRING)
-        self.add_header('Date', self.date_time_string())
+    def add_time(self, keyword:str, timestamp:float=None) -> None:
+        """ Add a header with a formatted date and time from a timestamp (or the current time if None). """
+        dt = email.utils.formatdate(timestamp, usegmt=True)
+        self.add_header(keyword, dt)
 
-    def end_headers(self) -> None:
-        """ Add the blank line ending the MIME headers and flush. """
-        header = "\r\n".join([*self.response_headers, "", ""])
-        self._write(header.encode('latin-1', 'strict'))
-        self.response_headers.clear()
-
-    def _send_data(self, response:bytes, ctype:str="text/html") -> None:
-        """ Write the entity headers and body for content with MIME type <ctype>. """
+    def add_content(self, content:bytes, ctype:str="text/html") -> None:
+        """ Add the entity headers and body for <content> with MIME type <ctype>. """
         self.add_header("Content-Type", ctype)
-        self.add_header("Content-Length", str(len(response)))
-        self.end_headers()
-        # Only send the content if the command was not HEAD.
-        if self.request.method != 'HEAD':
-            self._write(response)
+        self.add_header("Content-Length", str(len(content)))
+        self.content = content
 
-    def _write(self, data:bytes) -> int:
-        self._rsocket.sendall(data)
-        return len(data)
+    def send(self) -> None:
+        """ Add the status line header and the blank line ending and write everything. """
+        status = f"{self.PROTOCOL_VERSION} {self}"
+        header = "\r\n".join([status, *self.headers, "", ""])
+        self.stream.write(header.encode('latin-1', 'strict'))
+        if self.content:
+            self.stream.write(self.content)
 
-    @staticmethod
-    def date_time_string(timestamp:float=None) -> str:
-        """ Return the current date and time formatted for a message header. """
-        return email.utils.formatdate(timestamp, usegmt=True)
+    def __str__(self) -> str:
+        """ Return the status code+phrase as the string value of the response. """
+        return f'{self.code} {self.code.phrase}'
 
-    def _do_GET_or_HEAD(self) -> None:
-        """ Common code for GET and HEAD commands. This sends the response code and MIME headers. """
-        uri_path = self.request.path
+
+class HTTPResponse_GET(HTTPResponse):
+    """ Connection class specific to file GET and HEAD requests. """
+
+    _GET_MIMETYPE = MimeTypes().guess_type
+
+    directory: str  # Root directory for public HTTP files.
+
+    def __init__(self, *args, directory:str=None, **kwargs):
+        super().__init__(*args)
+        self.directory = directory
+
+    def __call__(self, request:HTTPRequest) -> None:
+        """ Common code for GET and HEAD commands. Sends the headers required for a file, then the file itself. """
+        uri_path = request.path
         file_path = self._translate_path(uri_path)
         try:
             f = open(file_path, 'rb')
         except OSError:
-            raise HTTPError(HTTPStatus.NOT_FOUND, uri_path)
+            raise HTTPError.NOT_FOUND(uri_path)
         with f:
             fs = os.fstat(f.fileno())
             mtime = fs.st_mtime
-            if not self.request.modified_since(mtime):
-                self.add_response(HTTPStatus.NOT_MODIFIED)
-                self.end_headers()
-                return
-            ctype, _ = self._GET_MIMETYPE(file_path)
-            self.add_response(HTTPStatus.OK)
-            self.add_header("Last-Modified", self.date_time_string(mtime))
-            self._send_data(f.read(), ctype)
-
-    do_GET = _do_GET_or_HEAD
-    do_HEAD = _do_GET_or_HEAD
+            if not request.modified_since(mtime):
+                self.code = HTTPStatus.NOT_MODIFIED
+            else:
+                ctype, _ = self._GET_MIMETYPE(file_path)
+                self.add_time("Last-Modified", mtime)
+                self.add_content(f.read(), ctype)
+            self.send()
 
     def _translate_path(self, uri_path:str) -> str:
         """ Translate <uri_path> to the local filename syntax.
@@ -321,20 +275,128 @@ class BaseHttpConnection:
         return file_path
 
 
-class SpectraHttpConnection(BaseHttpConnection):
-    """ Handler class specific to client JSON POST requests. """
+class HTTPResponse_HEAD(HTTPResponse_GET):
+
+    def add_content(self, *args) -> None:
+        """ Erase any content body at the end if the command is HEAD. """
+        super().add_content(*args)
+        self.content = b""
+
+
+class HTTPResponse_POST(HTTPResponse):
+    """ Connection class specific to JSON POST requests. """
 
     process_action: Callable  # Main callback to process user state.
 
     def __init__(self, *args, process_action:Callable, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args)
         self.process_action = process_action
 
-    def do_POST(self) -> None:
+    def __call__(self, request:HTTPRequest) -> None:
         """ Start service of a POST request with JSON data and query parameters. """
-        self.process_action(self.request.content, self.send_JSON, **self.request.query)
+        self.process_action(request.content, self.send_JSON, **request.query)
 
-    def send_JSON(self, response:bytes) -> None:
+    def send_JSON(self, content:bytes) -> None:
         """ Finish a request by sending the processed JSON data. """
-        self.add_response(HTTPStatus.OK)
-        self._send_data(response, "application/json")
+        self.add_content(content, "application/json")
+        self.send()
+
+
+class HTTPResponseContinue(HTTPResponse):
+    """ Send a continue response. This cannot have a message body. """
+
+    code = HTTPStatus.CONTINUE
+
+
+class HTTPResponseError(HTTPResponse):
+
+    def __call__(self, err:HTTPError) -> None:
+        """ Send an error response and an HTML document explaining the error to the user. """
+        self.add_header('Connection', 'close')
+        self.code = err.args[0]
+        body = err.html
+        if body is not None:
+            self.add_content(body)
+        self.send()
+
+
+class HTTPConnectionLogger:
+    """ Logger wrapper with a buffer of chained messages which are joined and logged on a direct call. """
+
+    log: Callable[[str], None]
+    header: str
+    buffer: list
+
+    def __init__(self, logger:Callable[[str], None], header:str):
+        self.log = logger
+        self.header = header
+        self.buffer = []
+
+    def add(self, *messages) -> None:
+        self.buffer += messages
+
+    def __call__(self, *messages) -> None:
+        """ Add the buffer to the messages, concatenate everything, log it, and start over. """
+        self.add(*messages)
+        full_message = " -> ".join(map(str, self.buffer))
+        self.log(f'{self.header} - {full_message}')
+        self.buffer = []
+
+
+class HTTPConnection:
+    """ HTTP request handler class, instantiated once for each connection, followed by a single __call__.
+        Threading is required so that one client can't hog the entire server with a persistent connection. """
+
+    RESPONDERS = {'GET': HTTPResponse_GET,
+                  'HEAD': HTTPResponse_HEAD,
+                  'POST': HTTPResponse_POST}
+
+    stream: RawIOBase          # Stream for reading the request and writing the response.
+    log: HTTPConnectionLogger  # Callback for writing formatted log strings.
+    kwargs: dict
+
+    def __init__(self, stream:RawIOBase, addr:str, logger:Callable=sys.stderr.write, **kwargs):
+        """ Add the client address as a header to each logged message. """
+        self.stream = stream
+        self.log = HTTPConnectionLogger(logger, addr)
+        self.kwargs = kwargs
+
+    def __call__(self) -> None:
+        """ Process an HTTP connection and requests. """
+        try:
+            self.log("Connection opened.")
+            try:
+                self.handle_requests()
+            except HTTPError as e:
+                self.respond(HTTPResponseError, e)
+        except OSError:
+            self.log("Connection aborted by OS.")
+        except Exception:
+            self.log(format_exc())
+        finally:
+            self.stream.close()
+            self.log("Connection terminated.")
+
+    def handle_requests(self) -> None:
+        """ Handle one or more HTTP requests. """
+        while True:
+            request = HTTPRequest(self.stream)
+            method_attr = request.method
+            if not method_attr:
+                return
+            self.log.add(request)
+            cls = self.RESPONDERS[method_attr.upper()]
+            if cls is None:
+                raise HTTPError.NOT_IMPLEMENTED(method_attr)
+            # Examine the headers and look for continue directives, then call the method.
+            if request.expect_continue():
+                self.respond(HTTPResponseContinue, request)
+            self.respond(cls, request)
+            if not request.keep_alive():
+                return
+
+    def respond(self, cls:type, *args) -> None:
+        """ Create a new HTTP response from our current stream and kwargs and call it to send. """
+        response = cls(self.stream, **self.kwargs)
+        response(*args)
+        self.log(response)

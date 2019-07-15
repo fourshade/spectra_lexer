@@ -3,12 +3,9 @@
 from code import InteractiveConsole
 from functools import partial, update_wrapper
 import sys
-from typing import Iterable, Callable
+from typing import Callable, List
 
-from spectra_lexer.core import Command
 from spectra_lexer.types.importer import AutoImporter
-
-CONSOLE_COMMANDS = {}  # Dict of all commands directly available in the console.
 
 
 class HelpWrapper(partial):
@@ -16,10 +13,10 @@ class HelpWrapper(partial):
 
     __help__: str  # String shown on repr() and in place of ordinary help.
 
-    def __new__(cls, func:Callable, wrapped=None):
-        """ Add help using the name, annotations, and/or docstring of the function (or another wrapper). """
+    def __new__(cls, func:Callable):
+        """ Add help using the name, annotations, and/or docstring of the function. """
         self = super().__new__(cls, func)
-        update_wrapper(self, func if wrapped is None else wrapped)
+        update_wrapper(self, func)
         lines = [f"COMMAND: {self.__name__}", ""]
         if hasattr(self, "__annotations__"):
             params = dict(self.__annotations__)
@@ -43,16 +40,6 @@ class HelpWrapper(partial):
     def _short_type_name(cls:type) -> str:
         """ Return the name of a type without all the annoying prefixes on generic type aliases. """
         return getattr(cls, '__name__', str(cls)).replace("typing.","")
-
-
-class ConsoleCommand(Command):
-    """ Decorator for a string command available as a function in the console. """
-
-    def bind(self, *args) -> Iterable[Callable]:
-        """ Only one component may answer each function, and it should return or save a useful value. """
-        for meth in super().bind(*args):
-            CONSOLE_COMMANDS[self.__name__] = HelpWrapper(meth, self)
-            yield meth
 
 
 class xhelp:
@@ -110,10 +97,12 @@ class SystemConsole:
     interpreter: InteractiveConsole  # Interactive interpreter. Evaluates text input.
     write_callback: Callable         # Callback to send text output.
 
-    def __init__(self, write_callback:Callable, interactive:bool=True, **kwargs) -> None:
+    def __init__(self, write_callback:Callable, interactive:bool=True, cmds:List[Callable]=(), **kwargs):
         """ Make a new namespace that automatically imports top-level modules for convenience.
             If interactive mode is requested, enable the prompts and write an opening message. """
-        locals_ns = AutoImporter.make_namespace(CONSOLE_COMMANDS, help=xhelp(), **kwargs)
+        locals_ns = AutoImporter.make_namespace(kwargs, help=xhelp())
+        for cmd in cmds:
+            locals_ns[cmd.__name__] = HelpWrapper(cmd)
         self.interpreter = InteractiveConsole(locals_ns)
         self.write_callback = write_callback
         if interactive:

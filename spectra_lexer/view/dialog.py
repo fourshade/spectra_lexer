@@ -43,6 +43,7 @@ class ViewDialog(VIEW):
             index["SENTINEL"] = {}
         self.RSIndexSave(index)
         self.INDEX = index
+        self.VIEWDialogIndexDone()
 
     def VIEWDialogFileLoad(self, filenames:list, res_type:str) -> None:
         getattr(self, f"RS{res_type.title()}Load")(*filenames)
