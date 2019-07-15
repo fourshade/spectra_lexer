@@ -15,11 +15,6 @@ class GUIHTTP(VIEW):
         raise NotImplementedError
 
     @Command
-    def GUIHTTPRequest(self, data:bytes, response_callback:Callable) -> None:
-        """ Process JSON data obtained from a client request. """
-        raise NotImplementedError
-
-    @Command
-    def GUIHTTPShutdown(self) -> None:
-        """ Shut down the HTTP server. Threads with outstanding requests will finish them. """
+    def GUIHTTPAction(self, data:bytes, response_callback:Callable, **query) -> None:
+        """ Process action and state data obtained from a client request. """
         raise NotImplementedError

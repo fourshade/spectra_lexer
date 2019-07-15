@@ -2,6 +2,7 @@ from typing import Sequence
 
 from .base import PLOVER
 from .types import join_strokes, PloverAction, PloverStenoDictCollection, PloverTranslationsDictionary
+from spectra_lexer.view import ViewState
 
 
 class PloverInterface(PLOVER):
@@ -64,4 +65,7 @@ class PloverInterface(PLOVER):
 
     def _send(self) -> None:
         """ User strokes may be composed of all sorts of custom briefs, so do not attempt to match every key. """
-        self.GUIQTQuery(*self._translation)  # TODO: need_all_keys=False
+        state = ViewState()
+        state.set_query_params(*self._translation)
+        self.GUIQTUpdate(translation=state.translation)
+        self.GUIQTAction("VIEWQuery", need_all_keys=False)

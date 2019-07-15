@@ -31,6 +31,8 @@ class InnerViewLayer(VIEW):
 
     def _call_search(self, pattern:str, existing_count:int=0, strokes:bool=False, regex:bool=False) -> List[str]:
         """ However many items are currently saved on the list (usually none), add one full page to that number. """
+        if not pattern:
+            return []
         count = existing_count + self.match_limit
         pattern, kwargs = self._parse_pattern(pattern)
         matches = self.LXSearchQuery(pattern, count=count, strokes=strokes, regex=regex, **kwargs)
@@ -70,34 +72,33 @@ class InnerViewLayer(VIEW):
 class ViewLayer(InnerViewLayer):
     """ Implementation layer for handling searches, text graphs, selections, and steno board diagrams. """
 
-    def _search_examples(self, state:ViewState) -> None:
+    def VIEWSearchExamples(self, state:ViewState) -> None:
         state.input_text, selection = self._call_examples(state.link_ref, state.mode_strokes)
         self._search(state)
-        state.match_selected = selection
-        self._lookup(state)
+        if selection in state.matches:
+            state.match_selected = selection
+            self._lookup(state)
 
-    def _user_search(self, state:ViewState, existing_count:int=0) -> None:
-        if state.input_text:
-            self._search(state, existing_count)
-            matches = state.matches
-            # Automatically select the match if there was only one.
-            if len(matches) == 1:
-                state.match_selected = matches[0]
-                self._lookup(state)
+    def VIEWSearch(self, state:ViewState) -> None:
+        self._search(state)
+        # Automatically select the match if there was only one.
+        if state.match_count == 1:
+            state.match_selected = state.matches[0]
+            self._lookup(state)
+
+    def VIEWLookup(self, state:ViewState) -> None:
+        """ If the user clicked "more", search again with another page. """
+        if self._wants_more(state.match_selected):
+            self._search(state, state.match_count)
+        else:
+            self._lookup(state)
 
     def _search(self, state:ViewState, existing_count:int=0) -> None:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
-        matches = self._call_search(state.input_text, existing_count, state.mode_strokes, state.mode_regex)
-        state.matches = matches
+        pattern = state.input_text
+        matches = state.matches = self._call_search(pattern, existing_count, state.mode_strokes, state.mode_regex)
         state.match_count = len(matches)
         state.mappings = []
-
-    def _user_lookup(self, state:ViewState) -> None:
-        """ If the user clicked "more", search again with another page. """
-        if self._wants_more(state.match_selected):
-            self._user_search(state, state.match_count)
-        else:
-            self._lookup(state)
 
     def _lookup(self, state:ViewState) -> None:
         """ Look up mappings and display them in the lower list. """
@@ -112,10 +113,11 @@ class ViewLayer(InnerViewLayer):
         elif mappings:
             # If there is more than one mapping, make a product query to select the best combination.
             rule = self._call_multi_query(mappings, [match])
-            keys = rule.keys
-            state.mapping_selected = keys
-            state.set_query_params(keys, match)
-            self._new_graph(state, rule)
+            state.mapping_selected = rule.keys
+            self._query_from_selection(state)
+
+    def VIEWSelect(self, state:ViewState) -> None:
+        self._query_from_selection(state)
 
     def _query_from_selection(self, state:ViewState) -> None:
         """ The order of strokes/word in the lexer command is reversed for strokes mode. """
@@ -123,62 +125,40 @@ class ViewLayer(InnerViewLayer):
         if not state.mode_strokes:
             translation_params.reverse()
         state.set_query_params(*translation_params)
-        self._new_query(state)
+        self._new_graph(state)
 
-    def _new_query(self, state:ViewState) -> None:
+    def VIEWQuery(self, state:ViewState) -> None:
+        self._new_graph(state)
+
+    def _new_graph(self, state:ViewState) -> None:
+        """ Draw a new graph. Only a previous linked example rule may be selected. """
+        state.graph_node_ref = ""
+        select = state.graph_has_selection
+        self._new_query(state, select, prev=self.RULES.get(state.link_ref) if select else None)
+
+    def VIEWGraphOver(self, state:ViewState) -> None:
+        """ Handle a mouseover action. Mouseovers should do nothing as long as a selection is active. """
+        if not state.graph_has_selection:
+            self._new_query(state, False)
+
+    def VIEWGraphClick(self, state:ViewState) -> None:
+        """ Handle a click action. """
+        self._new_query(state, True)
+
+    def _new_query(self, state:ViewState, select:bool, **kwargs) -> None:
         params = state.get_query_params()
         if params is not None:
             rule = self._call_query(*params)
-            self._new_graph(state, rule)
-
-    def _new_graph(self, state:ViewState, rule:StenoRule) -> None:
-        """ Draw a new graph. Only a previous linked example rule may be selected. """
-        state.graph_node_ref = ""
-        kwargs = {}
-        if state.graph_has_selection:
-            kwargs.update(select=True, prev=self.RULES.get(state.link_ref))
-        self._set_graph(state, rule, **kwargs)
-
-    def _graph_action(self, state:ViewState, clicked:bool) -> None:
-        """ Handle a mouseover or click action. Mouseovers should do nothing as long as a selection is active. """
-        if clicked or not state.graph_has_selection:
-            params = state.get_query_params()
-            if params is not None:
-                rule = self._call_query(*params)
-                self._set_graph(state, rule, select=clicked, ref=state.graph_node_ref)
-
-    def _set_graph(self, state:ViewState, main_rule:StenoRule, select:bool=False, **kwargs) -> None:
-        state.graph_text, selection = self._call_graph(main_rule, select=select, **kwargs)
-        state.graph_has_selection = bool(selection and select)
-        self._set_board(state, selection or main_rule)
+            state.graph_text, selection = self._call_graph(rule, select=select, ref=state.graph_node_ref, **kwargs)
+            state.graph_has_selection = bool(selection and select)
+            self._set_board(state, selection or rule)
 
     def _set_board(self, state:ViewState, rule:StenoRule) -> None:
         state.link_ref = self._call_find_link(rule)
         state.board_caption = rule.caption()
         state.board_xml_data = self._call_board(rule, state.board_aspect_ratio)
 
-    def VIEWSearchExamples(self, state:ViewState) -> None:
-        self._search_examples(state)
-
-    def VIEWSearch(self, state:ViewState) -> None:
-        self._user_search(state)
-
-    def VIEWLookup(self, state:ViewState) -> None:
-        self._user_lookup(state)
-
-    def VIEWSelect(self, state:ViewState) -> None:
-        self._query_from_selection(state)
-
-    def VIEWQuery(self, state:ViewState) -> None:
-        self._new_query(state)
-
-    def VIEWGraphOver(self, state:ViewState) -> None:
-        self._graph_action(state, False)
-
-    def VIEWGraphClick(self, state:ViewState) -> None:
-        self._graph_action(state, True)
-
-    def VIEWAction(self, action:str, state:ViewState) -> None:
+    def VIEWAction(self, action:str, state:ViewState, **cfg_override) -> None:
         """ Interface for exchanging state variables with the GUI. """
         if hasattr(self, action) and action.startswith("VIEW"):
             getattr(self, action)(state)

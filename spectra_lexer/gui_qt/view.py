@@ -19,12 +19,12 @@ class QtViewController:
         self._run_action = runner
         self._update_gui = updater
 
-    def __call__(self, action, attrs:Iterable[str]=(), *values) -> None:
+    def __call__(self, action, attrs:Iterable[str]=(), *values, **cfg_override) -> None:
         """ Update the state WITHOUT calling any GUI methods (because the user did it), then run the action. """
         d = self._state
         if attrs:
             d.update(zip(attrs, values))
-        self._run_action(action, ViewState(d))
+        self._run_action(action, ViewState(d), **cfg_override)
 
     def update(self, d:dict) -> None:
         """ For every attribute given, update our state dict and the GUI widgets. """
@@ -99,14 +99,8 @@ class QtView(GUIQT):
     def GUIQTUpdate(self, **kwargs) -> None:
         self._controller.update(kwargs)
 
-    def GUIQTAction(self, action:str) -> None:
-        self._controller(action)
-
-    def GUIQTQuery(self, keys:str, letters:str) -> None:
-        state = ViewState()
-        state.set_query_params(keys, letters)
-        self.GUIQTUpdate(translation=state.translation)
-        self.GUIQTAction("VIEWQuery")
+    def GUIQTAction(self, action:str, **cfg_override) -> None:
+        self._controller(action, **cfg_override)
 
     def VIEWActionResult(self, *args) -> None:
         self._controller.apply_changes(*args)

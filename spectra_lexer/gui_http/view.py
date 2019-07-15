@@ -41,11 +41,11 @@ class HttpViewState(ViewState):
 class HttpView(GUIHTTP):
     """ Interface to handle JSON and communication with the view layer. """
 
-    def GUIHTTPRequest(self, data:bytes, response_callback:Callable):
-        """ Process JSON data obtained from a client. This data could contain ANYTHING...beware! """
+    def GUIHTTPAction(self, data:bytes, response_callback:Callable, **query):
+        """ Process JSON and query data obtained from a client. This data could contain ANYTHING...beware! """
         d = HttpJSONDict.decode(data)
         state = HttpViewState(d, response_callback=response_callback)
-        self.VIEWAction(state.action, state)
+        self.VIEWAction(state.action, state, **query)
 
     def VIEWActionResult(self, state:HttpViewState) -> None:
         """ Encode any relevant changes to JSON and send them back to the client with the callback. """

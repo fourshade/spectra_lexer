@@ -45,11 +45,6 @@ class GUIQT(VIEW):
         raise NotImplementedError
 
     @Command
-    def GUIQTAction(self, action:str) -> None:
+    def GUIQTAction(self, action:str, **cfg_override) -> None:
         """ Send an action command with the current state. """
-        raise NotImplementedError
-
-    @Command
-    def GUIQTQuery(self, keys:str, letters:str) -> None:
-        """ Execute a lexer query from an outside source. """
         raise NotImplementedError

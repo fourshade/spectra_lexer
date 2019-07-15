@@ -73,7 +73,7 @@ class VIEW(LX):
         raise NotImplementedError
 
     @Command
-    def VIEWAction(self, action:str, state:ViewState) -> None:
+    def VIEWAction(self, action:str, state:ViewState, **cfg_override) -> None:
         """ Perform any action above with the given state, then send it back. """
         raise NotImplementedError
 
