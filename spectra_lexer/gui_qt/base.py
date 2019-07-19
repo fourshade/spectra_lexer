@@ -45,6 +45,6 @@ class GUIQT(VIEW):
         raise NotImplementedError
 
     @Command
-    def GUIQTAction(self, action:str, **cfg_override) -> None:
-        """ Send an action command with the current state. """
+    def GUIQTAction(self, action:str, **override) -> None:
+        """ Send an action command with the current state. Parameters may be temporarily overridden by kwargs. """
         raise NotImplementedError

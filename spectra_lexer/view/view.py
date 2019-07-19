@@ -1,13 +1,27 @@
-from .base import ConfigDictionary, VIEW
+from .base import ConfigDictionary, ConfigOption, VIEW
+from .state import ViewState
 from spectra_lexer.resource import StenoIndex
 from spectra_lexer.system import CmdlineOption
 
 
-class ViewDialog(VIEW):
-    """ Handles GUI-centric config and dialog-based operations. """
+class ViewManager(VIEW):
+    """ Handles GUI interface-based operations. """
 
     config_file: str = CmdlineOption("config-file", default="~/config.cfg",
                                      desc="CFG file with config settings to load at start and/or write to.")
+
+    show_compound: bool = ConfigOption("board", "compound_keys", default=True,
+                                       desc="Show special labels for compound keys (i.e. `f` instead of TP).")
+    recursive_graph: bool = ConfigOption("graph", "recursive", default=True,
+                                         desc="Include rules that make up other rules.")
+    compressed_graph: bool = ConfigOption("graph", "compressed", default=True,
+                                          desc="Compress the graph vertically to save space.")
+    match_limit: int = ConfigOption("search", "match_limit", default=100,
+                                    desc="Maximum number of matches returned on one page of a search.")
+    show_links: bool = ConfigOption("search", "example_links", default=True,
+                                    desc="Show hyperlinks to other examples of a selected rule from an index.")
+    need_all_keys: bool = ConfigOption("search", "need_all_keys", default=False,
+                                       desc="Only return lexer results that match every key in the stroke.")
 
     def Load(self) -> None:
         self.VIEWConfigLoad(self.config_file)
@@ -52,3 +66,8 @@ class ViewDialog(VIEW):
     def _msg(self, msg:str) -> None:
         """ Send a message that we've started or finished with an operation. """
         self.SYSStatus(msg)
+
+    def VIEWAction(self, state:dict, action:str="") -> None:
+        result = ViewState(state, self).run(action)
+        if result is not None:
+            self.VIEWActionResult(result)

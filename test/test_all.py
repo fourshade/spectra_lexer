@@ -15,7 +15,6 @@ from spectra_lexer.resource.resource import ResourceManager
 from spectra_lexer.steno.board import BoardRenderer
 from spectra_lexer.steno.graph import StenoGraph
 from spectra_lexer.steno.lexer import StenoLexer
-from spectra_lexer.steno.search import SearchEngine
 from spectra_lexer.system.system import SystemManager
 from spectra_lexer.types.codec import CSONDict
 from spectra_lexer.utils import recurse_attr
@@ -74,7 +73,8 @@ def test_rule_conflicts():
 
 
 VALID_FLAGS = set(vars(RuleFlags).values())
-IGNORED_KEYS = Counter({"/": 999, "-": 999})
+IGNORED_KEYS = set("/-")
+IGNORED_COUNTER = Counter([*IGNORED_KEYS] * 99)
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
@@ -88,14 +88,45 @@ def test_rules(r):
     if r.rulemap:
         keys = Counter(r.keys)
         keys.subtract(Counter([k for cr in r.rulemap for k in cr.rule.keys]))
-        keys -= IGNORED_KEYS
+        keys -= IGNORED_COUNTER
         assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
+
+
+TRANSLATIONS_DICT = RESOURCE.RSTranslationsLoad(get_test_filename("translations"))
+TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
+
+
+@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
+def test_translations_search(trial):
+    """ Go through each loaded test translation and check the search method in all modes. """
+    keys, word = trial
+    # Search should return a list with only the item itself (or its value) in any mode.
+    assert TRANSLATIONS_DICT.search(keys, count=2, strokes=True) == [keys]
+    assert TRANSLATIONS_DICT.search(word, count=2, strokes=False) == [word]
+    assert TRANSLATIONS_DICT.search(keys, count=None, strokes=True) == [word]
+    assert TRANSLATIONS_DICT.search(word, count=None, strokes=False) == [keys]
+    assert TRANSLATIONS_DICT.search(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
+    assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
+
+
+INDEX_DICT = RESOURCE.RSIndexLoad(get_test_filename("index"))
+TEST_INDEX = list(INDEX_DICT.items())
+
+
+@pytest.mark.parametrize("trial", TEST_INDEX)
+def test_index_search(trial):
+    # Any rule with translations in the index should have its keys and letters somewhere in every entry.
+    rname, tdict = trial
+    rule = RULES_DICT[rname]
+    wresults = INDEX_DICT.search(rname, "", count=100, strokes=False)
+    assert all([rule.letters in r for r in wresults])
+    kresults = INDEX_DICT.search(rname, "", count=100, strokes=True)
+    all_keys = set(rule.keys) - IGNORED_KEYS
+    assert all_keys == all_keys.intersection(*kresults)
 
 
 LEXER = with_rs(StenoLexer())
 LEXER.Load()
-TRANSLATIONS_DICT = RESOURCE.RSTranslationsLoad(get_test_filename("translations"))
-TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 TEST_RESULTS = [LEXER.LXLexerQuery(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
 
 
@@ -106,37 +137,7 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-SEARCH = with_rs(SearchEngine())
-INDEX_DICT = RESOURCE.RSIndexLoad(get_test_filename("index"))
-TEST_INDEX = list(INDEX_DICT.items())
-
-
-@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
-def test_search(trial):
-    """ Go through each loaded test translation and check the search engine in all modes. """
-    keys, word = trial
-    # Search should return a list with only the item itself (or its value) in any mode.
-    assert SEARCH.LXSearchQuery(keys, count=2, strokes=True) == [keys]
-    assert SEARCH.LXSearchQuery(word, count=2, strokes=False) == [word]
-    assert SEARCH.LXSearchQuery(keys, count=None, strokes=True) == [word]
-    assert SEARCH.LXSearchQuery(word, count=None, strokes=False) == [keys]
-    assert SEARCH.LXSearchQuery(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
-    assert SEARCH.LXSearchQuery(re.escape(word), count=2, strokes=False, regex=True) == [word]
-
-
-@pytest.mark.parametrize("trial", TEST_INDEX)
-def test_index_search(trial):
-    # Any rule with translations in the index should have its keys and letters somewhere in every entry.
-    rname, tdict = trial
-    rule = RULES_DICT[rname]
-    wresults = SEARCH.LXSearchQuery(f"//{rname}", strokes=False)
-    assert all([rule.letters in r for r in wresults])
-    kresults = SEARCH.LXSearchQuery(f"//{rname}", strokes=True)
-    all_keys = set(rule.keys) - set("/-")
-    assert all_keys == all_keys.intersection(*kresults)
-
-
-BOARD = with_file(with_rs(BoardRenderer()))
+BOARD = with_rs(BoardRenderer())
 BOARD.Load()
 
 

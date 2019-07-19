@@ -1,44 +1,6 @@
-from functools import partial
-from typing import Callable, Iterable
+from typing import Iterable
 
 from .base import GUIQT
-from spectra_lexer.view import ViewState
-
-
-class QtViewController:
-    """ Holds the current GUI state and dispatches calls to the view layer. """
-
-    _RESET_STATE: dict = vars(ViewState)  # Contains all default values necessary to reset the GUI.
-
-    _state: dict           # Contains a complete representation of the current state of the GUI.
-    _run_action: Callable  # Call with an action and prepared state for the view layer.
-    _update_gui: Callable  # Call with a dict to update the actual GUI widgets.
-
-    def __init__(self, runner:Callable, updater:Callable):
-        self._state = {}
-        self._run_action = runner
-        self._update_gui = updater
-
-    def __call__(self, action:str, attrs:Iterable[str]=(), *values, **cfg_override) -> None:
-        """ Update the state WITHOUT calling any GUI methods (because the user did it), then run the action. """
-        d = self._state
-        if attrs:
-            d.update(zip(attrs, values))
-        self._run_action(ViewState(d), action, **cfg_override)
-
-    def update(self, d:dict) -> None:
-        """ For every attribute given, update our state dict and the GUI widgets. """
-        self._state.update(d)
-        self._update_gui(d)
-
-    def reset(self) -> None:
-        """ Clear the GUI widgets and state. """
-        self._state = {}
-        self._update_gui(self._RESET_STATE)
-
-    def apply_changes(self, state:ViewState) -> None:
-        """ After any action, run through the changes and update the state and widgets with any relevant ones. """
-        self.update(state.changed())
 
 
 class GUIUpdater(dict):
@@ -54,13 +16,19 @@ class GUIUpdater(dict):
 class QtView(GUIQT):
     """ GUI Qt operations class for the main view panels. """
 
-    _controller: QtViewController = None
+    _state_vars: dict = None        # Contains a complete representation of the current state of the GUI.
+    _update_gui: GUIUpdater = None  # Call with a dict to update the actual GUI widgets.
 
     def GUIQTConnect(self) -> None:
         """ Connect all Qt signals and initialize the board size. """
-        self._controller = QtViewController(self.VIEWAction, self._output_updater())
+        self._state_vars = {}
+        self._update_gui = self._output_updater()
         for signal, action, *attrs in self._input_actions():
-            signal.connect(partial(self._controller, action, attrs))
+            def run(*values, _action=action, _attrs=attrs) -> None:
+                """ Update the state (but not the GUI), then run the action. """
+                self._state_vars.update(zip(_attrs, values))
+                self.GUIQTAction(_action)
+            signal.connect(run)
         self.W_BOARD.resizeEvent()
 
     def _input_actions(self) -> Iterable[tuple]:
@@ -92,15 +60,16 @@ class QtView(GUIQT):
     def GUIQTSetEnabled(self, enabled:bool) -> None:
         """ On disable, reset all widgets except the title. """
         if not enabled:
-            old_title = self.W_TITLE.text()
-            self._controller.reset()
-            self.W_TITLE.set_text(old_title)
+            self.GUIQTAction("VIEWReset")
 
     def GUIQTUpdate(self, **kwargs) -> None:
-        self._controller.update(kwargs)
+        """ For every attribute given, update our state dict and the GUI widgets. """
+        self._state_vars.update(kwargs)
+        self._update_gui(kwargs)
 
-    def GUIQTAction(self, action:str, **cfg_override) -> None:
-        self._controller(action, **cfg_override)
+    def GUIQTAction(self, action:str, **override) -> None:
+        self.VIEWAction({**self._state_vars, **override}, action)
 
-    def VIEWActionResult(self, *args) -> None:
-        self._controller.apply_changes(*args)
+    def VIEWActionResult(self, changed:dict) -> None:
+        """ After any action, run through the changes and update the state and widgets with any relevant ones. """
+        self.GUIQTUpdate(**changed)

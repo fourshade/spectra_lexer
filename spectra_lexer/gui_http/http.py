@@ -46,15 +46,16 @@ class HTTPRequestURI:
 
     def __init__(self, uri:str):
         """ Parse the URI into components. """
+        unquote = self._unquote_plus
         if '#' in uri:
             uri, fragment = uri.split('#', 1)
-            self.fragment = self._unquote_plus(fragment)
+            self.fragment = unquote(fragment)
         self.query = {}
         if '?' in uri:
             uri, query = uri.split('?', 1)
-            pairs = [s2.split('=', 1)for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
-            self.query = dict([map(self._unquote_plus, p) for p in pairs])
-        self.path = self._unquote_plus(uri)
+            pairs = [s2.split('=', 1) for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
+            self.query = {unquote(k): unquote(v) for k, v in pairs}
+        self.path = unquote(uri)
 
     def _unquote_plus(self, string:str) -> str:
         """ Replace + and %xx escapes by their single-character equivalent. """

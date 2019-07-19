@@ -1,6 +1,5 @@
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
-from spectra_lexer.core import Command
 from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, StenoRule
 from spectra_lexer.system import ConsoleCommand
 
@@ -29,21 +28,6 @@ class LX(RS):
     def LXLexerMakeIndex(self, size:int) -> StenoIndex:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """
-        raise NotImplementedError
-
-    @ConsoleCommand
-    def LXSearchQuery(self, pattern:str, **kwargs) -> List[str]:
-        """ Determine the correct dict and perform a general search with the given mode. """
-        raise NotImplementedError
-
-    @Command
-    def LXSearchFindLink(self, rule:StenoRule) -> str:
-        """ Look for the given rule in the index. If there are examples, return the link reference. """
-        raise NotImplementedError
-
-    @Command
-    def LXSearchExamples(self, link_name:str, **kwargs) -> str:
-        """ If the link on the diagram is clicked, get a random translation using this rule. """
         raise NotImplementedError
 
     @ConsoleCommand

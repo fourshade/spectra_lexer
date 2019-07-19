@@ -1,4 +1,3 @@
-from .state import ViewState
 from spectra_lexer.core import Command, OptionGroup, Resource
 from spectra_lexer.steno import LX
 from spectra_lexer.types.codec import CFGDict
@@ -43,46 +42,11 @@ class VIEW(LX):
         raise NotImplementedError
 
     @Command
-    def VIEWSearchExamples(self, state:ViewState) -> None:
-        """ When a link is clicked, search for examples of the named rule and select one. """
+    def VIEWAction(self, state:dict, action:str="") -> None:
+        """ Perform any action above with the given state dict, then send it back with the changes. """
         raise NotImplementedError
 
     @Command
-    def VIEWSearch(self, state:ViewState) -> None:
-        """ Do a new search unless the input is blank. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWLookup(self, state:ViewState) -> None:
-        """ Do a value lookup after special checks. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWSelect(self, state:ViewState) -> None:
-        """ Do a lexer query based on the current search selections. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWQuery(self, state:ViewState) -> None:
-        """ Execute and display a lexer query. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWGraphOver(self, state:ViewState) -> None:
-        """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWGraphClick(self, state:ViewState) -> None:
-        """ On click, find the node owning the character at (row, col) and select it with a bright color. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWAction(self, state:ViewState, action:str="", **cfg_override) -> None:
-        """ Perform any action above with the given state, then send it back. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWActionResult(self, state:ViewState) -> None:
-        """ Send this command with the changed state as a result of any action. """
+    def VIEWActionResult(self, changed:dict) -> None:
+        """ Send this command with the state changes as a result of any action. """
         raise NotImplementedError

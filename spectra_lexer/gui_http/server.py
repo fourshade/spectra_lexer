@@ -8,50 +8,48 @@ from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
 from spectra_lexer.system import CmdlineOption
 from spectra_lexer.types.codec import JSONDict
-from spectra_lexer.view import ViewState
 
 
-class HttpViewState(ViewState):
-    """ Class for GUI state data submitted as JSON by HTTP. """
+class ResponseDict(JSONDict):
+    """ A dict subclass with response metadata that is preserved through an action call. """
+    response: HTTPResponse
 
-    SIZE_LIMIT = 100000         # No way should user JSON data be over 100 KB.
-    CHAR_LIMITS = [(b"{", 20),  # Limits on special JSON characters.
-                   (b"[", 20)]
 
-    response: HTTPResponse = None
+class JSONValidator:
+    """ Validates GUI state data submitted as JSON by HTTP. """
 
-    def __init__(self, data:bytes, response:HTTPResponse) -> None:
+    size_limit: int     # Limit on total size of JSON data in bytes.
+    char_limits: tuple  # Limits on special JSON characters.
+
+    def __init__(self, size_limit:int=100000, char_limits:tuple=((b"{", 20),(b"[", 20))):
+        self.size_limit = size_limit
+        self.char_limits = char_limits
+
+    def decode(self, data:bytes) -> ResponseDict:
         """ Process JSON data obtained from a client. This data could contain ANYTHING...beware! """
-        self.validate(data)
-        super().__init__(JSONDict.decode(data), response=response)
-
-    @classmethod
-    def validate(cls, data:bytes) -> None:
-        """ Validate JSON data from an untrusted source. """
-        if len(data) > cls.SIZE_LIMIT:
+        if len(data) > self.size_limit:
             raise ValueError("Data payload too large.")
         # The JSON parser is fast, but dumb. It does naive recursion on containers.
         # The stack can be overwhelmed by a long sequence of '{' and/or '[' characters. Do not let this happen.
-        for c, limit in cls.CHAR_LIMITS:
+        for c, limit in self.char_limits:
             if data.count(c) > limit:
                 raise ValueError("Too many containers.")
+        return ResponseDict.decode(data)
 
-    def send(self) -> None:
+    def encode(self, d:ResponseDict) -> bytes:
         """ Finish a response by encoding any relevant changes to JSON and send them back to the client.
             Make sure all bytes objects are converted to normal strings before encoding. """
-        d = JSONDict(self.changed())
         for k, v in d.items():
             if isinstance(v, bytes):
                 d[k] = v.decode()
-        response = self.response
-        response.add_content(d.encode(), "application/json")
-        response.send()
+        return d.encode()
 
 
 class HttpServer(GUIHTTP):
     """ Class for socket-based TCP/IP stream server, JSON, and communication with the view layer. """
 
     _GET_MIMETYPE = MimeTypes().guess_type
+    _VALIDATOR = JSONValidator()
 
     address: str = CmdlineOption("http-addr", default="localhost", desc="IP address or hostname for server.")
     port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
@@ -125,8 +123,13 @@ class HttpServer(GUIHTTP):
 
     def POST(self, request:HTTPRequest, response:HTTPResponse) -> None:
         """ Process JSON and query data obtained from a client. """
-        state = HttpViewState(request.content, response)
-        self.VIEWAction(state, **request.query)
+        state = self._VALIDATOR.decode(request.content)
+        state.response = response
+        action = request.path.split('/')[-1]
+        self.VIEWAction(state, action)
 
-    def VIEWActionResult(self, state:HttpViewState) -> None:
-        state.send()
+    def VIEWActionResult(self, changed:ResponseDict) -> None:
+        data = self._VALIDATOR.encode(changed)
+        response = changed.response
+        response.add_content(data, "application/json")
+        response.send()
