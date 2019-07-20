@@ -36,10 +36,10 @@ class ViewState:
     _result: dict  # Holds all attributes and values that were changed since creation.
     _view: object  # Has access to all outside components.
 
-    def __init__(self, d:dict, view:object, **kwargs):
-        """ Update the attribute dict directly with a state dict <d> and any kwargs.
+    def __init__(self, d:dict, view:object):
+        """ Update the attribute dict directly with a state dict <d>.
             Empty the original dict and keep it to return with the results. It may have metadata on it. """
-        self.__dict__.update(d, **kwargs)
+        self.__dict__.update(d)
         d.clear()
         self._result = d
         self._view = view

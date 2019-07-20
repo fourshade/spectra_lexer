@@ -1,4 +1,5 @@
-from .base import ConfigDictionary, ConfigOption, VIEW
+from .base import VIEW
+from .config import ConfigDictionary
 from .state import ViewState
 from spectra_lexer.resource import StenoIndex
 from spectra_lexer.system import CmdlineOption
@@ -10,39 +11,23 @@ class ViewManager(VIEW):
     config_file: str = CmdlineOption("config-file", default="~/config.cfg",
                                      desc="CFG file with config settings to load at start and/or write to.")
 
-    show_compound: bool = ConfigOption("board", "compound_keys", default=True,
-                                       desc="Show special labels for compound keys (i.e. `f` instead of TP).")
-    recursive_graph: bool = ConfigOption("graph", "recursive", default=True,
-                                         desc="Include rules that make up other rules.")
-    compressed_graph: bool = ConfigOption("graph", "compressed", default=True,
-                                          desc="Compress the graph vertically to save space.")
-    match_limit: int = ConfigOption("search", "match_limit", default=100,
-                                    desc="Maximum number of matches returned on one page of a search.")
-    show_links: bool = ConfigOption("search", "example_links", default=True,
-                                    desc="Show hyperlinks to other examples of a selected rule from an index.")
-    need_all_keys: bool = ConfigOption("search", "need_all_keys", default=False,
-                                       desc="Only return lexer results that match every key in the stroke.")
+    _config: ConfigDictionary = None  # Keeps track of configuration options in a master dict.
 
     def Load(self) -> None:
-        self.VIEWConfigLoad(self.config_file)
+        data_list = self.SYSFileLoad(self.config_file)
+        cfg = ConfigDictionary.decode(*data_list)
+        self._update_info(cfg)
         if not self.INDEX:
             self.VIEWDialogNoIndex()
 
-    def VIEWConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
-        data_list = self.SYSFileLoad(*patterns)
-        cfg = ConfigDictionary.decode(*data_list, **kwargs)
-        self._update_config(cfg)
-        return cfg
+    def VIEWConfigUpdate(self, options:dict) -> None:
+        cfg = ConfigDictionary(options)
+        self.SYSFileSave(cfg.encode(), self.config_file)
+        self._update_info(cfg)
 
-    def VIEWConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
-        data = cfg.encode(**kwargs)
-        self.SYSFileSave(data, filename or self.config_file)
-        self._update_config(cfg)
-
-    def _update_config(self, cfg:ConfigDictionary) -> None:
-        """ Update the config resource and all config values on existing components. """
-        self.CONFIG = cfg
-        self.CONFIG_INFO = [(sect, name, val) for sect, page in cfg.items() for name, val in page.items()]
+    def _update_info(self, cfg:ConfigDictionary):
+        self._config = cfg
+        self.VIEWConfigInfo(cfg.info())
 
     def VIEWDialogMakeIndex(self, index_size:int) -> None:
         """ A sentinel value is required in empty indices to distinguish them from defaults. """
@@ -68,6 +53,7 @@ class ViewManager(VIEW):
         self.SYSStatus(msg)
 
     def VIEWAction(self, state:dict, action:str="") -> None:
+        self._config.write_to(state)
         result = ViewState(state, self).run(action)
         if result is not None:
             self.VIEWActionResult(result)

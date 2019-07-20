@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QLabel, QLayout, QMessageBox, QSlider, QToolTip, QVB
 
 from .base import GUIQT_TOOL
 from .dialog import FormDialog, DialogContainer
+from spectra_lexer.resource import StenoIndex
 
 _STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
@@ -12,23 +13,15 @@ like to create one now? You will not be asked again.</p>
 <p>(If you cancel, all other features will still work. You can always create the index later from
 the Tools menu, and can expand it from the default size as well if it is not sufficient).</p>"""
 
-_UPPER_TEXT = """
+_UPPER_TEXT = f"""
 <p>Please choose the size for the new index. The relative size factor is a number between 1 and 20:</p>
-<p>size = 1: includes nothing.</p>
-<p>size = 10: fast index with relatively simple words.</p>
-<p>size = 12: average-sized index (default).</p>
-<p>size = 15: slower index with more advanced words.</p>
-<p>size = 20: includes everything.</p>"""
+<p>{'</p><p>'.join(StenoIndex.SIZE_DESCRIPTIONS)}</p>"""
 
 _LOWER_TEXT = """
 <p align="justify">An extremely large index is not necessarily more useful. The index is created from the Plover 
 dictionary, which is very large (about 150,000 translations) with many useless and even erroneous entries. As the 
 index grows, so does the loading time, and past a certain point the garbage will start to crowd out useful information. 
-There are few practical reasons to increase the index size beyond 15.</p>"""
-
-MINIMUM_SIZE = 1
-DEFAULT_SIZE = 12
-MAXIMUM_SIZE = 20
+Unless you are doing batch analysis, there is little benefit to a maximum-sized index.</p>"""
 
 
 class IndexDialog(FormDialog):
@@ -45,9 +38,9 @@ class IndexDialog(FormDialog):
         heading_label.setWordWrap(True)
         heading_label.setText(_UPPER_TEXT)
         self.slider = QSlider(self)
-        self.slider.setMinimum(MINIMUM_SIZE)
-        self.slider.setMaximum(MAXIMUM_SIZE)
-        self.slider.setValue(DEFAULT_SIZE)
+        self.slider.setMinimum(StenoIndex.MINIMUM_SIZE)
+        self.slider.setMaximum(StenoIndex.MAXIMUM_SIZE)
+        self.slider.setValue(StenoIndex.DEFAULT_SIZE)
         self.slider.setOrientation(Qt.Horizontal)
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(1)
@@ -83,7 +76,7 @@ class QtIndexTool(GUIQT_TOOL):
             Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
         yes, no = QMessageBox.Yes, QMessageBox.No
         button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
-        self._make_index(DEFAULT_SIZE * (button == yes))
+        self._make_index(StenoIndex.DEFAULT_SIZE * (button == yes))
 
     def TOOLIndexOpen(self) -> None:
         """ If the index size was positive, the dialog was accepted. """

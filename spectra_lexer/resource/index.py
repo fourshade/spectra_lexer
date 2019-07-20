@@ -11,6 +11,16 @@ class StenoIndex(JSONDict):
     """ A resource-heavy index dict-of-dicts for finding translations that contain a particular steno rule.
         Index search is a two-part search. The first part goes by rule name; only exact matches will work. """
 
+    MINIMUM_SIZE = 1   # Minimum index size. Below this size, input filters block everything.
+    DEFAULT_SIZE = 12  # Default index size. Essentially the maximum word length.
+    MAXIMUM_SIZE = 20  # Maximum index size. At this size and above, input filters are disabled.
+
+    SIZE_DESCRIPTIONS = ["size = 1: includes nothing.",
+                         "size = 10: fast index with relatively simple words.",
+                         "size = 12: average-sized index (default).",
+                         "size = 15: slower index with more advanced words.",
+                         "size = 20: includes everything."]
+
     @classmethod
     def _decode(cls, data:bytes, **kwargs) -> dict:
         """ Make sure this isn't just an arbitrary JSON file. """
@@ -38,16 +48,18 @@ class StenoIndex(JSONDict):
         return k if strokes else d[k]
 
     @classmethod
-    def filters(cls, size:int) -> tuple:
+    def filters(cls, size:int=DEFAULT_SIZE) -> tuple:
         """ Generate filters to control index size. Larger translations are excluded with smaller index sizes.
             The parameter <size> determines the relative size of a generated index (range 1-20). """
+        if size < cls.MINIMUM_SIZE:
+            return (lambda t: False, None)
         def filter_in(translation:tuple) -> bool:
             """ Filter function to eliminate larger entries from the index depending on the size factor. """
             return max(map(len, translation)) <= size
         def filter_out(rule:StenoRule) -> bool:
             """ Filter function to eliminate lexer results that are unmatched or basic rules themselves. """
             return len(rule.rulemap) > 1
-        return (filter_in if size < 20 else None, filter_out)
+        return (filter_in if size < cls.MAXIMUM_SIZE else None, filter_out)
 
     @classmethod
     def compile(cls, rules:Iterable[StenoRule], rev_rules:Dict[StenoRule, str]):

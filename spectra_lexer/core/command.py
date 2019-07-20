@@ -64,7 +64,7 @@ class CommandGroup:
         self._cmds.append(cmd)
         return cmd
 
-    def __get__(self, instance:object, owner:type) -> List[Callable]:
+    def __get__(self, instance:object, owner:type=None) -> List[Callable]:
         """ Bind the commands to any component that accesses this so it can call them. """
         return [cmd.wrap(instance) for cmd in self._cmds]
 
@@ -79,7 +79,7 @@ class Resource(AbstractCommand):
         self.default = default
         self._rs_attr = f"RS_{id(self)}"
 
-    def __get__(self, instance:object, owner:type) -> Any:
+    def __get__(self, instance:object, owner:type=None) -> Any:
         return getattr(instance, self._rs_attr, self.default)
 
     def bind(self, cmp:object) -> Iterator[Callable]:
@@ -111,7 +111,7 @@ class OptionGroup:
         self._options[keys] = rs
         return rs
 
-    def __get__(self, instance:object, owner:type) -> List[tuple]:
+    def __get__(self, instance:object, owner:type=None) -> List[tuple]:
         return [(*keys, opt.default, opt.desc) for keys, opt in self._options.items()]
 
     def __set__(self, instance:object, value:Iterable[tuple]) -> None:

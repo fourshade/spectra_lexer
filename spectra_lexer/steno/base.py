@@ -25,7 +25,7 @@ class LX(RS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXLexerMakeIndex(self, size:int) -> StenoIndex:
+    def LXLexerMakeIndex(self, *args) -> StenoIndex:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """
         raise NotImplementedError

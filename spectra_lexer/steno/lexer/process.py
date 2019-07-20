@@ -1,6 +1,6 @@
 from typing import Callable, Iterable, Iterator, List, Tuple
 
-from .generate import LexerRuleGenerator
+from .generate import LexerRuleGenerator, RESULT_TYPE
 from .match import LexerRuleMatcher
 from spectra_lexer.resource import RuleMapItem, StenoRule
 from spectra_lexer.utils import str_without, par_starmap
@@ -13,41 +13,39 @@ class LexerProcessor:
     _match_rules: LexerRuleMatcher      # Master rule-matching dictionary.
     _generate_rule: LexerRuleGenerator  # Makes rules from lexer matches.
     _to_skeys: Callable[[str], str]     # Performs thorough conversions on RTFCRE steno strings.
-    _need_all_keys: bool                # If True, only return results that match every key in the stroke.
 
-    def __init__(self, match_rules:LexerRuleMatcher, generator:LexerRuleGenerator,
-                 to_skeys:Callable[[str], str], need_all_keys:bool=False):
+    def __init__(self, match_rules:LexerRuleMatcher, generator:LexerRuleGenerator, to_skeys:Callable[[str], str]):
         self._match_rules = match_rules
         self._generate_rule = generator
         self._to_skeys = to_skeys
-        self._need_all_keys = need_all_keys
 
-    def query(self, keys:str, word:str) -> StenoRule:
+    def query(self, keys:str, word:str, **kwargs) -> StenoRule:
         """ Return the best rule that maps the given key string to the given word. """
-        return self._generate_rule(list(self._process(keys, word)), keys, word)
+        results = [*self._process(keys, word, **kwargs)]
+        return self._generate_rule(results, keys, word)
 
-    def query_best(self, pairs:Iterable[Tuple[str, str]]) -> StenoRule:
+    def query_best(self, items:Iterable[Tuple[str, str]], **kwargs) -> StenoRule:
         """ Return the best rule out of all (keys, word) pairs. """
-        pairs = list(pairs)
-        rules = [r for p in pairs for r in self._process(*p)]
-        return self._generate_rule(rules, *pairs[0])
+        first, *others = pairs = [*items]
+        results = [r for keys, word in pairs for r in self._process(keys, word, **kwargs)]
+        return self._generate_rule(results, *first)
 
     def query_parallel(self, items:Iterable[Tuple[str, str]],
-                       filter_in:Callable=None, filter_out:Callable=None) -> List[StenoRule]:
+                       filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> List[StenoRule]:
         """ Run the lexer in parallel on all translation items and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
         if filter_in is not None:
             items = filter(filter_in, items)
-        results = par_starmap(self.query, items)
+        results = par_starmap(self.query, items, **kwargs)
         if filter_out is not None:
             results = list(filter(filter_out, results))
         return results
 
-    def _process(self, keys:str, word:str) -> Iterator[Tuple[List[RuleMapItem], str, str, str]]:
+    def _process(self, keys:str, word:str, need_all_keys:bool=False) -> Iterator[RESULT_TYPE]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed
             characters in order to generate a series of complete rule maps that could possibly produce the translation.
-            Yield each result that isn't optimized away. Use heavy optimization when possible. """
-        need_all_keys = self._need_all_keys
+            Yield each result that isn't optimized away. Use heavy optimization when possible.
+            If <need_all_keys> is True, only return results that match every key in the stroke."""
         match_rules = self._match_rules
         # Thoroughly cleanse and parse the key string into s-keys format first (user strokes cannot be trusted).
         skeys = self._to_skeys(keys)

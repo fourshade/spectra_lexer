@@ -1,11 +1,8 @@
-from collections import defaultdict
-
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout
 
 from .base import GUIQT_TOOL
 from .dialog import DialogContainer, FormDialog
-from spectra_lexer.view import ConfigDictionary
 
 # Each supported option type uses a specific editing widget with basic getter and setter methods.
 _W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
@@ -17,7 +14,7 @@ def _save_dict(d:dict) -> dict:
     return {k: v.save() for k, v in d.items()}
 
 
-class OptionRow(list):
+class OptionRow:
 
     def __init__(self, val:object, opt_tp:type, label:str, desc:str):
         """ Create a new widget row for a config option based on its attributes. Only basic types are supported.
@@ -28,10 +25,10 @@ class OptionRow(list):
         w.setToolTip(desc)
         w_label = QLabel(label)
         w_label.setToolTip(desc)
-        super().__init__([w_label, w])
         # Option values must convert to the widget's native type on load, and back to the option's type on save.
         setter(w, w_tp(val))
         self.save = lambda: opt_tp(getter(w))
+        self.add_to = lambda layout: layout.addRow(w_label, w)
 
 
 class OptionPage(QFrame):
@@ -41,8 +38,8 @@ class OptionPage(QFrame):
         super().__init__()
         rows = {name: OptionRow(*opt) for name, opt in opt_dict.items()}
         layout = QFormLayout(self)
-        for name, row in rows.items():
-            layout.addRow(*row)
+        for row in rows.values():
+            row.add_to(layout)
         self.save = lambda: _save_dict(rows)
 
 
@@ -67,7 +64,7 @@ class ConfigDialog(FormDialog):
         """ Validate all config values from each page and widget. Show a popup if there are one or more errors.
             Return a dict with the new values (not the setup info) to the callback on dialog accept. """
         try:
-            return ConfigDictionary(self.save())
+            return self.save()
         except TypeError:
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:
@@ -78,20 +75,13 @@ class QtConfigTool(GUIQT_TOOL):
     """ Config manager; allows editing of config values for any component. """
 
     _dialog: DialogContainer
+    _info: dict = {}
 
     def __init__(self):
         self._dialog = DialogContainer(ConfigDialog)
 
     def TOOLConfigOpen(self) -> None:
-        self._dialog.open(self.WINDOW, self.VIEWConfigSave, self._get_info())
+        self._dialog.open(self.WINDOW, self.VIEWConfigUpdate, self._info)
 
-    def _get_info(self) -> dict:
-        """ Make a dict with detailed config info from active components and data from disk. """
-        info = defaultdict(dict)
-        data = defaultdict(dict, self.CONFIG)
-        for sect, name, default, desc in self.CONFIG_INFO:
-            v = data[sect].get(name, default)
-            tp = type(v)
-            label = name.replace("_", " ").title()
-            info[sect][name] = [v, tp, label, desc]
-        return info
+    def VIEWConfigInfo(self, info:dict) -> None:
+        self._info = info

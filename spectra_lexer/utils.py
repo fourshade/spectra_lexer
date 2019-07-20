@@ -1,12 +1,12 @@
 """ Module for generic utility functions that could be useful in many applications.
     Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments. """
 
-from functools import reduce
+from functools import partial, reduce
 from itertools import starmap
 from multiprocessing import cpu_count, Pool
 import sys
 from traceback import print_exc
-from typing import Container, Iterable
+from typing import Callable, Container, Iterable
 
 
 def ensure_iterable(obj:object, *, blacklist:Container=(str,), empty:Container=(type(None),), iter_items:bool=True):
@@ -58,7 +58,7 @@ def recurse_attr(obj:object, attr:str, max_level:int=-1):
             yield from recurse_attr(item, attr, max_level - 1)
 
 
-def par_starmap(func, iterable:Iterable[tuple], processes:int=None) -> list:
+def par_starmap(func:Callable, iterable:Iterable[tuple], *args, processes:int=None, **kwargs) -> list:
     """ Equivalent of itertools.starmap using multiprocessing. Returns a list instead of an iterator.
 
         Use of multiprocessing is very error-prone due to its requirement to recursively pickle every object associated
@@ -72,6 +72,9 @@ def par_starmap(func, iterable:Iterable[tuple], processes:int=None) -> list:
         before sending the pieces to each process. This means any expensive computations involved in lazy iteration are
         performed *before* any work is done in parallel. However, if we want the possibility of retrying the computation
         with a single process, we have to evaluate the iterable and save the results to a list ourselves anyway. """
+    # Extra arguments are treated as partials applying to *every* call.
+    if args or kwargs:
+        func = partial(func, *args, **kwargs)
     # If not specified, the number of processes defaults to the number of CPU cores.
     processes = processes or cpu_count() or 1
     if processes > 1:

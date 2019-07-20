@@ -1,24 +1,22 @@
-from spectra_lexer.core import Command, OptionGroup, Resource
+from spectra_lexer.core import Command
 from spectra_lexer.steno import LX
-from spectra_lexer.types.codec import CFGDict
-
-ConfigDictionary = CFGDict
-ConfigOption = OptionGroup()
 
 
 class VIEW(LX):
 
-    CONFIG: ConfigDictionary = Resource(ConfigDictionary())
-    CONFIG_INFO: list = ConfigOption  # Keeps track of configuration options in a master dict.
-
     @Command
-    def VIEWConfigLoad(self, *patterns:str, **kwargs) -> ConfigDictionary:
-        """ Load and update all config options from disk. Ignore missing files. """
+    def VIEWConfigInfo(self, info:dict) -> None:
+        """ Send this command with detailed config info from active components. """
         raise NotImplementedError
 
     @Command
-    def VIEWConfigSave(self, cfg:ConfigDictionary, filename:str="", **kwargs) -> None:
-        """ Update and save all config options to disk. If no save filename is given, use the default. """
+    def VIEWConfigUpdate(self, options:dict) -> None:
+        """ Update and save all config options to disk. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogIndexDone(self) -> None:
+        """ Send this command when an index creation finishes. """
         raise NotImplementedError
 
     @Command

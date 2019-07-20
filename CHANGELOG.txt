@@ -1,3 +1,9 @@
+6.1.0
+-----
+* Added logging facilities
+* Improved HTTP support and performance.
+* Improved general code quality.
+
 6.0.0
 -----
 * Total refactoring of the framework with new HTTP support

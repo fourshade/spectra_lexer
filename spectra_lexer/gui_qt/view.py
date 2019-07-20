@@ -61,6 +61,13 @@ class QtView(GUIQT):
         """ On disable, reset all widgets except the title. """
         if not enabled:
             self.GUIQTAction("VIEWReset")
+        self.W_MENU.setEnabled(enabled)
+        self.W_INPUT.setEnabled(enabled)
+        self.W_INPUT.setPlaceholderText("Search..." if enabled else "")
+        self.W_MATCHES.setEnabled(enabled)
+        self.W_MAPPINGS.setEnabled(enabled)
+        self.W_STROKES.setEnabled(enabled)
+        self.W_REGEX.setEnabled(enabled)
 
     def GUIQTUpdate(self, **kwargs) -> None:
         """ For every attribute given, update our state dict and the GUI widgets. """

@@ -75,7 +75,8 @@ class ObjectTree(GUIQT_TOOL):
         return icon_list
 
     def _components_by_path(self) -> package:
-        """ Return a nested package dict with each component indexed by its class's module path. """
+        """ Return a nested package dict with each component indexed by its class's module path.
+            Do not include the root package name. Anything in a 'base' module represents its entire package. """
         d = {}
         for cmp in self.ALL_COMPONENTS:
             ks = type(cmp).__module__.split(".")

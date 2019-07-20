@@ -332,7 +332,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="m_menu">
+  <widget class="MainMenu" name="m_menu">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -350,6 +350,11 @@
   </widget>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>MainMenu</class>
+   <extends>QMenuBar</extends>
+   <header>spectra_lexer.gui_qt.widgets.main_menu</header>
+  </customwidget>
   <customwidget>
    <class>SearchListWidget</class>
    <extends>QListView</extends>
