@@ -1,11 +1,13 @@
 import sys
+from itertools import islice
+from traceback import TracebackException
 from typing import List
 
 from .base import CmdlineOption, SYS
 from .cmdline import CmdlineParser
 from .console import SystemConsole
 from .io import PathIO
-from .log import SystemLogger
+from .log import StreamLogger
 
 
 class SystemManager(SYS):
@@ -14,14 +16,13 @@ class SystemManager(SYS):
     log_file: str = CmdlineOption("log-file", default="~/status.log",
                                   desc="Text file to log status and exceptions.")
 
-    _io: PathIO = None              # Reads, writes, and converts path strings.
-    _logger: SystemLogger = None    # Logs system events to standard streams and/or files.
+    _io: PathIO            # Reads, writes, and converts path strings.
+    _logger: StreamLogger  # Logs system events to standard streams and/or files.
     _console: SystemConsole = None
 
     def __init__(self):
         self._io = PathIO(**self.get_root_paths())
-        self._logger = SystemLogger()
-        self._logger.add_stream(sys.stdout)
+        self._logger = StreamLogger(sys.stdout)
 
     def Load(self) -> None:
         """ Create the parser and add all possible command line options from each component that has some.
@@ -29,7 +30,7 @@ class SystemManager(SYS):
         parser = CmdlineParser(*self.CMDLINE_INFO)
         self.CMDLINE_INFO = [*parser.parse().items()]
         log_path = self._io.to_path(self.log_file)
-        self._logger.add_file(log_path)
+        self._logger.add_path(log_path)
 
     def SYSConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
         kwargs["__app__"] = self.ALL_COMPONENTS
@@ -47,12 +48,14 @@ class SystemManager(SYS):
 
     def SYSStatus(self, status:str) -> None:
         """ Log and print status messages to stdout by default. """
-        self._logger.info(status)
+        self._logger(status)
 
-    def HandleException(self, exc:Exception) -> bool:
+    def HandleException(self, exc:Exception, max_lines:int=50) -> bool:
         """ Log and print an exception traceback to stdout, if possible.
             Also send the traceback text to any other component that wants it. """
-        tb_text = self._logger.exception(exc)
+        tb = TracebackException.from_exception(exc)
+        tb_text = "".join(islice(tb.format(), max_lines))
+        self._logger(f'EXCEPTION\n{tb_text}')
         self.SYSTraceback(tb_text)
         return True
 

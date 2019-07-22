@@ -73,17 +73,17 @@ class xhelp:
         return "Type help(object) for auto-generated help on any Python object."
 
 
-class AttrRedirector(list):
+class AttrRedirector:
     """ Context manager that temporarily overwrites a number of attributes on a target object, then restores them.
         Only works on objects with a __dict__. The usual case is redirecting streams and hooks from the sys module. """
 
     def __init__(self, target:object, **attrs):
         """ We usually have specific literal attributes to redirect, so **keywords are best. """
-        super().__init__([vars(target), attrs])
+        self._params = vars(target), attrs
 
     def __exit__(self, *args) -> None:
         """ Switch the attributes on both dicts. This operation is symmetrical and works for __enter__ as well. """
-        d, attrs = self
+        d, attrs = self._params
         for a in attrs:
             d[a], attrs[a] = attrs[a], d[a]
 
@@ -114,14 +114,15 @@ class SystemConsole:
     def run(self, text_in:str) -> None:
         """ When a new line is sent, push it to the interpreter and run it if it makes a complete statement.
             Redirect the standard output streams to our write method during execution. """
-        try:
-            with AttrRedirector(sys, stdout=self, stderr=self):
+        with AttrRedirector(sys, stdout=self, stderr=self):
+            try:
                 more = self.interpreter.push(text_in)
-        except KeyboardInterrupt:
-            self.write("KeyboardInterrupt\n")
-        self.write(self.ps2 if more else self.ps1)
+            except KeyboardInterrupt:
+                self.write("KeyboardInterrupt\n")
+            self.write(self.ps2 if more else self.ps1)
 
     def write(self, text_out:str) -> None:
-        """ Forward all output text to the callback. """
+        """ Forward all output text to the callback as well as stdout. """
         sys.__stdout__.write(text_out)
+        sys.__stdout__.flush()
         self.write_callback(text_out)
