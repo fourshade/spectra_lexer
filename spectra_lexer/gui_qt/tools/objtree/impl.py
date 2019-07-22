@@ -1,12 +1,13 @@
 from collections import defaultdict
 from functools import lru_cache
 from itertools import islice
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
+from .resources import IconData
 from .row import RowData
 from ..dialog import ToolDialog
 from ...icon import IconRenderer
@@ -33,7 +34,7 @@ class _RowFormatter:
 
     _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
 
-    def __init__(self, icon_data:List[Tuple[List[str], bytes]]):
+    def __init__(self, icon_data:IconData):
         """ Render each icon from bytes data and add them to a dict under each alias. """
         self._icons = {}
         for aliases, xml in icon_data:
@@ -83,16 +84,17 @@ class _RowFormatter:
 class ObjectTreeModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
-    _format_row: _RowFormatter           # Formats each item data dict with flags and roles.
+    _format_row: _RowFormatter             # Formats each item data dict with flags and roles.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
-    def __init__(self, root_data:RowData, **resources):
+    def __init__(self, root_dict:dict, icon_data:IconData):
         """ Create the row formatter and index dictionaries and fill out the root level of the tree. """
         super().__init__()
-        self._format_row = _RowFormatter(**resources)
         self._d = defaultdict(list)
+        self._format_row = _RowFormatter(icon_data)
         root_idx = QModelIndex()
+        root_data = RowData(root_dict)
         root_item = self._format_row(root_data)[0]
         self._idx_to_item = defaultdict(dict, {root_idx: root_item})
         self.expand(root_idx)
@@ -186,7 +188,7 @@ class ObjectTreeDialog(ToolDialog):
     TITLE: str = "Python Object Tree View"
     SIZE: tuple = (600, 450)
 
-    def make_layout(self, resources:dict) -> None:
+    def make_layout(self, *args) -> None:
         """ Create the layout, item model, and tree widget. """
-        model = ObjectTreeModel(**resources)
+        model = ObjectTreeModel(*args)
         QVBoxLayout(self).addWidget(ObjectTreeView(self, model))

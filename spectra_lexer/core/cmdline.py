@@ -25,5 +25,31 @@ class CmdlineParser(ArgumentParser):
 
     def parse(self) -> dict:
         """ The parser replaces hyphens with underscores, but our keys need the hyphens. """
-        args_dict = vars(self.parse_args())
-        return {k.replace("_", "-"): v for k, v in args_dict.items()}
+        args = vars(self.parse_args())
+        return {k.replace("_", "-"): args[k] for k in args}
+
+
+class CmdlineOption:
+    """ Class option settable by the command line. """
+
+    _ALL_OPTIONS: dict = {}  # Contains all options declared by imported classes.
+
+    _value: object  # Read-only value for the option.
+
+    def __init__(self, key:str, default=None, desc:str=""):
+        self._value = default
+        self._ALL_OPTIONS[self] = key, default, desc
+
+    def __get__(self, instance:object, owner:type=None):
+        return self._value
+
+    @classmethod
+    def process_all(cls) -> None:
+        """ Get parameter tuples from every declared option and process them.
+            Update all options by setting the value attributes manually. """
+        all_opts = cls._ALL_OPTIONS
+        parser = CmdlineParser(*all_opts.values())
+        parsed_opts = parser.parse()
+        for opt, (key, default, desc) in all_opts.items():
+            if key in parsed_opts:
+                opt._value = parsed_opts[key]

@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from functools import partial, update_wrapper
-from typing import Any, Callable, Hashable, Iterable, Iterator, List, Tuple
+from typing import Any, Callable, Hashable, Iterator, List, Tuple
 
 
 class AbstractCommand:
@@ -97,26 +97,3 @@ class Resource(AbstractCommand):
         """ Resources bound directly to names should use those names. """
         super().__set_name__(owner, name)
         self._rs_attr = f"RS_{name}"
-
-
-class OptionGroup:
-    """ Group of option resources declared by component classes. """
-
-    def __init__(self):
-        self._options: dict = {}
-
-    def __call__(self, *keys:str, default:Any=None, desc:str="") -> Resource:
-        rs = Resource(default)
-        rs.desc = desc
-        self._options[keys] = rs
-        return rs
-
-    def __get__(self, instance:object, owner:type=None) -> List[tuple]:
-        return [(*keys, opt.default, opt.desc) for keys, opt in self._options.items()]
-
-    def __set__(self, instance:object, value:Iterable[tuple]) -> None:
-        """ Update all options by setting descriptors manually. """
-        for *keys, val in value:
-            opt = self._options.get(tuple(keys))
-            if opt is not None:
-                opt.__set__(instance, val)

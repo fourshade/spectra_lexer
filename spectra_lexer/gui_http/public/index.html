@@ -1,7 +1,7 @@
 <!DOCTYPE html><html><head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=600">
     <title>The Spectra Project</title>
     <link rel="icon" href="icon.svg">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
@@ -146,38 +146,42 @@
     .row3 {vertical-align: top;}
     .col1 {width: 150px;}
     .col2 {min-width: 450px;}
+    body  {font-family: Arial, Helvetica, sans-serif;
+           font-size: 11pt;}
     table {width: 100%;
            height: 100%;}
     td    {margin: 0px;
            padding: 4px;
-           border-width: 1px;
-           border-style: solid;}
-    pre   {margin: 2px;
-           font: 10pt Courier New;}
+           border: 1px solid black;}
+    pre, .mono  {margin: 2px;
+                 font-family: "Courier New", Courier, monospace;
+                 font-size: 10pt;}
     div, select {width: inherit;
                  height: inherit;}
     svg   {max-height: 250px;}
 
-    #w_search_type  {margin: 8px 10px 8px 10px;}
-    #w_search_regex {margin: 8px 10px 8px 10px;}
+    #w_search_type, #w_search_regex  {margin: 8px 10px 8px 10px;}
     #w_display_title {width: 100%;
-                      border-style: none;
-                      margin: 2px;
-                      font: 10pt Courier New;}
-    #w_display_link {position: absolute;
-                     bottom: 4px;
-                     right: 4px;
-                     font: 10pt Arial;}
+                      border-style: none;}
+    #w_display_text  {overflow: auto;}
+    #w_display_link  {position: absolute;
+                      bottom: 4px;
+                      right: 4px;}
+
+    .mobile {display: none;}
+    @media only screen and (min-device-width : 320px) and (max-device-width : 480px) {
+        .mobile {display: block;}
+    }
     </style>
 </head><body>
 <table>
     <tr>
         <td><input class="row1 col1" id="w_search_input" placeholder="Search..." title="Search the dictionary for a text pattern."></td>
-        <td><input class="row1 col2" id="w_display_title" value="Spectra HTTP Client" title='Enter text here in the form "STO*EUPB -> English" to analyze a translation.'></td>
+        <td><input class="row1 col2 mono" id="w_display_title" value="Spectra HTTP Client" title='Enter text here in the form "STO*EUPB -> English" to analyze a translation.'></td>
     </tr>
     <tr>
         <td class="row2 col1"><select id="w_search_matches" size="2"></select></td>
-        <td class="row2 col2"><div id="w_display_text" style="overflow: auto;"><pre>Search for any word to see its breakdown.</pre></div></td>
+        <td class="row2 col2"><div id="w_display_text"><pre>Search for any word to see its breakdown.</pre></div></td>
     </tr>
     <tr>
         <td class="row3 col1">
@@ -195,4 +199,7 @@
 <div style="text-align:right;">
     <span><a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
 </div>
+<p class="mobile">
+    <span><u>WARNING</u>: The major mobile browsers do not grasp the concept of "monospaced" font rendering for anything outside the ASCII range. The line-based characters in Unicode are explicitly designed for this, yet mobile browsers routinely mangle the spacing in practically every font. I have not yet found a suitable workaround for this.</span>
+</p>
 </body></html>

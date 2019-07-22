@@ -1,13 +1,13 @@
-import sys
 from itertools import islice
+import sys
 from traceback import TracebackException
 from typing import List
 
-from .base import CmdlineOption, SYS
-from .cmdline import CmdlineParser
+from .base import SYS
 from .console import SystemConsole
 from .io import PathIO
 from .log import StreamLogger
+from spectra_lexer.core import CmdlineOption
 
 
 class SystemManager(SYS):
@@ -25,10 +25,6 @@ class SystemManager(SYS):
         self._logger = StreamLogger(sys.stdout)
 
     def Load(self) -> None:
-        """ Create the parser and add all possible command line options from each component that has some.
-            Parse arguments from the app and update all command line options on existing components. """
-        parser = CmdlineParser(*self.CMDLINE_INFO)
-        self.CMDLINE_INFO = [*parser.parse().items()]
         log_path = self._io.to_path(self.log_file)
         self._logger.add_path(log_path)
 

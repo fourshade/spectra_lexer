@@ -1,6 +1,7 @@
 import sys
 
 from .base import CORE
+from .cmdline import CmdlineOption
 from .engine import Engine
 from .group import ClassFilter, InstanceGroup
 
@@ -13,8 +14,9 @@ class Application(CORE):
         components = self._build_components(self._class_paths())
         engine = self._build_engine(components, exc_command=CORE.HandleException)
         engine.connect(self)
+        # Load all command line options and resources and run the application.
         self.ALL_COMPONENTS = components
-        # Load all resources and run the application.
+        CmdlineOption.process_all()
         self.Load()
         self.run()
 

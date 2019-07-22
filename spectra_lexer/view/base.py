@@ -26,7 +26,12 @@ class VIEW(LX):
 
     @Command
     def VIEWDialogMakeIndex(self, index_size:int) -> None:
-        """ Make a normal index if <index_size> > 0, otherwise make an empty one. Save and send out the result. """
+        """ Make an index, save it, and send out the result. """
+        raise NotImplementedError
+
+    @Command
+    def VIEWDialogSkipIndex(self) -> None:
+        """ Make an empty index and save it. """
         raise NotImplementedError
 
     @Command

@@ -76,17 +76,18 @@ class QtIndexTool(GUIQT_TOOL):
             Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
         yes, no = QMessageBox.Yes, QMessageBox.No
         button = QMessageBox.question(self.WINDOW, "Make Index", _STARTUP_MESSAGE, yes | no)
-        self._make_index(StenoIndex.DEFAULT_SIZE * (button == yes))
+        if button == yes:
+            self._make_index(StenoIndex.DEFAULT_SIZE)
+        else:
+            self.VIEWDialogSkipIndex()
 
     def TOOLIndexOpen(self) -> None:
-        """ If the index size was positive, the dialog was accepted. """
         self._dialog.open(self.WINDOW, self._make_index)
 
     def _make_index(self, index_size:int) -> None:
         """ Disable the GUI while the thread is busy. """
-        if index_size:
-            self.GUIQTSetEnabled(False)
-            self.VIEWDialogMakeIndex(index_size)
+        self.GUIQTSetEnabled(False)
+        self.VIEWDialogMakeIndex(index_size)
 
     def VIEWDialogIndexDone(self, *args) -> None:
         """ Re-enable the GUI once the thread is clear. """

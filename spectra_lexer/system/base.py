@@ -1,15 +1,13 @@
 from typing import List
 
-from spectra_lexer.core import Command, CommandGroup, CORE, OptionGroup
+from spectra_lexer.core import Command, CommandGroup, CORE
 
-CmdlineOption = OptionGroup()
 ConsoleCommand = CommandGroup()
 
 
 class SYS(CORE):
     """ Simple interface definition for general system commands and resources with no specific category. """
 
-    CMDLINE_INFO: list = CmdlineOption       # List of info for every command line option.
     CONSOLE_COMMANDS: list = ConsoleCommand  # List of all commands directly available in the console.
 
     @Command

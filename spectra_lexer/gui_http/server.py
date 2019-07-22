@@ -6,7 +6,7 @@ from threading import Thread
 from .base import GUIHTTP
 from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
-from spectra_lexer.system import CmdlineOption
+from spectra_lexer.core import CmdlineOption
 from spectra_lexer.types.codec import JSONDict
 
 
@@ -51,12 +51,13 @@ class HttpServer(GUIHTTP):
     _GET_MIMETYPE = MimeTypes().guess_type
     _VALIDATOR = JSONValidator()
 
-    address: str = CmdlineOption("http-addr", default="localhost", desc="IP address or hostname for server.")
+    address: str = CmdlineOption("http-addr", default="", desc="IP address or hostname for server.")
     port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
 
     sock: TCPServerSocket = None  # Server socket object which creates other sockets for connections.
 
     def Load(self) -> None:
+        print(self.address)
         self.sock = TCPServerSocket(self.address, self.port)
 
     def GUIHTTPServe(self) -> None:

@@ -1,8 +1,8 @@
 from .base import VIEW
 from .config import ConfigDictionary
 from .state import ViewState
+from spectra_lexer.core import CmdlineOption
 from spectra_lexer.resource import StenoIndex
-from spectra_lexer.system import CmdlineOption
 
 
 class ViewManager(VIEW):
@@ -30,19 +30,21 @@ class ViewManager(VIEW):
         self.VIEWConfigInfo(cfg.info())
 
     def VIEWDialogMakeIndex(self, index_size:int) -> None:
+        self._msg("Making new index...")
+        index = self.LXLexerMakeIndex(index_size)
+        self._save_index(index)
+        self._msg("Successfully created index!")
+        self.VIEWDialogIndexDone()
+
+    def VIEWDialogSkipIndex(self) -> None:
         """ A sentinel value is required in empty indices to distinguish them from defaults. """
-        if index_size:
-            self._msg("Making new index...")
-            index = self.LXLexerMakeIndex(index_size)
-            self._msg("Successfully created index!")
-        else:
-            index = StenoIndex()
-            self._msg("Skipped index creation.")
-        if not index:
-            index["SENTINEL"] = {}
+        index = StenoIndex(SENTINEL={})
+        self._save_index(index)
+        self._msg("Skipped index creation.")
+
+    def _save_index(self, index:StenoIndex) -> None:
         self.RSIndexSave(index)
         self.INDEX = index
-        self.VIEWDialogIndexDone()
 
     def VIEWDialogFileLoad(self, filenames:list, res_type:str) -> None:
         getattr(self, f"RS{res_type.title()}Load")(*filenames)
