@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Optional, Tuple
 
-from .format import HTMLFormatter
+from .format import CompatFormatter, HTMLFormatter
 from .layout import CascadedGraphLayout, CompressedGraphLayout
 from .node import NodeFactory, NodeIndex, GraphNode
 from spectra_lexer.resource import KeyLayout, StenoRule
@@ -16,29 +16,26 @@ class StenoGraph:
     index: NodeIndex
     formatter: HTMLFormatter  # Formats the output text based on which node is selected (if any).
 
-    def __init__(self, factory:NodeFactory, rule:StenoRule, compressed:bool=True, **kwargs):
+    def __init__(self, factory:NodeFactory, rule:StenoRule, compressed:bool=True, compat:bool=False):
         """ Make a node tree layout out of the given rule and parameters, tracking the node<->rule relationships. """
         self._factory = factory
         root = factory.make_root(rule)
         self.index = NodeIndex()
         self.index.add(root, rule)
-        self._add_children(root, rule.rulemap)
+        self._make_children(root, rule)
         layout = CompressedGraphLayout(root) if compressed else CascadedGraphLayout(root)
-        self.formatter = HTMLFormatter(layout, **kwargs)
+        self.formatter = CompatFormatter(layout) if compat else HTMLFormatter(layout)
 
-    def _add_children(self, node:GraphNode, rulemap) -> None:
-        """ Recursively add children to this node from a rulemap. """
-        ref_str = node.ref_str
+    def _make_children(self, node:GraphNode, rule:StenoRule) -> None:
+        """ Make children from a rulemap and index them. """
         index_add = self.index.add
-        child_append = node.children.append
-        for i, (rule, start, length) in enumerate(rulemap):
-            child = self._make_node(rule, start, length, node, f"{ref_str}_{i}")
-            index_add(child, rule)
-            child_append(child)
+        for m_rule, start, length in rule.rulemap:
+            child = self._make_node(m_rule, start, length, node)
+            index_add(child, m_rule)
 
-    def _make_node(self, *args) -> GraphNode:
+    def _make_node(self, rule:StenoRule, *args) -> GraphNode:
         """ Do not create derived type nodes. """
-        return self._factory.make_base(*args)
+        return self._factory.make_base(rule, *args)
 
     def render(self, ref:str="", rule:StenoRule=None, select:bool=False) -> Tuple[str, Optional[StenoRule]]:
         """ Process and render a graph as HTML text with a section index and/or specific rule selected.
@@ -55,11 +52,10 @@ class RecursiveStenoGraph(StenoGraph):
 
     def _make_node(self, rule:StenoRule, *args) -> GraphNode:
         """ Only create derived type nodes if a rule has children. """
-        rulemap = rule.rulemap
-        if not rulemap:
-            return self._factory.make_base(rule, *args)
+        if not rule.rulemap:
+            return super()._make_node(rule, *args)
         node = self._factory.make_derived(rule, *args)
-        self._add_children(node, rulemap)
+        self._make_children(node, rule)
         return node
 
 

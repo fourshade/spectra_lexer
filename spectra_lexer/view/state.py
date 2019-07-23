@@ -33,6 +33,9 @@ class ViewState:
 
     _DEFAULTS = {k: v for k, v in locals().items() if not k.startswith("_")}  # Keep track of defaults for the above.
 
+    # Web-specific config options.
+    graph_compat: bool = False   # Draw the graph using tables for browsers with bad monospace font support.
+
     _result: dict  # Holds all attributes and values that were changed since creation.
     _view: object  # Has access to all outside components.
 
@@ -176,7 +179,8 @@ class ViewState:
             self.board_xml_data = self._get_board_data(selection)
 
     def _get_graph(self, rule:StenoRule, select:bool, prev:StenoRule=None) -> Tuple[str, StenoRule]:
-        graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph, compressed=self.compressed_graph)
+        graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph,
+                                     compressed=self.compressed_graph, compat=self.graph_compat)
         return graph.render(self.graph_node_ref, prev, select)
 
     def _get_link(self, rule:StenoRule) -> str:

@@ -10,34 +10,41 @@ class GraphNode:
     """ Abstract class representing a visible node in a tree structure of steno rules.
         Each node may have zero or more children and zero or one parent of the same type.
         Since the child list is mutable, hashing is by identity only. """
+
     COLOR = ClipMatrix([0,   64,  0,   -64],  # Vary red with nesting depth and selection (for purple),
                        [0,   0,   8,   100],  # vary green with the row index and selection,
                        [255, 0,   0,   0],    # starting from pure blue,
                        upper_bound=(192, 192, 255))  # and stopping short of invisible white.
 
+    ALWAYS_BOLD = False
     BOTTOM = PatternRow("│", "├─┐")    # Primitive constructor for the section above the text.
     TOP = PatternRow("│", "├─┘")       # Primitive constructor for the section below the text.
     CONNECTOR = PatternColumn("│")     # Primitive constructor for vertical connectors.
     ENDPIECE = PatternRow("┐", "┬┬┐")  # Primitive constructor for extension connectors.
 
-    text: str           # Text characters drawn on the last row.
-    attach_start: int   # Index of the letter in the parent node where this node begins its attachment.
-    attach_length: int  # Length of the attachment (may be different than its letters due to substitutions).
-    bottom_length: int  # Length of the bottom attach point. Is the length of the text unless start is !=0.
-    ref_str: str        # Unique reference string.
-    parent = None       # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: list      # Direct children of the node.
+    text: str            # Text characters drawn on the last row.
+    attach_start: int    # Index of the letter in the parent node where this node begins its attachment.
+    attach_length: int   # Length of the attachment (may be different than its letters due to substitutions).
+    bottom_length: int   # Length of the bottom attach point. Is the length of the text unless start is !=0.
+    children: list       # Direct children of the node.
+    parent = None        # Direct parent of the node. If None, it is the root node (or unconnected).
+    depth: int = 0       # Nesting depth of the node. It is 0 for the root node, 1 for its children, and so on.
+    ref_str: str = "#R"  # Unique reference string. Starts with a # for HTML anchor support.
 
-    def __init__(self, text:str, start:int=0, length:int=1, parent=None, ref_str:str="#R"):
-        """ A root node (default arguments) has a depth of 0 and no parent, so its attach points are arbitrary.
-            It starts the reference chain with a base value, starting with a # for HTML anchor support. """
+    def __init__(self, text:str, start:int=0, length:int=1, parent=None):
+        """ A root node (default arguments) has a depth of 0 and no parent, so its attach points are arbitrary. """
         self.text = text
         self.attach_start = start
         self.attach_length = length or 1
         self.bottom_length = len(text)
-        self.parent = parent
         self.children = []
-        self.ref_str = ref_str
+        if parent is not None:
+            # Add to parent and set all descendent-based attributes.
+            self.parent = parent
+            self.depth = parent.depth + 1
+            c = parent.children
+            self.ref_str = f"{parent.ref_str}_{len(c)}"
+            c.append(self)
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ Write the main primitive: a text row starting at the origin. """
@@ -59,20 +66,22 @@ class GraphNode:
         if gap_height > 0:
             write(self.CONNECTOR(gap_height), 2, col)
 
-    @classmethod
-    def color(cls, *args) -> str:
-        """ Return an RGB color string for a given nesting depth, row index and selection status. """
-        rgb = cls.COLOR(1, *args)
-        return f'<span style="color:#{bytes(rgb).hex()};">{{}}</span>'
+    _ASCII = frozenset(map(chr, range(32, 126)))
+    _HTML_ESC = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}
 
-    @classmethod
-    def bold(cls, selected:bool=False) -> str:
-        """ Nodes are bold only when highlighted. """
-        return '<b>{}</b>' if selected else "{}"
-
-    def anchor(self) -> str:
-        """ The anchor link is simply the ref string. """
-        return f'<a href="{self.ref_str}">{{}}</a>'
+    def format(self, char:str, colored:bool, row:int, selected:bool) -> str:
+        """ Add an RGB color string for a nesting depth, row index and selection status.
+            Nodes are bold only when highlighted. The anchor link is simply the ref string.
+            Only bother escaping and bolding ASCII characters. """
+        if char in self._ASCII:
+            if char in self._HTML_ESC:
+                char = self._HTML_ESC[char]
+            if colored or self.ALWAYS_BOLD:
+                char = f'<b>{char}</b>'
+        if colored:
+            rgb = self.COLOR(1, self.depth, row, selected)
+            char = f'<span style="color:#{bytes(rgb).hex()};">{char}</span>'
+        return f'<a class="gg" href="{self.ref_str}">{char}</a>'
 
 
 class SeparatorNode(GraphNode):
@@ -126,17 +135,13 @@ class UnmatchedNode(LeafNode):
 
 
 class BranchNode(GraphNode):
-    """ A pattern for important nodes with thicker connecting lines. """
+    """ A pattern for important nodes with thicker connecting lines. Branch nodes are always bold. """
 
+    ALWAYS_BOLD = True
     BOTTOM = PatternRow("║", "╠═╗")
     TOP = PatternRow("║", "╠═╝")
     CONNECTOR = PatternColumn("║")
     ENDPIECE = PatternRow("╗", "╦╦╗")
-
-    @classmethod
-    def bold(cls, selected:bool=False) -> str:
-        """ Branch nodes are bold regardless of selection. """
-        return super().bold(True)
 
 
 class InversionNode(BranchNode):

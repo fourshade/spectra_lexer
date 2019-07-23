@@ -94,14 +94,14 @@ $(document).ready(function(){
     $(window).resize(onBoardResize);
 
     const displayText = document.getElementById("w_display_text");
-    $("#w_display_text").on("mouseenter", "pre > a", function(){
+    $("#w_display_text").on("mouseenter", "a.gg", function(){
         var ref = "#" + this.href.split("#").pop();
         if(state.graph_node_ref!=ref){
             state.graph_node_ref = ref;
             processAction("VIEWGraphOver");
         }
         return false;
-    }).on("click", "pre > a", function(){
+    }).on("click", "a.gg", function(){
         processAction("VIEWGraphClick");
         return false;
     }).click(function(){

@@ -147,7 +147,8 @@ def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
     graph = STENO.LXGraphGenerate(result)
     # The root node uses the top-level rule and has no parent.
-    root = next(iter(graph.index._nodes_by_rule))
+    node_index = graph.index._nodes_by_rule
+    root = next(iter(node_index))
     assert root.parent is None
     # Every other node descends from it and is unique.
     nodes_list = list(recurse_attr(root, "children"))
@@ -156,7 +157,7 @@ def test_graph(result):
     # Going the other direction, every node except the root must have its parent in the set.
     assert all(node.parent in nodes_set for node in nodes_list[1:])
     # The nodes available for interaction must be a subset of our collection.
-    assert nodes_set >= set(graph.formatter._nodes)
+    assert nodes_set >= set(node_index)
 
 
 PLOVER = PloverInterface()
