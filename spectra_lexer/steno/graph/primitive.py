@@ -1,7 +1,7 @@
 """ Module for primitive operations consisting of drawing lines and columns of text. """
 
 from functools import lru_cache
-from typing import Callable, List, Sequence, Tuple
+from typing import Callable, Sequence, Tuple
 
 from .canvas import Canvas
 
@@ -13,28 +13,18 @@ class Primitive:
     height: int = 1  # Total height in rows.
     width: int = 1   # Total width in columns.
 
-    def render(self, row:int=0, col:int=0) -> Tuple[List[str], list]:
-        """ Render text objects onto a grid of the minimum required size. Try again with a larger one if it fails.
-            Return a list of standard strings and a grid with node references indexed by position. """
-        s = row + col
-        canvas = Canvas.blanks(self.height + s, self.width + s)
-        try:
-            self.write(canvas, row, col)
-        except ValueError:
-            dim = s % 2
-            return self.render(row + dim, col + (not dim))
-        return canvas.compile_strings(), canvas.compile_tags()
-
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
         """ Draw the object on the text canvas. By default, nothing happens. """
 
     def __str__(self) -> str:
-        strings, tags = self.render()
+        canvas = Canvas.blanks(self.height + 2, self.width + 2)
+        self.write(canvas, 1, 1)
+        tags = canvas.compile_tags()
         unique = {t for line in tags for t in line if t is not None}
         chars = {None: ' '}
         chars.update({t: chr(i) for i, t in enumerate(unique, ord('0'))})
         tags = ["".join(map(chars.get, line)) for line in tags]
-        return "\n".join(["", *strings, "", *tags, ""])
+        return "\n".join(["", *canvas.compile_strings(), "", *tags, ""])
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__}:\n{self}>'

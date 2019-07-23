@@ -1,6 +1,6 @@
 """ Module for higher-level text objects such as graph nodes for text operations. """
 
-from typing import Callable
+from typing import Callable, Dict
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
 from spectra_lexer.resource import RuleFlags, StenoRule
@@ -20,20 +20,24 @@ class GraphNode:
     CONNECTOR = PatternColumn("│")     # Primitive constructor for vertical connectors.
     ENDPIECE = PatternRow("┐", "┬┬┐")  # Primitive constructor for extension connectors.
 
-    text: str                # Text characters drawn on the last row.
-    attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
-    attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
-    bottom_length: int       # Length of the bottom attach point. Is the length of the text unless start is !=0.
+    text: str           # Text characters drawn on the last row.
+    attach_start: int   # Index of the letter in the parent node where this node begins its attachment.
+    attach_length: int  # Length of the attachment (may be different than its letters due to substitutions).
+    bottom_length: int  # Length of the bottom attach point. Is the length of the text unless start is !=0.
+    ref_str: str        # Unique reference string.
+    parent = None       # Direct parent of the node. If None, it is the root node (or unconnected).
+    children: list      # Direct children of the node.
 
-    parent = None   # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: list  # Direct children of the node.
-
-    def __init__(self, text:str, start:int, length:int):
+    def __init__(self, text:str, start:int=0, length:int=1, parent=None, ref_str:str="#R"):
+        """ A root node (default arguments) has a depth of 0 and no parent, so its attach points are arbitrary.
+            It starts the reference chain with a base value, starting with a # for HTML anchor support. """
         self.text = text
         self.attach_start = start
         self.attach_length = length or 1
         self.bottom_length = len(text)
+        self.parent = parent
         self.children = []
+        self.ref_str = ref_str
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ Write the main primitive: a text row starting at the origin. """
@@ -66,10 +70,9 @@ class GraphNode:
         """ Nodes are bold only when highlighted. """
         return '<b>{}</b>' if selected else "{}"
 
-    @classmethod
-    def anchor(cls, ref:str) -> str:
+    def anchor(self) -> str:
         """ The anchor link is simply the ref string. """
-        return f'<a href="{ref}">{{}}</a>'
+        return f'<a href="{self.ref_str}">{{}}</a>'
 
 
 class SeparatorNode(GraphNode):
@@ -135,11 +138,6 @@ class BranchNode(GraphNode):
         """ Branch nodes are bold regardless of selection. """
         return super().bold(True)
 
-    def add_children(self, children:list) -> None:
-        self.children += children
-        for c in children:
-            c.parent = self
-
 
 class InversionNode(BranchNode):
     """ Pattern for nodes describing an inversion of steno order. These show arrows to indicate reversal. """
@@ -162,10 +160,6 @@ class RootNode(BranchNode):
                        [0,   0,   0,   120],
                        [0,   0,   0,   0])
 
-    def __init__(self, text:str):
-        """ The root node has a depth of 0 and no parent, so its attach points are arbitrary. """
-        super().__init__(text, 0, 0)
-
 
 class NodeFactory:
 
@@ -175,6 +169,9 @@ class NodeFactory:
     def __init__(self, key_sep:str, key_split:str):
         self._key_sep = key_sep
         self._key_split = key_split
+
+    def make_root(self, rule:StenoRule) -> RootNode:
+        return RootNode(rule.letters)
 
     def make_base(self, rule:StenoRule, *args) -> GraphNode:
         """ Base rules (i.e. leaf nodes) show their keys. """
@@ -199,3 +196,35 @@ class NodeFactory:
         else:
             node_cls = BranchNode
         return node_cls(text, *args)
+
+
+class NodeIndex:
+
+    _rules_by_node: Dict[StenoRule, GraphNode]  # Mapping of each rule to its generated node.
+    _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
+    _anchors_by_node: Dict[str, GraphNode]      # Mapping of each generated node to its anchor ref string.
+
+    def __init__(self):
+        self._rules_by_node = {}
+        self._nodes_by_rule = {}
+        self._anchors_by_node = {}
+
+    def add(self, node:GraphNode, rule:StenoRule) -> None:
+        """ Keep track of nodes and rules in case we need one from the other, as well as the general anchor refs. """
+        self._rules_by_node[rule] = node
+        self._nodes_by_rule[node] = rule
+        self._anchors_by_node[node.ref_str] = node
+
+    def select_ref(self, ref:str=""):
+        """ Return a node and corresponding rule to a reference string. """
+        node = self._anchors_by_node.get(ref)
+        selection = self._nodes_by_rule.get(node)
+        return node, selection
+
+    def select_rule(self, rule:StenoRule):
+        """ Return a node corresponding to a rule, along with the rule itself if that node exists. """
+        selection = None
+        node = self._rules_by_node.get(rule)
+        if node is not None:
+            selection = rule
+        return node, selection

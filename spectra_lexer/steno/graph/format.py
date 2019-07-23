@@ -1,28 +1,47 @@
 from collections import defaultdict
 import html
-from typing import Dict, List, Optional
+from typing import Dict, List, Tuple
 
+from .canvas import Canvas
 from .node import GraphNode
+from .primitive import Primitive
 from spectra_lexer.utils import traverse
 
-_HEADER = '<style>pre > a {color: black; text-decoration: none;}</style><pre>'
-_FOOTER = '</pre>'
+
+class Formatter:
+    """ Abstract base class for an HTML text block formatter. """
+
+    def render(self, root:Primitive, row:int=0, col:int=0) -> Tuple[List[str], list]:
+        """ Render a root primitive onto a grid of the minimum required size. Try again with a larger one if it fails.
+            Return a list of standard strings and a grid with node references indexed by position. """
+        s = row + col
+        canvas = Canvas.blanks(root.height + s, root.width + s)
+        try:
+            root.write(canvas, row, col)
+        except ValueError:
+            dim = s % 2
+            return self.render(root, row + dim, col + (not dim))
+        return canvas.compile_strings(), canvas.compile_tags()
 
 
-class HTMLTextField:
+class HTMLFormatter(Formatter):
     """ Generates text lines with explicit HTML formatting. Each is divided into sections based on ownership.
         The main list is indexed by section. Each section is owned by a single object, and is formatted as a whole.
         Each row is terminated by an unowned newline section. Joining all sections produces the final text.
         Includes a dictionary of info to help apply formatting for any given node when highlighted. """
 
+    # Styles to stop anchors within the block from behaving as hyperlinks.
+    _HEADER = '<style>pre > a {color: black; text-decoration: none;}</style><pre>'
+    _FOOTER = '</pre>'
+
     _sections: List[str]           # List of text sections based on ownership.
     _nodes: Dict[GraphNode, list]  # Node references each mapped to a list of (row, section) indices that node owns.
-    _refs: Dict[str, GraphNode]    # Index of all node references in order of first appearance.
 
-    def __init__(self, lines:List[str], ref_grid:List[List[GraphNode]]):
+    def __init__(self, layout:Primitive):
         """ From a 2D reference grid and corresponding list of character strings, find contiguous ranges of characters
             owned by a single reference and create a section for each of them. Add each section of characters to the
             main list and record the row number and section index in the dict under the owner reference. """
+        lines, ref_grid = self.render(layout)
         sections = self._sections = []
         sections_append = sections.append
         nodes = self._nodes = defaultdict(list)
@@ -38,7 +57,6 @@ class HTMLTextField:
                     last_col, last_ref = col, ref
             sections_append("\n")
             row += 1
-        self._refs = {f"#{i}": ref for i, ref in enumerate(nodes)}
 
     def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
         """ Render the graph inside preformatted tags, escaping, coloring and bolding nodes that require it.
@@ -70,16 +88,13 @@ class HTMLTextField:
                     str_ops[sect] = [format_part]
                 # Add the attach start offset for each node as we climb the ladder.
                 start += node.attach_start
-        for ref, node in self._refs.items():
+        for node in self._nodes:
             # All non-empty nodes have anchor tags.
-            a_fmt = node.anchor(ref).format
-            for row, sect in self._nodes[node]:
+            a_fmt = node.anchor().format
+            for _, sect in self._nodes[node]:
                 str_ops[sect].append(a_fmt)
         # Apply format strings for every section in the order they were added and join them.
-        return "".join([_HEADER, *map(_apply, str_ops, self._sections), _FOOTER])
-
-    def node_at(self, ref:str) -> Optional[GraphNode]:
-        return self._refs.get(ref)
+        return "".join([self._HEADER, *map(_apply, str_ops, self._sections), self._FOOTER])
 
 
 def _apply(fns, text:str) -> str:

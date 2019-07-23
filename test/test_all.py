@@ -147,7 +147,7 @@ def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
     graph = STENO.LXGraphGenerate(result)
     # The root node uses the top-level rule and has no parent.
-    root = next(iter(graph._nodes_by_rule))
+    root = next(iter(graph.index._nodes_by_rule))
     assert root.parent is None
     # Every other node descends from it and is unique.
     nodes_list = list(recurse_attr(root, "children"))

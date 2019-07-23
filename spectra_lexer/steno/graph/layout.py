@@ -6,8 +6,6 @@ from .primitive import Composite
 
 class GraphLayout(Composite):
 
-    _START_ROW: int = 3  # Start the first child three rows down by default.
-
     parent_width: int  # Total width of the parent, past which endpieces must be added.
 
     def __init__(self, node:GraphNode):
@@ -25,7 +23,9 @@ class GraphLayout(Composite):
         raise NotImplementedError
 
     def _first_row(self, node:GraphNode):
-        return self._START_ROW - (node.bottom_length == 1)
+        """ Start nodes three rows down by default.
+            Only start two rows down if the node attaches at the bottom with a single connector. """
+        return 3 - (node.bottom_length == 1)
 
     def _connect(self, node:GraphNode, obj:Composite, row:int, col:int) -> None:
         """ Add the connectors and child layout object. """
@@ -43,18 +43,18 @@ class CascadedGraphLayout(GraphLayout):
         Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
 
     def _layout(self, nodes:Sequence[GraphNode]) -> None:
-        # Only start two rows down if the first child attaches at the bottom with a single connector.
-        row = self._first_row(nodes[0])
+        bottom_bound = 0
         right_bound = 0
         for node in nodes:
-            # Advance to the next free row. Move down one more if this child shares columns with the last one.
             obj = self.__class__(node)
             col = node.attach_start
+            # Advance to the next free row. Move down one more if this child shares columns with the last one.
+            row = bottom_bound or self._first_row(node)
             if right_bound > col and type(node) is not SeparatorNode:
                 row += 1
             self._connect(node, obj, row, col)
             # Advance the bounds by its height and width.
-            row += obj.height
+            bottom_bound = row + obj.height
             right_bound = col + obj.width
 
 
@@ -62,37 +62,42 @@ class CompressedGraphLayout(GraphLayout):
     """ Graph layout that attempts to arrange nodes and connections in the minimum number of rows.
         Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
 
-    _MAX_WIDTH: int = 50  # Graphs should never be wider than this many columns.
+    _MAX_HEIGHT: int = 50  # Graphs should never be taller than this many rows.
+    _MAX_WIDTH: int = 50   # Graphs should never be wider than this many columns.
 
     def _layout(self, nodes:Sequence[GraphNode]) -> None:
         """ Place nodes into rows using a slot-based system. Each node records which row slot it occupies starting from
             the top down, and the rightmost column it needs. After that column, the slot becomes free again. """
-        row = self._START_ROW
-        end = right_bound = self._MAX_WIDTH
-        bounds = [-1] * end
+        top_bound = 0
+        right_bound = 0
+        bounds = [-1] * self._MAX_HEIGHT
         for node in nodes:
             obj = self.__class__(node)
             col = node.attach_start
             # Make sure strokes don't run together. Separators will not enter the row list.
             if type(node) is SeparatorNode:
-                right_bound = end
+                right_bound = self._MAX_WIDTH
                 continue
-            # Index 2 can only be occupied by nodes that attach at the bottom with a single connector.
             start = self._first_row(node)
-            height = obj.height
             # If this node starts where the last one ended and there's no overlap, use the same row.
+            row = top_bound
             if col < right_bound or row < start:
                 # Search for the next free row from the top down and place the node there.
-                for r in range(start, end):
+                height = obj.height
+                for r in range(start, self._MAX_HEIGHT):
                     if bounds[r] <= col:
                         if height == 1 or all([b <= col for b in bounds[r+1:r+height]]):
                             row = r
                             break
             self._connect(node, obj, row, col)
-            # Make sure other nodes can't be placed directly above or below this one.
-            bottom_bound = row + height
+            top_bound = row
+            bottom_bound = row + obj.height
             right_bound = col + obj.width
-            # Only overwrite the safety margins of other nodes if ours is larger.
-            bounds[row - 1] = max(right_bound, bounds[row - 1])
-            bounds[row:bottom_bound] = [right_bound + 1] * height
-            bounds[bottom_bound] = max(right_bound, bounds[bottom_bound])
+            bounds[top_bound:bottom_bound] = [right_bound] * (bottom_bound - top_bound)
+            # Prevent other text from starting adjacent to this text (unless handled specially as above).
+            bounds[bottom_bound-1] = right_bound + 1
+            # Make sure other nodes can't be placed directly above or below this one.
+            # Only overwrite safety margins of other nodes if ours is larger.
+            for edge in (top_bound - 1, bottom_bound):
+                if bounds[edge] < right_bound:
+                    bounds[edge] = right_bound

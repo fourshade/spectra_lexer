@@ -66,22 +66,21 @@ class FrameContainer(GeneratedContainer):
 class CodeContainer(GeneratedContainer):
     """ Shows disassembly of a code object. """
 
-    class instruction(str):
-        __slots__ = ()
-        __len__ = int
+    class instruction:
+        __slots__ = ["_s"]
+        def get(self, inst):
+            """ Set an instruction's argument as a display string. If it is a code object, return that instead. """
+            if hasattr(inst.argval, 'co_code'):
+                return inst.argval
+            if inst.arg is None:
+                self._s = ""
+            elif not inst.argrepr:
+                self._s = f'{inst.arg}'
+            else:
+                self._s = f'{inst.arg} ({inst.argrepr})'
+            return self
+        def __repr__(self) -> str:
+            return self._s
 
     def _gen_dict(self, obj) -> dict:
-        return {f'{inst.offset} {inst.opname}': inst for inst in dis.get_instructions(obj)}
-
-    def __getitem__(self, key:str):
-        """ Return the instruction's argument as a string. If it is another code object, return that directly. """
-        inst = self._obj[key]
-        if inst.arg is None:
-            v = ""
-        elif not inst.argrepr:
-            v = f'{inst.arg}'
-        elif hasattr(inst.argval, 'co_code'):
-            return inst.argval
-        else:
-            v = f'{inst.arg} ({inst.argrepr})'
-        return self.instruction(v)
+        return {f'{inst.offset} {inst.opname}': self.instruction().get(inst) for inst in dis.get_instructions(obj)}
