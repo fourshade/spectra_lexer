@@ -3,200 +3,34 @@
     <meta http-equiv="Content-Type" content="text/html">
     <meta name="viewport" content="width=600">
     <title>The Spectra Project</title>
-    <link rel="icon" href="icon.svg">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
-    <script>
-    var state = {};
-    var queryParams = new URLSearchParams(window.location.search);
-    for (let p of queryParams){
-        try{
-            state[p[0]] = JSON.parse(p[1]);
-        }catch(e){
-            console.error(e);
-        }
-    }
-    function setCSS(sel, prop){
-        return function(value){$(sel).css(prop, value)};
-    }
-    function setHTML(sel){
-        return function(value){$(sel).html(value)};
-    }
-    function setProp(sel, prop){
-        return function(value){$(sel).prop(prop, value)};
-    }
-    function setText(sel){
-        return function(value){$(sel).text(value)};
-    }
-    function HTMLfromOpt(opt){
-        var el = document.createElement("option");
-        el.textContent = opt;
-        return el;
-    }
-    function setOptions(sel){
-        return function(optarray){
-			var el = $(sel)[0];
-			var oldHead = "";
-			var oldScroll = el.scrollTop;
-			if(el.length > 0){
-				oldHead = el[0].value;
-				$(sel).empty();
-			}
-            $(sel).append(optarray.map(HTMLfromOpt));
-			if(el.length > 0 && el[0].value == oldHead){
-				el.scrollTop = oldScroll;
-			}
-        };
-    }
-    function setLink(sel){
-        return function(value){setCSS(sel, "display")(value ? "" : "none");};
-    }
-    var updateTable = {
-        input_text:       setProp("#w_search_input", "value"),
-        matches:          setOptions("#w_search_matches"),
-        match_selected:   setProp("#w_search_matches", "value"),
-        mappings:         setOptions("#w_search_mappings"),
-        mapping_selected: setProp("#w_search_mappings", "value"),
-        translation:      setProp("#w_display_title", "value"),
-        graph_text:       setHTML("#w_display_text"),
-        board_caption:    setText("#w_display_desc"),
-        board_xml_data:   setHTML("#w_display_board"),
-        link_ref:         setLink("#w_display_link"),
-    };
-    var excludeAttrs = new Set(["matches", "mappings", "board_caption", "board_xml_data", "graph_title", "graph_text"]);
-    function updateState(new_state){
-        for(var attr in updateTable){
-            if(attr in new_state){
-                updateTable[attr](new_state[attr]);
-            }
-        }
-        for(var attr in new_state){
-            if(!excludeAttrs.has(attr)){
-                state[attr] = new_state[attr];
-            }
-        }
-    }
-    function updateError(jqXHR, textStatus, errorThrown){
-        $("#w_display_desc").html('<span style="color: #d00000;">CONNECTION ERROR</span>')
-    }
-    function processAction(action){
-        $.ajax({
-            method: 'POST',
-            url: action,
-            contentType: 'application/json',
-            data: JSON.stringify(state),
-            success: updateState,
-            error: updateError,
-        });
-    }
-    $(document).ready(function(){
-        $("#w_search_input").on("input", null, null, function(){
-            state.input_text = this.value;
-            processAction("VIEWSearch");
-        });
-        $("#w_search_matches").change(function(){
-            state.match_selected = this.value;
-            processAction("VIEWLookup");
-        });
-        $("#w_search_mappings").change(function(){
-            state.mapping_selected = this.value;
-            processAction("VIEWSelect");
-        });
-        $("#w_search_type").change(function(){
-            state.mode_strokes = this.checked;
-            processAction("VIEWSearch");
-        });
-        $("#w_search_regex").change(function(){
-            state.mode_regex = this.checked;
-            processAction("VIEWSearch");
-        });
-        $("#w_display_link").click(function(){
-            processAction("VIEWSearchExamples");
-            return false
-        });
-        $("#w_display_title").on("input", null, null, function(){
-            state.translation = this.value;
-            processAction("VIEWQuery");
-        });
-        $("#w_display_text").on("mouseenter", "pre > a", function(){
-            var ref = "#" + this.href.split("#").pop();
-            if(state.graph_node_ref!=ref){
-                state.graph_node_ref = ref
-                processAction("VIEWGraphOver");
-            }
-            return false
-        }).on("click", "pre > a", function(){
-            processAction("VIEWGraphClick");
-            return false
-        }).click(function(){
-            state.graph_node_ref = "";
-            processAction("VIEWGraphClick");
-            return false
-        });
-        function onBoardResize(){
-            state.board_aspect_ratio = $("#w_display_board").width() / 250;
-        }
-        $(window).resize(onBoardResize);
-        onBoardResize()
-        updateTable.link_ref("");
-    });
-    </script>
-    <style>
-    .row1 {line-height: 20px;}
-    .row2 {height: 210px;}
-    .row3 {vertical-align: top;}
-    .col1 {width: 150px;}
-    .col2 {min-width: 450px;}
-    body  {font-family: Arial, Helvetica, sans-serif;
-           font-size: 11pt;}
-    table {width: 100%;
-           height: 100%;}
-    td    {margin: 0px;
-           padding: 4px;
-           border: 1px solid black;}
-    pre, .mono  {margin: 2px;
-                 font-family: "Courier New", Courier, monospace;
-                 font-size: 10pt;}
-    div, select {width: inherit;
-                 height: inherit;}
-    svg   {max-height: 250px;}
-
-    #w_search_type, #w_search_regex  {margin: 8px 10px 8px 10px;}
-    #w_display_title {width: 100%;
-                      border-style: none;}
-    #w_display_text  {overflow: auto;}
-    #w_display_link  {position: absolute;
-                      bottom: 4px;
-                      right: 4px;}
-
-    .mobile {display: none;}
-    @media only screen and (min-device-width : 320px) and (max-device-width : 480px) {
-        .mobile {display: block;}
-    }
-    </style>
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="index.css" type="text/css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
 </head><body>
 <table>
     <tr>
-        <td><input class="row1 col1" id="w_search_input" placeholder="Search..." title="Search the dictionary for a text pattern."></td>
-        <td><input class="row1 col2 mono" id="w_display_title" value="Spectra HTTP Client" title='Enter text here in the form "STO*EUPB -> English" to analyze a translation.'></td>
+        <td><input class="col1" id="w_search_input" placeholder="Search..." title="Search the dictionary for a text pattern."></td>
+        <td><input class="col2 mono" id="w_display_title" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'></td>
     </tr>
     <tr>
-        <td class="row2 col1"><select id="w_search_matches" size="2"></select></td>
-        <td class="row2 col2"><div id="w_display_text"><pre>Search for any word to see its breakdown.</pre></div></td>
+        <td class="col1"><ul id="w_search_matches"></ul></td>
+        <td class="col2"><div id="w_display_text"><pre>Search for any word to see its breakdown.</pre></div></td>
     </tr>
     <tr>
-        <td class="row3 col1">
-            <select id="w_search_mappings" style="height: 100px;" size="2"></select>
+        <td class="col1">
+            <ul id="w_search_mappings" style="height:100px;"></ul>
             <div><input type="checkbox" id="w_search_type"><span>Stroke Search</span></div>
             <div><input type="checkbox" id="w_search_regex"><span>Regex Search</span></div>
         </td>
-        <td class="row3 col2" style="position: relative;">
-            <div style="text-align:center;"><pre id="w_display_desc">No translation selected.</pre></div>
-            <div style="text-align:center;" id="w_display_board"><svg></svg></div>
+        <td class="col2" style="text-align:center;">
+            <div><pre id="w_display_desc">No translation selected.</pre></div>
+            <div id="w_display_board"><svg></svg></div>
             <a id="w_display_link" href="#">More Examples</a>
         </td>
     </tr>
 </table>
-<div style="text-align:right;">
+<div class="footer">
     <span><a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
 </div>
 <p class="mobile">

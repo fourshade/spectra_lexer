@@ -1,8 +1,13 @@
+6.1.1
+-----
+* Improved HTML display
+* Fixed several bugs involving logging
+
 6.1.0
 -----
 * Added logging facilities
-* Improved HTTP support and performance.
-* Improved general code quality.
+* Improved HTTP support and performance
+* Improved general code quality
 
 6.0.0
 -----
