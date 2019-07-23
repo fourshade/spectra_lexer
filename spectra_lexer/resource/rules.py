@@ -151,6 +151,10 @@ class RulesDictionary(dict, AbstractCodec):
             m = ref_rx.search(pattern)
         return pattern, built_map
 
+    def compile(self, results:Sequence[StenoRule]):
+        """ Make a new rules dict with auto-generated names, adding the current rules for dereferencing on encode. """
+        return self.__class__(zip(map(str, results), results), **self)
+
     def encode(self, **kwargs) -> bytes:
         """ Generate a raw rules dict by substituting references in each rulemap for their letters, then encode it. """
         raw = CSONDict({k: self._inv_parse(r) for k, r in self.items()})

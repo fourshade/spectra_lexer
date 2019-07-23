@@ -12,9 +12,7 @@ from spectra_lexer.plover.interface import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.resource import RuleFlags
 from spectra_lexer.resource.resource import ResourceManager
-from spectra_lexer.steno.board import BoardRenderer
-from spectra_lexer.steno.graph import StenoGraph
-from spectra_lexer.steno.lexer import StenoLexer
+from spectra_lexer.steno.steno import StenoAnalyzer
 from spectra_lexer.system.system import SystemManager
 from spectra_lexer.types.codec import CSONDict
 from spectra_lexer.utils import recurse_attr
@@ -125,9 +123,9 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-LEXER = with_rs(StenoLexer())
-LEXER.Load()
-TEST_RESULTS = [LEXER.LXLexerQuery(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
+STENO = with_rs(StenoAnalyzer())
+STENO.Load()
+TEST_RESULTS = [STENO.LXLexerQuery(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
@@ -137,23 +135,19 @@ def test_lexer(result):
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-BOARD = with_rs(BoardRenderer())
-BOARD.Load()
-
-
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_board(result):
     """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
-    BOARD.LXBoardFromKeys(result.keys)
-    BOARD.LXBoardFromRule(result)
+    STENO.LXBoardFromKeys(result.keys)
+    STENO.LXBoardFromRule(result)
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
 def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
-    graph = StenoGraph(result, RESOURCE.LAYOUT.SEP, RESOURCE.LAYOUT.SPLIT)
+    graph = STENO.LXGraphGenerate(result)
     # The root node uses the top-level rule and has no parent.
-    root = graph._ref_grid[0][0]
+    root = next(iter(graph._nodes_by_rule))
     assert root.parent is None
     # Every other node descends from it and is unique.
     nodes_list = list(recurse_attr(root, "children"))
@@ -162,7 +156,7 @@ def test_graph(result):
     # Going the other direction, every node except the root must have its parent in the set.
     assert all(node.parent in nodes_set for node in nodes_list[1:])
     # The nodes available for interaction must be a subset of our collection.
-    assert nodes_set >= set(graph._formatter._nodes)
+    assert nodes_set >= set(graph.formatter._nodes)
 
 
 PLOVER = PloverInterface()

@@ -1,15 +1,15 @@
 """ Module for higher-level text objects such as graph nodes for text operations. """
 
-from typing import Callable, Sequence
+from typing import Callable
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
 from spectra_lexer.resource import RuleFlags, StenoRule
 
 
 class GraphNode:
-    """ Abstract class representing a node in a tree structure of steno rules.
+    """ Abstract class representing a visible node in a tree structure of steno rules.
         Each node may have zero or more children and zero or one parent of the same type.
-        Since the child sequence may be mutable, hashing is by identity only. """
+        Since the child list is mutable, hashing is by identity only. """
     COLOR = ClipMatrix([0,   64,  0,   -64],  # Vary red with nesting depth and selection (for purple),
                        [0,   0,   8,   100],  # vary green with the row index and selection,
                        [255, 0,   0,   0],    # starting from pure blue,
@@ -20,34 +20,34 @@ class GraphNode:
     CONNECTOR = PatternColumn("│")     # Primitive constructor for vertical connectors.
     ENDPIECE = PatternRow("┐", "┬┬┐")  # Primitive constructor for extension connectors.
 
-    parent = None            # Direct parent of the node. If None, it is the root node (or unconnected).
-    children: Sequence = ()  # Direct children of the node.
-
     text: str                # Text characters drawn on the last row.
     attach_start: int        # Index of the letter in the parent node where this node begins its attachment.
     attach_length: int       # Length of the attachment (may be different than its letters due to substitutions).
     bottom_length: int       # Length of the bottom attach point. Is the length of the text unless start is !=0.
+
+    parent = None   # Direct parent of the node. If None, it is the root node (or unconnected).
+    children: list  # Direct children of the node.
 
     def __init__(self, text:str, start:int, length:int):
         self.text = text
         self.attach_start = start
         self.attach_length = length or 1
         self.bottom_length = len(text)
+        self.children = []
 
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ Write the main primitive: a text row starting at the origin. """
         write(PrimitiveRow(self.text, self), row, col)
 
-    def connectors(self, write:Callable, row:int, col:int, p_width:int) -> None:
-        """ Write connectors of a node at index <row, col>. The parent is by definition at row index 0.
-            <p_width> is the total width of the parent, past which endpieces must be added. """
+    def overhang(self, write:Callable, col:int, length:int) -> None:
+        """ If the top container runs off the end, we need a corner ┐ endpiece. """
+        write(self.ENDPIECE(length), 0, col)
+
+    def connectors(self, write:Callable, row:int, col:int) -> None:
+        """ Write connectors of a node at index <row, col>. The parent is by definition at row index 0. """
         # If there's a space available, add a bottom container ├--┐ next.
         if row > 2:
             write(self.BOTTOM(self.bottom_length), row - 1, col)
-        # If the top container runs off the end, we need a corner ┐ endpiece.
-        overhang = col - p_width + 1
-        if overhang > 0:
-            write(self.ENDPIECE(overhang), 0, col)
         # Add a top container ├--┘ near the parent. We always need this at minimum even with zero attach length.
         write(self.TOP(self.attach_length), 1, col)
         # If there's a gap, add a connector between the containers.
@@ -80,6 +80,9 @@ class SeparatorNode(GraphNode):
         """ The only primitive is a row substitution operation. """
         write(PrimitiveRowReplace(self.text, self), row, col)
 
+    def overhang(self, *args) -> None:
+        pass
+
     def connectors(self, *args) -> None:
         pass
 
@@ -108,13 +111,10 @@ class UnmatchedNode(LeafNode):
         """ Add the body with an extra three-row offset to ensure that empty matches have enough space. """
         super().body(write, row + 3, col)
 
-    def connectors(self, write:Callable, row:int, col:int, p_width:int) -> None:
+    def connectors(self, write:Callable, row:int, col:int) -> None:
         """ Draw top connectors downward and end in question marks just before reaching the bottom. """
-        t_len = self.attach_length or 1
+        t_len = self.attach_length
         b_len = self.bottom_length
-        overhang = col - p_width + 1
-        if overhang > 0:
-            write(self.ENDPIECE(overhang), 0, col)
         for r in range(1, row - 1):
             write(self.TOP(t_len), r, col)
         write(self.CUTOFF(t_len), row - 1, col)
@@ -134,6 +134,11 @@ class BranchNode(GraphNode):
     def bold(cls, selected:bool=False) -> str:
         """ Branch nodes are bold regardless of selection. """
         return super().bold(True)
+
+    def add_children(self, children:list) -> None:
+        self.children += children
+        for c in children:
+            c.parent = self
 
 
 class InversionNode(BranchNode):
@@ -157,26 +162,21 @@ class RootNode(BranchNode):
                        [0,   0,   0,   120],
                        [0,   0,   0,   0])
 
+    def __init__(self, text:str):
+        """ The root node has a depth of 0 and no parent, so its attach points are arbitrary. """
+        super().__init__(text, 0, 0)
+
 
 class NodeFactory:
 
     _key_sep: str     # Steno key used as stroke separator.
     _key_split: str   # Steno key used to split sides in RTFCRE.
-    _recursive: bool  # If True, also generate children of children (and so on).
 
-    def __init__(self, key_sep:str, key_split:str, recursive:bool=True):
+    def __init__(self, key_sep:str, key_split:str):
         self._key_sep = key_sep
         self._key_split = key_split
-        self._recursive = recursive
 
-    def _make_node(self, rule:StenoRule, *args) -> GraphNode:
-        """ Only create derived type nodes if a rule has children and we are allowed to draw them. """
-        if rule.rulemap and self._recursive:
-            return self._make_derived(rule, *args)
-        else:
-            return self._make_base(rule, *args)
-
-    def _make_base(self, rule:StenoRule, *args) -> GraphNode:
+    def make_base(self, rule:StenoRule, *args) -> GraphNode:
         """ Base rules (i.e. leaf nodes) show their keys. """
         text = rule.keys
         if text == self._key_sep:
@@ -188,7 +188,7 @@ class NodeFactory:
         else:
             return LeafNode(shift, text, *args)
 
-    def _make_derived(self, rule:StenoRule, *args):
+    def make_derived(self, rule:StenoRule, *args) -> BranchNode:
         """ Derived rules (i.e. branch nodes) show their letters. """
         text = rule.letters
         flags = rule.flags
@@ -198,12 +198,4 @@ class NodeFactory:
             node_cls = LinkedNode
         else:
             node_cls = BranchNode
-        node = node_cls(text, *args)
-        self._add_children(node, rule)
-        return node
-
-    def _add_children(self, node:BranchNode, rule:StenoRule) -> None:
-        """ Recursively add children from a rulemap. """
-        children = node.children = [self._make_node(i.rule, i.start, i.length) for i in rule.rulemap]
-        for c in children:
-            c.parent = node
+        return node_cls(text, *args)

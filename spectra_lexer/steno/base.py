@@ -1,5 +1,6 @@
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable
 
+from .graph import StenoGraph
 from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, StenoRule
 from spectra_lexer.system import ConsoleCommand
 
@@ -19,8 +20,7 @@ class LX(RS):
 
     @ConsoleCommand
     def LXLexerQueryAll(self, filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> RulesDictionary:
-        """ Run the lexer in parallel on all currently loaded translations.
-            Make a new rule dict with auto-generated names, using the built-in rules for dereferencing on encode.
+        """ Make a new rules dict by running the lexer in parallel on all currently loaded translations.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
         raise NotImplementedError
 
@@ -31,17 +31,16 @@ class LX(RS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXGraphGenerate(self, rule:StenoRule, *, recursive:bool=True, compressed:bool=True,
-                        ref:str="", prev:StenoRule=None, select:bool=False) -> Tuple[str, Optional[StenoRule]]:
-        """ Generate text graph data and selections from a rule. """
+    def LXGraphGenerate(self, rule:StenoRule, **kwargs) -> StenoGraph:
+        """ Generate text graph data from a rule. """
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXBoardFromKeys(self, keys:str, aspect_ratio:float=None) -> bytes:
+    def LXBoardFromKeys(self, keys:str, *args) -> bytes:
         """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno keys. """
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXBoardFromRule(self, rule:StenoRule, aspect_ratio:float=None) -> bytes:
+    def LXBoardFromRule(self, rule:StenoRule, *args) -> bytes:
         """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a steno rule. """
         raise NotImplementedError

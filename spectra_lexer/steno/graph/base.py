@@ -1,40 +1,50 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from .html import HTMLTextField
 from .layout import CascadedGraphLayout, CompressedGraphLayout
-from .node import GraphNode, NodeFactory, RootNode
-from ..base import LX
-from spectra_lexer.resource import StenoRule
+from .node import BranchNode, GraphNode, NodeFactory, RootNode
+from spectra_lexer.resource import KeyLayout, StenoRule
 
 
-class StenoGraph(NodeFactory):
+class StenoGraph:
     """ Class for a formatted monospaced text graph of a rule. Layouts arrange the children however they want. """
 
     _rules_by_node: Dict[StenoRule, GraphNode]  # Mapping of each rule to its generated node.
     _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
-    _ref_grid: List[List[GraphNode]]  # List of lists of node references in [row][col] format.
-    _formatter: HTMLTextField         # Formats the output text based on which node is selected (if any).
 
-    def __init__(self, rule:StenoRule, sep:str, split:str, recursive:bool=True, compressed:bool=True):
+    _factory: NodeFactory
+    _recursive: bool       # If True, also generate children of children (and so on).
+
+    formatter: HTMLTextField  # Formats the output text based on which node is selected (if any).
+
+    def __init__(self, factory:NodeFactory, rule:StenoRule, recursive:bool=True, compressed:bool=True):
         """ Make a node tree layout out of the given rule and parameters, tracking the node<->rule relationships. """
-        super().__init__(sep, split, recursive)
-        # The root node has a depth of 0 and no parent, so its attach points are arbitrary.
-        root = RootNode(rule.letters, 0, 0)
+        self._factory = factory
+        self._recursive = recursive
+        root = RootNode(rule.letters)
         self._rules_by_node = {rule: root}
         self._nodes_by_rule = {root: rule}
         self._add_children(root, rule)
         # Lay out and render all text objects into character lines and node reference lists.
         layout = CompressedGraphLayout(root) if compressed else CascadedGraphLayout(root)
         lines, nodes = layout.render()
-        self._ref_grid = nodes
-        self._formatter = HTMLTextField(lines, nodes)
+        self.formatter = HTMLTextField(lines, nodes)
+
+    def _add_children(self, node:BranchNode, rule:StenoRule) -> None:
+        """ Recursively add children from a rulemap. """
+        node.add_children([self._make_node(i.rule, i.start, i.length) for i in rule.rulemap])
 
     def _make_node(self, rule:StenoRule, *args) -> GraphNode:
-        """ Keep track of the node and its rule in case we need one from the other. """
-        node = super()._make_node(rule, *args)
+        """ Only create derived type nodes if a rule has children and we are allowed to draw them. """
+        if rule.rulemap and self._recursive:
+            node = self._factory.make_derived(rule, *args)
+            self._add_children(node, rule)
+        else:
+            node = self._factory.make_base(rule, *args)
+        # Keep track of the node and its rule in case we need one from the other.
         self._rules_by_node[rule] = node
         self._nodes_by_rule[node] = rule
         return node
@@ -44,24 +54,24 @@ class StenoGraph(NodeFactory):
             Return the finished text and any valid rule selection. If <select> is True, highlight that selection. """
         node = selection = None
         if index:
-            node = self._formatter.node_at(index)
+            node = self.formatter.node_at(index)
             selection = self._nodes_by_rule.get(node)
         elif rule:
             node = self._rules_by_node.get(rule)
             if node is not None:
                 selection = rule
-        return self._formatter.to_html(node, select), selection
+        return self.formatter.to_html(node, select), selection
 
 
-class GraphRenderer(LX):
+class GraphGenerator:
+    """ High-level graph generator class, directly below the main component. """
 
-    def LXGraphGenerate(self, rule:StenoRule, *, recursive:bool=True, compressed:bool=True,
-                        ref:str="", prev:StenoRule=None, select:bool=False) -> Tuple[str, Optional[StenoRule]]:
-        graph = self._generate(rule, recursive, compressed)
-        return graph.render(ref, prev, select)
+    _factory: NodeFactory
+
+    def __init__(self, layout:KeyLayout):
+        self._factory = NodeFactory(layout.SEP, layout.SPLIT)
 
     @lru_cache(maxsize=256)
-    def _generate(self, rule:StenoRule, *args):
+    def __call__(self, rule:StenoRule, **kwargs) -> StenoGraph:
         """ Generate a graph object. This isn't cheap, so the most recent ones are cached. """
-        layout = self.LAYOUT
-        return StenoGraph(rule, layout.SEP, layout.SPLIT, *args)
+        return StenoGraph(self._factory, rule, **kwargs)

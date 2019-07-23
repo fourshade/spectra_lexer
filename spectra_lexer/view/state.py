@@ -175,9 +175,9 @@ class ViewState:
             self.board_caption = selection.caption()
             self.board_xml_data = self._get_board_data(selection)
 
-    def _get_graph(self, rule:StenoRule, select:bool, **kwargs) -> Tuple[str, StenoRule]:
-        return self.LXGraphGenerate(rule, select=select, ref=self.graph_node_ref,
-                                    recursive=self.recursive_graph, compressed=self.compressed_graph, **kwargs)
+    def _get_graph(self, rule:StenoRule, select:bool, prev:StenoRule=None) -> Tuple[str, StenoRule]:
+        graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph, compressed=self.compressed_graph)
+        return graph.render(self.graph_node_ref, prev, select)
 
     def _get_link(self, rule:StenoRule) -> str:
         if self.show_links:

@@ -1,7 +1,7 @@
 from typing import Callable, List, Tuple
 
 from .elements import BoardElement, BoardInversionGroup, BoardLinkedGroup, BoardStrokeGap
-from spectra_lexer.resource import RuleFlags, StenoRule
+from spectra_lexer.resource import RulesDictionary, RuleFlags, StenoRule
 
 
 class KeyElementFinder:
@@ -32,7 +32,7 @@ class RuleElementFinder:
     _d: dict                               # Dict with elements for certain rules.
     _key_finders: Tuple[KeyElementFinder]  # Element finders for steno keys when matched[0] or unmatched[1].
 
-    def __init__(self, rule_elems:dict, rules:dict, *key_finders:KeyElementFinder):
+    def __init__(self, rule_elems:dict, rules:RulesDictionary, *key_finders:KeyElementFinder):
         self._d = {rules[k]: rule_elems[k] for k in rule_elems}
         self._key_finders = key_finders
 

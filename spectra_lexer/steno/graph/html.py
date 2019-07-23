@@ -2,28 +2,29 @@ from collections import defaultdict
 import html
 from typing import Dict, List, Optional
 
-from spectra_lexer.utils import traverse
 from .node import GraphNode
+from spectra_lexer.utils import traverse
 
 _HEADER = '<style>pre > a {color: black; text-decoration: none;}</style><pre>'
 _FOOTER = '</pre>'
 
 
-class HTMLTextField(List[str]):
-    """ A list of text lines with explicit HTML formatting. Each is divided into sections based on ownership.
-        The list is indexed by section only. Each section is owned by a single object, and is formatted as a whole.
+class HTMLTextField:
+    """ Generates text lines with explicit HTML formatting. Each is divided into sections based on ownership.
+        The main list is indexed by section. Each section is owned by a single object, and is formatted as a whole.
         Each row is terminated by an unowned newline section. Joining all sections produces the final text.
         Includes a dictionary of info to help apply formatting for any given node when highlighted. """
 
-    _refs: Dict[str, GraphNode]    # Index of all node references in order of first appearance.
+    _sections: List[str]           # List of text sections based on ownership.
     _nodes: Dict[GraphNode, list]  # Node references each mapped to a list of (row, section) indices that node owns.
+    _refs: Dict[str, GraphNode]    # Index of all node references in order of first appearance.
 
     def __init__(self, lines:List[str], ref_grid:List[List[GraphNode]]):
         """ From a 2D reference grid and corresponding list of character strings, find contiguous ranges of characters
             owned by a single reference and create a section for each of them. Add each section of characters to the
             main list and record the row number and section index in the dict under the owner reference. """
-        super().__init__()
-        append = self.append
+        sections = self._sections = []
+        sections_append = sections.append
         nodes = self._nodes = defaultdict(list)
         row = 0
         for chars, refs in zip(lines, ref_grid):
@@ -32,17 +33,17 @@ class HTMLTextField(List[str]):
             for col, ref in enumerate(refs, 1):
                 if ref is not last_ref:
                     if last_ref is not None:
-                        nodes[last_ref].append((row, len(self)))
-                    append(chars[last_col:col])
+                        nodes[last_ref].append((row, len(sections)))
+                    sections_append(chars[last_col:col])
                     last_col, last_ref = col, ref
-            append("\n")
+            sections_append("\n")
             row += 1
         self._refs = {f"#{i}": ref for i, ref in enumerate(nodes)}
 
     def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
         """ Render the graph inside preformatted tags, escaping, coloring and bolding nodes that require it.
             Highlight the full ancestry line of the target node (if any), starting with itself up to the root. """
-        str_ops = [[] for _ in range(len(self))]
+        str_ops = [[] for _ in self._sections]
         for node, sections in self._nodes.items():
             # Escaping is expensive. Only escape those strings which originate with the user.
             # Both branch nodes and the selected node itself (if it is not a branch) are bolded after that.
@@ -75,13 +76,13 @@ class HTMLTextField(List[str]):
             for row, sect in self._nodes[node]:
                 str_ops[sect].append(a_fmt)
         # Apply format strings for every section in the order they were added and join them.
-        return "".join([_HEADER, *map(_apply, str_ops, self), _FOOTER])
+        return "".join([_HEADER, *map(_apply, str_ops, self._sections), _FOOTER])
 
     def node_at(self, ref:str) -> Optional[GraphNode]:
         return self._refs.get(ref)
 
 
-def _apply(fns, text):
+def _apply(fns, text:str) -> str:
     for fn in fns:
         text = fn(text)
     return text
