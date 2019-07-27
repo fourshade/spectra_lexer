@@ -34,7 +34,7 @@ class StenoAnalyzer(LX):
     def LXLexerMakeIndex(self, *args) -> StenoIndex:
         """ Only keep results with all keys matched to reduce garbage. """
         filter_in, filter_out = StenoIndex.filters(*args)
-        results = self._query_all(filter_in, filter_out, need_all_keys=True)
+        results = self._query_all(filter_in, filter_out, match_all_keys=True)
         return StenoIndex.compile(results, self.RULES.inverse)
 
     def _query_all(self, *args, **kwargs) -> List[StenoRule]:

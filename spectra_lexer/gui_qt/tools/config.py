@@ -1,46 +1,88 @@
+from typing import List
+
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
-    QVBoxLayout
+    QVBoxLayout, QWidget
 
 from .base import GUIQT_TOOL
 from .dialog import DialogContainer, FormDialog
-
-# Each supported option type uses a specific editing widget with basic getter and setter methods.
-_W_TYPES = {bool: (QCheckBox, QCheckBox.isChecked, QCheckBox.setChecked),
-            str:  (QLineEdit, QLineEdit.text,      QLineEdit.setText)}
+from spectra_lexer.view import ConfigItem
 
 
-def _save_dict(d:dict) -> dict:
-    """ Call the save method on all values in a dict and replace them in a new dict with their return values. """
-    return {k: v.save() for k, v in d.items()}
+class OptionWidgetBool(QCheckBox):
+
+    def get(self) -> bool:
+        return self.isChecked()
+
+    def set(self, val) -> None:
+        self.setChecked(bool(val))
 
 
-class OptionRow:
+class OptionWidgetStr(QLineEdit):
 
-    def __init__(self, val:object, opt_tp:type, label:str, desc:str):
-        """ Create a new widget row for a config option based on its attributes. Only basic types are supported.
-            If an unsupported type is given, it is handled as a string (the native format for ConfigParser). """
-        w_tp = opt_tp if opt_tp in _W_TYPES else str
-        w_factory, getter, setter = _W_TYPES[w_tp]
-        w = w_factory()
-        w.setToolTip(desc)
-        w_label = QLabel(label)
-        w_label.setToolTip(desc)
-        # Option values must convert to the widget's native type on load, and back to the option's type on save.
-        setter(w, w_tp(val))
-        self.save = lambda: opt_tp(getter(w))
-        self.add_to = lambda layout: layout.addRow(w_label, w)
+    def get(self) -> str:
+        return self.text()
+
+    def set(self, val) -> None:
+        self.setText(str(val))
 
 
-class OptionPage(QFrame):
+class OptionWidgetInt(OptionWidgetStr):
 
-    def __init__(self, opt_dict:dict):
-        """ Create a new page widget from one component's config info dict. """
-        super().__init__()
-        rows = {name: OptionRow(*opt) for name, opt in opt_dict.items()}
-        layout = QFormLayout(self)
-        for row in rows.values():
-            row.add_to(layout)
-        self.save = lambda: _save_dict(rows)
+    def get(self) -> int:
+        return int(self.text())
+
+
+class OptionWidgets:
+    """ Tracks all config option widgets and compiles their values into a dict when finished.
+        Each supported option type uses a specific editing widget with basic getter and setter methods. """
+
+    _W_TYPES = {bool: OptionWidgetBool,
+                int:  OptionWidgetInt,
+                str:  OptionWidgetStr}
+
+    _widgets: list  # List of config option widgets by key.
+
+    def __init__(self):
+        self._widgets = []
+
+    def generate(self, key:str, value) -> QWidget:
+        """ Make and return a new option widget based on the type of the original value.
+            Unsupported data types use a string-type widget by default, though they will likely raise upon saving. """
+        w_option = self._W_TYPES.get(type(value), OptionWidgetStr)()
+        w_option.set(value)
+        self._widgets.append((key, w_option))
+        return w_option
+
+    def to_dict(self) -> dict:
+        """ Option values must convert back to the option's type on save. """
+        return {k: w.get() for k, w in self._widgets}
+
+
+class ConfigPages:
+    """ Contains a tabbed page widget for each config section. """
+
+    _pages: dict       # Contains each tab page layout indexed by title.
+    _tabs: QTabWidget
+
+    def __init__(self):
+        self._pages = {}
+        self._tabs = QTabWidget()
+
+    def get(self, title:str) -> QFormLayout:
+        """ Get the config page corresponding to the given title. If it doesn't exist, make and add it. """
+        if title in self._pages:
+            page = self._pages[title]
+        else:
+            w_frame = QFrame()
+            page = self._pages[title] = QFormLayout(w_frame)
+            self._tabs.addTab(w_frame, title)
+        return page
+
+    def layout(self, parent:QWidget) -> QVBoxLayout:
+        """ Attach the tab widget to a new layout and return it. """
+        layout = QVBoxLayout(parent)
+        layout.addWidget(self._tabs)
+        return layout
 
 
 class ConfigDialog(FormDialog):
@@ -49,22 +91,28 @@ class ConfigDialog(FormDialog):
     TITLE = "Spectra Configuration"
     SIZE = (250, 300)
 
-    def new_layout(self, info:dict) -> QLayout:
-        """ Make and add the central widget using info from the dict and set the save callback. """
-        layout = QVBoxLayout(self)
-        w_tabs = QTabWidget(self)
-        pages = {sect: OptionPage(info[sect]) for sect in sorted(info)}
-        for sect, page in pages.items():
-            w_tabs.addTab(page, sect)
-        layout.addWidget(w_tabs)
-        self.save = lambda: _save_dict(pages)
-        return layout
+    _widgets: OptionWidgets = None
+
+    def new_layout(self, info:List[ConfigItem]) -> QLayout:
+        """ Create a new central tab widget from the info rows.
+            Make new widgets for config options based on attributes. Only basic types are supported.
+            If an unsupported type is given, it is handled as a string (the native format for ConfigParser). """
+        self._widgets = OptionWidgets()
+        pages = ConfigPages()
+        for item in info:
+            w_option = self._widgets.generate(item.key, item.value)
+            page = pages.get(item.title)
+            w_label = QLabel(item.name)
+            w_label.setToolTip(item.description)
+            w_option.setToolTip(item.description)
+            page.addRow(w_label, w_option)
+        return pages.layout(self)
 
     def submit(self) -> dict:
         """ Validate all config values from each page and widget. Show a popup if there are one or more errors.
             Return a dict with the new values (not the setup info) to the callback on dialog accept. """
         try:
-            return self.save()
+            return self._widgets.to_dict()
         except TypeError:
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:
@@ -75,13 +123,13 @@ class QtConfigTool(GUIQT_TOOL):
     """ Config manager; allows editing of config values for any component. """
 
     _dialog: DialogContainer
-    _info: dict = {}
+    _config: List[ConfigItem] = []
 
     def __init__(self):
         self._dialog = DialogContainer(ConfigDialog)
 
     def TOOLConfigOpen(self) -> None:
-        self._dialog.open(self.WINDOW, self.VIEWConfigUpdate, self._info)
+        self._dialog.open(self.WINDOW, self.VIEWConfigUpdate, self._config)
 
-    def VIEWConfigInfo(self, info:dict) -> None:
-        self._info = info
+    def VIEWConfigInfo(self, info:List[ConfigItem]) -> None:
+        self._config = info

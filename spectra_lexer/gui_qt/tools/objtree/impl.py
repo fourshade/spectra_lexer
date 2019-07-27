@@ -169,19 +169,6 @@ class ObjectTreeModel(QAbstractItemModel):
             self.endInsertRows()
 
 
-class ObjectTreeView(QTreeView):
-
-    def __init__(self, parent:QDialog, model:ObjectTreeModel):
-        """ Create the item model, format the header, and connect the expansion signal. """
-        super().__init__(parent)
-        self.setFont(QFont("Segoe UI", 9))
-        self.setModel(model)
-        self.header().setDefaultSectionSize(120)
-        self.header().resizeSection(0, 200)
-        self.setUniformRowHeights(True)
-        self.expanded.connect(model.expand)
-
-
 class ObjectTreeDialog(ToolDialog):
     """ Qt tree dialog window object. """
 
@@ -189,6 +176,14 @@ class ObjectTreeDialog(ToolDialog):
     SIZE: tuple = (600, 450)
 
     def make_layout(self, *args) -> None:
-        """ Create the layout, item model, and tree widget. """
+        """ Create the tree widget and item model, connect the expansion signal, and format the header. """
+        view = QTreeView(self)
+        view.setFont(QFont("Segoe UI", 9))
+        view.setUniformRowHeights(True)
         model = ObjectTreeModel(*args)
-        QVBoxLayout(self).addWidget(ObjectTreeView(self, model))
+        view.setModel(model)
+        view.expanded.connect(model.expand)
+        header = view.header()
+        header.setDefaultSectionSize(120)
+        header.resizeSection(0, 200)
+        QVBoxLayout(self).addWidget(view)

@@ -1,3 +1,6 @@
+from typing import List
+
+from .config import ConfigItem
 from spectra_lexer.core import Command
 from spectra_lexer.steno import LX
 
@@ -5,8 +8,8 @@ from spectra_lexer.steno import LX
 class VIEW(LX):
 
     @Command
-    def VIEWConfigInfo(self, info:dict) -> None:
-        """ Send this command with detailed config info from active components. """
+    def VIEWConfigInfo(self, info:List[ConfigItem]) -> None:
+        """ Send this command with formatted config info from active components. """
         raise NotImplementedError
 
     @Command
@@ -40,7 +43,7 @@ class VIEW(LX):
         raise NotImplementedError
 
     @Command
-    def VIEWDialogFileLoad(self, filenames:list, res_type:str) -> None:
+    def VIEWDialogFileLoad(self, filenames:List[str], res_type:str) -> None:
         """ Attempt to load resources from files chosen in a dialog. Print a status message if successful. """
         raise NotImplementedError
 

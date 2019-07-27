@@ -100,7 +100,7 @@ class ViewState:
 
     def _search(self) -> None:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
-        count = self.page_count * self.match_limit
+        count = self.page_count * self.matches_per_page
         matches = self._call_search(count=count)
         # If we met the count, add a final item to allow search expansion.
         if len(matches) == count:
@@ -120,7 +120,7 @@ class ViewState:
             selection, *others = mappings
             if others:
                 # If there is more than one mapping, make a product query to select the best combination.
-                rule = self.LXLexerQueryProduct(mappings, [match], need_all_keys=self.need_all_keys)
+                rule = self.LXLexerQueryProduct(mappings, [match])
                 selection = rule.keys
             self.mapping_selected = selection
             self._query_from_selection()
@@ -167,7 +167,7 @@ class ViewState:
     def _new_query(self, select:bool, **kwargs) -> None:
         params = (*map(str.strip, self.translation.split('->', 1)),)
         if len(params) == 2 and all(params):
-            rule = self.LXLexerQuery(*params, need_all_keys=self.need_all_keys)
+            rule = self.LXLexerQuery(*params, match_all_keys=self.match_all_keys)
             self.graph_text, selection = self._get_graph(rule, select, **kwargs)
             if selection:
                 self.graph_has_selection = select
@@ -184,7 +184,7 @@ class ViewState:
         return graph.render(self.graph_node_ref, prev, select)
 
     def _get_link(self, rule:StenoRule) -> str:
-        if self.show_links:
+        if self.links_enabled:
             name = self.RULES.inverse.get(rule, "")
             if name in self.INDEX:
                 return name
@@ -192,7 +192,7 @@ class ViewState:
 
     def _get_board_data(self, rule:StenoRule) -> bytes:
         ratio = self.board_aspect_ratio
-        if self.show_compound:
+        if self.compound_board:
             return self.LXBoardFromRule(rule, ratio)
         else:
             return self.LXBoardFromKeys(rule.keys, ratio)

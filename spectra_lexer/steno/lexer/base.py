@@ -42,11 +42,11 @@ class StenoLexer:
             results = list(filter(filter_out, results))
         return results
 
-    def _process(self, keys:str, word:str, need_all_keys:bool=False) -> Iterator[RESULT_TYPE]:
+    def _process(self, keys:str, word:str, match_all_keys:bool=False) -> Iterator[RESULT_TYPE]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed
             characters in order to generate a series of complete rule maps that could possibly produce the translation.
             Yield each result that isn't optimized away. Use heavy optimization when possible.
-            If <need_all_keys> is True, only return results that match every key in the stroke."""
+            If <match_all_keys> is True, only return results that match every key in the stroke."""
         match_rules = self._match_rules
         # Thoroughly cleanse and parse the key string into s-keys format first (user strokes cannot be trusted).
         skeys = self._to_skeys(keys)
@@ -69,7 +69,7 @@ class StenoLexer:
                 skeys_unmatched = str_without(skeys_left, r_skeys)
                 # A "complete" map is one that matches every one of the keys to a rule.
                 # If we need all keys to be matched, don't add incomplete maps.
-                if not skeys_unmatched or not need_all_keys:
+                if not skeys_unmatched or not match_all_keys:
                     yield new_map, skeys_unmatched, keys, word
                     if not skeys_unmatched:
                         # If all keys are matched, continue without adding to the queue.

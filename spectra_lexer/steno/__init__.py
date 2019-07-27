@@ -2,3 +2,4 @@
 
 from .app import StenoApplication as console, StenoAnalyzeApplication as analyze, StenoIndexApplication as index
 from .base import LX
+from .graph import StenoGraph

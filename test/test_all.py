@@ -125,7 +125,7 @@ def test_index_search(trial):
 
 STENO = with_rs(StenoAnalyzer())
 STENO.Load()
-TEST_RESULTS = [STENO.LXLexerQuery(*t, need_all_keys=True) for t in TEST_TRANSLATIONS]
+TEST_RESULTS = [STENO.LXLexerQuery(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
 
 
 @pytest.mark.parametrize("result", TEST_RESULTS)
