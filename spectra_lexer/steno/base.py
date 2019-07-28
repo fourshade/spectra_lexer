@@ -1,11 +1,11 @@
 from typing import Callable, Iterable
 
 from .graph import StenoGraph
-from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, StenoRule
+from spectra_lexer.resource import RulesDictionary, StenoIndex, StenoRule
 from spectra_lexer.system import ConsoleCommand
 
 
-class LX(RS):
+class LX:
 
     @ConsoleCommand
     def LXLexerQuery(self, keys:str, word:str, **kwargs) -> StenoRule:

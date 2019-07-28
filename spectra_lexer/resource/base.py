@@ -2,10 +2,10 @@ from .index import StenoIndex
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.core import Command
-from spectra_lexer.system import ConsoleCommand, SYS
+from spectra_lexer.system import ConsoleCommand
 
 
-class RS(SYS):
+class RS:
 
     @ConsoleCommand
     def RSSystemLoad(self, base_dir:str) -> dict:

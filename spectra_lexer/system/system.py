@@ -7,10 +7,10 @@ from .base import SYS
 from .console import SystemConsole
 from .io import PathIO
 from .log import StreamLogger
-from spectra_lexer.core import CmdlineOption
+from spectra_lexer.core import CmdlineOption, CORE
 
 
-class SystemManager(SYS):
+class SystemManager(CORE, SYS):
     """ Component for handling the command line, console, files, and logging engine status and exceptions. """
 
     log_file: str = CmdlineOption("log-file", default="~/status.log",

@@ -5,11 +5,11 @@ from .base import LX
 from .board import BoardElementParser, BoardGenerator
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
-from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary
+from spectra_lexer.resource import KeyLayout, RS, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary
 from spectra_lexer.types.codec import XMLElement
 
 
-class StenoAnalyzer(LX):
+class StenoAnalyzer(RS, LX):
     """ The primary steno analysis engine. Generates rules from translations and creates visual representations. """
 
     _board: BoardGenerator = None

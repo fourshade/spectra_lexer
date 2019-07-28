@@ -1,8 +1,7 @@
 from spectra_lexer.core import Command
-from spectra_lexer.view import VIEW
 
 
-class GUIQT(VIEW):
+class GUIQT:
 
     @Command
     def GUIQTConnect(self, **widgets) -> None:

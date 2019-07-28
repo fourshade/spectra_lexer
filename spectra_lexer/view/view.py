@@ -3,11 +3,13 @@ from typing import List
 from .base import VIEW
 from .config import ConfigDictionary, ConfigInfo
 from .state import ViewState
-from spectra_lexer.core import CmdlineOption
-from spectra_lexer.resource import RulesDictionary, StenoIndex, TranslationsDictionary
+from spectra_lexer.core import CmdlineOption, CORE
+from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, TranslationsDictionary
+from spectra_lexer.steno import LX
+from spectra_lexer.system import SYS
 
 
-class ViewManager(VIEW):
+class ViewManager(CORE, SYS, RS, LX, VIEW):
     """ Handles GUI interface-based operations. """
 
     OPTIONS = ConfigInfo(("compound_board", True, "board", "compound_keys",

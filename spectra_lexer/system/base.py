@@ -1,11 +1,11 @@
 from typing import List
 
-from spectra_lexer.core import Command, CommandGroup, CORE
+from spectra_lexer.core import Command, CommandGroup
 
 ConsoleCommand = CommandGroup()
 
 
-class SYS(CORE):
+class SYS:
     """ Simple interface definition for general system commands and resources with no specific category. """
 
     CONSOLE_COMMANDS: list = ConsoleCommand  # List of all commands directly available in the console.

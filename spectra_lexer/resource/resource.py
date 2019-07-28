@@ -7,7 +7,8 @@ from .index import StenoIndex
 from .keys import KeyLayout
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
-from spectra_lexer.core import CmdlineOption
+from spectra_lexer.core import CmdlineOption, CORE
+from spectra_lexer.system import SYS
 from spectra_lexer.types.codec import AbstractCodec, CFGDict, JSONDict, XMLElement
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
@@ -15,7 +16,7 @@ _PLOVER_USER_DIR = "~plover/"
 _PLOVER_CFG_FILENAME = _PLOVER_USER_DIR + "plover.cfg"
 
 
-class ResourceManager(RS):
+class ResourceManager(CORE, SYS, RS):
     """ Component to load all resources necessary for a steno system. The structures are mostly JSON dicts.
         Assets including a key layout, rules, and (optional) board graphics comprise the system.
         Other files from user space include a translations dictionary and examples index. """

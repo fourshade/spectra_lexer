@@ -3,18 +3,19 @@
 from threading import Thread
 
 from .base import GUIHTTP
-from spectra_lexer import gui_http
+from .server import HttpServer
+from spectra_lexer.system import SYS
 from spectra_lexer.view.app import ViewApplication
 
 
-class HttpApplication(ViewApplication, GUIHTTP):
+class HttpApplication(ViewApplication, SYS, GUIHTTP):
     """ Master component for HTTP operations. Controls the server application as a whole. """
 
     _done: bool = False
 
-    def _class_paths(self) -> list:
+    def _build_components(self) -> list:
         """ Run the server on the main thread. """
-        return [gui_http]
+        return [HttpServer()]
 
     def run(self) -> int:
         """ Start the server and console and run them indefinitely. """

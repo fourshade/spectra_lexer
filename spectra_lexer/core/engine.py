@@ -3,7 +3,7 @@ from queue import Queue
 from threading import Thread
 from typing import Any, Callable, Hashable, Iterable
 
-from .command import AbstractCommand
+from .command import Command
 from spectra_lexer.types.dict import multidict
 
 
@@ -65,7 +65,7 @@ class Engine:
 
     def connect(self, cmp:object) -> None:
         """ Bind this component to all engine commands. """
-        commands = AbstractCommand.bind_all(cmp, self)
+        commands = Command.bind_all(cmp, self)
         self._exec.update(commands)
 
     def __call__(self, *args, **kwargs) -> Any:

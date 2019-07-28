@@ -6,8 +6,9 @@ from typing import Callable
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
-from .base import GUIQT
-from spectra_lexer import gui_qt
+from .tools import QtTools
+from .view import QtView
+from .window import QtWindow
 from spectra_lexer.view.app import ViewApplication
 
 
@@ -26,14 +27,14 @@ class _Connection(QObject):
     signal = pyqtSignal(tuple)
 
 
-class QtApplication(ViewApplication, GUIQT):
+class QtApplication(ViewApplication):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
     qt_app: QApplication = None
 
-    def _class_paths(self) -> list:
+    def _build_components(self) -> list:
         """ Run the GUI on the main thread. """
-        return [gui_qt]
+        return [QtWindow(), QtView(), QtTools()]
 
     def _build_engine(self, *args, **kwargs):
         """ To send commands to the GUI, the child threads send a Qt signal to the main thread.

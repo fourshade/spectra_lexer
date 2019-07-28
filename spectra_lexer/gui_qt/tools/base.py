@@ -7,6 +7,9 @@ from .index import default_index_dialog, SliderIndexDialog
 from .objtree import ObjectTreeDialog
 from ..base import GUIQT
 from ..widgets import MainMenu, MainWindow
+from spectra_lexer.core import CORE
+from spectra_lexer.system import SYS
+from spectra_lexer.view import VIEW
 
 MENU_ITEMS = []
 
@@ -19,7 +22,7 @@ def MenuItem(heading:str, text:str, *, after_separator:bool=False):
     return capture
 
 
-class QtTools(GUIQT):
+class QtTools(CORE, SYS, VIEW, GUIQT):
     """ GUI Qt operations class for the dialog tools. """
 
     window: MainWindow = None

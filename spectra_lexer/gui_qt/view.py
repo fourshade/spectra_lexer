@@ -1,6 +1,8 @@
 from typing import Iterable
 
 from .base import GUIQT
+from spectra_lexer.system import SYS
+from spectra_lexer.view import VIEW
 
 
 class GUIUpdater(dict):
@@ -13,7 +15,7 @@ class GUIUpdater(dict):
                 self[k](attrs[k])
 
 
-class QtView(GUIQT):
+class QtView(SYS, VIEW, GUIQT):
     """ GUI Qt operations class for the main view panels. """
 
     _last_status: str = ""

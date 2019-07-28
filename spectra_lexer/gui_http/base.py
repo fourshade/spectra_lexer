@@ -1,12 +1,7 @@
-import os
-
 from spectra_lexer.core import Command
-from spectra_lexer.view import VIEW
 
 
-class GUIHTTP(VIEW):
-
-    HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")  # Root directory for public HTTP file service.
+class GUIHTTP:
 
     @Command
     def GUIHTTPServe(self) -> int:

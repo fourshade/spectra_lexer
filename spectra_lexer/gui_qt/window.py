@@ -1,8 +1,9 @@
 from .base import GUIQT
 from .widgets import MainWindow
+from spectra_lexer.core import CORE
 
 
-class QtWindow(GUIQT):
+class QtWindow(CORE, GUIQT):
     """ Qt operations class for the main window and menu. """
 
     window: MainWindow = None  # Main GUI window. All GUI activity is coupled to this window.

@@ -2,10 +2,9 @@ from typing import List
 
 from .config import ConfigItem
 from spectra_lexer.core import Command
-from spectra_lexer.steno import LX
 
 
-class VIEW(LX):
+class VIEW:
 
     @Command
     def VIEWConfigInfo(self, info:List[ConfigItem]) -> None:

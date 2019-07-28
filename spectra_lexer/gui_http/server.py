@@ -7,7 +7,9 @@ from .base import GUIHTTP
 from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
 from spectra_lexer.core import CmdlineOption
+from spectra_lexer.system import SYS
 from spectra_lexer.types.codec import JSONDict
+from spectra_lexer.view import VIEW
 
 
 class ResponseDict(JSONDict):
@@ -45,23 +47,22 @@ class JSONValidator:
         return d.encode()
 
 
-class HttpServer(GUIHTTP):
+class HttpServer(SYS, VIEW, GUIHTTP):
     """ Class for socket-based TCP/IP stream server, JSON, and communication with the view layer. """
 
+    _HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
     _GET_MIMETYPE = MimeTypes().guess_type
     _VALIDATOR = JSONValidator()
 
     address: str = CmdlineOption("http-addr", default="", desc="IP address or hostname for server.")
     port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
+    dir: int = CmdlineOption("http-dir", default=_HTTP_PUBLIC, desc="Root directory for public HTTP file service.")
 
     sock: TCPServerSocket = None  # Server socket object which creates other sockets for connections.
 
-    def Load(self) -> None:
-        print(self.address)
-        self.sock = TCPServerSocket(self.address, self.port)
-
     def GUIHTTPServe(self) -> None:
         """ Handle each request by instantiating a connection and calling it with a new thread. """
+        self.sock = TCPServerSocket(self.address, self.port)
         if self.sock.poll():
             stream, addr = self.sock.accept()
             connection = HTTPConnection(stream, addr, self.dispatch, self.SYSStatus)
@@ -116,7 +117,7 @@ class HttpServer(GUIHTTP):
                         new_comps.pop()
                 else:
                     new_comps.append(comp)
-        file_path = os.path.join(self.HTTP_PUBLIC or os.getcwd(), *new_comps)
+        file_path = os.path.join(self.dir or os.getcwd(), *new_comps)
         # Route bare directory paths to index.html (whether or not it exists).
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "index.html")

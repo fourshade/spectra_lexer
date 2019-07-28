@@ -1,15 +1,16 @@
 from time import time
 
-from .base import LX
-from spectra_lexer import resource, steno, system
+from .steno import StenoAnalyzer
 from spectra_lexer.core.app import Application
+from spectra_lexer.resource import ResourceManager
+from spectra_lexer.system import SystemManager, SYS
 
 
-class StenoApplication(Application, LX):
+class StenoApplication(Application, SYS):
     """ Base application class with all required components for interactive console operations. """
 
-    def _class_paths(self) -> list:
-        return [system, resource, steno]
+    def _build_components(self) -> list:
+        return [SystemManager(), ResourceManager(), StenoAnalyzer()]
 
     def run(self) -> None:
         """ Run the console in an interactive read-eval-print loop. """

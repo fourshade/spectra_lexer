@@ -8,12 +8,11 @@ import re
 
 import pytest
 
-from spectra_lexer.plover.interface import PloverInterface
+from spectra_lexer.plover import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
-from spectra_lexer.resource import RuleFlags
-from spectra_lexer.resource.resource import ResourceManager
-from spectra_lexer.steno.steno import StenoAnalyzer
-from spectra_lexer.system.system import SystemManager
+from spectra_lexer.resource import ResourceManager, RuleFlags
+from spectra_lexer.steno import StenoAnalyzer
+from spectra_lexer.system import SystemManager
 from spectra_lexer.types.codec import CSONDict
 from spectra_lexer.utils import recurse_attr
 from test import get_test_filename

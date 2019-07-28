@@ -2,3 +2,4 @@
 
 from .app import PloverPluginApplication as plover_app, PloverPluginTest as plover_test
 from .base import PLOVER
+from .plover import PloverInterface

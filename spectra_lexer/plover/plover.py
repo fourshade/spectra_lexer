@@ -2,10 +2,11 @@ from typing import Sequence
 
 from .base import PLOVER
 from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
-from spectra_lexer.resource import TranslationsDictionary
+from spectra_lexer.resource import RS, TranslationsDictionary
+from spectra_lexer.system import SYS
 
 
-class PloverInterface(PLOVER):
+class PloverInterface(SYS, RS, PLOVER):
     """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
     _engine: PloverEngine

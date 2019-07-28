@@ -3,8 +3,8 @@
 import sys
 
 from .base import PLOVER
+from .plover import PloverInterface
 from .types import PloverAction, PloverCompatibilityTester, PloverEngine
-from spectra_lexer import plover
 from spectra_lexer.gui_qt.app import QtApplication
 from spectra_lexer.types import dummy
 
@@ -25,22 +25,22 @@ class PloverPluginApplication(QtApplication, PLOVER):
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
-    _plover: PloverEngine
+    _plover_engine: PloverEngine
 
     def __init__(self, plover_engine:PloverEngine):
         """ We get our translations from the Plover engine, so auto-loading from disk must be suppressed. """
         sys.argv.append("--translations-files=NUL.json")
-        self._plover = plover_engine
+        self._plover_engine = plover_engine
         super().__init__()
 
-    def _worker_class_paths(self) -> list:
+    def _build_workers(self) -> list:
         """ Parsing large dictionaries is expensive, so the Plover plugin components run on the worker thread. """
-        return [*super()._worker_class_paths(), plover]
+        return [*super()._build_workers(), PloverInterface()]
 
     def run(self) -> None:
         """ Plover engine signals can only be caught by the main thread, so connect them here. """
         if self.compat_check():
-            engine = self._plover
+            engine = self._plover_engine
             engine.signal_connect("dictionaries_loaded", self.FoundDicts)
             engine.signal_connect("translated", self.FoundTranslation)
             self.EngineReady(engine)
