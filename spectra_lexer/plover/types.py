@@ -4,11 +4,12 @@ from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 import pkg_resources
 
-from spectra_lexer.types import dummy
-
 # Key constants and functions for Plover stroke strings.
 _PLOVER_SEP = "/"
 join_strokes = _PLOVER_SEP.join
+# A robust dummy object. Always returns itself through any chain of attribute lookups, subscriptions, and calls.
+_DUMMY_METHODS = ["__getattr__", "__getitem__", "__call__"]
+dummy = type("dummy", (), dict.fromkeys(_DUMMY_METHODS, lambda self, *a, **k: self))()
 
 
 class PloverAction:

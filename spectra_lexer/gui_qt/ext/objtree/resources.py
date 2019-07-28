@@ -45,7 +45,7 @@ class RootDict(dict):
         d = package()
         for cmp in components:
             ks = type(cmp).__module__.split(".")
-            if ks[-1] == "base":
+            if len(ks) > 1 and ks[-1] in (ks[-2], "base"):
                 ks.pop()
             d[".".join(ks[1:])] = cmp
         super().__init__(d.nested(), **kwargs)

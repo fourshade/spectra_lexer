@@ -3,3 +3,4 @@
 from .base import CORE
 from .cmdline import CmdlineOption
 from .command import Command, CommandGroup
+from .engine import Engine, ThreadedEngineGroup

@@ -1,14 +1,11 @@
 """ Module for generic key-search dicts. """
 
 from bisect import bisect_left
+from collections import defaultdict
 from itertools import islice, repeat
 from operator import methodcaller
 import re
 from typing import Callable, Dict, Iterable, List, Tuple, TypeVar, Union
-
-# Regex to match ASCII characters without special regex behavior when used at the start of a pattern.
-# Will always return at least the empty string (which is a prefix of everything).
-REGEX_MATCH_LITERAL_PREFIX = re.compile(r'[\w \"#%\',\-:;<=>@`~]*').match
 
 SKT = TypeVar("SKT")  # Similarity-transformed key (simkey) type.
 KT = TypeVar("KT")    # Raw key type.
@@ -178,6 +175,10 @@ class StringSearchDict(SimilarKeyDict):
     not change the relative order of characters (i.e. changing case is fine, reversing the string is not.)
     """
 
+    # Regex to match ASCII characters without special regex behavior when used at the start of a pattern.
+    # Will always return at least the empty string (which is a prefix of everything).
+    _LITERAL_PREFIX_RX = re.compile(r'[\w \"#%\',\-:;<=>@`~]*').match
+
     def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[Union[SKT,KT]]:
         """ Return a list of keys (of either type) where the simkey starts with <prefix>, up to <count>. """
         sk_start = self._simfn(prefix)
@@ -200,7 +201,7 @@ class StringSearchDict(SimilarKeyDict):
         """ Return a list of at most <count> keys that match the regex <pattern> from the start.
             Can search and return either the raw keys (default) or sim keys (required if raw keys aren't strings). """
         # First, figure out how much of the pattern string from the start is literal (no regex special characters).
-        literal_prefix = REGEX_MATCH_LITERAL_PREFIX(pattern).group()
+        literal_prefix = self._LITERAL_PREFIX_RX(pattern).group()
         # If all matches must start with a certain literal prefix, we can narrow the range of our search.
         # Only keep the type of key (raw or simkey) that we're interested in searching.
         keys = self.prefix_match_keys(literal_prefix, count=None, raw=raw)
@@ -230,3 +231,38 @@ class StripCaseSearchDict(StringSearchDict):
                 return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
             kwargs.update(simfn=simfn, mapfn=mapfn)
         super().__init__(*args, **kwargs)
+
+
+class ReverseDict(dict):
+    """ A reverse dictionary. Inverts a mapping from (key: value) to (value: [keys]). """
+
+    def __init__(self, *args, _match:dict=None, **kwargs):
+        """ Create a matching inverse to the forward dict in the keyword argument <_match> if given.
+            Add items from other arguments normally to remain compatible with other dict constructors. """
+        super().__init__(*args, **kwargs)
+        if _match is not None:
+            self.match_forward(_match)
+
+    def add(self, k, v) -> None:
+        """ Add the value <v> to the list located under the key <k>.
+            Create a new list with that key if the value doesn't exist yet. """
+        if k in self:
+            self[k].append(v)
+        else:
+            self[k] = [v]
+
+    def remove(self, k, v) -> None:
+        """ Remove the value <v> from the list located under the key <k>. The key must exist.
+            If it was the last key in the list, remove the dictionary entry entirely. """
+        i = self[k]
+        i.remove(v)
+        if not i:
+            del self[k]
+
+    def match_forward(self, fdict:dict) -> None:
+        """ Make this dict into the reverse of the given forward dict by rebuilding all of the lists.
+            It is a fast way to populate a reverse dict from scratch after creation. """
+        self.clear()
+        rdict = defaultdict(list)
+        list(map(list.append, [rdict[v] for v in fdict.values()], fdict))
+        self.update(rdict)

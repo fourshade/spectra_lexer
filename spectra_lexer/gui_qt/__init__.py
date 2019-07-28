@@ -2,6 +2,5 @@
 
 from .app import QtApplication as gui
 from .base import GUIQT
-from .tools import QtTools
-from .view import QtView
-from .window import QtWindow
+from .ext import QtViewExtended
+from .view import QtViewManager

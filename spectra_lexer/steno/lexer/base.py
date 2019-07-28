@@ -1,9 +1,9 @@
 from typing import Callable, Iterable, Iterator, List, Tuple
 
 from .generate import LexerRuleGenerator, RESULT_TYPE
-from .match import LexerMatch, LexerRuleMatcher
+from .match import LexerRuleMatcher
 from spectra_lexer.resource import KeyLayout, RulesDictionary, RuleMapItem, StenoRule
-from spectra_lexer.utils import str_without, par_starmap
+from spectra_lexer.utils import par_starmap
 
 
 class StenoLexer:
@@ -15,8 +15,7 @@ class StenoLexer:
     _to_skeys: Callable[[str], str]     # Performs thorough conversions on RTFCRE steno strings.
 
     def __init__(self, layout:KeyLayout, rules:RulesDictionary):
-        match_dict = LexerMatch.convert_dict(rules, layout.from_rtfcre)
-        self._match_rules = LexerRuleMatcher(layout.SEP, layout.SPECIAL, match_dict)
+        self._match_rules = LexerRuleMatcher(layout, rules)
         self._generate_rule = LexerRuleGenerator(layout.to_rtfcre)
         self._to_skeys = layout.cleanse_from_rtfcre
 
@@ -49,30 +48,38 @@ class StenoLexer:
             If <match_all_keys> is True, only return results that match every key in the stroke."""
         match_rules = self._match_rules
         # Thoroughly cleanse and parse the key string into s-keys format first (user strokes cannot be trusted).
-        skeys = self._to_skeys(keys)
+        all_skeys = self._to_skeys(keys)
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
         lword = word.lower()
         # The queue is a list of tuples, each containing the state of the lexer at some point in time.
         # Each tuple includes the keys not yet matched, the current position in the word, and the current rule map.
         # Initialize the queue with the start position ready and start processing.
-        queue = [(skeys, 0, [])]
+        queue = [(all_skeys, 0, [])]
         queue_add = queue.append
         # Simple iteration over a list is much faster than popping from a deque. Nothing *actually* gets removed
         # from the list; for practical purposes, the iterator pointer can be considered the start of the queue.
-        for skeys_left, wordptr, rulemap in queue:
+        for skeys, wordptr, rulemap in queue:
             letters_left = lword[wordptr:]
             # Get the rules that would work as the next match in order from fewest keys matched to most.
-            for r, r_skeys, r_letters, r_letter_count in match_rules(skeys_left, letters_left, skeys, word):
+            for r, r_skeys, r_letters, r_skeys_len, r_letters_len in match_rules(skeys, letters_left, all_skeys, word):
                 # Make a copy of the current map and add the new rule + its location in the word.
                 new_wordptr = wordptr + letters_left.find(r_letters)
-                new_map = rulemap + [RuleMapItem(r, new_wordptr, r_letter_count)]
-                skeys_unmatched = str_without(skeys_left, r_skeys)
+                new_map = rulemap + [RuleMapItem(r, new_wordptr, r_letters_len)]
+                # Remove all matched keys and keep the remainder.
+                if skeys[:r_skeys_len] == r_skeys:
+                    # Fast path: if the keys are a direct prefix, just cut it off.
+                    skeys_left = skeys[r_skeys_len:]
+                else:
+                    # Otherwise, each key must be removed individually.
+                    skeys_left = skeys
+                    for c in r_skeys:
+                        skeys_left = skeys_left.replace(c, "", 1)
                 # A "complete" map is one that matches every one of the keys to a rule.
                 # If we need all keys to be matched, don't add incomplete maps.
-                if not skeys_unmatched or not match_all_keys:
-                    yield new_map, skeys_unmatched, keys, word
-                    if not skeys_unmatched:
+                if not skeys_left or not match_all_keys:
+                    yield new_map, skeys_left, keys, word
+                    if not skeys_left:
                         # If all keys are matched, continue without adding to the queue.
                         continue
                 # Add a queue item with the remaining keys, the new position in the word, and the new map.
-                queue_add((skeys_unmatched, new_wordptr + r_letter_count, new_map))
+                queue_add((skeys_left, new_wordptr + r_letters_len, new_map))

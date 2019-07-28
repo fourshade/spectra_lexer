@@ -6,12 +6,11 @@ import re
 
 import pytest
 
-from spectra_lexer.types.dict import multidict, ReverseDict
-from spectra_lexer.types.search import SimilarKeyDict, StringSearchDict, StripCaseSearchDict
+from spectra_lexer.resource.search import ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_tester(SimilarKeyDict, StringSearchDict, multidict, ReverseDict, StripCaseSearchDict)
+class_test = class_tester(ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict)
 
 
 @class_test(SimilarKeyDict)
@@ -207,9 +206,9 @@ def test_string_dict(cls):
         d.regex_match_keys('beautiful...an open group(', count=1)
 
 
-@class_test(multidict, ReverseDict)
+@class_test(ReverseDict)
 def test_reverse_dict(cls):
-    """ Unit tests for the added functionality of the multidict class. """
+    """ Unit tests for the added functionality of the multidict/reverse dict class. """
     # A multidict must add items to a list rather than overwrite them.
     d = cls()
     d.add('beautiful', ('WAOUFL',))
@@ -232,11 +231,6 @@ def test_reverse_dict(cls):
     d.remove('ugly', ('UG', 'HREU'))
     assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
                  'BEAUTIFUL': [('PWAOUT', '-FL')]}
-
-
-@class_test(ReverseDict)
-def test_reverse_dict(cls):
-    """ Unit tests for the added functionality of the reverse dict class. """
     # A reverse dict should be able to invert any mapping at the most basic level.
     fd = {1: "a", 2: "b", 3: "a", 4: "c",
           5: "a", 6: "b", 7: "a", 8: "d"}

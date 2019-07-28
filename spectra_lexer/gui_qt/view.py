@@ -1,6 +1,10 @@
 from typing import Iterable
 
+from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox
+
 from .base import GUIQT
+from .widgets import MainMenu, MainWindow, SearchListWidget, StenoBoardWidget, TextGraphWidget, TextTitleWidget
+from spectra_lexer.core import CORE
 from spectra_lexer.system import SYS
 from spectra_lexer.view import VIEW
 
@@ -15,16 +19,31 @@ class GUIUpdater(dict):
                 self[k](attrs[k])
 
 
-class QtView(SYS, VIEW, GUIQT):
-    """ GUI Qt operations class for the main view panels. """
+class QtViewManager(CORE, SYS, VIEW, GUIQT):
+    """ The main GUI Qt operations class. Controls all main view panels. """
+
+    window: MainWindow = None  # Main GUI window. All GUI activity is coupled to this window.
+    w_menu: MainMenu = None
+    w_board: StenoBoardWidget = None
+    w_desc: QLabel = None
+    w_title: TextTitleWidget = None
+    w_text: TextGraphWidget = None
+    w_input: QLineEdit = None
+    w_matches: SearchListWidget = None
+    w_mappings: SearchListWidget = None
+    w_strokes: QCheckBox = None
+    w_regex: QCheckBox = None
 
     _last_status: str = ""
     _state_vars: dict = None        # Contains a complete representation of the current state of the GUI.
     _update_gui: GUIUpdater = None  # Call with a dict to update the actual GUI widgets.
 
-    def GUIQTConnect(self, **widgets) -> None:
-        """ Connect all Qt signals and initialize the board size.
+    def Load(self) -> None:
+        """ Create the window and connect all GUI controls to its widgets.
+            Connect all Qt signals and initialize the board size.
             Display the last status if it occurred before connection. """
+        window = MainWindow()
+        widgets = window.widgets()
         for k, v in widgets.items():
             setattr(self, k, v)
         self._state_vars = {}
@@ -38,6 +57,8 @@ class QtView(SYS, VIEW, GUIQT):
         self.w_board.resizeEvent()
         if self._last_status:
             self.w_title.set_text(self._last_status)
+        self.GUIQTShowWindow()
+        self.GUIQTSetEnabled(True)
 
     def _input_actions(self) -> Iterable[tuple]:
         """ Return all possible user input signals and the corresponding actions with any state updates. """
@@ -64,6 +85,12 @@ class QtView(SYS, VIEW, GUIQT):
                           board_caption=self.w_desc.setText,
                           board_xml_data=self.w_board.set_board_data,
                           link_ref=self.w_board.set_link)
+
+    def GUIQTShowWindow(self) -> None:
+        self.window.show()
+
+    def GUIQTCloseWindow(self) -> None:
+        self.window.close()
 
     def GUIQTSetEnabled(self, enabled:bool) -> None:
         """ On disable, reset all widgets except the title. """

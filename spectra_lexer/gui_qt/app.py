@@ -6,9 +6,7 @@ from typing import Callable
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
-from .tools import QtTools
-from .view import QtView
-from .window import QtWindow
+from .ext import QtViewExtended
 from spectra_lexer.view.app import ViewApplication
 
 
@@ -34,7 +32,7 @@ class QtApplication(ViewApplication):
 
     def _build_components(self) -> list:
         """ Run the GUI on the main thread. """
-        return [QtWindow(), QtView(), QtTools()]
+        return [QtViewExtended()]
 
     def _build_engine(self, *args, **kwargs):
         """ To send commands to the GUI, the child threads send a Qt signal to the main thread.

@@ -1,5 +1,6 @@
 from http import HTTPStatus
 import os
+from json import JSONDecoder, JSONEncoder
 from mimetypes import MimeTypes
 from threading import Thread
 
@@ -8,26 +9,30 @@ from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
 from spectra_lexer.core import CmdlineOption
 from spectra_lexer.system import SYS
-from spectra_lexer.types.codec import JSONDict
 from spectra_lexer.view import VIEW
 
 
-class ResponseDict(JSONDict):
+class ResponseDict(dict):
     """ A dict subclass with response metadata that is preserved through an action call. """
     response: HTTPResponse
 
 
 class JSONValidator:
-    """ Validates GUI state data submitted as JSON by HTTP. """
+    """ Transcodes and validates GUI state data submitted as JSON by HTTP. """
 
+    decoder: JSONDecoder
+    encoder: JSONEncoder
     size_limit: int     # Limit on total size of JSON data in bytes.
     char_limits: tuple  # Limits on special JSON characters.
 
     def __init__(self, size_limit:int=100000, char_limits:tuple=((b"{", 20),(b"[", 20))):
+        """ Keep Unicode characters intact. Make sure bytes objects are converted to normal strings. """
+        self.decoder = JSONDecoder()
+        self.encoder = JSONEncoder(ensure_ascii=False, default=bytes.decode)
         self.size_limit = size_limit
         self.char_limits = char_limits
 
-    def decode(self, data:bytes) -> ResponseDict:
+    def decode(self, data:bytes) -> dict:
         """ Process JSON data obtained from a client. This data could contain ANYTHING...beware! """
         if len(data) > self.size_limit:
             raise ValueError("Data payload too large.")
@@ -36,15 +41,10 @@ class JSONValidator:
         for c, limit in self.char_limits:
             if data.count(c) > limit:
                 raise ValueError("Too many containers.")
-        return ResponseDict.decode(data)
+        return self.decoder.decode(data.decode('utf-8'))
 
-    def encode(self, d:ResponseDict) -> bytes:
-        """ Finish a response by encoding any relevant changes to JSON and send them back to the client.
-            Make sure all bytes objects are converted to normal strings before encoding. """
-        for k, v in d.items():
-            if isinstance(v, bytes):
-                d[k] = v.decode()
-        return d.encode()
+    def encode(self, d:dict) -> bytes:
+        return self.encoder.encode(d).encode('utf-8')
 
 
 class HttpServer(SYS, VIEW, GUIHTTP):
@@ -125,12 +125,15 @@ class HttpServer(SYS, VIEW, GUIHTTP):
 
     def POST(self, request:HTTPRequest, response:HTTPResponse) -> None:
         """ Process JSON and query data obtained from a client. """
-        state = self._VALIDATOR.decode(request.content)
+        data = request.content
+        d = self._VALIDATOR.decode(data)
+        state = ResponseDict(d)
         state.response = response
         action = request.path.split('/')[-1]
         self.VIEWAction(state, action)
 
     def VIEWActionResult(self, changed:ResponseDict) -> None:
+        """ Finish a response by encoding any relevant changes to JSON and send them back to the client."""
         data = self._VALIDATOR.encode(changed)
         response = changed.response
         response.add_content(data, "application/json")

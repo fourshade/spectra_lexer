@@ -4,9 +4,8 @@ import sys
 
 from .base import PLOVER
 from .plover import PloverInterface
-from .types import PloverAction, PloverCompatibilityTester, PloverEngine
+from .types import dummy, PloverAction, PloverCompatibilityTester, PloverEngine
 from spectra_lexer.gui_qt.app import QtApplication
-from spectra_lexer.types import dummy
 
 # Minimum version of Plover required for plugin compatibility.
 VERSION_REQUIRED = "4.0.0.dev8"

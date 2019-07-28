@@ -4,11 +4,6 @@ from spectra_lexer.core import Command
 class GUIQT:
 
     @Command
-    def GUIQTConnect(self, **widgets) -> None:
-        """ Start connecting widgets. """
-        raise NotImplementedError
-
-    @Command
     def GUIQTSetEnabled(self, enabled:bool) -> None:
         """ Enable/disable all widgets when GUI-blocking operations are being done. """
         raise NotImplementedError

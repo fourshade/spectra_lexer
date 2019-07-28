@@ -1,6 +1,6 @@
 from .view import ViewManager
 from spectra_lexer.core.app import Application
-from spectra_lexer.core.engine import Engine, ThreadedEngineGroup
+from spectra_lexer.core import Engine, ThreadedEngineGroup
 from spectra_lexer.resource import ResourceManager
 from spectra_lexer.steno import StenoAnalyzer
 from spectra_lexer.system import SystemManager

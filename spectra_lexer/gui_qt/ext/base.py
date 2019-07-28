@@ -5,27 +5,22 @@ from .console import ConsoleDialog
 from .dialog import DialogContainer, load_files_dialog
 from .index import default_index_dialog, SliderIndexDialog
 from .objtree import ObjectTreeDialog
-from ..base import GUIQT
-from ..widgets import MainMenu, MainWindow
-from spectra_lexer.core import CORE
-from spectra_lexer.system import SYS
-from spectra_lexer.view import VIEW
+from ..view import QtViewManager
 
-MENU_ITEMS = []
+_MENU_ITEMS = []
 
 
 def MenuItem(heading:str, text:str, *, after_separator:bool=False):
     """ Decorator for methods available as menu items. """
     def capture(fn):
-        MENU_ITEMS.append((heading, text, after_separator, fn))
+        _MENU_ITEMS.append((heading, text, after_separator, fn))
         return fn
     return capture
 
 
-class QtTools(CORE, SYS, VIEW, GUIQT):
-    """ GUI Qt operations class for the dialog tools. """
+class QtViewExtended(QtViewManager):
+    """ GUI Qt extended operations class with dialog tools. """
 
-    window: MainWindow = None
     _dialogs: DialogContainer
     _components: list                  # Contains every component definition in the application.
     _last_config_args: tuple = ()      # Last info arguments received from config component.
@@ -41,14 +36,14 @@ class QtTools(CORE, SYS, VIEW, GUIQT):
     def Debug(self, components:list) -> None:
         self._components = components
 
-    def GUIQTConnect(self, window:MainWindow, w_menu:MainMenu, **widgets) -> None:
+    def Load(self) -> None:
         """ Save the window and add new GUI menu items/separators with required headings as needed. """
-        self.window = window
-        for heading, text, after_sep, fn in MENU_ITEMS:
+        super().Load()
+        for heading, text, after_sep, fn in _MENU_ITEMS:
             if after_sep:
-                w_menu.add_separator(heading)
+                self.w_menu.add_separator(heading)
             # Bind the method to this component and add a new menu item that calls it when selected.
-            w_menu.add_item(heading, text, fn.__get__(self))
+            self.w_menu.add_item(heading, text, fn.__get__(self))
 
     @MenuItem("File", "Load Translations...")
     def FileOpenTranslations(self) -> None:

@@ -1,10 +1,10 @@
+from collections import defaultdict
 from functools import partial
 from queue import Queue
 from threading import Thread
 from typing import Any, Callable, Hashable, Iterable
 
 from .command import Command
-from spectra_lexer.types.dict import multidict
 
 
 class ExceptionHandler:
@@ -30,11 +30,11 @@ class Executor:
     """ Holds engine commands, each associated with a key. Executes *all* callables under that key when called.
         The return value, if any, is the one from the last callable executed in order. """
 
-    _commands: multidict
+    _commands: dict
     _exc_handler: ExceptionHandler  # Context manager to handle exceptions.
 
-    def __init__(self, exc_callback:Callable, *args, **kwargs):
-        self._commands = multidict(*args, **kwargs)
+    def __init__(self, exc_callback:Callable):
+        self._commands = defaultdict(list)
         self._exc_handler = ExceptionHandler(exc_callback)
 
     def __call__(self, key:Hashable, *args, **kwargs) -> Any:
@@ -45,8 +45,9 @@ class Executor:
                 value = func(*args, **kwargs)
         return value
 
-    def update(self, *args, **kwargs) -> None:
-        self._commands.update(*args, **kwargs)
+    def update(self, commands:Iterable) -> None:
+        for k, cmd in commands:
+            self._commands[k].append(cmd)
 
 
 class Engine:

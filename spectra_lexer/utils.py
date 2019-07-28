@@ -1,29 +1,12 @@
 """ Module for generic utility functions that could be useful in many applications.
     Most are ruthlessly optimized, with attribute lookups and globals cached in default arguments. """
 
-from functools import partial, reduce
+from functools import partial
 from itertools import starmap
 from multiprocessing import cpu_count, Pool
 import sys
 from traceback import print_exc
-from typing import Callable, Container, Iterable
-
-
-def ensure_iterable(obj:object, *, blacklist:Container=(str,), empty:Container=(type(None),), iter_items:bool=True):
-    """ Ensure an object is iterable by wrapping it in a list if it isn't. Also covers a few special cases:
-        blacklist - Types to treat as "not iterable". Iteration over the characters of a string is usually unwanted.
-            empty - Types used to indicate the absence of a value. Will return an empty iterable.
-       iter_items - For a mapping, do we iterate over the items (True) or the keys (False)? """
-    tp = type(obj)
-    if tp in blacklist:
-        return [obj]
-    if tp in empty:
-        return ()
-    if hasattr(tp, "items") and iter_items:
-        return obj.items()
-    if hasattr(tp, "__iter__"):
-        return obj
-    return [obj]
+from typing import Callable, Iterable
 
 
 def traverse(obj:object, next_attr:str="next", sentinel:object=None):
@@ -89,31 +72,3 @@ def par_starmap(func:Callable, iterable:Iterable[tuple], *args, processes:int=No
             print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
     # With only one process (or a failed process pool), use ordinary starmap.
     return list(starmap(func, iterable))
-
-
-# These string operations ought to have been built-ins. Pure Python string handling is too slow.
-# Even after caching attributes and globals, string object creation and function call overhead will eat you alive.
-
-def str_prefix(s:str, sep:str=" ", _split=str.split) -> str:
-    """ Return <s> from the start up to the first instance of <sep>. If <sep> is not present, return all of <s>. """
-    return _split(s, sep, 1)[0]
-
-
-def str_suffix(s:str, sep:str=" ", _rsplit=str.rsplit) -> str:
-    """ Return <s> from the end up to the last instance of <sep>. If <sep> is not present, return all of <s>. """
-    return _rsplit(s, sep, 1)[-1]
-
-
-def _remove_char(s:str, c:str, _replace=str.replace) -> str:
-    """ Return a copy of <s> with the character <c> removed starting from the left. """
-    return _replace(s, c, "", 1)
-
-
-def str_without(s:str, chars) -> str:
-    """ Return <s> with each of the characters in <chars> removed, starting from the left. """
-    # Fast path: if the characters are a direct prefix, just cut it off.
-    prefix_length = len(chars)
-    if s[:prefix_length] == chars:
-        return s[prefix_length:]
-    # Otherwise, each key must be removed individually.
-    return reduce(_remove_char, chars, s)
