@@ -1,10 +1,9 @@
 """ Partial class structures that specify a minimum type interface for compatibility with Plover. """
 
-from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 import pkg_resources
 
-from spectra_lexer.resource import TranslationsDictionary
 from spectra_lexer.types import dummy
 
 # Key constants and functions for Plover stroke strings.
@@ -76,13 +75,3 @@ class PloverCompatibilityTester:
         except pkg_resources.ResolutionError:
             self._write(f"ERROR: Plover v{version} or greater required.")
             return False
-
-
-class PloverTranslationsDictionary(TranslationsDictionary):
-
-    def __init__(self, dicts:Iterable[Dict[tuple, str]]):
-        """ Strokes in tuple form must be joined into strings. """
-        converted_dict = {}
-        for d in dicts:
-            converted_dict.update(zip(map(join_strokes, d), d.values()))
-        super().__init__(converted_dict)

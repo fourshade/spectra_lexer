@@ -5,7 +5,8 @@ from .base import LX
 from .board import BoardElementParser, BoardGenerator
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
-from spectra_lexer.resource import RulesDictionary, StenoIndex, StenoRule
+from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary
+from spectra_lexer.types.codec import XMLElement
 
 
 class StenoAnalyzer(LX):
@@ -14,12 +15,18 @@ class StenoAnalyzer(LX):
     _board: BoardGenerator = None
     _grapher: GraphGenerator = None
     _lexer: StenoLexer = None
+    _rules: RulesDictionary = None
+    _translations: TranslationsDictionary = None
 
-    def Load(self) -> None:
-        board_parser = BoardElementParser(self.BOARD_DEFS, self.BOARD_ELEMS)
-        self._board = BoardGenerator(self.LAYOUT, self.RULES, board_parser)
-        self._grapher = GraphGenerator(self.LAYOUT)
-        self._lexer = StenoLexer(self.LAYOUT, self.RULES)
+    def RSSystemReady(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement) -> None:
+        board_parser = BoardElementParser(board_defs, board_elems)
+        self._board = BoardGenerator(layout, rules, board_parser)
+        self._grapher = GraphGenerator(layout)
+        self._lexer = StenoLexer(layout, rules)
+        self._rules = rules
+
+    def RSTranslationsReady(self, translations:TranslationsDictionary) -> None:
+        self._translations = translations
 
     def LXLexerQuery(self, keys:str, word:str, **kwargs) -> StenoRule:
         return self._lexer.query(keys, word, **kwargs)
@@ -29,16 +36,16 @@ class StenoAnalyzer(LX):
 
     def LXLexerQueryAll(self, *args, **kwargs) -> RulesDictionary:
         results = self._query_all(*args, **kwargs)
-        return self.RULES.compile(results)
+        return self._rules.compile(results)
 
     def LXLexerMakeIndex(self, *args) -> StenoIndex:
         """ Only keep results with all keys matched to reduce garbage. """
         filter_in, filter_out = StenoIndex.filters(*args)
         results = self._query_all(filter_in, filter_out, match_all_keys=True)
-        return StenoIndex.compile(results, self.RULES.inverse)
+        return StenoIndex.compile(results, self._rules.inverse)
 
     def _query_all(self, *args, **kwargs) -> List[StenoRule]:
-        items = self.TRANSLATIONS.items()
+        items = self._translations.items()
         return self._lexer.query_parallel(items, *args, **kwargs)
 
     def LXGraphGenerate(self, rule:StenoRule, **kwargs) -> StenoGraph:

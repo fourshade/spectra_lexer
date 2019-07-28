@@ -28,17 +28,12 @@ def with_file(cmp):
     return cmp
 # Load all resources and update components with them as we need them.
 RESOURCE = with_file(ResourceManager())
-RESOURCE.Load()
-def with_rs(cmp):
-    for attr in vars(RESOURCE):
-        if attr.upper() == attr:
-            setattr(cmp, attr, getattr(RESOURCE, attr))
-    return cmp
+RES_DICT = RESOURCE.RSSystemLoad(RESOURCE.system_path)
 
 
 def test_layout():
     """ Test various properties of a key layout for correctness. """
-    layout = RESOURCE.LAYOUT
+    layout = RES_DICT["layout"]
     # There cannot be duplicate keys within a side.
     sides = [layout.LEFT, layout.CENTER, layout.RIGHT]
     left, center, right = sets = list(map(set, sides))
@@ -57,7 +52,7 @@ def test_layout():
         assert {shift_key, *shift_transform.values()} <= all_keys
 
 
-RULES_DICT = RESOURCE.RULES
+RULES_DICT = RES_DICT["rules"]
 
 
 def test_rule_conflicts():
@@ -123,8 +118,8 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-STENO = with_rs(StenoAnalyzer())
-STENO.Load()
+STENO = StenoAnalyzer()
+STENO.RSSystemReady(**RES_DICT)
 TEST_RESULTS = [STENO.LXLexerQuery(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
 
 
@@ -161,11 +156,13 @@ def test_graph(result):
 
 
 PLOVER = PloverInterface()
-PLOVER.PLOVER_ENGINE = PloverEngine()
+PLOVER.EngineReady(PloverEngine())
 
 
 def test_plover():
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
     test_engine = PloverEngine.test(TRANSLATIONS_DICT, split_count=3)
+    translations_holder = []
+    PLOVER.RSTranslationsReady = translations_holder.append
     PLOVER.FoundDicts(test_engine.dictionaries)
-    assert PLOVER.TRANSLATIONS == TRANSLATIONS_DICT
+    assert translations_holder.pop() == TRANSLATIONS_DICT

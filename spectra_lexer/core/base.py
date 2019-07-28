@@ -1,6 +1,6 @@
 """ Base module of the Spectra core package. Contains the most fundamental classes. Don't touch anything... """
 
-from .command import Command, Resource
+from .command import Command
 
 
 class CORE:
@@ -8,11 +8,14 @@ class CORE:
         It is the root class of the Spectra lexer component hierarchy, being subclassed directly
         or indirectly by nearly every important (externally-visible) piece of the program. """
 
-    ALL_COMPONENTS: list = Resource([])  # Contains every component definition in the application.
-
     @Command
     def Load(self) -> None:
         """ Load initial data that requires engine access (unlike __init__). """
+        raise NotImplementedError
+
+    @Command
+    def Debug(self, components:list) -> None:
+        """ Send every component definition in the application to debug components. """
         raise NotImplementedError
 
     @Command

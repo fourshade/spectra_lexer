@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from functools import partial, update_wrapper
-from typing import Any, Callable, Hashable, Iterator, List, Tuple
+from typing import Callable, Hashable, Iterator, List, Tuple
 
 
 class AbstractCommand:
@@ -67,33 +67,3 @@ class CommandGroup:
     def __get__(self, instance:object, owner:type=None) -> List[Callable]:
         """ Bind the commands to any component that accesses this so it can call them. """
         return [cmd.wrap(instance) for cmd in self._cmds]
-
-
-class Resource(AbstractCommand):
-    """ An external resource that stores its value on the component. """
-
-    default: Any
-    _rs_attr: str
-
-    def __init__(self, default:Any=None):
-        self.default = default
-        self._rs_attr = f"RS_{id(self)}"
-
-    def __get__(self, instance:object, owner:type=None) -> Any:
-        return getattr(instance, self._rs_attr, self.default)
-
-    def bind(self, cmp:object) -> Iterator[Callable]:
-        """ Store the provided value on command call. """
-        yield partial(setattr, cmp, self._rs_attr)
-
-    def __set__(self, instance:object, value) -> None:
-        """ Call the engine to set the resource. Set our own attribute during non-connected tests. """
-        try:
-            self.wrap(instance)(value)
-        except AttributeError:
-            next(self.bind(instance))(value)
-
-    def __set_name__(self, owner:type, name:str) -> None:
-        """ Resources bound directly to names should use those names. """
-        super().__set_name__(owner, name)
-        self._rs_attr = f"RS_{name}"

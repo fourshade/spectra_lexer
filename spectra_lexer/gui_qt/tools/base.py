@@ -24,14 +24,19 @@ class QtTools(GUIQT):
 
     window: MainWindow = None
     _dialogs: DialogContainer
+    _components: list                  # Contains every component definition in the application.
     _last_config_args: tuple = ()      # Last info arguments received from config component.
     _last_exception: Exception = None  # Holds last exception caught from the engine.
 
     def __init__(self) -> None:
         self._dialogs = DialogContainer()
+        self._components = [self]
 
     def _open(self, dialog_cls:type, *args, **kwargs) -> None:
         self._dialogs.open(dialog_cls, self.window, *args, **kwargs)
+
+    def Debug(self, components:list) -> None:
+        self._components = components
 
     def GUIQTConnect(self, window:MainWindow, w_menu:MainMenu, **widgets) -> None:
         """ Save the window and add new GUI menu items/separators with required headings as needed. """
@@ -113,7 +118,7 @@ class QtTools(GUIQT):
         kwargs = {}
         if self._last_exception is not None:
             kwargs["last_exception"] = self._last_exception
-        self._open(ObjectTreeDialog, self.ALL_COMPONENTS, **kwargs)
+        self._open(ObjectTreeDialog, self._components, **kwargs)
 
     def HandleException(self, exc:Exception) -> bool:
         """ Save the last exception for introspection. If THAT fails, the system is beyond help. """

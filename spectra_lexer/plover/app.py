@@ -40,11 +40,10 @@ class PloverPluginApplication(QtApplication, PLOVER):
     def run(self) -> None:
         """ Plover engine signals can only be caught by the main thread, so connect them here. """
         if self.compat_check():
-            engine = self.PLOVER_ENGINE = self._plover
+            engine = self._plover
             engine.signal_connect("dictionaries_loaded", self.FoundDicts)
             engine.signal_connect("translated", self.FoundTranslation)
-            # Load the current Plover dictionaries to finish engine setup.
-            self.FoundDicts(engine.dictionaries)
+            self.EngineReady(engine)
 
     def compat_check(self) -> bool:
         """ Add the Plover engine only if the version is compatible. """

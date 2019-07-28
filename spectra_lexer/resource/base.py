@@ -1,24 +1,20 @@
 from .index import StenoIndex
-from .keys import KeyLayout
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
-from spectra_lexer.core import Resource
+from spectra_lexer.core import Command
 from spectra_lexer.system import ConsoleCommand, SYS
-from spectra_lexer.types.codec import JSONDict, XMLElement
 
 
 class RS(SYS):
 
-    LAYOUT: KeyLayout = Resource()
-    RULES: RulesDictionary = Resource()
-    BOARD_DEFS: JSONDict = Resource()
-    BOARD_ELEMS: XMLElement = Resource()
-    TRANSLATIONS: TranslationsDictionary = Resource(TranslationsDictionary())
-    INDEX: StenoIndex = Resource(StenoIndex())
-
     @ConsoleCommand
     def RSSystemLoad(self, base_dir:str) -> dict:
         """ Load resources from a steno system directory. Use default settings if missing. """
+        raise NotImplementedError
+
+    @Command
+    def RSSystemReady(self, **kwargs) -> None:
+        """ Send this command with all system resources as keywords. """
         raise NotImplementedError
 
     @ConsoleCommand
@@ -26,9 +22,19 @@ class RS(SYS):
         """ Load and merge translations from disk. Ignore missing files. """
         raise NotImplementedError
 
+    @Command
+    def RSTranslationsReady(self, translations:TranslationsDictionary) -> None:
+        """ Send this command with the new translations dict for all components. """
+        raise NotImplementedError
+
     @ConsoleCommand
-    def RSIndexLoad(self, filename:str= "", **kwargs) -> StenoIndex:
+    def RSIndexLoad(self, *patterns:str, **kwargs) -> StenoIndex:
         """ Load an index from disk. Ignore missing files. """
+        raise NotImplementedError
+
+    @Command
+    def RSIndexReady(self, index:StenoIndex) -> None:
+        """ Send this command with the new index dict for all components. """
         raise NotImplementedError
 
     @ConsoleCommand
@@ -37,7 +43,7 @@ class RS(SYS):
         raise NotImplementedError
 
     @ConsoleCommand
-    def RSTranslationsSave(self, d:TranslationsDictionary, filename:str= "", **kwargs) -> None:
+    def RSTranslationsSave(self, translations:TranslationsDictionary, filename:str= "", **kwargs) -> None:
         """ Save a translations dict directly into JSON. """
         raise NotImplementedError
 

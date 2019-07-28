@@ -4,7 +4,7 @@ from .base import VIEW
 from .config import ConfigDictionary, ConfigInfo
 from .state import ViewState
 from spectra_lexer.core import CmdlineOption
-from spectra_lexer.resource import StenoIndex
+from spectra_lexer.resource import RulesDictionary, StenoIndex, TranslationsDictionary
 
 
 class ViewManager(VIEW):
@@ -26,6 +26,9 @@ class ViewManager(VIEW):
     config_file: str = CmdlineOption("config-file", default="~/config.cfg",
                                      desc="CFG file with config settings to load at start and/or write to.")
 
+    _rules: RulesDictionary = None
+    _translations: TranslationsDictionary = None
+    _index: StenoIndex = None
     _config: ConfigDictionary = None  # Keeps track of configuration options in a master dict.
 
     def Load(self) -> None:
@@ -33,8 +36,17 @@ class ViewManager(VIEW):
         data_list = self.SYSFileLoad(self.config_file)
         cfg.decode_update(*data_list)
         self._update_info(cfg)
-        if not self.INDEX:
+        if not self._index:
             self.VIEWDialogNoIndex()
+
+    def RSSystemReady(self, rules:RulesDictionary, **kwargs) -> None:
+        self._rules = rules
+
+    def RSTranslationsReady(self, translations:TranslationsDictionary) -> None:
+        self._translations = translations
+
+    def RSIndexReady(self, index:StenoIndex) -> None:
+        self._index = index
 
     def VIEWConfigUpdate(self, options:dict) -> None:
         cfg = self._config
@@ -59,7 +71,7 @@ class ViewManager(VIEW):
 
     def _save_index(self, index:StenoIndex) -> None:
         self.RSIndexSave(index)
-        self.INDEX = index
+        self._index = index
 
     def VIEWDialogFileLoad(self, filenames:List[str], res_type:str) -> None:
         getattr(self, f"RS{res_type.title()}Load")(*filenames)

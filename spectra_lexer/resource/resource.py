@@ -31,10 +31,10 @@ class ResourceManager(RS):
     rules_out: str = CmdlineOption("rules-out", default="./rules.json",
                                    desc="Output file name for lexer-generated rules.")
 
-    DIR_INFO = (("layout.json",     KeyLayout,       "LAYOUT"),   # File name for the steno key constants.
-                ("*.cson",          RulesDictionary,  "RULES"),   # Glob pattern for JSON-based rules files.
-                ("board_defs.json", JSONDict,    "BOARD_DEFS"),   # File name for the board shape definitions.
-                ("board_elems.xml", XMLElement, "BOARD_ELEMS"))   # File name for the XML steno board elements.
+    DIR_INFO = (("layout.json",     KeyLayout,       "layout"),   # File name for the steno key constants.
+                ("*.cson",          RulesDictionary,  "rules"),   # Glob pattern for JSON-based rules files.
+                ("board_defs.json", JSONDict,    "board_defs"),   # File name for the board shape definitions.
+                ("board_elems.xml", XMLElement, "board_elems"))   # File name for the XML steno board elements.
 
     def Load(self) -> None:
         """ Load every available asset into its global resource attribute before startup.
@@ -49,16 +49,18 @@ class ResourceManager(RS):
         d = {}
         for filename, codec_cls, attr in self.DIR_INFO:
             pattern = os.path.join(base_dir, filename)
-            rs = d[attr] = self._load(codec_cls, pattern)
-            setattr(self, attr, rs)
+            d[attr] = self._load(codec_cls, pattern)
+        self.RSSystemReady(**d)
         return d
 
     def RSTranslationsLoad(self, *patterns:str, **kwargs) -> TranslationsDictionary:
-        translations = self.TRANSLATIONS = self._load(TranslationsDictionary, *patterns, **kwargs)
+        translations = self._load(TranslationsDictionary, *patterns, **kwargs)
+        self.RSTranslationsReady(translations)
         return translations
 
     def RSIndexLoad(self, *patterns:str, **kwargs) -> StenoIndex:
-        index = self.INDEX = self._load(StenoIndex, *patterns, **kwargs)
+        index = self._load(StenoIndex, *patterns, **kwargs)
+        self.RSIndexReady(index)
         return index
 
     def _load(self, codec_cls, *patterns, **kwargs):
@@ -68,8 +70,8 @@ class ResourceManager(RS):
     def RSRulesSave(self, rules:RulesDictionary, filename:str="", **kwargs) -> None:
         self._save(rules, filename or self.rules_out, **kwargs)
 
-    def RSTranslationsSave(self, d:TranslationsDictionary, filename:str="", **kwargs) -> None:
-        self._save(d, filename or self.translations_out, **kwargs)
+    def RSTranslationsSave(self, translations:TranslationsDictionary, filename:str="", **kwargs) -> None:
+        self._save(translations, filename or self.translations_out, **kwargs)
 
     def RSIndexSave(self, index:StenoIndex, filename:str="", **kwargs) -> None:
         self._save(index, filename or self.index_file, **kwargs)

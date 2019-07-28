@@ -1,13 +1,16 @@
 from typing import Sequence
 
 from .types import PloverAction, PloverEngine, PloverStenoDictCollection
-from spectra_lexer.core import Command, Resource
+from spectra_lexer.core import Command
 from spectra_lexer.gui_qt import GUIQT
 
 
 class PLOVER(GUIQT):
 
-    PLOVER_ENGINE: PloverEngine = Resource()  # Plover engine. Assumed not to change during run-time.
+    @Command
+    def EngineReady(self, engine:PloverEngine) -> None:
+        """ Send this command with the Plover engine as soon as the components are connected. """
+        raise NotImplementedError
 
     @Command
     def FoundDicts(self, steno_dc:PloverStenoDictCollection) -> None:

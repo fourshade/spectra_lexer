@@ -18,18 +18,23 @@ class SystemManager(SYS):
 
     _io: PathIO            # Reads, writes, and converts path strings.
     _logger: StreamLogger  # Logs system events to standard streams and/or files.
+    _components: list      # Contains every component definition in the application.
     _console: SystemConsole = None
 
     def __init__(self):
         self._io = PathIO(**self.get_root_paths())
         self._logger = StreamLogger(sys.stdout)
+        self._components = [self]
 
     def Load(self) -> None:
         log_path = self._io.to_path(self.log_file)
         self._logger.add_path(log_path)
 
+    def Debug(self, components:list) -> None:
+        self._components = components
+
     def SYSConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
-        kwargs["__app__"] = self.ALL_COMPONENTS
+        kwargs["__app__"] = self._components
         self._console = SystemConsole(self.SYSConsoleOutput, interactive, self.CONSOLE_COMMANDS, **kwargs)
 
     def SYSConsoleInput(self, text_in:str) -> None:

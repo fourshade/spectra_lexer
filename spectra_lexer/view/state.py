@@ -71,7 +71,7 @@ class ViewState:
     def VIEWSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
         link_ref = self.link_ref
-        selection = self.INDEX.find_example(link_ref, strokes=self.mode_strokes)
+        selection = self._index.find_example(link_ref, strokes=self.mode_strokes)
         self.input_text = INDEX_DELIM.join([link_ref, selection])
         self.page_count = 1
         self._search()
@@ -129,7 +129,7 @@ class ViewState:
     def _call_search(self, match:str=None, **kwargs) -> List[str]:
         """ Choose an index to use based on delimiters and call a search on it. """
         *keys, pattern = self.input_text.split(INDEX_DELIM, 1)
-        index = self.INDEX if keys else self.TRANSLATIONS
+        index = self._index if keys else self._translations
         return index.search(*keys, match or pattern, strokes=self.mode_strokes, regex=self.mode_regex, **kwargs)
 
     def VIEWSelect(self) -> None:
@@ -153,7 +153,7 @@ class ViewState:
         """ Draw a new graph. Only a previous linked example rule may be selected. """
         self.graph_node_ref = ""
         select = self.graph_has_selection
-        self._new_query(select, prev=self.RULES.get(self.link_ref) if select else None)
+        self._new_query(select, prev=self._rules.get(self.link_ref) if select else None)
 
     def VIEWGraphOver(self) -> None:
         """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected.
@@ -186,8 +186,8 @@ class ViewState:
 
     def _get_link(self, rule:StenoRule) -> str:
         if self.links_enabled:
-            name = self.RULES.inverse.get(rule, "")
-            if name in self.INDEX:
+            name = self._rules.inverse.get(rule, "")
+            if name in self._index:
                 return name
         return ""
 

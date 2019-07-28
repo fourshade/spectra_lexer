@@ -15,8 +15,8 @@ class Application(CORE):
         engine = self._build_engine(components, exc_command=CORE.HandleException)
         engine.connect(self)
         # Load all command line options and resources and run the application.
-        self.ALL_COMPONENTS = components
         CmdlineOption.process_all()
+        self.Debug(components)
         self.Load()
         self.run()
 
