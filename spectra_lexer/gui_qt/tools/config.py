@@ -1,10 +1,11 @@
-from typing import List
+""" Module for config manager. Allows editing of config values for any component. """
+
+from typing import Dict, Iterable, List, Tuple
 
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout, QWidget
 
-from .base import GUIQT_TOOL
-from .dialog import DialogContainer, FormDialog
+from .dialog import FormDialog
 from spectra_lexer.view import ConfigItem
 
 
@@ -40,7 +41,7 @@ class OptionWidgets:
                 int:  OptionWidgetInt,
                 str:  OptionWidgetStr}
 
-    _widgets: list  # List of config option widgets by key.
+    _widgets: List[Tuple[str, QWidget]]  # List of config option widgets by key.
 
     def __init__(self):
         self._widgets = []
@@ -61,7 +62,7 @@ class OptionWidgets:
 class ConfigPages:
     """ Contains a tabbed page widget for each config section. """
 
-    _pages: dict       # Contains each tab page layout indexed by title.
+    _pages: Dict[str, QLayout]  # Contains each tab page layout indexed by title.
     _tabs: QTabWidget
 
     def __init__(self):
@@ -93,7 +94,7 @@ class ConfigDialog(FormDialog):
 
     _widgets: OptionWidgets = None
 
-    def new_layout(self, info:List[ConfigItem]) -> QLayout:
+    def new_layout(self, info:Iterable[ConfigItem]=()) -> QLayout:
         """ Create a new central tab widget from the info rows.
             Make new widgets for config options based on attributes. Only basic types are supported.
             If an unsupported type is given, it is handled as a string (the native format for ConfigParser). """
@@ -117,19 +118,3 @@ class ConfigDialog(FormDialog):
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:
             QMessageBox.warning(self, "Config Error", "One or more config values was invalid.")
-
-
-class QtConfigTool(GUIQT_TOOL):
-    """ Config manager; allows editing of config values for any component. """
-
-    _dialog: DialogContainer
-    _config: List[ConfigItem] = []
-
-    def __init__(self):
-        self._dialog = DialogContainer(ConfigDialog)
-
-    def TOOLConfigOpen(self) -> None:
-        self._dialog.open(self.WINDOW, self.VIEWConfigUpdate, self._config)
-
-    def VIEWConfigInfo(self, info:List[ConfigItem]) -> None:
-        self._config = info

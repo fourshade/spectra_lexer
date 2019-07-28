@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 
 from spectra_lexer.resource import StenoRule
+from spectra_lexer.view import VIEW
 
 MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
 INDEX_DELIM: str = ";"        # Delimiter between rule name and query for index searches.
@@ -37,9 +38,9 @@ class ViewState:
     graph_compat: bool = False   # Draw the graph using tables for browsers with bad monospace font support.
 
     _result: dict  # Holds all attributes and values that were changed since creation.
-    _view: object  # Has access to all outside components.
+    _view: VIEW    # Has access to all outside components.
 
-    def __init__(self, d:dict, view:object):
+    def __init__(self, d:dict, view:VIEW):
         """ Update the attribute dict directly with a state dict <d>.
             Empty the original dict and keep it to return with the results. It may have metadata on it. """
         self.__dict__.update(d)

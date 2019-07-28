@@ -1,3 +1,6 @@
+""" Contains resource classes for interactive tree operations. These are expensive to create and probably unused
+    most of the time, so they are computed only on dialog open. """
+
 import sys
 
 from spectra_lexer.types.codec import XMLElement
@@ -35,8 +38,8 @@ class RootDict(dict):
 
     __slots__ = ()
 
-    def __init__(self, components:list):
-        """ Make a root dict with packages containing all modules and the first level of components.
+    def __init__(self, components:list, **kwargs):
+        """ Make a root dict with packages containing all modules, the first level of components, and any keywords.
             Each component is indexed by its class's module path in a nested package dict.
             Do not include the root package name. Anything in a 'base' module represents its entire package. """
         d = package()
@@ -45,27 +48,21 @@ class RootDict(dict):
             if ks[-1] == "base":
                 ks.pop()
             d[".".join(ks[1:])] = cmp
-        super().__init__(d.nested())
+        super().__init__(d.nested(), **kwargs)
         self["modules"] = package(sys.modules).nested()
 
 
-class IconData:
+class IconPackage(XMLElement):
+    """ Subclass for handling icon data from SVG files. """
 
-    _data: list
-
-    def __init__(self, icon_data:bytes):
-        """ Decode the SVG icon resources and create individual icon elements for each type. """
-        self._data = []
-        root = XMLElement.decode(icon_data)
-        defs = [e for e in root if e.tag == "defs"]
-        for elem in recurse(root):
+    def encode_all(self):
+        """ From a root SVG icon resource, encode individual icon elements for each type. """
+        defs = [e for e in self if e.tag == "defs"]
+        for elem in recurse(self):
             # Elements with at least one type alias are valid icons.
             types = elem.get("spectra_types")
             if types:
-                # Make an encoded copy of the root node with only its defs and this element.
-                icon = XMLElement(*defs, elem, **root)
-                icon.tag = root.tag
-                self._data.append((types.split(), icon.encode()))
-
-    def __iter__(self):
-        return iter(self._data)
+                # Yield an encoded copy of this node with only the defs and the chosen element.
+                icon = self.__class__(*defs, elem, **self)
+                icon.tag = self.tag
+                yield types.split(), icon.encode()

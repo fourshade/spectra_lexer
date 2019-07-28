@@ -1,38 +1,11 @@
-from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox
-
-from .widgets import MainMenu, MainWindow, SearchListWidget, StenoBoardWidget, TextGraphWidget, TextTitleWidget
-from spectra_lexer.core import Command, Resource
+from spectra_lexer.core import Command
 from spectra_lexer.view import VIEW
-
-MENU_ITEMS = []
-
-
-def MenuCommand(heading:str, text:str, *, after_separator:bool=False):
-    """ Decorator for commands available as menu items. """
-    def capture(fn):
-        """ Capture a single command. """
-        cmd = Command(fn)
-        MENU_ITEMS.append((heading, text, after_separator, cmd))
-        return cmd
-    return capture
 
 
 class GUIQT(VIEW):
 
-    WINDOW: MainWindow = Resource()  # Main GUI window. All GUI activity is coupled to this window.
-    W_MENU: MainMenu = Resource()
-    W_BOARD: StenoBoardWidget = Resource()
-    W_DESC: QLabel = Resource()
-    W_TITLE: TextTitleWidget = Resource()
-    W_TEXT: TextGraphWidget = Resource()
-    W_INPUT: QLineEdit = Resource()
-    W_MATCHES: SearchListWidget = Resource()
-    W_MAPPINGS: SearchListWidget = Resource()
-    W_STROKES: QCheckBox = Resource()
-    W_REGEX: QCheckBox = Resource()
-
     @Command
-    def GUIQTConnect(self) -> None:
+    def GUIQTConnect(self, **widgets) -> None:
         """ Start connecting widgets. """
         raise NotImplementedError
 

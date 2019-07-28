@@ -4,8 +4,7 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
-from .base import GUIQT_TOOL
-from .dialog import DialogContainer, ToolDialog
+from .dialog import ToolDialog
 
 
 class HistoryTracker(list):
@@ -120,21 +119,3 @@ class ConsoleDialog(ToolDialog):
         w_text = ConsoleTextWidget(self, input_callback)
         layout.addWidget(w_text)
         self.add_text = w_text.add_text
-
-
-class QtConsoleTool(GUIQT_TOOL):
-    """ Qt component for system interpreter I/O. """
-
-    _dialog: DialogContainer
-
-    def __init__(self) -> None:
-        self._dialog = DialogContainer(ConsoleDialog)
-
-    def TOOLDebugOpen(self) -> None:
-        self._dialog.open(self.WINDOW, self.SYSConsoleInput)
-        self.SYSConsoleOpen()
-
-    def SYSConsoleOutput(self, text_out:str) -> None:
-        """ Write console output to the dialog if it exists. Do nothing if there isn't one. """
-        if self._dialog:
-            self._dialog.add_text(text_out)
