@@ -19,7 +19,7 @@ $(document).ready(function(){
             this.action = action;
         }
         selectElem(elem){
-            if(this.active === elem){
+            if(this.root === elem || this.active === elem){
                 return false;
             }
             this.active.className = "";
@@ -124,13 +124,13 @@ $(document).ready(function(){
     };
     function updateState(new_state){
         // Keep state variables that either return true on GUI update or don't update the GUI at all.
-        var props = Object.keys(new_state).reverse()
-        for (let prop of props){
-            var value = new_state[prop];
-            var updater = updateTable[prop];
-            if(!updater || updater(value)){
-                state[prop] = value;
+        for (let prop in updateTable){
+            if(prop in new_state && !updateTable[prop](new_state[prop])){
+               delete new_state[prop]
             }
+        }
+        for (let prop in new_state){
+            state[prop] = new_state[prop];
         }
     }
     function processAction(action){

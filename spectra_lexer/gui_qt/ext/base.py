@@ -33,7 +33,7 @@ class QtViewExtended(QtViewManager):
     def _open(self, dialog_cls:type, *args, **kwargs) -> None:
         self._dialogs.open(dialog_cls, self.window, *args, **kwargs)
 
-    def Debug(self, components:list) -> None:
+    def COREDebug(self, components:list) -> None:
         self._components = components
 
     def Load(self) -> None:
@@ -101,8 +101,8 @@ class QtViewExtended(QtViewManager):
     @MenuItem("Debug", "Open Console...")
     def ConsoleOpen(self) -> None:
         """ Open a new dialog and start the interpreter. """
-        self._open(ConsoleDialog, self.SYSConsoleInput)
-        self.SYSConsoleOpen()
+        self._open(ConsoleDialog, self.COREConsoleInput)
+        self.COREConsoleOpen()
 
     def SYSConsoleOutput(self, text_out:str) -> None:
         """ Write console output to the dialog if it exists. Do nothing if there isn't one. """
@@ -118,7 +118,7 @@ class QtViewExtended(QtViewManager):
             kwargs["last_exception"] = self._last_exception
         self._open(ObjectTreeDialog, self._components, **kwargs)
 
-    def HandleException(self, exc:Exception) -> bool:
+    def COREException(self, exc:Exception) -> bool:
         """ Save the last exception for introspection. If THAT fails, the system is beyond help. """
         self._last_exception = exc
-        return True
+        return super().COREException(exc)

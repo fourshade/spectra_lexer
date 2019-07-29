@@ -8,7 +8,6 @@ from .keys import KeyLayout
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.core import CmdlineOption, CORE
-from spectra_lexer.system import SYS
 from spectra_lexer.types.codec import AbstractCodec, CFGDict, JSONDict, XMLElement
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
@@ -16,7 +15,7 @@ _PLOVER_USER_DIR = "~plover/"
 _PLOVER_CFG_FILENAME = _PLOVER_USER_DIR + "plover.cfg"
 
 
-class ResourceManager(CORE, SYS, RS):
+class ResourceManager(CORE, RS):
     """ Component to load all resources necessary for a steno system. The structures are mostly JSON dicts.
         Assets including a key layout, rules, and (optional) board graphics comprise the system.
         Other files from user space include a translations dictionary and examples index. """
@@ -40,11 +39,11 @@ class ResourceManager(CORE, SYS, RS):
     def Load(self) -> None:
         """ Load every available asset into its global resource attribute before startup.
             Search for translations dictionaries from Plover if no changes were made to the command line option. """
-        self.SYSStatus("Loading...")
+        self.COREStatus("Loading...")
         self.RSSystemLoad(self.system_path)
         self.RSTranslationsLoad(*(self.translation_files or self._plover_files()))
         self.RSIndexLoad(self.index_file)
-        self.SYSStatus("Loading complete.")
+        self.COREStatus("Loading complete.")
 
     def RSSystemLoad(self, base_dir:str) -> dict:
         d = {}
@@ -65,7 +64,7 @@ class ResourceManager(CORE, SYS, RS):
         return index
 
     def _load(self, codec_cls, *patterns, **kwargs):
-        data_list = self.SYSFileLoad(*patterns)
+        data_list = self.COREFileLoad(*patterns)
         return codec_cls.decode(*data_list, **kwargs)
 
     def RSRulesSave(self, rules:RulesDictionary, filename:str="", **kwargs) -> None:
@@ -79,7 +78,7 @@ class ResourceManager(CORE, SYS, RS):
 
     def _save(self, obj:AbstractCodec, filename:str, **kwargs) -> None:
         data = obj.encode(**kwargs)
-        self.SYSFileSave(data, filename)
+        self.COREFileSave(data, filename)
 
     def _plover_files(self) -> List[str]:
         """ Attempt to find the local Plover user directory and, if found, decode all dictionary files
@@ -94,7 +93,7 @@ class ResourceManager(CORE, SYS, RS):
             # Catch-all for file loading errors. Just assume the required files aren't there and move on.
             pass
         except KeyError:
-            self.SYSStatus("Could not find dictionaries in plover.cfg.")
+            self.COREStatus("Could not find dictionaries in plover.cfg.")
         except ValueError:
-            self.SYSStatus("Problem decoding JSON in plover.cfg.")
+            self.COREStatus("Problem decoding JSON in plover.cfg.")
         return []

@@ -6,10 +6,9 @@ from .state import ViewState
 from spectra_lexer.core import CmdlineOption, CORE
 from spectra_lexer.resource import RS, RulesDictionary, StenoIndex, TranslationsDictionary
 from spectra_lexer.steno import LX
-from spectra_lexer.system import SYS
 
 
-class ViewManager(CORE, SYS, RS, LX, VIEW):
+class ViewManager(CORE, RS, LX, VIEW):
     """ Handles GUI interface-based operations. """
 
     OPTIONS = ConfigInfo(("compound_board", True, "board", "compound_keys",
@@ -35,7 +34,7 @@ class ViewManager(CORE, SYS, RS, LX, VIEW):
 
     def Load(self) -> None:
         cfg = self._config = ConfigDictionary(self.OPTIONS)
-        data_list = self.SYSFileLoad(self.config_file)
+        data_list = self.COREFileLoad(self.config_file)
         cfg.decode_update(*data_list)
         self._update_info(cfg)
         if not self._index:
@@ -52,7 +51,7 @@ class ViewManager(CORE, SYS, RS, LX, VIEW):
 
     def VIEWConfigUpdate(self, options:dict) -> None:
         cfg = self._config
-        self.SYSFileSave(cfg.encode_update(options), self.config_file)
+        self.COREFileSave(cfg.encode_update(options), self.config_file)
         self._update_info(cfg)
 
     def _update_info(self, cfg:ConfigDictionary) -> None:
@@ -81,7 +80,7 @@ class ViewManager(CORE, SYS, RS, LX, VIEW):
 
     def _msg(self, msg:str) -> None:
         """ Send a message that we've started or finished with an operation. """
-        self.SYSStatus(msg)
+        self.COREStatus(msg)
 
     def VIEWAction(self, state:dict, action:str="") -> None:
         """ Add config options to the state before processing (but only those the state doesn't already define). """

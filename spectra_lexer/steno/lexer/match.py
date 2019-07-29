@@ -12,14 +12,15 @@ class LexerMatch(namedtuple("LexerMatch", "rule skeys letters skeys_len letters_
     # skeys_len: int    - Length of <skeys>.
     # letters_len: int  - Length of <letters>.
 
-    def __new__(cls, r:StenoRule, skeys:str, letters:str):
+    @classmethod
+    def new(cls, r:StenoRule, skeys:str, letters:str):
         """ Create a match object with precalculated lengths for speed. """
-        return super().__new__(cls, r, skeys, letters, len(skeys), len(letters))
+        return cls(r, skeys, letters, len(skeys), len(letters))
 
     @classmethod
     def special(cls, skeys:str, desc:str):
         """ Create a special (no-letter) rule and place it in a match object. """
-        return cls(StenoRule(skeys, "", RuleFlags(), desc, ()), skeys, "")
+        return cls(StenoRule(skeys, "", RuleFlags(), desc, ()), skeys, "", len(skeys), 0)
 
 
 class SpecialRuleFinder:
@@ -177,7 +178,7 @@ class LexerRuleMatcher:
             skeys = from_rtfcre(r.keys)
             letters = r.letters
             flags = r.flags
-            lr = LexerMatch(r, skeys, letters)
+            lr = LexerMatch.new(r, skeys, letters)
             # Internal rules are only used in special cases, by name.
             if match_name in flags:
                 special_entries[n] = lr

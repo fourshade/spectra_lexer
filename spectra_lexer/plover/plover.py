@@ -2,11 +2,11 @@ from typing import Sequence
 
 from .base import PLOVER
 from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
+from spectra_lexer.core import CORE
 from spectra_lexer.resource import RS, TranslationsDictionary
-from spectra_lexer.system import SYS
 
 
-class PloverInterface(SYS, RS, PLOVER):
+class PloverInterface(CORE, RS, PLOVER):
     """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
     _engine: PloverEngine
@@ -35,7 +35,7 @@ class PloverInterface(SYS, RS, PLOVER):
                 converted_dict.update(zip(map(join_strokes, d), d.values()))
             translations = TranslationsDictionary(converted_dict)
             self.RSTranslationsReady(translations)
-            self.SYSStatus("Loaded new dictionaries from Plover engine.")
+            self.COREStatus("Loaded new dictionaries from Plover engine.")
 
     def FoundTranslation(self, _, new_actions:Sequence[PloverAction]) -> None:
         """ Process a Plover translation into standard data types and send it to the next component.

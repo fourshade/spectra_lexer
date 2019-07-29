@@ -3,20 +3,19 @@ from time import time
 from .steno import StenoAnalyzer
 from spectra_lexer.core.app import Application
 from spectra_lexer.resource import ResourceManager
-from spectra_lexer.system import SystemManager, SYS
 
 
-class StenoApplication(Application, SYS):
+class StenoApplication(Application):
     """ Base application class with all required components for interactive console operations. """
 
     def _build_components(self) -> list:
-        return [SystemManager(), ResourceManager(), StenoAnalyzer()]
+        return [*super()._build_components(), ResourceManager(), StenoAnalyzer()]
 
     def run(self) -> None:
         """ Run the console in an interactive read-eval-print loop. """
-        self.SYSConsoleOpen()
+        self.COREConsoleOpen()
         while True:
-            self.SYSConsoleInput(input())
+            self.COREConsoleInput(input())
 
 
 class _BatchApplication(StenoApplication):
@@ -28,8 +27,8 @@ class _BatchApplication(StenoApplication):
         """ Run the main command in the console in batch mode and time its execution. """
         start_time = time()
         print("Operation started...")
-        self.SYSConsoleOpen(interactive=False)
-        self.SYSConsoleInput(self.COMMAND)
+        self.COREConsoleOpen(interactive=False)
+        self.COREConsoleInput(self.COMMAND)
         print(f"Operation done in {time() - start_time:.1f} seconds.")
         return 0
 

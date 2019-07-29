@@ -46,7 +46,7 @@ class PloverPluginApplication(QtApplication, PLOVER):
 
     def compat_check(self) -> bool:
         """ Add the Plover engine only if the version is compatible. """
-        return PloverCompatibilityTester(self.SYSStatus)(VERSION_REQUIRED)
+        return PloverCompatibilityTester(self.COREStatus)(VERSION_REQUIRED)
 
     def show(self, *args) -> None:
         self.GUIQTShowWindow()

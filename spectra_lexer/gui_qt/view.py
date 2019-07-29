@@ -1,3 +1,4 @@
+from traceback import TracebackException
 from typing import Iterable
 
 from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox
@@ -5,7 +6,6 @@ from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox
 from .base import GUIQT
 from .widgets import MainMenu, MainWindow, SearchListWidget, StenoBoardWidget, TextGraphWidget, TextTitleWidget
 from spectra_lexer.core import CORE
-from spectra_lexer.system import SYS
 from spectra_lexer.view import VIEW
 
 
@@ -19,7 +19,7 @@ class GUIUpdater(dict):
                 self[k](attrs[k])
 
 
-class QtViewManager(CORE, SYS, VIEW, GUIQT):
+class QtViewManager(CORE, VIEW, GUIQT):
     """ The main GUI Qt operations class. Controls all main view panels. """
 
     window: MainWindow = None  # Main GUI window. All GUI activity is coupled to this window.
@@ -116,19 +116,22 @@ class QtViewManager(CORE, SYS, VIEW, GUIQT):
         """ After any action, run through the changes and update the state and widgets with any relevant ones. """
         self.GUIQTUpdate(**changed)
 
-    def SYSStatus(self, status:str) -> None:
+    def COREStatus(self, status:str) -> None:
         """ Show engine status messages in the title as well. Save the last one if we're not connected yet. """
         try:
             self.w_title.set_text(status)
         except Exception:
             self._last_status = status
 
-    def SYSTraceback(self, tb_text:str) -> None:
+    def COREException(self, exc:Exception, max_frames:int=10) -> bool:
         """ Print an exception traceback to the main text widget, if possible. """
         try:
+            tb = TracebackException.from_exception(exc, limit=max_frames)
+            tb_text = "".join(tb.format())
             self.w_title.set_text("Well, this is embarrassing...", dynamic=False)
             self.w_text.set_plaintext(tb_text)
         except Exception:
             # The Qt GUI is probably what raised the error in the first place.
             # Re-raising will kill the program. Let lower-level handlers try first.
             pass
+        return True

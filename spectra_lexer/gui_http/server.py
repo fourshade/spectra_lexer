@@ -7,8 +7,7 @@ from threading import Thread
 from .base import GUIHTTP
 from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
-from spectra_lexer.core import CmdlineOption
-from spectra_lexer.system import SYS
+from spectra_lexer.core import CmdlineOption, CORE
 from spectra_lexer.view import VIEW
 
 
@@ -47,7 +46,7 @@ class JSONValidator:
         return self.encoder.encode(d).encode('utf-8')
 
 
-class HttpServer(SYS, VIEW, GUIHTTP):
+class HttpServer(CORE, VIEW, GUIHTTP):
     """ Class for socket-based TCP/IP stream server, JSON, and communication with the view layer. """
 
     _HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
@@ -65,7 +64,7 @@ class HttpServer(SYS, VIEW, GUIHTTP):
         self.sock = TCPServerSocket(self.address, self.port)
         if self.sock.poll():
             stream, addr = self.sock.accept()
-            connection = HTTPConnection(stream, addr, self.dispatch, self.SYSStatus)
+            connection = HTTPConnection(stream, addr, self.dispatch, self.COREStatus)
             Thread(target=connection, daemon=True).start()
 
     def GUIHTTPShutdown(self) -> None:

@@ -1,8 +1,7 @@
 from .index import StenoIndex
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
-from spectra_lexer.core import Command
-from spectra_lexer.system import ConsoleCommand
+from spectra_lexer.core import Command, ConsoleCommand
 
 
 class RS:

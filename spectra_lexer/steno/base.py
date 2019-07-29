@@ -1,8 +1,8 @@
 from typing import Callable, Iterable
 
 from .graph import StenoGraph
+from spectra_lexer.core import ConsoleCommand
 from spectra_lexer.resource import RulesDictionary, StenoIndex, StenoRule
-from spectra_lexer.system import ConsoleCommand
 
 
 class LX:

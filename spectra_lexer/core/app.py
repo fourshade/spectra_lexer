@@ -1,6 +1,7 @@
 import sys
 
 from .base import CORE
+from .core import SpectraCore
 from .cmdline import CmdlineOption
 from .engine import Engine
 
@@ -11,17 +12,17 @@ class Application(CORE):
     def __init__(self):
         """ Build the components and assemble the engine with them, then store the component list for debugging. """
         components = self._build_components()
-        engine = self._build_engine(components, exc_command=CORE.HandleException)
+        engine = self._build_engine(components, exc_command=CORE.COREException)
         engine.connect(self)
         # Load all command line options and resources and run the application.
         CmdlineOption.process_all()
-        self.Debug(components)
+        self.COREDebug(components)
         self.Load()
         self.run()
 
     def _build_components(self) -> list:
         """ Make and return a list of components. """
-        raise NotImplementedError
+        return [SpectraCore()]
 
     def _build_engine(self, components:list, **kwargs) -> Engine:
         """ Make and return a new engine; may differ for subclasses. """

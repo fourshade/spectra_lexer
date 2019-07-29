@@ -19,8 +19,7 @@ class StenoAnalyzer(RS, LX):
     _translations: TranslationsDictionary = None
 
     def RSSystemReady(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement) -> None:
-        board_parser = BoardElementParser(board_defs, board_elems)
-        self._board = BoardGenerator(layout, rules, board_parser)
+        self._board = BoardGenerator(layout, rules, board_defs, board_elems)
         self._grapher = GraphGenerator(layout)
         self._lexer = StenoLexer(layout, rules)
         self._rules = rules

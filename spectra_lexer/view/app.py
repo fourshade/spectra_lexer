@@ -3,7 +3,6 @@ from spectra_lexer.core.app import Application
 from spectra_lexer.core import Engine, ThreadedEngineGroup
 from spectra_lexer.resource import ResourceManager
 from spectra_lexer.steno import StenoAnalyzer
-from spectra_lexer.system import SystemManager
 
 
 class ViewApplication(Application):
@@ -11,7 +10,7 @@ class ViewApplication(Application):
 
     def _build_workers(self) -> list:
         """ We run the primary task on the main thread, and the other layers on a worker thread. """
-        return [SystemManager(), ResourceManager(), StenoAnalyzer(), ViewManager()]
+        return [*super()._build_components(), ResourceManager(), StenoAnalyzer(), ViewManager()]
 
     def _build_components(self) -> list:
         return []

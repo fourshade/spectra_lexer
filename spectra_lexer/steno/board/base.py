@@ -57,7 +57,8 @@ class BoardGenerator:
     _rule_finder: RuleElementFinder
     _build_document: BoardFactory
 
-    def __init__(self, layout:KeyLayout, rules:RulesDictionary, parser:BoardElementParser):
+    def __init__(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement):
+        parser = BoardElementParser(board_defs, board_elems)
         kfinders = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]
         self._key_finder, _ = kfinders
         self._rule_finder = RuleElementFinder(parser.rule_elems(), rules, *kfinders)

@@ -8,22 +8,22 @@ import re
 
 import pytest
 
+from spectra_lexer.core import SpectraCore
 from spectra_lexer.plover import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.resource import ResourceManager, RuleFlags
 from spectra_lexer.steno import StenoAnalyzer
-from spectra_lexer.system import SystemManager
 from spectra_lexer.types.codec import CSONDict
 from spectra_lexer.utils import recurse_attr
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.
-SYSTEM = SystemManager()
+CORE = SpectraCore()
 def with_file(cmp):
     cls_attrs = vars(type(cmp))
-    for attr in vars(SystemManager):
+    for attr in vars(SpectraCore):
         if attr not in cls_attrs:
-            setattr(cmp, attr, getattr(SYSTEM, attr))
+            setattr(cmp, attr, getattr(CORE, attr))
     return cmp
 # Load all resources and update components with them as we need them.
 RESOURCE = with_file(ResourceManager())
