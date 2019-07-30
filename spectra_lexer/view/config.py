@@ -2,50 +2,35 @@ import ast
 from collections import namedtuple
 from typing import List
 
-from spectra_lexer.codec import CFGDict
-
-# Contains unformatted config info for use in file I/O and parsing.
-ConfigParams = namedtuple("ConfigParams", "key default sect name description")
 # Contains formatted config info for use in a GUI.
 ConfigItem = namedtuple("ConfigItem", "key value title name description")
 
 
-class ConfigInfo(List[ConfigParams]):
-    """ Contains a set of info for config options, such as defaults, a description, etc. """
-
-    def __init__(self, *items:tuple):
-        super().__init__([ConfigParams(*params) for params in items])
-
-    def formatted(self, data:dict) -> List[ConfigItem]:
-        """ Format the original config params with the current values for display in a configuration window. """
-        return [ConfigItem(params.key, data[params.key], params.sect.title(),
-                           params.name.replace("_", " ").title(), params.description) for params in self]
-
-
-class ConfigDictionary:
+class ConfigDictionary(dict):
     """ Dict with config options sorted by state key. """
 
-    _info: ConfigInfo
-    _data: dict  # Mapping of config values to internal key.
-    _rev: dict   # Mapping of internal keys to section/name required for .CFG format.
+    _info: List[tuple]  # Contains a set of info for config options, such as defaults, a description, etc.
+    _rev: dict          # Mapping of internal keys to section/name required for .CFG format.
 
-    def __init__(self, info:ConfigInfo=()):
+    def __init__(self, *info:tuple):
         """ Compile a starting config dict from the defined info. """
-        self._info = info
-        self._data = {}
+        super().__init__()
+        self._info = [*info]
         self._rev = {}
-        for param in info:
-            self._data[param.key] = param.default
-            self._rev[param.sect, param.name] = param.key
+        for key, default, sect, name, description in info:
+            self[key] = default
+            self._rev[sect, name] = key
 
     def info(self) -> List[ConfigItem]:
-        return self._info.formatted(self._data)
+        """ Format the config params with the current values for display in a configuration window. """
+        return [ConfigItem(key, self[key], sect.title(), name.replace("_", " ").title(), description)
+                for key, default, sect, name, description in self._info]
 
-    def decode_update(self, *data_list:bytes) -> None:
-        """ Update the values of each config option from a decoded CFG dict by section and name.
+    def sectioned_update(self, options:dict) -> None:
+        """ Update the values of each config option from a nested dict by section and name.
             Try to evaluate each string as a Python object using AST. This fixes crap like bool('False') = True.
             Strings that are read as names will throw an error, in which case they should be left as-is. """
-        for sect, page in CFGDict.decode(*data_list).items():
+        for sect, page in options.items():
             for name, value in page.items():
                 key = self._rev.get((sect, name))
                 if key is not None:
@@ -53,20 +38,14 @@ class ConfigDictionary:
                         value = ast.literal_eval(value)
                     except (SyntaxError, ValueError):
                         pass
-                    self._data[key] = value
+                    self[key] = value
 
-    def encode_update(self, options:dict) -> bytes:
-        """ Encode the values of each option in a CFG dict by section and name. """
-        data = self._data
-        data.update(options)
-        d = CFGDict()
+    def sectioned_data(self) -> dict:
+        """ Save the values of each option into a nested dict by section and name and return it. """
+        d = {}
         for (sect, name), key in self._rev.items():
-            if key in data:
+            if key in self:
                 if sect not in d:
                     d[sect] = {}
-                d[sect][name] = data[key]
-        return d.encode()
-
-    def write_to(self, state:dict) -> None:
-        """ Add undefined config options to a state dict by key. """
-        state.update(self._data, **state)
+                d[sect][name] = str(self[key])
+        return d

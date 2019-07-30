@@ -2,9 +2,9 @@ from collections import defaultdict
 import random
 from typing import Dict, Iterable, List
 
+from .codec import JSONDict
 from .rules import StenoRule
 from .translations import TranslationsDictionary
-from spectra_lexer.codec import JSONDict
 
 
 class StenoIndex(JSONDict):

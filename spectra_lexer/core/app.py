@@ -3,6 +3,7 @@ import sys
 from .base import CORE
 from .core import SpectraCore
 from .cmdline import CmdlineOption
+from .debug import DebugDict
 from .engine import Engine
 
 
@@ -16,7 +17,8 @@ class Application(CORE):
         engine.connect(self)
         # Load all command line options and resources and run the application.
         CmdlineOption.process_all()
-        self.COREDebug(components)
+        debug_dict = DebugDict(components)
+        self.COREDebug(debug_dict)
         self.Load()
         self.run()
 

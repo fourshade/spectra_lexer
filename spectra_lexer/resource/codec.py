@@ -1,10 +1,8 @@
-from configparser import ConfigParser
-from io import StringIO
 import json
 from xml.parsers import expat
 
 
-class AbstractCodec:
+class AbstractDecoder:
 
     @classmethod
     def decode(cls, *all_data:bytes, **kwargs):
@@ -12,9 +10,16 @@ class AbstractCodec:
             If more than one byte string is provided, all non-empty ones will be merged. """
         raise NotImplementedError
 
+
+class AbstractEncoder:
+
     def encode(self, **kwargs) -> bytes:
         """ Encode this entire object into a byte string. """
         raise NotImplementedError
+
+
+class AbstractCodec(AbstractDecoder, AbstractEncoder):
+    pass
 
 
 class JSONDict(dict, AbstractCodec):
@@ -42,39 +47,49 @@ class JSONDict(dict, AbstractCodec):
         return json.dumps(self, **kwargs).encode(encoding)
 
 
-class CSONDict(JSONDict):
-    """ Codec to convert Python dicts to/from JSON strings with full-line comments. """
-
-    @classmethod
-    def _decode(cls, data:bytes, comment_prefixes=frozenset(b"#/"), **kwargs) -> dict:
-        """ Decode a JSON string with single-line standalone comments. """
-        # JSON doesn't care about leading or trailing whitespace, so strip every line.
-        stripped_line_iter = map(bytes.strip, data.splitlines())
-        # Empty lines and lines starting with a comment tag after stripping are removed before parsing.
-        data_lines = [line for line in stripped_line_iter if line and line[0] not in comment_prefixes]
-        return super()._decode(b"\n".join(data_lines), **kwargs)
-
-
 class CFGDict(dict, AbstractCodec):
     """ Codec to convert a nested Python dict to/from a config/INI formatted byte string. """
 
     @classmethod
     def decode(cls, *all_data:bytes, encoding:str='utf-8', **kwargs):
-        """ Decode CFG file contents into a nested dict. A two-level copy must be made to eliminate the proxies. """
-        cfg = ConfigParser(**kwargs)
+        """ Decode CFG file contents into a nested dict. """
+        self = cls(**kwargs)
         for data in all_data:
-            cfg.read_string(data.decode(encoding))
-        self = cls({k: dict(v) for k, v in cfg.items()})
-        del self["DEFAULT"]
+            self._parse(data.decode(encoding).splitlines())
         return self
 
+    def _parse(self, line_iter) -> None:
+        """ Parse lines of sectioned configuration data. Each section in a configuration file contains a header,
+            indicated by a name in square brackets (`[]`), plus key/value options, indicated by `name = value`.
+            Configuration files may include comments, prefixed by `#' or `;' in an otherwise empty line. """
+        cursect = None
+        for line in line_iter:
+            # strip full line comments
+            line = line.strip()
+            if line and line[0] not in '#;':
+                # Parse as a section header: [ + header + ]
+                if line[0] == "[" and line[-1] == "]":
+                    sectname = line[1:-1]
+                    cursect = self.setdefault(sectname, {})
+                elif cursect is None:
+                    raise ValueError('No initial header in file.')
+                # Parse as an option line: name + spaces/tabs + `=` delimiter + spaces/tabs + value
+                elif "=" not in line:
+                    raise ValueError(f'Missing `=` for option in line: {line}.')
+                else:
+                    optname, optval = line.split("=", 1)
+                    cursect[optname.rstrip()] = optval.lstrip()
+
     def encode(self, *, encoding:str='utf-8', **kwargs) -> bytes:
-        """ Encode this dict into a CFG file. Readability may or may not be preserved. """
-        cfg = ConfigParser(**kwargs)
-        cfg.read_dict(self)
-        stream = StringIO()
-        cfg.write(stream)
-        return stream.getvalue().encode(encoding)
+        """ Encode this dict into a CFG representation of the configuration state."""
+        s_list = []
+        for section in self:
+            s_list += "\n[", section, "]\n"
+            for key, value in self[section].items():
+                if '\n' in key or '\n' in value:
+                    raise ValueError(f'Newline in option {key}: {value}')
+                s_list += key, " = ", value, "\n"
+        return "".join(s_list)[1:].encode(encoding)
 
 
 class XMLElement(dict, AbstractCodec):

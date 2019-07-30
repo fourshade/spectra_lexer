@@ -1,3 +1,4 @@
+from .codec import CFGDict
 from .index import StenoIndex
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
@@ -37,6 +38,16 @@ class RS:
         raise NotImplementedError
 
     @ConsoleCommand
+    def RSConfigLoad(self, *patterns:str, **kwargs) -> CFGDict:
+        """ Load config settings from disk. Ignore missing files. """
+        raise NotImplementedError
+
+    @Command
+    def RSConfigReady(self, cfg:CFGDict) -> None:
+        """ Send this command with the new config dict for all components. """
+        raise NotImplementedError
+
+    @ConsoleCommand
     def RSRulesSave(self, rules:RulesDictionary, filename:str= "", **kwargs) -> None:
         """ Parse a rules dictionary back into raw form and save it to JSON. """
         raise NotImplementedError
@@ -50,4 +61,9 @@ class RS:
     def RSIndexSave(self, index:StenoIndex, filename:str= "", **kwargs) -> None:
         """ Save an index structure directly into JSON. Sort all rules and translations by key and set them active.
             Saving should not fail silently, unlike loading. If no save filename is given, use the default. """
+        raise NotImplementedError
+
+    @ConsoleCommand
+    def RSConfigSave(self, cfg:CFGDict, filename:str="", **kwargs) -> None:
+        """ Save a config dict into .cfg format. """
         raise NotImplementedError

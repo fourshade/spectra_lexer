@@ -1,10 +1,10 @@
 from collections import defaultdict
 from functools import partial
 
-from spectra_lexer.codec import JSONDict
+from .codec import AbstractDecoder, JSONDict
 
 
-class KeyLayout(JSONDict):
+class KeyLayout(AbstractDecoder):
     """ There are two general string-based formats of steno keys:
     s-keys - Each key is a unique character. Lowercase letters are used for right-side keys.
              Used by the lexer since one key is always one character with no possible
@@ -33,15 +33,14 @@ class KeyLayout(JSONDict):
     SHIFT_TABLE = {"#": {"0": "O", "1": "S", "2": "T", "3": "P", "4": "H",
                          "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
 
-    def __init__(self, *args, **kwargs):
-        """ Allow item access through attributes. """
-        super().__init__()
-        self.__dict__ = self
-        self.update(*args, **kwargs)
+    @classmethod
+    def decode(cls, *all_data:bytes, **kwargs):
+        return cls(JSONDict.decode(*all_data, **kwargs))
 
-    def update(self, *args, **kwargs):
-        """ Pre-compute character sets and tables for fast membership tests and string conversion. """
-        super().update(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        """ Merge all arguments into the instance attribute dict.
+            Pre-compute character sets and tables for fast membership tests and string conversion. """
+        self.__dict__.update(*args, **kwargs)
         self._c_keys_set = set(self.CENTER)
         self._r_keys_set = set(self.RIGHT.lower())
         aliases = {k for table in self.SHIFT_TABLE.values() for k in table}

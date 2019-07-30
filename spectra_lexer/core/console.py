@@ -3,9 +3,7 @@
 from code import InteractiveConsole
 from functools import partial, update_wrapper
 import sys
-from typing import Callable, List
-
-from spectra_lexer.utils import AutoImporter
+from typing import Callable
 
 
 class HelpWrapper(partial):
@@ -97,12 +95,8 @@ class SystemConsole:
     interpreter: InteractiveConsole  # Interactive interpreter. Evaluates text input.
     write_callback: Callable         # Callback to send text output.
 
-    def __init__(self, write_callback:Callable, interactive:bool=True, cmds:List[Callable]=(), **kwargs):
-        """ Make a new namespace that automatically imports top-level modules for convenience.
-            If interactive mode is requested, enable the prompts and write an opening message. """
-        locals_ns = AutoImporter.make_namespace(kwargs, help=xhelp())
-        for cmd in cmds:
-            locals_ns[cmd.__name__] = HelpWrapper(cmd)
+    def __init__(self, write_callback:Callable, interactive:bool=True, locals_ns=None):
+        """ If interactive mode is requested, enable the prompts and write an opening message. """
         self.interpreter = InteractiveConsole(locals_ns)
         self.write_callback = write_callback
         if interactive:

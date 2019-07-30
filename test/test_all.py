@@ -12,8 +12,8 @@ from spectra_lexer.core import SpectraCore
 from spectra_lexer.plover import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.resource import ResourceManager, RuleFlags
+from spectra_lexer.resource.rules import CSONDict
 from spectra_lexer.steno import StenoAnalyzer
-from spectra_lexer.codec import CSONDict
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.

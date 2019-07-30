@@ -2,41 +2,35 @@
 
 from collections import defaultdict
 from functools import lru_cache
+from typing import Callable
 
-from .elements import BoardElement, BoardFactory
+from .elements import BoardElementProcessor, BoardFactory
 from .matcher import KeyElementFinder, RuleElementFinder
-from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoRule
-from spectra_lexer.codec import XMLElement
+from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoRule, XMLElement
 
 
 class BoardElementParser:
     """ Parser and catalog of SVG board elements by tag name. """
 
-    _proc_defs: defaultdict
-    _elems_by_tag: defaultdict
+    _process: Callable          # Processes raw XML element nodes into full SVG board elements.
+    _elems_by_tag: defaultdict  # Contains only elements with IDs, grouped into subdicts by tag.
 
-    def __init__(self, defs:dict, *elems:XMLElement):
+    def __init__(self, root:XMLElement, processor:Callable):
         """ Parse the board XML into individual steno key/rule elements. """
-        self._proc_defs = defaultdict(dict, defs)
+        self._process = processor
         self._elems_by_tag = defaultdict(dict)
-        for e in elems:
-            self.add_recursive(e)
+        self.add_recursive(root)
 
     def add_recursive(self, elem:XMLElement) -> None:
         """ Search for and process elements with IDs recursively. Make each child inherit from its predecessor. """
         e_id = elem.get("id")
         if e_id is not None:
-            board_elem = self.parse(elem)
+            board_elem = self._process(elem)
             self._elems_by_tag[elem.tag][e_id] = board_elem
         else:
             for child in elem:
                 child.update(elem, **child)
                 self.add_recursive(child)
-
-    def parse(self, elem:XMLElement) -> BoardElement:
-        board_elem = BoardElement(*map(self.parse, elem), **elem)
-        board_elem.process(self._proc_defs)
-        return board_elem
 
     def key_elems(self) -> list:
         return [self._elems_by_tag[k] for k in ("key", "qkey")]
@@ -44,8 +38,8 @@ class BoardElementParser:
     def rule_elems(self) -> dict:
         return self._elems_by_tag["rule"]
 
-    def make_factory(self) -> BoardFactory:
-        return BoardFactory(self._elems_by_tag["base"].values(), self._proc_defs["bounds"])
+    def base_elems(self) -> list:
+        return list(self._elems_by_tag["base"].values())
 
 
 class BoardGenerator:
@@ -58,11 +52,12 @@ class BoardGenerator:
     _build_document: BoardFactory
 
     def __init__(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement):
-        parser = BoardElementParser(board_defs, board_elems)
+        processor = BoardElementProcessor(board_defs)
+        parser = BoardElementParser(board_elems, processor)
         kfinders = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]
         self._key_finder, _ = kfinders
         self._rule_finder = RuleElementFinder(parser.rule_elems(), rules, *kfinders)
-        self._build_document = parser.make_factory()
+        self._build_document = BoardFactory(parser.base_elems(), board_defs["bounds"])
 
     @lru_cache(maxsize=256)
     def from_keys(self, keys:str, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:

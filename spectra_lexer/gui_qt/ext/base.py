@@ -22,19 +22,17 @@ class QtViewExtended(QtViewManager):
     """ GUI Qt extended operations class with dialog tools. """
 
     _dialogs: DialogContainer
-    _components: list                  # Contains every component definition in the application.
-    _last_config_args: tuple = ()      # Last info arguments received from config component.
-    _last_exception: Exception = None  # Holds last exception caught from the engine.
+    _debug_dict: dict = {"NO DATA": "Debug info is missing."}
+    _last_config_args: tuple = ()  # Last info arguments received from config component.
 
     def __init__(self) -> None:
         self._dialogs = DialogContainer()
-        self._components = [self]
 
     def _open(self, dialog_cls:type, *args, **kwargs) -> None:
         self._dialogs.open(dialog_cls, self.window, *args, **kwargs)
 
-    def COREDebug(self, components:list) -> None:
-        self._components = components
+    def COREDebug(self, debug_dict:dict) -> None:
+        self._debug_dict = debug_dict
 
     def Load(self) -> None:
         """ Save the window and add new GUI menu items/separators with required headings as needed. """
@@ -112,13 +110,5 @@ class QtViewExtended(QtViewManager):
 
     @MenuItem("Debug", "View Object Tree...")
     def TreeOpen(self) -> None:
-        """ Create the tree dialog and add the last engine exception to the resources if any were caught. """
-        kwargs = {}
-        if self._last_exception is not None:
-            kwargs["last_exception"] = self._last_exception
-        self._open(ObjectTreeDialog, self._components, **kwargs)
-
-    def COREException(self, exc:Exception) -> bool:
-        """ Save the last exception for introspection. If THAT fails, the system is beyond help. """
-        self._last_exception = exc
-        return super().COREException(exc)
+        """ Create the tree dialog using the debug dict as the root namespace. """
+        self._open(ObjectTreeDialog, self._debug_dict)

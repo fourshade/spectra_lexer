@@ -1,8 +1,6 @@
 from functools import partial
 from typing import Callable, Iterator, List, Mapping
 
-from spectra_lexer.utils import AutoImporter
-
 
 class Container(Mapping):
     """ A container of child objects in some manner, such as iterable contents or attributes.
@@ -45,8 +43,6 @@ class Container(Mapping):
 
 class MutableContainer(Container):
 
-    _EVAL_NAMESPACE: dict = None
-
     color = (0, 0, 0)  # Mutable containers are the default color of black.
     key_tooltip = "This key may not be changed."
     value_tooltip = "Double-click to edit this value."
@@ -64,22 +60,14 @@ class MutableContainer(Container):
         data["value_edit"] = partial(self.eval_setitem, key)
         return data
 
-    def eval_setitem(self, key, user_input:str) -> None:
+    def eval_setitem(self, key, user_input:str, *, eval_fn=eval) -> None:
         """ Since only strings can be entered, we must evaluate them as Python expressions.
             ast.literal_eval is safer, but not quite as useful (or fun). No need for restraint here. """
         try:
-            self[key] = eval(user_input, self._get_namespace())
+            self[key] = eval_fn(user_input)
         except Exception as e:
             # User input + eval = BREAK ALL THE THINGS!!! At least try to replace the item with the exception.
             self[key] = e
-
-    @classmethod
-    def _get_namespace(cls) -> dict:
-        """ Since there's no interpreter prompt, the system can try to import missing modules automatically.
-            Creating the autoimport dict is expensive, so don't do it until we actually have to evaluate something. """
-        if cls._EVAL_NAMESPACE is None:
-            cls._EVAL_NAMESPACE = AutoImporter.make_namespace()
-        return cls._EVAL_NAMESPACE
 
 
 class MutableKeyContainer(MutableContainer):
@@ -94,8 +82,12 @@ class MutableKeyContainer(MutableContainer):
     def _data(self, key) -> dict:
         """ Include a callback for editing of string keys in the data dict. """
         data = super()._data(key)
-        data["key_edit"] = partial(self.moveitem, key)
+        data["key_edit"] = partial(self.eval_moveitem, key)
         return data
+
+    def eval_moveitem(self, key, user_input:str, eval_fn=eval) -> None:
+        """ Only allow movement using literal string input for now. """
+        self.moveitem(key, user_input)
 
 
 class ContainerIter:

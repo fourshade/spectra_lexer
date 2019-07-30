@@ -4,7 +4,7 @@ from typing import List
 
 from .base import CORE
 from .cmdline import CmdlineOption
-from .console import SystemConsole
+from .console import HelpWrapper, SystemConsole, xhelp
 from .io import PathIO
 from .log import StreamLogger
 
@@ -17,24 +17,24 @@ class SpectraCore(CORE):
 
     _io: PathIO            # Reads, writes, and converts path strings.
     _logger: StreamLogger  # Logs system events to standard streams and/or files.
-    _components: list      # Contains every component definition in the application.
+    _debug_dict: dict = {"NO DATA": "Debug info is missing."}
     _console: SystemConsole = None
 
     def __init__(self):
         self._io = PathIO(**self.get_root_paths())
         self._logger = StreamLogger(sys.stdout)
-        self._components = [self]
 
     def Load(self) -> None:
         log_path = self._io.to_path(self.log_file)
         self._logger.add_path(log_path)
 
-    def COREDebug(self, components:list) -> None:
-        self._components = components
+    def COREDebug(self, debug_dict:dict) -> None:
+        self._debug_dict = debug_dict.copy()
 
-    def COREConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
-        kwargs["__app__"] = self._components
-        self._console = SystemConsole(self.SYSConsoleOutput, interactive, self.CONSOLE_COMMANDS, **kwargs)
+    def COREConsoleOpen(self, *, interactive:bool=True) -> None:
+        commands = {cmd.__name__: HelpWrapper(cmd) for cmd in self.CONSOLE_COMMANDS}
+        self._debug_dict.update(commands, help=xhelp())
+        self._console = SystemConsole(self.SYSConsoleOutput, interactive, self._debug_dict)
 
     def COREConsoleInput(self, text_in:str) -> None:
         if self._console is not None:
@@ -51,10 +51,11 @@ class SpectraCore(CORE):
         self._logger(status)
 
     def COREException(self, exc:Exception, max_frames:int=10) -> bool:
-        """ Log and print an exception traceback to stdout, if possible. """
+        """ Log and print an exception traceback to stdout, if possible, and save the exception for introspection. """
         tb = TracebackException.from_exception(exc, limit=max_frames)
         tb_text = "".join(tb.format())
         self._logger(f'EXCEPTION\n{tb_text}')
+        self._debug_dict["last_exception"] = exc
         return True
 
     @classmethod

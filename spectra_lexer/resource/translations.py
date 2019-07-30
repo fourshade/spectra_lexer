@@ -3,8 +3,8 @@
 import re
 from typing import List
 
+from .codec import JSONDict
 from .search import ReverseDict, StripCaseSearchDict
-from spectra_lexer.codec import JSONDict
 
 
 class _ReverseSearchDict(ReverseDict, StripCaseSearchDict):

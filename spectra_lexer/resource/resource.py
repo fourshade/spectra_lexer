@@ -3,12 +3,12 @@ import os
 from typing import List
 
 from .base import RS
+from .codec import AbstractEncoder, CFGDict, JSONDict, XMLElement
 from .index import StenoIndex
 from .keys import KeyLayout
 from .rules import RulesDictionary
 from .translations import TranslationsDictionary
 from spectra_lexer.core import CmdlineOption, CORE
-from spectra_lexer.codec import AbstractCodec, CFGDict, JSONDict, XMLElement
 
 # Plover's app user dir and config filename. Dictionaries are located in the same directory.
 _PLOVER_USER_DIR = "~plover/"
@@ -26,6 +26,8 @@ class ResourceManager(CORE, RS):
                                                  desc="JSON translation files to load on start.")
     index_file: str = CmdlineOption("index-file", default="~/index.json",
                                     desc="JSON index file to load on start and/or write to.")
+    config_file: str = CmdlineOption("config-file", default="~/config.cfg",
+                                     desc="CFG file with config settings to load at start and/or write to.")
     translations_out: str = CmdlineOption("translations-out", default="./translations.json",
                                           desc="JSON translation file to save.")
     rules_out: str = CmdlineOption("rules-out", default="./rules.json",
@@ -43,6 +45,7 @@ class ResourceManager(CORE, RS):
         self.RSSystemLoad(self.system_path)
         self.RSTranslationsLoad(*(self.translation_files or self._plover_files()))
         self.RSIndexLoad(self.index_file)
+        self.RSConfigLoad(self.config_file)
         self.COREStatus("Loading complete.")
 
     def RSSystemLoad(self, base_dir:str) -> dict:
@@ -63,6 +66,11 @@ class ResourceManager(CORE, RS):
         self.RSIndexReady(index)
         return index
 
+    def RSConfigLoad(self, *patterns:str, **kwargs) -> CFGDict:
+        cfg = self._load(CFGDict, *patterns, **kwargs)
+        self.RSConfigReady(cfg)
+        return cfg
+
     def _load(self, codec_cls, *patterns, **kwargs):
         data_list = self.COREFileLoad(*patterns)
         return codec_cls.decode(*data_list, **kwargs)
@@ -76,7 +84,10 @@ class ResourceManager(CORE, RS):
     def RSIndexSave(self, index:StenoIndex, filename:str="", **kwargs) -> None:
         self._save(index, filename or self.index_file, **kwargs)
 
-    def _save(self, obj:AbstractCodec, filename:str, **kwargs) -> None:
+    def RSConfigSave(self, cfg:CFGDict, filename:str="", **kwargs) -> None:
+        self._save(cfg, filename or self.config_file, **kwargs)
+
+    def _save(self, obj:AbstractEncoder, filename:str, **kwargs) -> None:
         data = obj.encode(**kwargs)
         self.COREFileSave(data, filename)
 

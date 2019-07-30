@@ -2,11 +2,11 @@ from itertools import product
 from typing import Iterable, List
 
 from .base import LX
-from .board import BoardElementParser, BoardGenerator
+from .board import BoardGenerator
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
-from spectra_lexer.resource import KeyLayout, RS, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary
-from spectra_lexer.codec import XMLElement
+from spectra_lexer.resource import KeyLayout, RS, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary, \
+    XMLElement
 
 
 class StenoAnalyzer(RS, LX):

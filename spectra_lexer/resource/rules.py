@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.codec import AbstractCodec, CSONDict
+from .codec import AbstractCodec, JSONDict
 
 
 class RuleFlags(frozenset):
@@ -61,6 +61,19 @@ class _RawRule(NamedTuple):
     description: str = ""          # Optional description for when the rule is displayed in the GUI.
 
 
+class CSONDict(JSONDict):
+    """ Codec to convert Python dicts to/from JSON strings with full-line comments. """
+
+    @classmethod
+    def _decode(cls, data:bytes, comment_prefixes=frozenset(b"#/"), **kwargs) -> dict:
+        """ Decode a JSON string with single-line standalone comments. """
+        # JSON doesn't care about leading or trailing whitespace, so strip every line.
+        stripped_line_iter = map(bytes.strip, data.splitlines())
+        # Empty lines and lines starting with a comment tag after stripping are removed before parsing.
+        data_lines = [line for line in stripped_line_iter if line and line[0] not in comment_prefixes]
+        return super()._decode(b"\n".join(data_lines), **kwargs)
+
+
 class RulesDictionary(dict, AbstractCodec):
     """ Class which takes a source dict of raw JSON rule entries with nested references and parses
         them recursively to get a final dict of independent steno rules indexed by internal name. """
@@ -75,11 +88,12 @@ class RulesDictionary(dict, AbstractCodec):
                              fr'[^{_LEFT_BRACKETS}{_RIGHT_BRACKETS}]+?'  # one or more non-brackets, 
                              fr'[{_RIGHT_BRACKETS}]')                    # and a right bracket.
 
-    _src_dict: Dict[str, list] = {}  # Keep the source dict in the instance to avoid passing it everywhere.
-    inverse: Dict[StenoRule, str]    # An inverse dict is useful when converting back to JSON form.
+    _src_dict: Dict[str, list]     # Keep the raw source dict in the instance to avoid passing it everywhere.
+    inverse: Dict[StenoRule, str]  # An inverse dict is useful when converting back to JSON form.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._src_dict = {}
         self._update_inverse()
 
     def _update_inverse(self):
@@ -89,8 +103,7 @@ class RulesDictionary(dict, AbstractCodec):
 
     @classmethod
     def decode(cls, *all_data:bytes, **kwargs):
-        """ Decode a collection of commented JSON dicts and parse every entry using mutual recursion.
-            This will parse entries in a semi-arbitrary order, so make sure not to redo any. """
+        """ Decode a collection of commented JSON dicts and parse every entry using mutual recursion. """
         self = cls()
         d = CSONDict.decode(*all_data, **kwargs)
         self.update_raw(d)
@@ -157,7 +170,7 @@ class RulesDictionary(dict, AbstractCodec):
 
     def encode(self, **kwargs) -> bytes:
         """ Generate a raw rules dict by substituting references in each rulemap for their letters, then encode it. """
-        raw = CSONDict({k: self._inv_parse(r) for k, r in self.items()})
+        raw = JSONDict({k: self._inv_parse(r) for k, r in self.items()})
         return raw.encode(**kwargs)
 
     def _inv_parse(self, r:StenoRule) -> _RawRule:

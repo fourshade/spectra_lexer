@@ -1,4 +1,5 @@
 from collections import defaultdict
+import csv
 from itertools import islice
 import pkgutil
 from typing import Callable, Dict, Iterable, List
@@ -8,7 +9,6 @@ from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout
 
-from .resources import IconPackage, RootDict
 from .row import RowData
 from ..dialog import ToolDialog
 
@@ -38,20 +38,40 @@ class IconRenderer:
         return QIcon(QPixmap.fromImage(im))
 
 
+class IconHandler:
+    """ Stores SVG icon data by data type. """
+
+    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
+
+    def __init__(self, icon_data:bytes):
+        """ Parse a root icon resource as a CSV file. The first row contains only one field:
+            the basic document structure with header and footer, usable as a format string.
+            In all other rows, the last field is the SVG icon data itself, and every other field
+            contains the name of a data type alias that uses the icon described by that data.
+            Render each icon from packaged bytes data and add them to a dict under each alias. """
+        self._icons = {}
+        lines = icon_data.decode('utf-8').splitlines()
+        [fmt], *items = csv.reader(map(str.strip, lines))
+        for *aliases, xml_data in items:
+            xml = fmt.format(xml_data).encode('utf-8')
+            icon = IconRenderer(xml).generate()
+            for n in aliases:
+                self._icons[n] = icon
+
+    def get_best(self, choices:Iterable[str]) -> QIcon:
+        """ Return an available icon from a sequence of choices from most wanted to least. """
+        return next(filter(None, map(self._icons.get, choices)), None)
+
+
 class RowFormatter:
     """ Formats each tree item as a single row with a dict of parameters. """
 
     _FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
 
-    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
+    _get_icon: Callable
 
-    def __init__(self, icons:IconPackage):
-        """ Render each icon from packaged bytes data and add them to a dict under each alias. """
-        self._icons = {}
-        for aliases, xml in icons.encode_all():
-            icon = IconRenderer(xml).generate()
-            for n in aliases:
-                self._icons[n] = icon
+    def __init__(self, icon_data:bytes):
+        self._get_icon = IconHandler(icon_data).get_best
 
     def _color(self, rgb:tuple, _cache={}) -> QColor:
         """ RGB color generator with a default argument cache. """
@@ -59,10 +79,6 @@ class RowFormatter:
             return _cache[rgb]
         color = _cache[rgb] = QColor(*rgb)
         return color
-
-    def _get_icon(self, choices:Iterable[str]) -> QIcon:
-        """ Return an available icon from a sequence of choices from most wanted to least. """
-        return next(filter(None, map(self._icons.get, choices)), None)
 
     def __call__(self, data:RowData, parent:object=None) -> List[dict]:
         """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display.
@@ -109,15 +125,17 @@ class ObjectTreeModel(QAbstractItemModel):
     HEADER_DATA = {Qt.Horizontal: {Qt.DisplayRole: HEADINGS,
                                    Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}}
 
-    _format_row: RowFormatter             # Formats each item data dict with flags and roles.
+    _format_row: RowFormatter              # Formats each item data dict with flags and roles.
+    _eval_fn: Callable                     # Callable for evaluation of user input strings as Python code.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
     def __init__(self, root_dict:dict, formatter:RowFormatter):
-        """ Create the index dictionaries and fill out the root level of the tree. """
+        """ Create the index dictionaries and eval callback and fill out the root level of the tree. """
         super().__init__()
-        self._d = defaultdict(list)
         self._format_row = formatter
+        self._eval_fn = lambda expr: eval(expr, root_dict)
+        self._d = defaultdict(list)
         root_idx = QModelIndex()
         root_data = RowData(root_dict)
         root_item = self._format_row(root_data)[0]
@@ -169,7 +187,7 @@ class ObjectTreeModel(QAbstractItemModel):
             return False
         # Either the value or the color will change, and either will affect the display, so return True.
         try:
-            self.edit(idx)(new_data)
+            self.edit(idx)(new_data, eval_fn=self._eval_fn)
             self.expand(self.parent(idx))
         except Exception:
             # Non-standard container classes could raise anything, so just ignore the specifics.
@@ -203,14 +221,12 @@ class ObjectTreeDialog(ToolDialog):
     TITLE: str = "Python Object Tree View"
     SIZE: tuple = (600, 450)
 
-    ICON_PATH = (__package__, "/treeicons.svg")  # Package and relative file path with all object tree icons.
+    ICON_PATH = (__package__, "/treeicons.dat")  # Package and relative file path with all object tree icons.
 
-    def make_layout(self, components:list, **kwargs) -> None:
+    def make_layout(self, root_dict:dict) -> None:
         """ Create the tree widget and item model, connect the expansion signal, and format the header. """
-        root_dict = RootDict(components, **kwargs)
         icon_data = pkgutil.get_data(*self.ICON_PATH)
-        icons = IconPackage.decode(icon_data)
-        formatter = RowFormatter(icons)
+        formatter = RowFormatter(icon_data)
         model = ObjectTreeModel(root_dict, formatter)
         view = QTreeView(self)
         view.setFont(QFont("Segoe UI", 9))

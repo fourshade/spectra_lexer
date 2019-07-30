@@ -25,8 +25,8 @@ class CORE:
         raise NotImplementedError
 
     @Command
-    def COREDebug(self, components:list) -> None:
-        """ Send every component definition in the application to debug components. """
+    def COREDebug(self, debug_dict:dict) -> None:
+        """ Send a namespace with every component definition in the application to debug components. """
         raise NotImplementedError
 
     @Command
@@ -40,7 +40,7 @@ class CORE:
         raise NotImplementedError
 
     @Command
-    def COREConsoleOpen(self, *, interactive:bool=True, **kwargs) -> None:
+    def COREConsoleOpen(self, *, interactive:bool=True) -> None:
         """ Open the console with all engine commands, each wrapped in the original function info. """
         raise NotImplementedError
 
