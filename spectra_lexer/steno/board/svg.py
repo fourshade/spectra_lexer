@@ -1,4 +1,4 @@
-from spectra_lexer.types.codec import XMLElement
+from spectra_lexer.codec import XMLElement
 
 
 class SVGElement(XMLElement):

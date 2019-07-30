@@ -6,7 +6,7 @@ from .board import BoardElementParser, BoardGenerator
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
 from spectra_lexer.resource import KeyLayout, RS, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary
-from spectra_lexer.types.codec import XMLElement
+from spectra_lexer.codec import XMLElement
 
 
 class StenoAnalyzer(RS, LX):

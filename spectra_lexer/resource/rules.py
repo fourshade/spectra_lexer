@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, NamedTuple, Sequence, Tuple
 
-from spectra_lexer.types.codec import AbstractCodec, CSONDict
+from spectra_lexer.codec import AbstractCodec, CSONDict
 
 
 class RuleFlags(frozenset):

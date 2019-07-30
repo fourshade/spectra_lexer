@@ -1,4 +1,3 @@
-from ast import literal_eval
 from configparser import ConfigParser
 from io import StringIO
 import json
@@ -65,20 +64,9 @@ class CFGDict(dict, AbstractCodec):
         cfg = ConfigParser(**kwargs)
         for data in all_data:
             cfg.read_string(data.decode(encoding))
-        d = {k: dict(v) for k, v in cfg.items() if k != "DEFAULT"}
-        self = cls(d)
-        self._eval_strings()
+        self = cls({k: dict(v) for k, v in cfg.items()})
+        del self["DEFAULT"]
         return self
-
-    def _eval_strings(self) -> None:
-        """ Try to evaluate config strings as Python objects using AST. This fixes crap like bool('False') = True.
-            Strings that are read as names will throw an error, in which case they should be left as-is. """
-        for sect, page in self.items():
-            for opt, val in page.items():
-                try:
-                    page[opt] = literal_eval(val)
-                except (SyntaxError, ValueError):
-                    continue
 
     def encode(self, *, encoding:str='utf-8', **kwargs) -> bytes:
         """ Encode this dict into a CFG file. Readability may or may not be preserved. """
@@ -155,24 +143,24 @@ class XMLElement(dict, AbstractCodec):
     def encode(self, encoding:str='utf-8') -> bytes:
         """ Encode this entire object into an XML byte string.
             The stdlib uses an I/O stream for this, but adding strings to a list and joining them is faster. """
-        s_list = ['<?xml version="1.0" encoding="', encoding, '"?>\n', *self.serialize()]
+        s_list = ['<?xml version="1.0" encoding="', encoding, '"?>\n']
+        self.serialize(s_list)
         return "".join(s_list).encode(encoding)
 
-    def serialize(self) -> list:
+    def serialize(self, s_list:list, _iter=dict.__iter__) -> None:
         """ Recursively write strings representing this object to a list (which will be joined at the end).
             Use += when possible to avoid method call overhead. This is even faster than using f-strings. """
         tag = self.tag
         text = self.text
         tail = self.tail
         children = self._children
-        s_list = ['<', tag]
-        for k, v in self.items():
-            s_list += ' ', k, '="', v, '"'
+        s_list += '<', tag
+        for k in _iter(self):
+            s_list += ' ', k, '="', self[k], '"'
         if children or text:
             s_list += '>', text
             for child in children:
-                s_list += child.serialize()
+                child.serialize(s_list)
             s_list += '</', tag, '>', tail
         else:
             s_list += '/>', tail
-        return s_list

@@ -5,7 +5,7 @@ from functools import partial, update_wrapper
 import sys
 from typing import Callable, List
 
-from spectra_lexer.types.importer import AutoImporter
+from spectra_lexer.utils import AutoImporter
 
 
 class HelpWrapper(partial):

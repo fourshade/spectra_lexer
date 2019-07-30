@@ -3,8 +3,7 @@
 
 import sys
 
-from spectra_lexer.types.codec import XMLElement
-from spectra_lexer.utils import recurse
+from spectra_lexer.codec import XMLElement
 
 
 class package(dict):
@@ -58,7 +57,7 @@ class IconPackage(XMLElement):
     def encode_all(self):
         """ From a root SVG icon resource, encode individual icon elements for each type. """
         defs = [e for e in self if e.tag == "defs"]
-        for elem in recurse(self):
+        for elem in self.recurse_children():
             # Elements with at least one type alias are valid icons.
             types = elem.get("spectra_types")
             if types:
@@ -66,3 +65,9 @@ class IconPackage(XMLElement):
                 icon = self.__class__(*defs, elem, **self)
                 icon.tag = self.tag
                 yield types.split(), icon.encode()
+
+    def recurse_children(self):
+        """ Yield this element, then recursively yield elements from its children, depth-first. """
+        yield self
+        for elem in self:
+            yield from elem.recurse_children()

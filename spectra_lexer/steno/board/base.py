@@ -6,7 +6,7 @@ from functools import lru_cache
 from .elements import BoardElement, BoardFactory
 from .matcher import KeyElementFinder, RuleElementFinder
 from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoRule
-from spectra_lexer.types.codec import XMLElement
+from spectra_lexer.codec import XMLElement
 
 
 class BoardElementParser:

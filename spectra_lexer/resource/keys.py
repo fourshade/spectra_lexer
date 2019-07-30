@@ -1,7 +1,7 @@
 from collections import defaultdict
 from functools import partial
 
-from spectra_lexer.types.codec import JSONDict
+from spectra_lexer.codec import JSONDict
 
 
 class KeyLayout(JSONDict):

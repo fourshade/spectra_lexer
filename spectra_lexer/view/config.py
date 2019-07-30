@@ -1,7 +1,8 @@
+import ast
 from collections import namedtuple
 from typing import List
 
-from spectra_lexer.types.codec import CFGDict
+from spectra_lexer.codec import CFGDict
 
 # Contains unformatted config info for use in file I/O and parsing.
 ConfigParams = namedtuple("ConfigParams", "key default sect name description")
@@ -41,12 +42,18 @@ class ConfigDictionary:
         return self._info.formatted(self._data)
 
     def decode_update(self, *data_list:bytes) -> None:
-        """ Update the values of each config option from a decoded CFG dict by section and name. """
+        """ Update the values of each config option from a decoded CFG dict by section and name.
+            Try to evaluate each string as a Python object using AST. This fixes crap like bool('False') = True.
+            Strings that are read as names will throw an error, in which case they should be left as-is. """
         for sect, page in CFGDict.decode(*data_list).items():
-            for name in page:
+            for name, value in page.items():
                 key = self._rev.get((sect, name))
                 if key is not None:
-                    self._data[key] = page[name]
+                    try:
+                        value = ast.literal_eval(value)
+                    except (SyntaxError, ValueError):
+                        pass
+                    self._data[key] = value
 
     def encode_update(self, options:dict) -> bytes:
         """ Encode the values of each option in a CFG dict by section and name. """

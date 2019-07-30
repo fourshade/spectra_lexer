@@ -6,6 +6,7 @@ from .base import PLOVER
 from .plover import PloverInterface
 from .types import dummy, PloverAction, PloverCompatibilityTester, PloverEngine
 from spectra_lexer.gui_qt.app import QtApplication
+from spectra_lexer.gui_qt.widgets import MainWindow
 
 # Minimum version of Plover required for plugin compatibility.
 VERSION_REQUIRED = "4.0.0.dev8"
@@ -20,7 +21,7 @@ class PloverPluginApplication(QtApplication, PLOVER):
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = 'asset:spectra_lexer:gui_qt/widgets/icon.svg'
+    ICON = ':'.join(['asset', *MainWindow.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 

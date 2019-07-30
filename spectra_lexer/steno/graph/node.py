@@ -46,6 +46,18 @@ class GraphNode:
             self.ref_str = f"{parent.ref_str}_{len(c)}"
             c.append(self)
 
+    def ancestors(self):
+        """ Traverse and yield all ancestors of this node, starting with itself. """
+        while self is not None:
+            yield self
+            self = self.parent
+
+    def descendants(self):
+        """ Recurse over and yield all descendants of this node depth-first, starting with itself. """
+        yield self
+        for child in self.children:
+            yield from child.descendants()
+
     def body(self, write:Callable, row:int=0, col:int=0) -> None:
         """ Write the main primitive: a text row starting at the origin. """
         write(PrimitiveRow(self.text, self), row, col)

@@ -1,7 +1,6 @@
 from .canvas import Canvas
 from .node import GraphNode
 from .primitive import Primitive
-from spectra_lexer.utils import traverse
 
 
 class HTMLFormatter:
@@ -29,8 +28,8 @@ class HTMLFormatter:
         if target is None:
             ancestors = cols = ()
         else:
-            # For ancestors that are not the target object, only highlight the part directly above the target.
-            ancestors = {*traverse(target, "parent")}
+            # For ancestors that are not the target object, only highlight the columns directly above the target.
+            ancestors = set(target.ancestors())
             start = sum([node.attach_start for node in ancestors])
             cols = range(start, start + target.attach_length)
         formatted = []

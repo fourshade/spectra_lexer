@@ -1,20 +1,22 @@
-from pkgutil import get_data
+from pkg_resources import resource_filename
 
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QMainWindow
 
 from .main_window_ui import Ui_MainWindow
-from ..icon import IconRenderer
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """ Base class for Qt application window as created from the command line script or Plover. """
 
+    ICON_PATH = __package__, 'icon.svg'  # Package and relative file path for app icon.
+
     def __init__(self):
-        """ Set up the main window. """
+        """ Set up the main window with its icon. """
         super().__init__()
         self.setupUi(self)
-        icon_data = get_data(__package__, "icon.svg")
-        icon = IconRenderer(icon_data).generate()
+        fname = resource_filename(*self.ICON_PATH)
+        icon = QIcon(fname)
         self.setWindowIcon(icon)
 
     def widgets(self) -> dict:

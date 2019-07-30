@@ -2,8 +2,8 @@ from typing import Callable, Iterable, Iterator, List, Tuple
 
 from .generate import LexerRuleGenerator, RESULT_TYPE
 from .match import LexerRuleMatcher
+from .parallel import ParallelMapper
 from spectra_lexer.resource import KeyLayout, RulesDictionary, RuleMapItem, StenoRule
-from spectra_lexer.utils import par_starmap
 
 
 class StenoLexer:
@@ -34,9 +34,10 @@ class StenoLexer:
                        filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> List[StenoRule]:
         """ Run the lexer in parallel on all translation items and return a list of results.
             <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
+        mapper = ParallelMapper(self.query, **kwargs)
         if filter_in is not None:
             items = filter(filter_in, items)
-        results = par_starmap(self.query, items, **kwargs)
+        results = mapper.starmap(items)
         if filter_out is not None:
             results = list(filter(filter_out, results))
         return results

@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List
 
 from .rules import StenoRule
 from .translations import TranslationsDictionary
-from spectra_lexer.types.codec import JSONDict
+from spectra_lexer.codec import JSONDict
 
 
 class StenoIndex(JSONDict):

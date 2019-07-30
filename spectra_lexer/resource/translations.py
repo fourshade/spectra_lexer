@@ -4,7 +4,7 @@ import re
 from typing import List
 
 from .search import ReverseDict, StripCaseSearchDict
-from spectra_lexer.types.codec import JSONDict
+from spectra_lexer.codec import JSONDict
 
 
 class _ReverseSearchDict(ReverseDict, StripCaseSearchDict):

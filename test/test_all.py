@@ -13,8 +13,7 @@ from spectra_lexer.plover import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.resource import ResourceManager, RuleFlags
 from spectra_lexer.steno import StenoAnalyzer
-from spectra_lexer.types.codec import CSONDict
-from spectra_lexer.utils import recurse_attr
+from spectra_lexer.codec import CSONDict
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.
@@ -145,7 +144,7 @@ def test_graph(result):
     root = next(iter(node_index))
     assert root.parent is None
     # Every other node descends from it and is unique.
-    nodes_list = list(recurse_attr(root, "children"))
+    nodes_list = list(root.descendants())
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
     # Going the other direction, every node except the root must have its parent in the set.

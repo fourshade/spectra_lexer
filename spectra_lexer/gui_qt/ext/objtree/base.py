@@ -1,33 +1,41 @@
 from collections import defaultdict
-from functools import lru_cache
 from itertools import islice
-from pkgutil import get_data
-from typing import Dict, Iterable, List
+import pkgutil
+from typing import Callable, Dict, Iterable, List
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
-from PyQt5.QtGui import QColor, QFont, QIcon
+from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
+from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout
 
 from .resources import IconPackage, RootDict
 from .row import RowData
 from ..dialog import ToolDialog
-from ...icon import IconRenderer
-
-# File with all object tree icons.
-ICON_PATH = "/treeicons.svg"
-# Default maximum number of child objects to show for each object.
-CHILD_LIMIT = 200
-# Captions and height for the header at the top of the window.
-HEADINGS = ["Name", "Type/Item Count", "Value"]
-HEADER_DATA = {Qt.DisplayRole: HEADINGS, Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}
 
 
-@lru_cache(maxsize=None)
-def _color(t:tuple=None) -> QColor:
-    """ Caching color generator. """
-    if t is None:
-        return QColor(0, 0, 0)
-    return QColor(*t)
+class IconRenderer:
+    """ SVG renderer for static icons on transparent bitmap images. """
+
+    _TRANSPARENT_WHITE = QColor.fromRgb(255, 255, 255, 0)
+
+    _viewBox: QSize
+    _render: Callable
+
+    def __init__(self, xml:bytes):
+        svg = QSvgRenderer(xml)
+        self._viewbox = svg.viewBox().size()
+        self._render = svg.render
+
+    def generate(self, size:QSize=None, bg:QColor=_TRANSPARENT_WHITE) -> QIcon:
+        """ Create a template with the given background color, render the element in place, and convert it to an icon.
+            If no size is given, use the viewbox dimensions as pixel sizes. """
+        im = QImage(size or self._viewbox, QImage.Format_ARGB32)
+        im.fill(bg)
+        with QPainter(im) as p:
+            # Icons are small but important; set render hints for best quality.
+            p.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
+            self._render(p)
+        return QIcon(QPixmap.fromImage(im))
 
 
 class RowFormatter:
@@ -37,15 +45,20 @@ class RowFormatter:
 
     _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
 
-    def __init__(self):
-        """ Render each icon from bytes data and add them to a dict under each alias. """
+    def __init__(self, icons:IconPackage):
+        """ Render each icon from packaged bytes data and add them to a dict under each alias. """
         self._icons = {}
-        data = get_data(__package__, ICON_PATH)
-        icons = IconPackage.decode(data)
         for aliases, xml in icons.encode_all():
             icon = IconRenderer(xml).generate()
             for n in aliases:
                 self._icons[n] = icon
+
+    def _color(self, rgb:tuple, _cache={}) -> QColor:
+        """ RGB color generator with a default argument cache. """
+        if rgb in _cache:
+            return _cache[rgb]
+        color = _cache[rgb] = QColor(*rgb)
+        return color
 
     def _get_icon(self, choices:Iterable[str]) -> QIcon:
         """ Return an available icon from a sequence of choices from most wanted to least. """
@@ -57,7 +70,7 @@ class RowFormatter:
             Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO.
             Column 2 contains the string value of the object. It may be edited if mutable. """
         get = data.get
-        color = _color(get("color"))
+        color = self._color(get("color") or (0, 0, 0))
         row = []
         for s in ("key", "type", "value"):
             item = {"parent": parent,
@@ -89,15 +102,22 @@ class RowFormatter:
 class ObjectTreeModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
+    # Default maximum number of child object rows to show for each object.
+    CHILD_LIMIT = 200
+    # Captions and height for the header at the top of the window.
+    HEADINGS = ["Name", "Type/Item Count", "Value"]
+    HEADER_DATA = {Qt.Horizontal: {Qt.DisplayRole: HEADINGS,
+                                   Qt.SizeHintRole: [QSize(0, 25)] * len(HEADINGS)}}
+
     _format_row: RowFormatter             # Formats each item data dict with flags and roles.
     _d: Dict[QModelIndex, List[list]]      # Contains all expanded parent model indices mapped to grids of items.
     _idx_to_item: Dict[QModelIndex, dict]  # Contains all generated model indices mapped to items.
 
-    def __init__(self, root_dict:dict):
-        """ Create the row formatter and index dictionaries and fill out the root level of the tree. """
+    def __init__(self, root_dict:dict, formatter:RowFormatter):
+        """ Create the index dictionaries and fill out the root level of the tree. """
         super().__init__()
         self._d = defaultdict(list)
-        self._format_row = RowFormatter()
+        self._format_row = formatter
         root_idx = QModelIndex()
         root_data = RowData(root_dict)
         root_item = self._format_row(root_data)[0]
@@ -134,12 +154,13 @@ class ObjectTreeModel(QAbstractItemModel):
     def rowCount(self, idx:QModelIndex=None, *args) -> int:
         return len(self._d[idx])
 
-    def columnCount(self, idx:QModelIndex=None, *args) -> int:
-        return len(HEADINGS)
+    def columnCount(self, *args) -> int:
+        return len(self.HEADINGS)
 
     def headerData(self, section:int, orientation:int, role:int=None):
-        if orientation == Qt.Horizontal and role in HEADER_DATA:
-            return HEADER_DATA[role][section]
+        d = self.HEADER_DATA.get(orientation, ())
+        if role in d:
+            return d[role][section]
 
     def setData(self, idx:QModelIndex, new_data:str, *args) -> bool:
         """ Attempt to change an object's value. Re-expand the parent on success, otherwise turn the item red. """
@@ -147,9 +168,11 @@ class ObjectTreeModel(QAbstractItemModel):
         if not new_data:
             return False
         # Either the value or the color will change, and either will affect the display, so return True.
-        if self.edit(idx)(new_data):
+        try:
+            self.edit(idx)(new_data)
             self.expand(self.parent(idx))
-        else:
+        except Exception:
+            # Non-standard container classes could raise anything, so just ignore the specifics.
             # The item will return to the normal color after re-expansion.
             self._idx_to_item[idx][Qt.ForegroundRole] = QColor(192, 0, 0)
         return True
@@ -165,7 +188,7 @@ class ObjectTreeModel(QAbstractItemModel):
         if self.hasChildren(idx):
             # Rows of raw data items are generated only when iterating over the "child_data" entry.
             # It is a lazy iterator, so we can limit the rows generated using islice.
-            child_iter = islice(self.child_data(idx), CHILD_LIMIT)
+            child_iter = islice(self.child_data(idx), self.CHILD_LIMIT)
             # Format each new row with items containing flags and Qt roles for display.
             new_rows = [self._format_row(data, idx) for data in child_iter]
             # Add every new row at once.
@@ -180,10 +203,15 @@ class ObjectTreeDialog(ToolDialog):
     TITLE: str = "Python Object Tree View"
     SIZE: tuple = (600, 450)
 
+    ICON_PATH = (__package__, "/treeicons.svg")  # Package and relative file path with all object tree icons.
+
     def make_layout(self, components:list, **kwargs) -> None:
         """ Create the tree widget and item model, connect the expansion signal, and format the header. """
         root_dict = RootDict(components, **kwargs)
-        model = ObjectTreeModel(root_dict)
+        icon_data = pkgutil.get_data(*self.ICON_PATH)
+        icons = IconPackage.decode(icon_data)
+        formatter = RowFormatter(icons)
+        model = ObjectTreeModel(root_dict, formatter)
         view = QTreeView(self)
         view.setFont(QFont("Segoe UI", 9))
         view.setUniformRowHeights(True)
