@@ -3,7 +3,7 @@ from typing import Sequence
 from .base import PLOVER
 from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
 from spectra_lexer.core import CORE
-from spectra_lexer.resource import RS, TranslationsDictionary
+from spectra_lexer.resource import RS
 
 
 class PloverInterface(CORE, RS, PLOVER):
@@ -33,8 +33,7 @@ class PloverInterface(CORE, RS, PLOVER):
             converted_dict = {}
             for d in dicts:
                 converted_dict.update(zip(map(join_strokes, d), d.values()))
-            translations = TranslationsDictionary(converted_dict)
-            self.RSTranslationsReady(translations)
+            self.RSTranslationsReady(converted_dict)
             self.COREStatus("Loaded new dictionaries from Plover engine.")
 
     def FoundTranslation(self, _, new_actions:Sequence[PloverAction]) -> None:

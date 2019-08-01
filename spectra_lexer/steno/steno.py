@@ -1,31 +1,38 @@
 from itertools import product
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
+from .analyzer import StenoAnalyzer
 from .base import LX
 from .board import BoardGenerator
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
-from spectra_lexer.resource import KeyLayout, RS, RulesDictionary, StenoIndex, StenoRule, TranslationsDictionary, \
-    XMLElement
+from .search import SearchEngine
+from spectra_lexer.resource import KeyLayout, RS, StenoRule, XMLElement
 
 
-class StenoAnalyzer(RS, LX):
+class StenoEngine(RS, LX):
     """ The primary steno analysis engine. Generates rules from translations and creates visual representations. """
 
     _board: BoardGenerator = None
     _grapher: GraphGenerator = None
     _lexer: StenoLexer = None
-    _rules: RulesDictionary = None
-    _translations: TranslationsDictionary = None
+    _analyzer: StenoAnalyzer = None
+    _search: SearchEngine = None
 
-    def RSSystemReady(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement) -> None:
+    def RSSystemReady(self, layout:KeyLayout, rules:Dict[str, StenoRule],
+                      board_defs:dict, board_elems:XMLElement) -> None:
         self._board = BoardGenerator(layout, rules, board_defs, board_elems)
         self._grapher = GraphGenerator(layout)
         self._lexer = StenoLexer(layout, rules)
-        self._rules = rules
+        self._analyzer = StenoAnalyzer(self._lexer, rules)
+        self._search = SearchEngine(rules)
 
-    def RSTranslationsReady(self, translations:TranslationsDictionary) -> None:
-        self._translations = translations
+    def RSTranslationsReady(self, translations:Dict[str, str]) -> None:
+        self._search.load_translations(translations)
+        self._analyzer.load(translations.items())
+
+    def RSIndexReady(self, index:Dict[str, dict]) -> None:
+        self._search.load_index(index)
 
     def LXLexerQuery(self, keys:str, word:str, **kwargs) -> StenoRule:
         return self._lexer.query(keys, word, **kwargs)
@@ -33,19 +40,11 @@ class StenoAnalyzer(RS, LX):
     def LXLexerQueryProduct(self, keys:Iterable[str], words:Iterable[str], **kwargs) -> StenoRule:
         return self._lexer.query_best(product(keys, words), **kwargs)
 
-    def LXLexerQueryAll(self, *args, **kwargs) -> RulesDictionary:
-        results = self._query_all(*args, **kwargs)
-        return self._rules.compile(results)
+    def LXAnalyzerMakeRules(self, *args, **kwargs) -> List[StenoRule]:
+        return self._analyzer.make_rules(*args, **kwargs)
 
-    def LXLexerMakeIndex(self, *args) -> StenoIndex:
-        """ Only keep results with all keys matched to reduce garbage. """
-        filter_in, filter_out = StenoIndex.filters(*args)
-        results = self._query_all(filter_in, filter_out, match_all_keys=True)
-        return StenoIndex.compile(results, self._rules.inverse)
-
-    def _query_all(self, *args, **kwargs) -> List[StenoRule]:
-        items = self._translations.items()
-        return self._lexer.query_parallel(items, *args, **kwargs)
+    def LXAnalyzerMakeIndex(self, *args) -> Dict[str, dict]:
+        return self._analyzer.make_index(*args)
 
     def LXGraphGenerate(self, rule:StenoRule, **kwargs) -> StenoGraph:
         return self._grapher(rule, **kwargs)
@@ -55,3 +54,15 @@ class StenoAnalyzer(RS, LX):
 
     def LXBoardFromRule(self, rule:StenoRule, *args) -> bytes:
         return self._board.from_rule(rule, *args)
+
+    def LXSearchQuery(self, *args, **kwargs) -> List[str]:
+        return self._search.search(*args, **kwargs)
+
+    def LXSearchFindExample(self, *args, **kwargs) -> Tuple[str, str]:
+        return self._search.find_example(*args, **kwargs)
+
+    def LXSearchFindLink(self, rule:StenoRule) -> str:
+        return self._search.rule_to_link(rule)
+
+    def LXSearchFindRule(self, link:str) -> StenoRule:
+        return self._search.link_to_rule(link)

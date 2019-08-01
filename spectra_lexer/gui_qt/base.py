@@ -4,11 +4,6 @@ from spectra_lexer.core import Command
 class GUIQT:
 
     @Command
-    def GUIQTSetEnabled(self, enabled:bool) -> None:
-        """ Enable/disable all widgets when GUI-blocking operations are being done. """
-        raise NotImplementedError
-
-    @Command
     def GUIQTShowWindow(self) -> None:
         """ For a plugin window, this is called by its host application to re-open it. """
         raise NotImplementedError

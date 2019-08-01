@@ -22,18 +22,8 @@ class VIEW:
         raise NotImplementedError
 
     @Command
-    def VIEWDialogNoIndex(self) -> bool:
-        """ Send this command if there is no index loaded on start. """
-        raise NotImplementedError
-
-    @Command
     def VIEWDialogMakeIndex(self, index_size:int) -> None:
         """ Make an index, save it, and send out the result. """
-        raise NotImplementedError
-
-    @Command
-    def VIEWDialogSkipIndex(self) -> None:
-        """ Make an empty index and save it. """
         raise NotImplementedError
 
     @Command

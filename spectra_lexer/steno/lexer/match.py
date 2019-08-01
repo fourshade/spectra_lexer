@@ -1,7 +1,7 @@
 from collections import namedtuple
 from typing import Dict, List, Sequence
 
-from spectra_lexer.resource import KeyLayout, RuleFlags, RulesDictionary, StenoRule
+from spectra_lexer.resource import KeyLayout, RuleFlags, StenoRule
 
 
 class LexerMatch(namedtuple("LexerMatch", "rule skeys letters skeys_len letters_len")):
@@ -160,7 +160,7 @@ class LexerRuleMatcher:
     _word_dict: Dict[str, LexerMatch]    # Rules that match by exact word only (whitespace-separated).
     _prefix_finder: PrefixFinder         # Rules that match by starting with certain keys in order.
 
-    def __init__(self, layout:KeyLayout, rules:RulesDictionary):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]):
         """ Construct constants and a specially-structured series of dictionaries from a steno system. """
         self._key_sep = sep = layout.SEP
         star = layout.SPECIAL

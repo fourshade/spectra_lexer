@@ -34,7 +34,7 @@ class SpectraCore(CORE):
     def COREConsoleOpen(self, *, interactive:bool=True) -> None:
         commands = {cmd.__name__: HelpWrapper(cmd) for cmd in self.CONSOLE_COMMANDS}
         self._debug_dict.update(commands, help=xhelp())
-        self._console = SystemConsole(self.SYSConsoleOutput, interactive, self._debug_dict)
+        self._console = SystemConsole(self.COREConsoleOutput, interactive, self._debug_dict)
 
     def COREConsoleInput(self, text_in:str) -> None:
         if self._console is not None:

@@ -5,7 +5,7 @@ import sys
 from .base import PLOVER
 from .plover import PloverInterface
 from .types import dummy, PloverAction, PloverCompatibilityTester, PloverEngine
-from spectra_lexer.gui_qt.app import QtApplication
+from spectra_lexer.gui_qt import QtApplication
 from spectra_lexer.gui_qt.widgets import MainWindow
 
 # Minimum version of Plover required for plugin compatibility.
@@ -33,17 +33,18 @@ class PloverPluginApplication(QtApplication, PLOVER):
         self._plover_engine = plover_engine
         super().__init__()
 
-    def _build_workers(self) -> list:
+    def _build_components(self) -> list:
         """ Parsing large dictionaries is expensive, so the Plover plugin components run on the worker thread. """
-        return [*super()._build_workers(), PloverInterface()]
+        return [*super()._build_components(), PloverInterface()]
 
-    def run(self) -> None:
+    def run(self) -> int:
         """ Plover engine signals can only be caught by the main thread, so connect them here. """
         if self.compat_check():
             engine = self._plover_engine
             engine.signal_connect("dictionaries_loaded", self.FoundDicts)
             engine.signal_connect("translated", self.FoundTranslation)
             self.EngineReady(engine)
+        return 0
 
     def compat_check(self) -> bool:
         """ Add the Plover engine only if the version is compatible. """
@@ -70,7 +71,7 @@ class PloverPluginTest(PloverPluginApplication):
         """ We do not need Plover for the tests, so compatibility is not required. """
         return True
 
-    def run(self) -> None:
+    def run(self) -> int:
         super().run()
         self.FoundTranslation(None, [PloverAction()])
-        QtApplication.run(self)
+        return self._qt_app.exec_()

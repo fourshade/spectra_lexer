@@ -1,7 +1,6 @@
 import sys
 
 from .base import CORE
-from .core import SpectraCore
 from .cmdline import CmdlineOption
 from .debug import DebugDict
 from .engine import Engine
@@ -24,7 +23,7 @@ class Application(CORE):
 
     def _build_components(self) -> list:
         """ Make and return a list of components. """
-        return [SpectraCore()]
+        raise NotImplementedError
 
     def _build_engine(self, components:list, **kwargs) -> Engine:
         """ Make and return a new engine; may differ for subclasses. """

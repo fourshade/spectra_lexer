@@ -1,35 +1,37 @@
 """ Main entry point for Spectra's HTTP application. """
 
-from threading import Thread
+import os
 
-from .base import GUIHTTP
-from .server import HttpServer
-from spectra_lexer.view.app import ViewApplication
+from .server import HTTPServer
+from spectra_lexer.core import CmdlineOption
+from spectra_lexer.view import ViewApplication, VIEW
 
 
-class HttpApplication(ViewApplication, GUIHTTP):
+class HttpApplication(ViewApplication, VIEW):
     """ Master component for HTTP operations. Controls the server application as a whole. """
 
-    _done: bool = False
+    _HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
 
-    def _build_components(self) -> list:
+    address: str = CmdlineOption("http-addr", default="", desc="IP address or hostname for server.")
+    port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
+    dir: str = CmdlineOption("http-dir", default=_HTTP_PUBLIC, desc="Root directory for public HTTP file service.")
+
+    server: HTTPServer = None
+
+    def _build_interface(self) -> list:
         """ Run the server on the main thread. """
-        return [HttpServer()]
+        return []
 
     def run(self) -> int:
         """ Start the server and console and run them indefinitely. """
-        Thread(target=self.repl, daemon=True).start()
-        while not self._done:
-            self.GUIHTTPServe()
-        self.GUIHTTPShutdown()
+        self.server = HTTPServer(self.dir, self.VIEWAction, self.COREStatus)
+        self.server.start(self.address, self.port)
+        try:
+            self.repl()
+        finally:
+            self.server.shutdown()
         return 0
 
-    def repl(self) -> None:
-        """ Open the console with stdin on a new thread. Shut down the server when finished. """
-        self.COREConsoleOpen()
-        while True:
-            text = input()
-            if text.startswith("exit()"):
-                break
-            self.COREConsoleInput(text)
-        self._done = True
+    def VIEWActionResult(self, *args) -> None:
+        """ Finish a response and send it to the client. """
+        self.server.process_done(*args)

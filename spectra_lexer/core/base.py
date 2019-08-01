@@ -50,7 +50,7 @@ class CORE:
         raise NotImplementedError
 
     @Command
-    def SYSConsoleOutput(self, text_out:str) -> None:
+    def COREConsoleOutput(self, text_out:str) -> None:
         """ Console output is written here as if to a stream. Forwards to stdout by default. """
         raise NotImplementedError
 

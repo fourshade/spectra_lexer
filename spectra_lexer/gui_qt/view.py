@@ -54,11 +54,10 @@ class QtViewManager(CORE, VIEW, GUIQT):
                 self._state_vars.update(zip(_attrs, values))
                 self.GUIQTAction(_action)
             signal.connect(run)
-        self.w_board.resizeEvent()
         if self._last_status:
             self.w_title.set_text(self._last_status)
-        self.GUIQTShowWindow()
-        self.GUIQTSetEnabled(True)
+        self.window.show()
+        self.set_enabled(True)
 
     def _input_actions(self) -> Iterable[tuple]:
         """ Return all possible user input signals and the corresponding actions with any state updates. """
@@ -86,15 +85,10 @@ class QtViewManager(CORE, VIEW, GUIQT):
                           board_xml_data=self.w_board.set_board_data,
                           link_ref=self.w_board.set_link)
 
-    def GUIQTShowWindow(self) -> None:
-        self.window.show()
-
-    def GUIQTCloseWindow(self) -> None:
-        self.window.close()
-
-    def GUIQTSetEnabled(self, enabled:bool) -> None:
-        """ On disable, reset all widgets except the title. """
+    def set_enabled(self, enabled:bool) -> None:
+        """ Enable/disable all widgets when GUI-blocking operations are being done. """
         if not enabled:
+            # On disable, reset all widgets except the title.
             self.GUIQTAction("VIEWReset")
         self.w_menu.setEnabled(enabled)
         self.w_input.setEnabled(enabled)
@@ -103,6 +97,13 @@ class QtViewManager(CORE, VIEW, GUIQT):
         self.w_mappings.setEnabled(enabled)
         self.w_strokes.setEnabled(enabled)
         self.w_regex.setEnabled(enabled)
+        self.w_board.resizeEvent()
+
+    def GUIQTShowWindow(self) -> None:
+        self.window.show()
+
+    def GUIQTCloseWindow(self) -> None:
+        self.window.close()
 
     def GUIQTUpdate(self, **kwargs) -> None:
         """ For every attribute given, update our state dict and the GUI widgets. """

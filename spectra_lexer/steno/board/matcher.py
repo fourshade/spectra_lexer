@@ -1,16 +1,16 @@
-from typing import Callable, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 from .elements import BoardElement, BoardInversionGroup, BoardLinkedGroup, BoardStrokeGap
-from spectra_lexer.resource import RulesDictionary, RuleFlags, StenoRule
+from spectra_lexer.resource import RuleFlags, StenoRule
 
 
 class KeyElementFinder:
     """ Contains all elements for a set of steno keys. Uses question marks for unmatched keys. """
 
-    _d: dict                                 # Dict with elements for each key.
+    _d: Dict[str, BoardElement]              # Dict with elements for each key.
     _convert_to_skeys: Callable[[str], str]  # Conversion function from RTFCRE to s-keys.
 
-    def __init__(self, key_elems:dict, to_skeys:Callable[[str], str], sep:str):
+    def __init__(self, key_elems:Dict[str, BoardElement], to_skeys:Callable[[str], str], sep:str):
         """ Make a stroke sentinel element to match a separator key in any state. """
         key_elems[sep] = BoardStrokeGap()
         self._d = key_elems
@@ -29,10 +29,10 @@ class RuleElementFinder:
     _FLAG_GROUPS = {RuleFlags.INVERSION: BoardInversionGroup,
                     RuleFlags.LINKED:    BoardLinkedGroup}
 
-    _d: dict                               # Dict with elements for certain rules.
+    _d: Dict[StenoRule, BoardElement]      # Dict with elements for certain rules.
     _key_finders: Tuple[KeyElementFinder]  # Element finders for steno keys when matched[0] or unmatched[1].
 
-    def __init__(self, rule_elems:dict, rules:RulesDictionary, *key_finders:KeyElementFinder):
+    def __init__(self, rule_elems:Dict[str, BoardElement], rules:Dict[str, StenoRule], *key_finders:KeyElementFinder):
         self._d = {rules[k]: rule_elems[k] for k in rule_elems}
         self._key_finders = key_finders
 

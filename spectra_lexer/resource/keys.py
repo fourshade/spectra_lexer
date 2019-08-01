@@ -1,10 +1,8 @@
 from collections import defaultdict
 from functools import partial
 
-from .codec import AbstractDecoder, JSONDict
 
-
-class KeyLayout(AbstractDecoder):
+class KeyLayout:
     """ There are two general string-based formats of steno keys:
     s-keys - Each key is a unique character. Lowercase letters are used for right-side keys.
              Used by the lexer since one key is always one character with no possible
@@ -32,10 +30,6 @@ class KeyLayout(AbstractDecoder):
     # in RTFCRE key strings. This is a table of alias mappings for each shift key.
     SHIFT_TABLE = {"#": {"0": "O", "1": "S", "2": "T", "3": "P", "4": "H",
                          "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
-
-    @classmethod
-    def decode(cls, *all_data:bytes, **kwargs):
-        return cls(JSONDict.decode(*all_data, **kwargs))
 
     def __init__(self, *args, **kwargs):
         """ Merge all arguments into the instance attribute dict.

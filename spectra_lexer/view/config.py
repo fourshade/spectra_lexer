@@ -1,6 +1,6 @@
 import ast
 from collections import namedtuple
-from typing import List
+from typing import Dict, List
 
 # Contains formatted config info for use in a GUI.
 ConfigItem = namedtuple("ConfigItem", "key value title name description")
@@ -9,10 +9,10 @@ ConfigItem = namedtuple("ConfigItem", "key value title name description")
 class ConfigDictionary(dict):
     """ Dict with config options sorted by state key. """
 
-    _info: List[tuple]  # Contains a set of info for config options, such as defaults, a description, etc.
-    _rev: dict          # Mapping of internal keys to section/name required for .CFG format.
+    _info: List[tuple]      # Contains a set of info for config options, such as defaults, a description, etc.
+    _rev: Dict[tuple, str]  # Mapping of internal keys to section/name required for .CFG format.
 
-    def __init__(self, *info:tuple):
+    def __init__(self, info:List[tuple]):
         """ Compile a starting config dict from the defined info. """
         super().__init__()
         self._info = [*info]
@@ -26,7 +26,7 @@ class ConfigDictionary(dict):
         return [ConfigItem(key, self[key], sect.title(), name.replace("_", " ").title(), description)
                 for key, default, sect, name, description in self._info]
 
-    def sectioned_update(self, options:dict) -> None:
+    def sectioned_update(self, options:Dict[str, dict]) -> None:
         """ Update the values of each config option from a nested dict by section and name.
             Try to evaluate each string as a Python object using AST. This fixes crap like bool('False') = True.
             Strings that are read as names will throw an error, in which case they should be left as-is. """
@@ -40,7 +40,7 @@ class ConfigDictionary(dict):
                         pass
                     self[key] = value
 
-    def sectioned_data(self) -> dict:
+    def sectioned_data(self) -> Dict[str, dict]:
         """ Save the values of each option into a nested dict by section and name and return it. """
         d = {}
         for (sect, name), key in self._rev.items():

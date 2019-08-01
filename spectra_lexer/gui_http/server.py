@@ -1,14 +1,12 @@
+from collections import Callable
 from http import HTTPStatus
 import os
 from json import JSONDecoder, JSONEncoder
 from mimetypes import MimeTypes
 from threading import Thread
 
-from .base import GUIHTTP
 from .http import HTTPConnection, HTTPError, HTTPRequest, HTTPResponse
 from .tcp import TCPServerSocket
-from spectra_lexer.core import CmdlineOption, CORE
-from spectra_lexer.view import VIEW
 
 
 class ResponseDict(dict):
@@ -46,39 +44,26 @@ class JSONValidator:
         return self.encoder.encode(d).encode('utf-8')
 
 
-class HttpServer(CORE, VIEW, GUIHTTP):
-    """ Class for socket-based TCP/IP stream server, JSON, and communication with the view layer. """
+class HTTPDispatcher:
+    """ Dispatches methods specific to file GET and HEAD requests and JSON POST requests. """
 
-    _HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
     _GET_MIMETYPE = MimeTypes().guess_type
     _VALIDATOR = JSONValidator()
 
-    address: str = CmdlineOption("http-addr", default="", desc="IP address or hostname for server.")
-    port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
-    dir: int = CmdlineOption("http-dir", default=_HTTP_PUBLIC, desc="Root directory for public HTTP file service.")
+    _GET_directory: str        # Root directory for public HTTP file requests.
+    _POST_processor: Callable  # External callback to process application state.
 
-    sock: TCPServerSocket = None  # Server socket object which creates other sockets for connections.
+    def __init__(self, directory:str, processor:Callable):
+        self._GET_directory = directory
+        self._POST_processor = processor
 
-    def GUIHTTPServe(self) -> None:
-        """ Handle each request by instantiating a connection and calling it with a new thread. """
-        self.sock = TCPServerSocket(self.address, self.port)
-        if self.sock.poll():
-            stream, addr = self.sock.accept()
-            connection = HTTPConnection(stream, addr, self.dispatch, self.COREStatus)
-            Thread(target=connection, daemon=True).start()
-
-    def GUIHTTPShutdown(self) -> None:
-        self.sock.close()
-
-    def dispatch(self, request:HTTPRequest, response:HTTPResponse) -> None:
+    def __call__(self, request:HTTPRequest, response:HTTPResponse) -> None:
         """ Routes HTTP requests by method. Must be completely thread safe. """
         method_attr = request.method.upper()
         method = getattr(self, method_attr, None)
         if method is None:
             raise HTTPError.NOT_IMPLEMENTED(method_attr)
         method(request, response)
-
-    # Methods specific to file GET and HEAD requests and JSON POST requests.
 
     def GET(self, request:HTTPRequest, response:HTTPResponse, head:bool=False) -> None:
         """ Common code for GET and HEAD commands. Sends the headers required for a file, then the file itself. """
@@ -116,7 +101,7 @@ class HttpServer(CORE, VIEW, GUIHTTP):
                         new_comps.pop()
                 else:
                     new_comps.append(comp)
-        file_path = os.path.join(self.dir or os.getcwd(), *new_comps)
+        file_path = os.path.join(self._GET_directory, *new_comps)
         # Route bare directory paths to index.html (whether or not it exists).
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "index.html")
@@ -129,11 +114,46 @@ class HttpServer(CORE, VIEW, GUIHTTP):
         state = ResponseDict(d)
         state.response = response
         action = request.path.split('/')[-1]
-        self.VIEWAction(state, action)
+        self._POST_processor(state, action)
 
-    def VIEWActionResult(self, changed:ResponseDict) -> None:
-        """ Finish a response by encoding any relevant changes to JSON and send them back to the client."""
+    def send_result(self, changed:ResponseDict) -> None:
+        """ Finish a POST response by encoding any relevant changes to JSON and send them back to the client. """
         data = self._VALIDATOR.encode(changed)
         response = changed.response
         response.add_content(data, "application/json")
         response.send()
+
+
+class HTTPServer:
+    """ Class for socket-based TCP/IP stream server, JSON, and communication with the view layer. """
+
+    _dispatcher: HTTPDispatcher  # Handles each HTTP method independently.
+    _logger: Callable            # Used to log all HTTP responses and errors (but not headers).
+    _running: bool = True
+
+    def __init__(self, directory:str, processor:Callable, logger:Callable):
+        self._dispatcher = HTTPDispatcher(directory, processor)
+        self._logger = logger
+
+    def start(self, address:str, port:int) -> None:
+        """ Make a server socket object which creates other sockets for connections and poll it on a new thread. """
+        sock = TCPServerSocket(address, port)
+        Thread(target=self._serve_forever, args=(sock,), daemon=True).start()
+
+    def _serve_forever(self, sock:TCPServerSocket) -> None:
+        """ Handle each request by instantiating a connection and calling it with a new thread. """
+        self._running = True
+        with sock:
+            while self._running:
+                if sock.poll():
+                    stream, addr = sock.accept()
+                    connection = HTTPConnection(stream, addr, self._dispatcher, self._logger)
+                    Thread(target=connection, daemon=True).start()
+
+    def shutdown(self) -> None:
+        """ Halt serving and close any open sockets and files. Must be called by another thread. """
+        self._running = False
+
+    def process_done(self, *args) -> None:
+        """ Called by another thread to finish a request by sending the processed state data. """
+        self._dispatcher.send_result(*args)

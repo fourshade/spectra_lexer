@@ -3,7 +3,6 @@
 import re
 from typing import List
 
-from .codec import JSONDict
 from .search import ReverseDict, StripCaseSearchDict
 
 
@@ -12,7 +11,7 @@ class _ReverseSearchDict(ReverseDict, StripCaseSearchDict):
         ReverseDict must be first in the MRO to take the match keyword before a dict constructor eats it. """
 
 
-class TranslationsDictionary(JSONDict, StripCaseSearchDict):
+class TranslationsDictionary(StripCaseSearchDict):
     """ A hybrid forward+reverse steno translation dict. Must also behave as a normal dict.
         The base object is the forward translations dict (strokes -> English words). """
 

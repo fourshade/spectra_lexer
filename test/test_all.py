@@ -12,8 +12,10 @@ from spectra_lexer.core import SpectraCore
 from spectra_lexer.plover import PloverInterface
 from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.resource import ResourceManager, RuleFlags
-from spectra_lexer.resource.rules import CSONDict
-from spectra_lexer.steno import StenoAnalyzer
+from spectra_lexer.resource.resource import cson_decode
+from spectra_lexer.steno import StenoEngine
+from spectra_lexer.steno.search.index import StenoIndex
+from spectra_lexer.steno.search.translations import TranslationsDictionary
 from test import get_test_filename
 
 # Create the file handler and use its attributes to update others for loading files.
@@ -56,7 +58,8 @@ RULES_DICT = RES_DICT["rules"]
 def test_rule_conflicts():
     """ If the size of the dict is less than the sum of its components, some rule names must be identical. """
     pairs = []
-    RESOURCE._load(CSONDict, os.path.join(RESOURCE.system_path, "*.cson"), object_pairs_hook=pairs.__iadd__)
+    for data in RESOURCE._load(os.path.join(RESOURCE.system_path, "*.cson")):
+        pairs += cson_decode(data).items()
     if len(RULES_DICT) < len(pairs):
         keys = next(zip(*pairs))
         conflicts = {k: f"{v} times" for k, v in Counter(keys).items() if v > 1}
@@ -83,7 +86,7 @@ def test_rules(r):
         assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
 
 
-TRANSLATIONS_DICT = RESOURCE.RSTranslationsLoad(get_test_filename("translations"))
+TRANSLATIONS_DICT = TranslationsDictionary(RESOURCE.RSTranslationsLoad(get_test_filename("translations")))
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 
 
@@ -100,7 +103,7 @@ def test_translations_search(trial):
     assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
-INDEX_DICT = RESOURCE.RSIndexLoad(get_test_filename("index"))
+INDEX_DICT = StenoIndex(RESOURCE.RSIndexLoad(get_test_filename("index")))
 TEST_INDEX = list(INDEX_DICT.items())
 
 
@@ -116,7 +119,7 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-STENO = StenoAnalyzer()
+STENO = StenoEngine()
 STENO.RSSystemReady(**RES_DICT)
 TEST_RESULTS = [STENO.LXLexerQuery(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
 

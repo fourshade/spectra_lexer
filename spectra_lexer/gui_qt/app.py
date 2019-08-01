@@ -7,7 +7,7 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 from .ext import QtViewExtended
-from spectra_lexer.view.app import ViewApplication
+from spectra_lexer.view import ViewApplication
 
 
 class _Connection(QObject):
@@ -28,18 +28,25 @@ class _Connection(QObject):
 class QtApplication(ViewApplication):
     """ Master component for GUI Qt operations. Controls the application as a whole. """
 
-    qt_app: QApplication = None
+    _qt_app: QApplication
 
-    def _build_components(self) -> list:
+    def __init__(self):
+        """ Create the QApplication only on init to avoid interference with Plover. """
+        self._qt_app = QApplication.instance() or QApplication(sys.argv)
+        super().__init__()
+
+    def _build_interface(self) -> list:
         """ Run the GUI on the main thread. """
         return [QtViewExtended()]
 
     def _build_engine(self, *args, **kwargs):
-        """ To send commands to the GUI, the child threads send a Qt signal to the main thread.
-            Create the QApplication at engine build to avoid interference with Plover. """
-        self.qt_app = QApplication.instance() or QApplication(sys.argv)
+        """ To send commands to the GUI, the child threads send a Qt signal to the main thread. """
         return super()._build_engine(*args, passthrough=_Connection, **kwargs)
+
+
+class StenoGUIApplication(QtApplication):
+    """ Standalone GUI Qt application class. """
 
     def run(self) -> int:
         """ Start the GUI event loop and run it indefinitely. """
-        return self.qt_app.exec_()
+        return self._qt_app.exec_()

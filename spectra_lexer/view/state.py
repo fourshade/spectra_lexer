@@ -1,10 +1,9 @@
 from typing import List, Optional, Tuple
 
+from .base import VIEW
 from spectra_lexer.resource import StenoRule
-from spectra_lexer.view import VIEW
 
 MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
-INDEX_DELIM: str = ";"        # Delimiter between rule name and query for index searches.
 
 
 class ViewState:
@@ -34,16 +33,37 @@ class ViewState:
 
     _DEFAULTS = {k: v for k, v in locals().items() if not k.startswith("_")}  # Keep track of defaults for the above.
 
+    # Standard config options.
+    compound_board: bool = True
+    recursive_graph: bool = True
+    compressed_graph: bool = True
+    match_all_keys: bool = False
+    matches_per_page: int = 100
+    links_enabled: bool = True
+
+    CONFIG_INFO = [("compound_board", True, "board", "compound_keys",
+                    "Show special labels for compound keys (i.e. `f` instead of TP)."),
+                   ("recursive_graph", True, "graph", "recursive",
+                    "Include rules that make up other rules."),
+                   ("compressed_graph", True, "graph", "compressed",
+                    "Compress the graph vertically to save space."),
+                   ("match_all_keys", False, "lexer", "need_all_keys",
+                    "Only return lexer results that match every key in the stroke."),
+                   ("matches_per_page", 100, "search", "match_limit",
+                    "Maximum number of matches returned on one page of a search."),
+                   ("links_enabled", True, "search", "example_links",
+                    "Show hyperlinks to indexed examples of selected rules.")]
+
     # Web-specific config options.
-    graph_compat: bool = False   # Draw the graph using tables for browsers with bad monospace font support.
+    graph_compat: bool = False  # Draw the graph using tables for browsers with bad monospace font support.
 
     _result: dict  # Holds all attributes and values that were changed since creation.
     _view: VIEW    # Has access to all outside components.
 
-    def __init__(self, d:dict, view:VIEW):
-        """ Update the attribute dict directly with a state dict <d>.
+    def __init__(self, d:dict, view:VIEW, **config):
+        """ Update the attribute dict directly with a state dict <d> and config keyword args.
             Empty the original dict and keep it to return with the results. It may have metadata on it. """
-        self.__dict__.update(d)
+        self.__dict__.update(config, **d)
         d.clear()
         self._result = d
         self._view = view
@@ -70,9 +90,7 @@ class ViewState:
 
     def VIEWSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
-        link_ref = self.link_ref
-        selection = self._index.find_example(link_ref, strokes=self.mode_strokes)
-        self.input_text = INDEX_DELIM.join([link_ref, selection])
+        selection, self.input_text = self.LXSearchFindExample(self.link_ref, strokes=self.mode_strokes)
         self.page_count = 1
         self._search()
         if selection in self.matches:
@@ -126,11 +144,8 @@ class ViewState:
             self.mapping_selected = selection
             self._query_from_selection()
 
-    def _call_search(self, match:str=None, **kwargs) -> List[str]:
-        """ Choose an index to use based on delimiters and call a search on it. """
-        *keys, pattern = self.input_text.split(INDEX_DELIM, 1)
-        index = self._index if keys else self._translations
-        return index.search(*keys, match or pattern, strokes=self.mode_strokes, regex=self.mode_regex, **kwargs)
+    def _call_search(self, *args, **kwargs) -> List[str]:
+        return self.LXSearchQuery(self.input_text, *args, strokes=self.mode_strokes, regex=self.mode_regex, **kwargs)
 
     def VIEWSelect(self) -> None:
         """ Do a lexer query based on the current search selections. """
@@ -153,7 +168,7 @@ class ViewState:
         """ Draw a new graph. Only a previous linked example rule may be selected. """
         self.graph_node_ref = ""
         select = self.graph_has_selection
-        self._new_query(select, prev=self._rules.get(self.link_ref) if select else None)
+        self._new_query(select, prev=self.LXSearchFindRule(self.link_ref) if select else None)
 
     def VIEWGraphOver(self) -> None:
         """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected.
@@ -175,7 +190,7 @@ class ViewState:
             else:
                 self.graph_has_selection = False
                 selection = rule
-            self.link_ref = self._get_link(selection)
+            self.link_ref = self.LXSearchFindLink(selection) if self.links_enabled else ""
             self.board_caption = selection.caption()
             self.board_xml_data = self._get_board_data(selection)
 
@@ -183,13 +198,6 @@ class ViewState:
         graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph,
                                      compressed=self.compressed_graph, compat=self.graph_compat)
         return graph.render(self.graph_node_ref, prev, select)
-
-    def _get_link(self, rule:StenoRule) -> str:
-        if self.links_enabled:
-            name = self._rules.inverse.get(rule, "")
-            if name in self._index:
-                return name
-        return ""
 
     def _get_board_data(self, rule:StenoRule) -> bytes:
         ratio = self.board_aspect_ratio

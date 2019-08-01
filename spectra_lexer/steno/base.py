@@ -1,8 +1,8 @@
-from typing import Callable, Iterable
+from typing import Dict, Iterable, List, Tuple
 
 from .graph import StenoGraph
 from spectra_lexer.core import ConsoleCommand
-from spectra_lexer.resource import RulesDictionary, StenoIndex, StenoRule
+from spectra_lexer.resource import StenoRule
 
 
 class LX:
@@ -19,13 +19,12 @@ class LX:
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXLexerQueryAll(self, filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> RulesDictionary:
-        """ Make a new rules dict by running the lexer in parallel on all currently loaded translations.
-            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
+    def LXAnalyzerMakeRules(self, *args, **kwargs) -> List[StenoRule]:
+        """ Make a new rules list by running the lexer in parallel on all currently loaded translations. """
         raise NotImplementedError
 
     @ConsoleCommand
-    def LXLexerMakeIndex(self, *args) -> StenoIndex:
+    def LXAnalyzerMakeIndex(self, *args) -> Dict[str, dict]:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it. """
         raise NotImplementedError
@@ -43,4 +42,25 @@ class LX:
     @ConsoleCommand
     def LXBoardFromRule(self, rule:StenoRule, *args) -> bytes:
         """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a steno rule. """
+        raise NotImplementedError
+
+    @ConsoleCommand
+    def LXSearchQuery(self, pattern:str, match:str=None, **kwargs) -> List[str]:
+        """ Choose an index to use based on delimiters in the input pattern.
+            Search for matches in that index. If <match> is given, the search will find mappings instead. """
+        raise NotImplementedError
+
+    @ConsoleCommand
+    def LXSearchFindExample(self, link:str, **kwargs) -> Tuple[str, str]:
+        """ Find an example translation in the index for the given link and return it with the required input text. """
+        raise NotImplementedError
+
+    @ConsoleCommand
+    def LXSearchFindLink(self, rule:StenoRule) -> str:
+        """ Return the name of the given rule to use in a link, but only if it has examples in the index. """
+        raise NotImplementedError
+
+    @ConsoleCommand
+    def LXSearchFindRule(self, link:str) -> StenoRule:
+        """ Return the rule under the given link name, or None if there is no rule by that name. """
         raise NotImplementedError

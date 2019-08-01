@@ -2,7 +2,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QLayout, QMessageBox, QSlider, QToolTip, QVBoxLayout, QWidget
 
 from .dialog import FormDialog
-from spectra_lexer.resource import StenoIndex
+from spectra_lexer.steno import IndexFilters
+
 
 STARTUP_MESSAGE = """
 <p>In order to cross-reference examples of specific steno rules, this program must create an index
@@ -17,12 +18,12 @@ def default_index_dialog(parent:QWidget) -> int:
     """ Present a dialog for the user to make a default-sized index. Return that size on accept, or 0 on cancel. """
     yes, no = QMessageBox.Yes, QMessageBox.No
     button = QMessageBox.question(parent, "Make Index", STARTUP_MESSAGE, yes | no)
-    return (button == yes) * StenoIndex.DEFAULT_SIZE
+    return (button == yes) * IndexFilters.DEFAULT_SIZE
 
 
 TEXT_ABOVE_SLIDER = f"""
 <p>Please choose the size for the new index. The relative size factor is a number between 1 and 20:</p>
-<p>{'</p><p>'.join(StenoIndex.SIZE_DESCRIPTIONS)}</p>"""
+<p>{'</p><p>'.join(IndexFilters.SIZE_DESCRIPTIONS)}</p>"""
 
 TEXT_BELOW_SLIDER = """
 <p align="justify">An extremely large index is not necessarily more useful. The index is created from the Plover 
@@ -45,9 +46,9 @@ class SliderIndexDialog(FormDialog):
         heading_label.setWordWrap(True)
         heading_label.setText(TEXT_ABOVE_SLIDER)
         self.slider = QSlider(self)
-        self.slider.setMinimum(StenoIndex.MINIMUM_SIZE)
-        self.slider.setMaximum(StenoIndex.MAXIMUM_SIZE)
-        self.slider.setValue(StenoIndex.DEFAULT_SIZE)
+        self.slider.setMinimum(IndexFilters.MINIMUM_SIZE)
+        self.slider.setMaximum(IndexFilters.MAXIMUM_SIZE)
+        self.slider.setValue(IndexFilters.DEFAULT_SIZE)
         self.slider.setOrientation(Qt.Horizontal)
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(1)

@@ -1,9 +1,8 @@
-from typing import Callable, Iterable, Iterator, List, Tuple
+from typing import Callable, Dict, Iterable, Iterator, Tuple
 
 from .generate import LexerRuleGenerator, RESULT_TYPE
 from .match import LexerRuleMatcher
-from .parallel import ParallelMapper
-from spectra_lexer.resource import KeyLayout, RulesDictionary, RuleMapItem, StenoRule
+from spectra_lexer.resource import KeyLayout, RuleMapItem, StenoRule
 
 
 class StenoLexer:
@@ -14,7 +13,7 @@ class StenoLexer:
     _generate_rule: LexerRuleGenerator  # Makes rules from lexer matches.
     _to_skeys: Callable[[str], str]     # Performs thorough conversions on RTFCRE steno strings.
 
-    def __init__(self, layout:KeyLayout, rules:RulesDictionary):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]):
         self._match_rules = LexerRuleMatcher(layout, rules)
         self._generate_rule = LexerRuleGenerator(layout.to_rtfcre)
         self._to_skeys = layout.cleanse_from_rtfcre
@@ -29,18 +28,6 @@ class StenoLexer:
         first, *others = pairs = [*items]
         results = [r for keys, word in pairs for r in self._process(keys, word, **kwargs)]
         return self._generate_rule(results, *first)
-
-    def query_parallel(self, items:Iterable[Tuple[str, str]],
-                       filter_in:Callable=None, filter_out:Callable=None, **kwargs) -> List[StenoRule]:
-        """ Run the lexer in parallel on all translation items and return a list of results.
-            <filter_in> eliminates translations before processing, and <filter_out> eliminates results afterward. """
-        mapper = ParallelMapper(self.query, **kwargs)
-        if filter_in is not None:
-            items = filter(filter_in, items)
-        results = mapper.starmap(items)
-        if filter_out is not None:
-            results = list(filter(filter_out, results))
-        return results
 
     def _process(self, keys:str, word:str, match_all_keys:bool=False) -> Iterator[RESULT_TYPE]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed

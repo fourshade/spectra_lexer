@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from spectra_lexer.resource.search import ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict
+from spectra_lexer.steno.search.search import ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict
 from test import class_tester
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.

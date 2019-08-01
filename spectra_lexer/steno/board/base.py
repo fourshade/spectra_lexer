@@ -2,11 +2,11 @@
 
 from collections import defaultdict
 from functools import lru_cache
-from typing import Callable
+from typing import Callable, Dict
 
 from .elements import BoardElementProcessor, BoardFactory
 from .matcher import KeyElementFinder, RuleElementFinder
-from spectra_lexer.resource import KeyLayout, RulesDictionary, StenoRule, XMLElement
+from spectra_lexer.resource import KeyLayout, StenoRule, XMLElement
 
 
 class BoardElementParser:
@@ -51,7 +51,7 @@ class BoardGenerator:
     _rule_finder: RuleElementFinder
     _build_document: BoardFactory
 
-    def __init__(self, layout:KeyLayout, rules:RulesDictionary, board_defs:dict, board_elems:XMLElement):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule], board_defs:dict, board_elems:XMLElement):
         processor = BoardElementProcessor(board_defs)
         parser = BoardElementParser(board_elems, processor)
         kfinders = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]

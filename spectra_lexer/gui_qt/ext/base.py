@@ -6,6 +6,7 @@ from .dialog import DialogContainer, load_files_dialog
 from .index import default_index_dialog, SliderIndexDialog
 from .objtree import ObjectTreeDialog
 from ..view import QtViewManager
+from spectra_lexer.resource import RS
 
 _MENU_ITEMS = []
 
@@ -18,7 +19,7 @@ def MenuItem(heading:str, text:str, *, after_separator:bool=False):
     return capture
 
 
-class QtViewExtended(QtViewManager):
+class QtViewExtended(QtViewManager, RS):
     """ GUI Qt extended operations class with dialog tools. """
 
     _dialogs: DialogContainer
@@ -73,28 +74,26 @@ class QtViewExtended(QtViewManager):
     def VIEWConfigInfo(self, *args) -> None:
         self._last_config_args = args
 
-    def VIEWDialogNoIndex(self) -> None:
+    def RSIndexReady(self, index:dict) -> None:
         """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
             Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
-        index_size = default_index_dialog(self.window)
-        if index_size:
+        if not index:
+            index_size = default_index_dialog(self.window)
             self._make_index(index_size)
-        else:
-            self.VIEWDialogSkipIndex()
 
     @MenuItem("Tools", "Make Index...")
     def IndexOpen(self) -> None:
-        """ Create a dialog for the index size slider that submits a positive number on accept, or 0 on cancel. """
+        """ Create a dialog for the index size slider that submits a positive number on accept. """
         self._open(SliderIndexDialog, self._make_index)
 
     def _make_index(self, index_size:int) -> None:
         """ Disable the GUI while the thread is busy. """
-        self.GUIQTSetEnabled(False)
+        self.set_enabled(False)
         self.VIEWDialogMakeIndex(index_size)
 
     def VIEWDialogIndexDone(self, *args) -> None:
         """ Re-enable the GUI once the thread is clear. """
-        self.GUIQTSetEnabled(True)
+        self.set_enabled(True)
 
     @MenuItem("Debug", "Open Console...")
     def ConsoleOpen(self) -> None:
@@ -102,7 +101,7 @@ class QtViewExtended(QtViewManager):
         self._open(ConsoleDialog, self.COREConsoleInput)
         self.COREConsoleOpen()
 
-    def SYSConsoleOutput(self, text_out:str) -> None:
+    def COREConsoleOutput(self, text_out:str) -> None:
         """ Write console output to the dialog if it exists. Do nothing if there isn't one. """
         console = self._dialogs.get(ConsoleDialog)
         if console is not None:
