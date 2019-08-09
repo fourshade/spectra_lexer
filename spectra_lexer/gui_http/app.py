@@ -3,7 +3,7 @@
 import os
 
 from .server import HTTPServer
-from spectra_lexer.app import StenoApplication
+from spectra_lexer import StenoApplication
 from spectra_lexer.cmdline import CmdlineOption
 
 
@@ -16,12 +16,22 @@ class HttpApplication(StenoApplication):
     port: int = CmdlineOption("http-port", default=80, desc="TCP port to listen for connections.")
     dir: str = CmdlineOption("http-dir", default=_HTTP_PUBLIC, desc="Root directory for public HTTP file service.")
 
+    server: HTTPServer
+
+    def __init__(self, *argv:str):
+        super().__init__(*argv)
+        self.server = self["server"] = HTTPServer(self.dir, self.steno.VIEWAction, self.status)
+
     def run(self) -> int:
         """ Start the server and console and run them indefinitely. """
-        server = self["server"] = HTTPServer(self.dir, self.steno.VIEWAction, self.status)
-        server.start(self.address, self.port)
+        self.server.start(self.address, self.port)
         try:
             self.repl()
         finally:
-            server.shutdown()
+            self.server.shutdown()
         return 0
+
+
+def http(*argv:str) -> int:
+    app = HttpApplication(*argv)
+    return app.run()

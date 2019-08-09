@@ -8,9 +8,9 @@ import sys
 
 import pytest
 
-from spectra_lexer.app import StenoApplication
+from spectra_lexer import StenoApplication
 from spectra_lexer.plover.interface import PloverInterface
-from spectra_lexer.steno.resource import RuleFlags
+from spectra_lexer.plover.types import PloverEngine
 from spectra_lexer.steno.search.index import StenoIndex
 from spectra_lexer.steno.search.translations import TranslationsDictionary
 from test import get_test_filename
@@ -21,32 +21,7 @@ sys.argv = [first]
 APP = StenoApplication()
 sys.argv += rest
 STENO = APP.steno
-RES_DICT = STENO.RSSystemLoad(APP.system_path)
-
-
-def test_layout():
-    """ Test various properties of a key layout for correctness. """
-    layout = RES_DICT["layout"]
-    # There cannot be duplicate keys within a side.
-    sides = [layout.LEFT, layout.CENTER, layout.RIGHT]
-    left, center, right = sets = list(map(set, sides))
-    assert sum(map(len, sets)) == sum(map(len, sides))
-    # The center keys must not share any characters with the sides.
-    assert center.isdisjoint(left)
-    assert center.isdisjoint(right)
-    # The left and right sides must not share characters after casing.
-    assert left.isdisjoint(map(str.lower, right))
-    # The divider keys must not duplicate normal keys.
-    all_keys = left | center | right
-    assert layout.SEP not in all_keys
-    assert layout.SPLIT not in all_keys
-    # Shift keys as well as all transform values must be valid keys previously defined.
-    for shift_key, shift_transform in layout.SHIFT_TABLE.items():
-        assert {shift_key, *shift_transform.values()} <= all_keys
-
-
-RULES_DICT = RES_DICT["rules"]
-VALID_FLAGS = set(vars(RuleFlags).values())
+RULES_DICT = STENO._rule_parser._rules
 IGNORED_KEYS = set("/-")
 
 
@@ -56,7 +31,7 @@ def test_rules(r):
     flags = r.flags
     if flags:
         # If the entry has flags, verify that all of them are valid.
-        bad_flags = flags - VALID_FLAGS
+        bad_flags = flags.get_invalid()
         assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
     rulemap = r.rulemap
     if rulemap:
@@ -144,6 +119,7 @@ def test_graph(result):
 def test_plover():
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
     results = []
-    interface = PloverInterface(*([results.append] * 2))
-    interface.test(TRANSLATIONS_DICT, split_count=3)
+    engine = PloverEngine.test(TRANSLATIONS_DICT, split_count=3)
+    interface = PloverInterface(engine)
+    interface.connect(*([results.append] * 2))
     assert results[0] == TRANSLATIONS_DICT

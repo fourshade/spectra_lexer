@@ -1,5 +1,3 @@
-from configparser import ConfigParser
-import json
 import sys
 from traceback import TracebackException
 from typing import Callable, List
@@ -59,26 +57,6 @@ class SystemLayer:
         log_path = self._io.expand(filename)
         self._logger.add_path(log_path)
 
-    def get_plover_files(self) -> List[str]:
-        """ Attempt to load a Plover config file and return all dictionary files in reverse priority order
-            (required since earlier keys override later ones in Plover, but dict.update does the opposite). """
-        try:
-            cfg = ConfigParser()
-            cfg.read(self._io.expand("~plover/plover.cfg"))
-            if cfg:
-                # Dictionaries are located in the same directory as the config file.
-                # The section we need is read as a string, but it must be decoded as a JSON array.
-                section = cfg['System: English Stenotype']['dictionaries']
-                return ["~plover/" + e['path'] for e in reversed(json.loads(section))]
-        except OSError:
-            # Catch-all for file loading errors. Just assume the required files aren't there and move on.
-            pass
-        except KeyError:
-            self.log("Could not find dictionaries in plover.cfg.")
-        except ValueError:
-            self.log("Problem decoding JSON in plover.cfg.")
-        return []
-
     def __setitem__(self, key:str, obj:object) -> None:
         """ Add an object to the debug namespace dict as a component. """
         self._debug_vars.add_component(key, obj)
@@ -91,3 +69,9 @@ class SystemLayer:
         """ Open a console with the debug namespace dict and return it.
             The console object is called with text input and forwards output to stdout and/or <write_to>. """
         return SystemConsole(self._debug_vars, write_to)
+
+    def repl(self, *args, input_fn=input) -> None:
+        """ Run an interactive read-eval-print loop in a new console. Only a SystemExit can break out of this. """
+        console = self.open_console(*args)
+        while True:
+            console(input_fn())

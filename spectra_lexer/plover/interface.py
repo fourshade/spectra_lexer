@@ -1,28 +1,28 @@
-from typing import Callable, Dict, Sequence
+from typing import Callable, Dict, Sequence, Tuple
 
-from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
+from .types import dummy, join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
 
 
 class PloverInterface:
     """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
-    _engine: PloverEngine = PloverEngine()
-    _dict_callback: Callable[[Dict[str, str]], None]
-    _query_callback: Callable[[Sequence[str]], None]
-    _translation: Sequence[str]  # Current set of contiguous strokes and text.
+    _engine: PloverEngine          # Engine object, either from Plover or a fake for testing.
+    _translation: Tuple[str, str]  # Current set of contiguous strokes and text.
+    _dict_callback: Callable[[Dict[str, str]], None] = dummy  # Callback to send converted translations dictionaries.
+    _query_callback: Callable[[Sequence[str]], None] = dummy  # Callback to send lexer queries from user strokes.
 
-    def __init__(self, dict_callback:Callable, query_callback:Callable):
-        self._dict_callback = dict_callback
-        self._query_callback = query_callback
+    def __init__(self, engine:PloverEngine):
+        self._engine = engine
         self._reset()
 
-    def connect(self, engine:PloverEngine) -> None:
-        """ Connect all Plover engine signals to methods, which only call the callbacks on success. """
-        self._engine = engine
-        engine.signal_connect("dictionaries_loaded", self.convert_dicts)
-        engine.signal_connect("translated", self.parse_translation)
+    def connect(self, dict_callback:Callable, query_callback:Callable) -> None:
+        """ Connect Plover engine signals to methods, which call the given callbacks on success. """
+        self._dict_callback = dict_callback
+        self._query_callback = query_callback
+        self._engine.signal_connect("dictionaries_loaded", self.convert_dicts)
+        self._engine.signal_connect("translated", self.parse_translation)
         # Convert the current set of dictionaries from the engine to finish.
-        self.convert_dicts(engine.dictionaries)
+        self.convert_dicts(self._engine.dictionaries)
 
     def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> None:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
@@ -68,15 +68,10 @@ class PloverInterface:
 
     def _reset(self) -> None:
         """ Reset the translator state to blank strokes and text. """
-        self._translation = ["", ""]
+        self._translation = "", ""
 
     def _combine(self, new_strokes:Sequence[str], new_text:str) -> None:
         """ Combine all new strokes and text into the current state. """
         strokes, text = self._translation
         new_strokes = filter(None, [strokes, *new_strokes])
-        self._translation = [join_strokes(new_strokes), text + new_text]
-
-    def test(self, *args, **kwargs) -> None:
-        """ Make a fake Plover engine and run some simple tests. Do not check for compatibility. """
-        self.connect(PloverEngine.test(*args, **kwargs))
-        self.parse_translation(None, [PloverAction()])
+        self._translation = join_strokes(new_strokes), text + new_text

@@ -1,4 +1,4 @@
-""" The Spectra program is conceptually divided into several parts:
+""" Package for the core components of Spectra. These are the building blocks of practically everything else:
 
     File/input - The most basic lexer operations requires a set of rules that map steno keys to letters as well
     as a steno layout that tells it which keys are valid and where they are. These must be loaded from disk.
@@ -35,5 +35,7 @@
     data object; a copy is passed to the view, updated with changes, then passed back. The original object is then
     overwritten with any changes made to the copy. Using copies in this manner ensures thread safety.
 
-    Engine - Glues all of these components together, handling communication and passing information between threads.
+    App - Glues all of these components together, handling communication and passing information between them.
     Facilitating communication is *all* it should do; all other functionality should be implemented in components. """
+
+from .base import StenoApplication

@@ -57,11 +57,12 @@ class EntryPoints:
 
 entry_points = EntryPoints()
 add = entry_points.add
-add("spectra_lexer.gui_qt",   "gui",         "Run the application as a standalone GUI (default).", is_default=True)
+
+add("spectra_lexer.console",  "analyze",     "Run the lexer on every item in a JSON steno translations dictionary.")
+add("spectra_lexer.console",  "console",     "Run commands interactively from console.")
+add("spectra_lexer.console",  "index",       "Analyze a translations file and index each one by the rules it uses.")
 add("spectra_lexer.gui_http", "http",        "Run the application as an HTTP web server.")
-add("spectra_lexer.app",      "console",     "Run commands interactively from console.")
-add("spectra_lexer.app",      "analyze",     "Run the lexer on every item in a JSON steno translations dictionary.")
-add("spectra_lexer.app",      "index",       "Analyze a translations file and index each one by the rules it uses.")
+add("spectra_lexer.gui_qt",   "gui",         "Run the application as a standalone GUI (default).", is_default=True)
 add("spectra_lexer.plover",   "plover_test", "Run the GUI application in Plover plugin test mode.")
 
 

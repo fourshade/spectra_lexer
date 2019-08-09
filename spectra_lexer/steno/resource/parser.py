@@ -18,10 +18,11 @@ class RuleParser:
 
     def parse(self, *dicts:Dict[str, list]) -> Dict[str, StenoRule]:
         """ Clear any previous results, then load every entry from one or more raw JSON-decoded rule dicts.
-            Check for key conflicts, then return a dict containing each rule after parsing. """
+            Return a dict containing each rule after parsing. """
         self._rules = {}
         raw_dict = self._raw_dict = {}
         for d in dicts:
+            # Check for key conflicts between this dict and previous ones before merging.
             conflicts = d.keys() & raw_dict.keys()
             if conflicts:
                 raise ValueError(f"Found rule keys appearing more than once: {conflicts}")

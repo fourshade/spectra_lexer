@@ -1,3 +1,3 @@
 """ Package for the Plover plugin components of Spectra. """
 
-from .app import PloverPluginApplication as plover_app, PloverPluginTest as plover_test
+from .app import plover_app, plover_test

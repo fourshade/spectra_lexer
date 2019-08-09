@@ -9,7 +9,8 @@ _PLOVER_SEP = "/"
 join_strokes = _PLOVER_SEP.join
 # A robust dummy object. Always returns itself through any chain of attribute lookups, subscriptions, and calls.
 _DUMMY_METHODS = ["__getattr__", "__getitem__", "__call__"]
-dummy = type("dummy", (), dict.fromkeys(_DUMMY_METHODS, lambda self, *a, **k: self))()
+_DUMMY_NAMESPACE = dict.fromkeys(_DUMMY_METHODS, lambda self, *args, **kwargs: self)
+dummy = type("dummy", (), _DUMMY_NAMESPACE)()
 
 
 class PloverAction:

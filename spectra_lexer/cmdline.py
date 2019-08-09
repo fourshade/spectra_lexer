@@ -7,10 +7,7 @@ class CmdlineOption(namedtuple("CmdlineOption", "key default desc")):
     """ Class option settable by the command-line parser. """
 
     def __get__(self, instance:object, owner:type=None):
-        """ If not otherwise overridden, return the option's default value on instance attribute access.
-            The command-line parser does class attribute access, in which case it must return itself. """
-        if instance is None:
-            return self
+        """ If not otherwise overridden, return the option's default value on instance attribute access. """
         return self.default
 
 
@@ -30,13 +27,12 @@ class CmdlineParser:
         self._host_attrs = []
 
     def add_host(self, host:object) -> None:
-        """ Add all command line options registered on the given host's class to the parser and list. """
-        host_cls = type(host)
-        for attr in dir(host_cls):
-            obj = getattr(host_cls, attr)
-            if isinstance(obj, CmdlineOption):
-                self._add_option(obj)
-                self._host_attrs.append((host, attr, obj.key))
+        """ Add all command line options registered on the given host's class hierarchy to the parser and list. """
+        for cls in type(host).__mro__:
+            for attr, obj in vars(cls).items():
+                if isinstance(obj, CmdlineOption):
+                    self._add_option(obj)
+                    self._host_attrs.append((host, attr, obj.key))
 
     def _add_option(self, opt:CmdlineOption) -> None:
         """ All options handled here must be parsed as long options connected by hyphens. """

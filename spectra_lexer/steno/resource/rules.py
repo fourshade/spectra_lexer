@@ -15,6 +15,12 @@ class RuleFlags(frozenset):
     UNMATCHED = "BAD"  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
     GENERATED = "GEN"  # Lexer generated rule. This is always the root unless there are special circumstances.
 
+    VALID_FLAGS = {v for v in locals().values() if type(v) is str}  # Contains all valid string values above.
+
+    def get_invalid(self) -> frozenset:
+        """ Return any flags in the set that are not defined as constants above. """
+        return self - self.VALID_FLAGS
+
 
 class StenoRule(NamedTuple):
     """ A general rule mapping a set of steno keys to a set of letters. All contents are recursively immutable.

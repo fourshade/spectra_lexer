@@ -1,5 +1,5 @@
-""" Package for the GUI Qt-based components of Spectra. """
+""" Package for the Qt-based GUI components of Spectra. """
 
-from .app import QtApplication, StenoGUIApplication as gui
+from .app import gui, QtApplication
 from .ext import QtGUIExtension
-from .window import MainWindow
+from .window import QtGUI

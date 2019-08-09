@@ -1,7 +1,9 @@
 """ Module for raw I/O operations as well as parsing file and resource paths. """
 
+from configparser import ConfigParser
 import fnmatch
 import glob
+import json
 import os
 import sys
 from typing import Iterator, List
@@ -57,6 +59,7 @@ class FilePath(AbstractPath):
 
 
 class UserFilePath(FilePath):
+    """ A file identifier for application data from the current user's home directory. """
 
     # Default user path components are for Linux, since it has several possible platform identifiers.
     DEFAULT_USERPATH_COMPONENTS = (".local", "share", "{0}")
@@ -65,14 +68,37 @@ class UserFilePath(FilePath):
                                     "darwin": ("Library", "Application Support", "{0}")}
 
     def __init__(self, s:str, user_path:str=""):
-        """ If the prefix is ~appname/, it is a file from the user's application-specific data directory.
-            If the prefix is ~/, it is specifically a file from THIS application's user data directory. """
-        app_prefix, filename = s.split("/", 1)
+        """ Find the application's user data directory based on the platform and expand the path. """
         path_components = self.PLATFORM_USERPATH_COMPONENTS.get(sys.platform) or self.DEFAULT_USERPATH_COMPONENTS
-        path_fmt = os.path.join("~", *path_components, filename)
-        path = path_fmt.format(app_prefix or user_path)
+        path_fmt = os.path.join("~", *path_components, s)
+        path = path_fmt.format(user_path)
         full_path = os.path.expanduser(path)
         super().__init__(full_path)
+
+
+class PloverConfigPath(UserFilePath):
+    """ A specific identifier for the config file in the user's Plover installation with dictionary paths. """
+
+    def __init__(self, s:str):
+        super().__init__(s, "plover")
+
+    def search(self) -> List[FilePath]:
+        """ Attempt to load a Plover config file and return all dictionary files in reverse priority order
+            (required since earlier keys override later ones in Plover, but dict.update does the opposite). """
+        try:
+            cfg = ConfigParser()
+            cfg.read(self._path)
+            if cfg:
+                # Dictionaries are located in the same directory as the config file.
+                # The section we need is read as a string, but it must be decoded as a JSON array.
+                section = cfg['System: English Stenotype']['dictionaries']
+                dict_files = json.loads(section)[::-1]
+                plover_dir = os.path.split(self._path)[0]
+                return [FilePath(os.path.join(plover_dir, e['path'])) for e in dict_files]
+        except (KeyError, OSError, ValueError):
+            # Catch-all for file loading errors. Just assume the required files aren't there and move on.
+            pass
+        return []
 
 
 class AssetPath(AbstractPath):
@@ -109,7 +135,7 @@ class NullPath(AbstractPath):
 class PathIO:
 
     _asset_path: str  # Base path to search for application assets.
-    _user_path: str   # Base path to search for user data files.
+    _user_path: str   # Base path to search for app data files within the user's home directory.
 
     def __init__(self, asset_path:str="", user_path:str=""):
         self._asset_path = asset_path
@@ -139,13 +165,15 @@ class PathIO:
         """ Return True if <filename> refers to at least one existing file after path conversion. """
         return bool(self._to_path(filename).search())
 
-    def _to_path(self, s) -> AbstractPath:
+    def _to_path(self, s:str) -> AbstractPath:
         """ Determine the type of resource path from a string by its prefix, testing from longest to shortest.
             When a matching class is found, strip the prefix and create the appropriate path identifier. """
         if s == "NUL":
             return NullPath()
+        if s.startswith("~PLOVER/"):
+            return PloverConfigPath(s[8:])
         if s.startswith(":/"):
             return AssetPath(s[2:], self._asset_path)
-        if s.startswith("~"):
-            return UserFilePath(s[1:], self._user_path)
+        if s.startswith("~/"):
+            return UserFilePath(s[2:], self._user_path)
         return FilePath(s)

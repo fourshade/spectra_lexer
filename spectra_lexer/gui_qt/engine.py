@@ -5,7 +5,8 @@ from typing import Callable
 from PyQt5.QtCore import pyqtSignal, QObject
 
 
-class EngineWrapper(QObject):
+class AsyncWrapper(QObject):
+    """ Object wrapper that queues method calls to run on a new thread and dispatches results using Qt signals. """
 
     _obj: object
     _exc_handler: Callable
@@ -21,8 +22,7 @@ class EngineWrapper(QObject):
         Thread(target=self.loop, daemon=True).start()
 
     def loop(self) -> None:
-        """ If there's an exception and we're at the top level, try to handle it with the exception command.
-            C frameworks may crash if exceptions propagate back to them, so try to handle them here if possible.
+        """ C frameworks may crash if exceptions propagate back to them, so try to handle them here if possible.
             Do NOT handle BaseExceptions - these are typically caused by the user wanting to exit the program. """
         while True:
             func, args, kwargs, callback = self._queue.get()
@@ -34,15 +34,17 @@ class EngineWrapper(QObject):
                 self.return_signal.emit((self._exc_handler, exc))
 
     def __getattr__(self, attr:str):
-        func = getattr(self._obj, attr)
-        if not callable(func):
-            return func
+        """ Return (and store) a callback to put method calls to the original object on our queue. """
+        meth = getattr(self._obj, attr)
+        if not callable(meth):
+            return meth
         def put(*args, qt_callback=None, **kwargs) -> None:
-            self._queue.put((func, args, kwargs, qt_callback))
+            self._queue.put((meth, args, kwargs, qt_callback))
+        setattr(self, attr, put)
         return put
 
     def return_call(self, params:tuple) -> None:
-        """ A signal-slot connection for transferring tuples back to the main thread. """
+        """ Qt slot for transferring tuples back to the main thread. """
         callback, value = params
         callback(value)
 

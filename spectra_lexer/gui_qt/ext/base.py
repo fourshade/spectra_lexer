@@ -2,13 +2,15 @@
 
 import sys
 
+from PyQt5.QtWidgets import QMainWindow
+
 from .config import ConfigDialog
 from .console import ConsoleDialog
 from .dialog import FileDialog
 from .index import default_index_dialog, SliderIndexDialog
 from .menu import MainMenu, MenuItem
 from .objtree import ObjectTreeDialog
-from ..window import MainWindow
+from ..window import QtGUI
 from spectra_lexer.steno import StenoEngine
 from spectra_lexer.steno.view import ConfigDictionary
 from spectra_lexer.system import SystemLayer
@@ -20,14 +22,16 @@ class QtGUIExtension:
     _steno: StenoEngine
     _system: SystemLayer
     _debug_vars: dict
-    _window: MainWindow  # All GUI menus and dialogs belong to the main window.
+    _gui: QtGUI
+    _window: QMainWindow  # All GUI menus and dialogs must be children of the main window.
     _menu: MainMenu
 
-    def __init__(self, window:MainWindow, steno:StenoEngine, system:SystemLayer) -> None:
+    def __init__(self, gui:QtGUI, steno:StenoEngine, system:SystemLayer) -> None:
         self._steno = steno
         self._system = system
-        self._window = window
-        self._menu = MainMenu(window, self)
+        self._gui = gui
+        self._window = gui.window
+        self._menu = MainMenu(self._window, self)
         self._menu.show()
 
     @MenuItem("File", "Load Translations...")
@@ -106,9 +110,9 @@ class QtGUIExtension:
 
     def _show_message(self, s:str):
         """ Show a status message on the main GUI. """
-        self._window.status(s)
+        self._gui.status(s)
 
     def _set_enabled(self, enabled:bool):
         """ Enable/disable the menu as well as the main GUI. """
         self._menu.setEnabled(enabled)
-        self._window.set_enabled(enabled)
+        self._gui.set_enabled(enabled)

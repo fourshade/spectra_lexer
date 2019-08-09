@@ -32,9 +32,10 @@ class KeyLayout:
                          "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
 
     def __init__(self, *args, **kwargs):
-        """ Merge all arguments into the instance attribute dict.
+        """ Merge all arguments into the instance attribute dict and verify correctness.
             Pre-compute character sets and tables for fast membership tests and string conversion. """
         self.__dict__.update(*args, **kwargs)
+        self.verify()
         self._c_keys_set = set(self.CENTER)
         self._r_keys_set = set(self.RIGHT.lower())
         aliases = {k for table in self.SHIFT_TABLE.values() for k in table}
@@ -90,6 +91,24 @@ class KeyLayout:
                 return _lowercase_right_and_join(left + c, right)
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
+
+    def verify(self):
+        """ Test various properties of the layout for correctness. """
+        # There cannot be duplicate keys within a side.
+        sides = [self.LEFT, self.CENTER, self.RIGHT]
+        left, center, right = sets = list(map(set, sides))
+        assert sum(map(len, sets)) == sum(map(len, sides))
+        # The center keys must not share any characters with the sides.
+        assert center.isdisjoint(left | right)
+        # The left and right sides must not share characters after casing.
+        assert left.isdisjoint(map(str.lower, right))
+        # The divider keys must not duplicate normal keys.
+        all_keys = left | center | right
+        assert self.SEP not in all_keys
+        assert self.SPLIT not in all_keys
+        # Shift keys as well as all transform values must be valid keys previously defined.
+        for shift_key, shift_transform in self.SHIFT_TABLE.items():
+            assert {shift_key, *shift_transform.values()} <= all_keys
 
 
 def _lowercase_right_and_join(left:str, right:str) -> str:

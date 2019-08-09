@@ -5,22 +5,21 @@ from itertools import product
 import os
 from typing import Dict, Iterable, List, Tuple
 
+
 from .analyzer import StenoAnalyzer
 from .base import LX
 from .board import BoardGenerator
 from .codec import cson_decode, cfg_decode, cfg_encode, json_decode, json_encode
 from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
-from .resource import KeyLayout, RuleParser, StenoRule
+from .resource import KeyLayout, RuleParser, StenoResources, StenoRule
 from .search import SearchEngine
 from .view import ConfigDictionary, ViewProcessor
 from spectra_lexer.system import SystemLayer
 
 
 class StenoEngine(LX):
-    """ Component to load all resources necessary for a steno system. The structures are mostly JSON dicts.
-        Assets including a key layout, rules, and (optional) board graphics comprise the system.
-        Other files from user space include a translations dictionary and examples index. """
+    """ Files from user space include a translations dictionary and examples index. """
 
     index_file: str = ""   # Holds filename for index; set on first load.
     config_file: str = ""  # Holds filename for config; set on first load.
@@ -41,15 +40,15 @@ class StenoEngine(LX):
         self._rule_parser = RuleParser()
         self._view = ViewProcessor(self)
 
-    def RSSystemLoad(self, base_dir:str) -> dict:
-        """ Given a base directory, load each steno system component by a standard name or pattern. """
+    def RSResourcesLoad(self, base_dir:str) -> StenoResources:
+        """ Given a base directory, load each steno resource component by a standard name or pattern. """
         with_path = partial(os.path.join, base_dir)
-        d = {"layout":      self._load_layout(with_path("layout.json")),          # Steno key constants.
-             "rules":       self._load_rules(with_path("*.cson")),                # CSON rules glob pattern.
-             "board_defs":  self._load_board_defs(with_path("board_defs.json")),  # Board shape definitions.
-             "board_xml":   self._load_board_xml(with_path("board_elems.xml"))}   # XML steno board elements.
-        self.RSSystemReady(**d)
-        return d
+        res = StenoResources(self._load_layout(with_path("layout.json")),          # Steno key constants.
+                             self._load_rules(with_path("*.cson")),                # CSON rules glob pattern.
+                             self._load_board_defs(with_path("board_defs.json")),  # Board shape definitions.
+                             self._load_board_xml(with_path("board_elems.xml")))   # XML steno board elements.
+        self.RSResourcesReady(res)
+        return res
 
     def _load_layout(self, layout_path:str) -> KeyLayout:
         layout_data = self._read(layout_path)
@@ -67,9 +66,9 @@ class StenoEngine(LX):
     def _load_board_xml(self, xml_path:str) -> bytes:
         return self._read(xml_path)
 
-    def RSSystemReady(self, layout:KeyLayout, rules:Dict[str, StenoRule],
-                      board_defs:dict, board_xml:bytes) -> None:
-        """ Send this command with all system resources as keywords. """
+    def RSResourcesReady(self, res:StenoResources) -> None:
+        """ Load all static resources into steno components. """
+        layout, rules, board_defs, board_xml = res
         self._board = BoardGenerator(layout, rules, board_defs, board_xml)
         self._grapher = GraphGenerator(layout)
         self._lexer = StenoLexer(layout, rules)

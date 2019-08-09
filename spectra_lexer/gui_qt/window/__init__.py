@@ -1,1 +1,1 @@
-from .base import MainWindow
+from .base import QtGUI
