@@ -1,5 +1,5 @@
 # Special "key" rules that don't map to letters but are still displayed in rule breakdowns.
-# These always go at the end of rule patterns (in regular parentheses ()) regardless of steno order.
+# These always go at the end of rule patterns regardless of steno order.
 
 {
   # star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk

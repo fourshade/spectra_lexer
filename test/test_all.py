@@ -48,22 +48,29 @@ def test_layout():
 RULES_DICT = RES_DICT["rules"]
 VALID_FLAGS = set(vars(RuleFlags).values())
 IGNORED_KEYS = set("/-")
-IGNORED_COUNTER = Counter([*IGNORED_KEYS] * 99)
 
 
 @pytest.mark.parametrize("r", RULES_DICT.values())
 def test_rules(r):
     """ Go through each rule and perform extensive integrity checks. """
-    # If the entry has flags, verify that all of them are valid.
-    if r.flags:
-        bad_flags = r.flags - VALID_FLAGS
+    flags = r.flags
+    if flags:
+        # If the entry has flags, verify that all of them are valid.
+        bad_flags = flags - VALID_FLAGS
         assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
-    # Make sure the child rules contain all the keys of the parent between them, and no extras.
-    if r.rulemap:
-        keys = Counter(r.keys)
-        keys.subtract(Counter([k for cr in r.rulemap for k in cr.rule.keys]))
-        keys -= IGNORED_COUNTER
-        assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
+    rulemap = r.rulemap
+    if rulemap:
+        # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
+        # Make sure the child rules contain all the keys of the parent between them, and no extras.
+        parent_len = len(r.letters)
+        key_count = Counter(r.keys)
+        for child, start, length in rulemap:
+            assert start >= 0
+            assert length >= 0
+            assert start + length <= parent_len
+            key_count.subtract(child.keys)
+        mismatched = [k for k in key_count if key_count[k] and k not in IGNORED_KEYS]
+        assert not mismatched, f"Entry {r} has mismatched keys vs. its child rules: {mismatched}"
 
 
 TRANSLATIONS_DICT = TranslationsDictionary(STENO.RSTranslationsLoad(get_test_filename("translations")))
@@ -99,7 +106,6 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-STENO.RSSystemReady(**RES_DICT)
 TEST_RESULTS = [STENO.LXLexerQuery(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
 
 

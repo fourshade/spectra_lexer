@@ -27,10 +27,10 @@
   ".mp+":   ["*PL",    "mp",         [], "alternative for `mp`; deprecated in favor of -FRP by certain parties"],
 
   ".k~":    ["*G",     "k",    ["SPEC"], "ghost pattern for `k`; used when combined with certain letters"],
-  ".nj":    ["-PBG",   "(.n)[j|.g]", [], "the 'NJ' sound; treats `g` as `j`"],
+  ".nj":    ["-PBG",   "(.n)(j|.g)", [], "the 'NJ' sound; treats `g` as `j`"],
   ".nk":    ["*PBG",   "(.n)(.k~)",  [], "the 'NK' sound; overlap of `n` and `k`"],
   ".lk":    ["*LG",    "(.l)(.k~)",  [], "the 'LK' sound (H*ULG → hulk)"],
-  ".lj":    ["-LG",    "(.l)[j|.g]", [], "the 'LJ' sound; treats `g` as `j`"],
+  ".lj":    ["-LG",    "(.l)(j|.g)", [], "the 'LJ' sound; treats `g` as `j`"],
   ".lch":   ["-LG",    "lch",        [], "the 'LCH' sound (PHULG → mulch)"],
 
   ".rv":    ["-FRB",   "rv",         [], "the 'RV' sound (KUFRB → curve)"],

@@ -12,11 +12,11 @@
   "ret.":   ["R",   "(r.)et",         [], "drop `e` and consonant for common `re` words"],
 
   # right bank
-  ".cial":  ["-RBL","[c|.sh]ia(.l)",  [], "drop unstressed vowels"],
-  ".sual":  ["-RBL","[s|.sh]ua(.l)",  [], "drop unstressed vowels"],
-  ".cious": ["-RBS","[c|.sh]iou(.s)", [], "drop unstressed vowels"],
-  ".sious": ["-RBS","[s|.sh]iou(.s)", [], "drop unstressed vowels"],
-  ".tious": ["-RBS","[t|.sh]iou(.s)", [], "drop unstressed vowels"],
+  ".cial":  ["-RBL","(c|.sh)ia(.l)",  [], "drop unstressed vowels"],
+  ".sual":  ["-RBL","(s|.sh)ua(.l)",  [], "drop unstressed vowels"],
+  ".cious": ["-RBS","(c|.sh)iou(.s)", [], "drop unstressed vowels"],
+  ".sious": ["-RBS","(s|.sh)iou(.s)", [], "drop unstressed vowels"],
+  ".tious": ["-RBS","(t|.sh)iou(.s)", [], "drop unstressed vowels"],
 
   # vowels
   "oth":    ["O",   "(o)th",          [], "drop middle `th` (PHOER → mother)"],

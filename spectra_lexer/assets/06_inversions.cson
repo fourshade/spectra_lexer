@@ -53,7 +53,7 @@
   ".ding": ["-GD",  "(.d)(.ing)",   ["INV"], "folded -ing"],
 
   # full board
-  "~y":    ["E",    "[y|e]",        ["SPEC"],"E is usable as `y` in folds"],
+  "~y":    ["E",    "(y|e)",        ["SPEC"],"E is usable as `y` in folds"],
   ".dy":   ["ED",   "(.d)(~y)",     ["INV"], "uses E as folded -y"],
   ".ddy":  ["ED",   "(.dd)(~y)",    ["INV"], "uses E as folded -y"],
   ".lly":  ["EL",   "(.ll)(~y)",    ["INV"], "uses E as folded -y"],

@@ -2,12 +2,12 @@
 
 {
   # left bank
-  "in.":     ["TPH",    "[in|n.]",            [], "included vowel sound"],
-  "en.":     ["TPH",    "[en|n.]" ,           [], "included vowel sound (TPHERPBLG → energy)"],
-  "ex.":     ["KP",     "[ex|x.]",            [], "included vowel sound"],
-  "exc.":    ["KP",     "[exc|x.]",           [], "combined consonant sounds"],
+  "in.":     ["TPH",    "(in|n.)",            [], "included vowel sound"],
+  "en.":     ["TPH",    "(en|n.)" ,           [], "included vowel sound (TPHERPBLG → energy)"],
+  "ex.":     ["KP",     "(ex|x.)",            [], "included vowel sound"],
+  "exc.":    ["KP",     "(exc|x.)",           [], "combined consonant sounds"],
   "ext.":    ["KP",     "(ex.)t",             [], "shortening of `ext`; must not conflict with other words using KP"],
-  "ex+":     ["S",      "[ex|s.]",            [], "slurred short form of `ex` (SABGT → exact)"],
+  "ex+":     ["S",      "(ex|s.)",            [], "slurred short form of `ex` (SABGT → exact)"],
   "exp.":    ["SP",     "(ex+)(p.)",          [], "slurred short form of `exp`"],
 
   # right bank
@@ -34,7 +34,7 @@
   ".ment":   ["-PLT",   "(.m)en(.t)",         [], "drop middle"],
   "-ment":   ["*PLT",   "(.ment)(*:PS)",      [], "standalone suffix stroke"],
   "-ness":   ["-PBS",   "(.n)e(.ss)",         [], "drop unstressed vowel"],
-  ".xt":     ["-GT",    "[x|.g](.t)",         [], "disambiguation from `kets`"],
+  ".xt":     ["-GT",    "(x|.g)(.t)",         [], "disambiguation from `kets`"],
 
   # full board
   "o~":      ["AU",     "o",            ["SPEC"], "alternative vowel combo for `o` when used in prefix"],

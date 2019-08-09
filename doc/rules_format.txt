@@ -71,7 +71,7 @@ keys        ::=  string
 letters     ::=  string
 ; Contains a combination of literal characters and the following types of bracketed references:
 ; "(name)"         = substitute complete translation from the rule with `name`
-; "[letters|name]" = use sound or strategy from the rule with `name` on the literal `letters`
+; "(letters|name)" = use sound or strategy from the rule with `name` on the literal `letters`
 
 flag        ::=  string
 ; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
