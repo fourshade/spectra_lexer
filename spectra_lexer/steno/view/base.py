@@ -1,6 +1,6 @@
-from typing import Dict
+from typing import Dict, List
 
-from .config import ConfigDictionary
+from .config import ConfigDictionary, ConfigItem
 from .state import ViewState
 from ..base import LX
 
@@ -37,6 +37,10 @@ class ViewProcessor:
 
     def load_config(self, cfg:Dict[str, dict]) -> None:
         self._config.sectioned_update(cfg)
+
+    def get_config_info(self) -> ConfigDictionary:
+        """ Return formatted config info from all active components. """
+        return self._config
 
     def process(self, state:dict, action:str) -> dict:
         """ Perform an action with the given state dict, then return it with the changes.

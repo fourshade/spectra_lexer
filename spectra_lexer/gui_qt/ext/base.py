@@ -10,6 +10,7 @@ from .menu import MainMenu, MenuItem
 from .objtree import ObjectTreeDialog
 from ..window import MainWindow
 from spectra_lexer.steno import StenoEngine
+from spectra_lexer.steno.view import ConfigDictionary
 from spectra_lexer.system import SystemLayer
 
 
@@ -50,20 +51,18 @@ class QtGUIExtension:
         """ Exit the application. Must not be called by a worker thread (or it won't kill the main program). """
         sys.exit()
 
-    # def config_info(self, config) -> None:
-    #     """ Get formatted config info from all active components. """
+    @MenuItem("Tools", "Edit Configuration...")
+    def ConfigOpen(self) -> None:
+        """ Create and show the GUI configuration manager dialog. """
+        self._steno.VIEWConfigInfo(qt_callback=self._on_config_info)
 
-    # @MenuItem("Tools", "Edit Configuration...")
-    # def ConfigOpen(self) -> None:
-    #     """ Create and show the GUI configuration manager dialog. """
-    #     ConfigDialog(self._dialog_parent, self._config_update, self._config).show()
+    def _on_config_info(self, config:ConfigDictionary) -> None:
+        ConfigDialog(self._window, self._config_update, config).show()
 
-    # def _config_update(self, options:dict) -> None:
-    #     """ Update and save all config options to disk. """
-    #     self._config.update(options)
-    #     out = self._config.sectioned_data()
-    #     self.steno.RSConfigSave(out)
-    #     self.steno.RSConfigReady(out)
+    def _config_update(self, options:dict) -> None:
+        """ Update and save all config options to disk. """
+        self._steno.RSConfigSave(options)
+        self._steno.RSConfigReady(options)
 
     def index_missing(self) -> None:
         """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
@@ -72,7 +71,7 @@ class QtGUIExtension:
         if index_size:
             self._make_index(index_size)
         else:
-            self._save_index({})
+            self._steno.RSIndexSave({})
             self._show_message("Skipped index creation.")
 
     @MenuItem("Tools", "Make Index...")
@@ -84,14 +83,13 @@ class QtGUIExtension:
         """ Disable the GUI while the thread is busy. Re-enable the GUI once the thread is clear. """
         self._set_enabled(False)
         self._show_message("Making new index...")
-        index = self._steno.LXAnalyzerMakeIndex(index_size)
-        self._save_index(index)
-        self._show_message("Successfully created index!")
-        self._set_enabled(True)
+        self._steno.LXAnalyzerMakeIndex(index_size, qt_callback=self._on_index_done)
 
-    def _save_index(self, index:dict) -> None:
+    def _on_index_done(self, index:dict) -> None:
         self._steno.RSIndexSave(index)
         self._steno.RSIndexReady(index)
+        self._show_message("Successfully created index!")
+        self._set_enabled(True)
 
     @MenuItem("Debug", "Open Console...")
     def ConsoleOpen(self) -> None:

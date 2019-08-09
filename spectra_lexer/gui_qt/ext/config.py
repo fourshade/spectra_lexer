@@ -1,12 +1,12 @@
 """ Module for config manager. Allows editing of config values for any component. """
 
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List, Tuple
 
 from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLineEdit, QMessageBox, QTabWidget, \
     QVBoxLayout, QWidget
 
 from .dialog import FormDialog
-from spectra_lexer.steno.view.config import ConfigItem
+from spectra_lexer.steno.view import ConfigDictionary
 
 
 class OptionWidgetBool(QCheckBox):
@@ -92,15 +92,17 @@ class ConfigDialog(FormDialog):
     TITLE = "Spectra Configuration"
     SIZE = (250, 300)
 
+    _config: ConfigDictionary = None
     _widgets: OptionWidgets = None
 
-    def new_layout(self, info:Iterable[ConfigItem]=()) -> QLayout:
-        """ Create a new central tab widget from the info rows.
+    def new_layout(self, config:ConfigDictionary) -> QLayout:
+        """ Create a new central tab widget from the config info rows.
             Make new widgets for config options based on attributes. Only basic types are supported.
             If an unsupported type is given, it is handled as a string (the native format for ConfigParser). """
+        self._config = config
         self._widgets = OptionWidgets()
         pages = ConfigPages()
-        for item in info:
+        for item in config.info():
             w_option = self._widgets.generate(item.key, item.value)
             page = pages.get(item.title)
             w_label = QLabel(item.name)
@@ -113,7 +115,9 @@ class ConfigDialog(FormDialog):
         """ Validate all config values from each page and widget. Show a popup if there are one or more errors.
             Return a dict with the new values (not the setup info) to the callback on dialog accept. """
         try:
-            return self._widgets.to_dict()
+            options = self._widgets.to_dict()
+            self._config.update(options)
+            return self._config.sectioned_data()
         except TypeError:
             QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
         except ValueError:

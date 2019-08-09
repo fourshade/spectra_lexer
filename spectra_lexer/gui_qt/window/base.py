@@ -130,7 +130,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def action(self, action:str, **override) -> None:
         """ Send an action command with the current state. Parameters may be temporarily overridden by kwargs. """
-        changed = self._perform_action({**self._state_vars, **override}, action)
+        self._perform_action({**self._state_vars, **override}, action, qt_callback=self.on_action_done)
+
+    def on_action_done(self, changed:dict) -> None:
         # After any action, run through the changes and update the state and widgets with any relevant ones.
         self.update(**changed)
 

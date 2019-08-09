@@ -4,6 +4,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
+from .engine import EngineWrapper
 from .ext import QtGUIExtension
 from .window import MainWindow
 from spectra_lexer.app import StenoApplication
@@ -19,6 +20,7 @@ class QtApplication(StenoApplication):
     def load(self) -> None:
         """ Create the QApplication only on init to avoid interference with Plover. """
         self._qt_app = QApplication.instance() or QApplication(sys.argv)
+        self.steno = EngineWrapper(self.steno, self.exception)
         self.window = self["window"] = MainWindow(self.steno.VIEWAction)
         self.gui_ext = self["gui_ext"] = QtGUIExtension(self.window, self.steno, self.system)
         super().load()

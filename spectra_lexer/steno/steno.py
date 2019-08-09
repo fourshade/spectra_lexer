@@ -13,7 +13,7 @@ from .graph import GraphGenerator, StenoGraph
 from .lexer import StenoLexer
 from .resource import KeyLayout, RuleParser, StenoRule
 from .search import SearchEngine
-from .view import ViewProcessor
+from .view import ConfigDictionary, ViewProcessor
 from spectra_lexer.system import SystemLayer
 
 
@@ -175,6 +175,10 @@ class StenoEngine(LX):
     def LXSearchFindRule(self, link:str) -> StenoRule:
         """ Return the rule under the given link name, or None if there is no rule by that name. """
         return self._search.link_to_rule(link)
+
+    def VIEWConfigInfo(self) -> ConfigDictionary:
+        """ Return formatted config info from all active components. """
+        return self._view.get_config_info()
 
     def VIEWAction(self, state:dict, action:str) -> dict:
         """ Perform an action with the given state dict, then return it with the changes. """
