@@ -8,10 +8,9 @@ from spectra_lexer.gui_qt import MainWindow, QtApplication
 
 
 class PloverPluginApplication(QtApplication):
-    """ Main entry point and dialog proxy to Plover. Translates some attributes into engine calls and fakes others.
+    """ Main entry point and dialog proxy to Plover. Translates some attributes into app calls and fakes others.
         It runs on the standard Qt GUI with a couple (important) differences.
-        Notably, the app must not create its own QApplication object or run its own event loop.
-        The Plover engine must be the first argument to the constructor, however it is called. """
+        Notably, the app must not create its own QApplication object or run its own event loop. """
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
@@ -26,9 +25,10 @@ class PloverPluginApplication(QtApplication):
     engine: PloverEngine
     interface: PloverInterface
 
-    def __init__(self, engine:PloverEngine=None):
+    def __init__(self, engine:PloverEngine=None, *argv:str):
+        """ The Plover engine must be the first argument to the constructor, however it is called. """
         self.engine = engine
-        super().__init__()
+        super().__init__(*argv)
 
     def load(self) -> None:
         self.interface = PloverInterface(self._on_new_dictionaries, self._on_new_translation)

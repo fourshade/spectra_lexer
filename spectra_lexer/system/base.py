@@ -50,6 +50,7 @@ class SystemLayer:
             Log and print an exception traceback to stdout, if possible, and save the exception for introspection. """
         tb = TracebackException.from_exception(exc, limit=max_frames)
         tb_text = "".join(tb.format())
+        self.log(f'EXCEPTION\n{tb_text}')
         self._debug_vars["last_exception"] = exc
         return tb_text
 

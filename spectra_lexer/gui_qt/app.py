@@ -1,31 +1,12 @@
 """ Main entry point for Spectra's interactive GUI application. """
 
 import sys
-from typing import Callable
 
-from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 from .ext import QtGUIExtension
 from .window import MainWindow
 from spectra_lexer.app import StenoApplication
-
-
-class _Connection(QObject):
-    """ A simple signal-slot connection for transferring tuples to the main thread. """
-
-    def __init__(self, callback:Callable):
-        # A passthrough function may notify the main thread when it needs to run a command on the GUI.
-        # To send commands to the GUI, the child threads send a Qt signal to the main thread.
-        super().__init__()
-        self.signal.connect(callback)
-
-    def __call__(self, arg:tuple) -> None:
-        """ This notifies the main thread when it needs to receive a command. """
-        self.signal.emit(arg)
-
-    # Signals
-    signal = pyqtSignal(tuple)
 
 
 class QtApplication(StenoApplication):
@@ -48,9 +29,6 @@ class QtApplication(StenoApplication):
         if not self.system.file_exists(self.index_file):
             self.gui_ext.index_missing()
 
-    # def check_config(self) -> None:
-    #     self.view.config_info(config.info())
-
     def loop(self) -> int:
         """ Start a GUI event loop and run it indefinitely. """
         return self._qt_app.exec_()
@@ -59,8 +37,8 @@ class QtApplication(StenoApplication):
         super().status(status)
         self.window.status(status)
 
-    def exc_traceback(self, tb_text:str) -> None:
-        super().exc_traceback(tb_text)
+    def exception(self, exc:Exception) -> None:
+        tb_text = self.system.log_exception(exc)
         self.window.exc_traceback(tb_text)
 
 

@@ -65,19 +65,17 @@ add("spectra_lexer.app",      "index",       "Analyze a translations file and in
 add("spectra_lexer.plover",   "plover_test", "Run the GUI application in Plover plugin test mode.")
 
 
-def main(*args, **kwargs) -> int:
-    """ Look up an entry point using the first command-line argument, call it, and return the exit code.
+def main(_script:str="", mode:str="", *argv:str) -> int:
+    """ Look up an entry point using the first command-line argument, call it with the rest, and return the exit code.
         If the return value isn't an integer, cast it to bool and return its inverse (so True is success). """
-    mode = sys.argv[1:2]
-    del sys.argv[1:2]
-    func = entry_points(*mode)
+    func = entry_points(mode)
     if func is None:
         return -1
-    result = func(*args, **kwargs)
+    result = func(*argv)
     if isinstance(result, int):
         return result
     return not result
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(*sys.argv))

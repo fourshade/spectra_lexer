@@ -3,7 +3,8 @@
 import os
 
 from .server import HTTPServer
-from spectra_lexer.app import CmdlineOption, StenoApplication
+from spectra_lexer.app import StenoApplication
+from spectra_lexer.cmdline import CmdlineOption
 
 
 class HttpApplication(StenoApplication):

@@ -51,13 +51,13 @@ class QtGUIExtension:
         sys.exit()
 
     # def config_info(self, config) -> None:
-    #     """ Send this command with formatted config info from active components. """
+    #     """ Get formatted config info from all active components. """
 
     # @MenuItem("Tools", "Edit Configuration...")
     # def ConfigOpen(self) -> None:
     #     """ Create and show the GUI configuration manager dialog. """
     #     ConfigDialog(self._dialog_parent, self._config_update, self._config).show()
-    #
+
     # def _config_update(self, options:dict) -> None:
     #     """ Update and save all config options to disk. """
     #     self._config.update(options)

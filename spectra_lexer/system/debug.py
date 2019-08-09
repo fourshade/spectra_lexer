@@ -99,5 +99,5 @@ class DebugDict(dict):
 
     def add_component(self, key:str, obj:object):
         """ Mark the object as a component and add it to the namespace. """
-        obj.__class__.__COMPONENT__ = True
+        # obj.__class__.__COMPONENT__ = True
         self[key] = obj

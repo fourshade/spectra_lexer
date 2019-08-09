@@ -3,64 +3,9 @@
 from time import time
 from typing import List
 
-from spectra_lexer.steno import StenoEngine
-from spectra_lexer.system import SystemLayer
-
-from argparse import ArgumentParser, SUPPRESS
-
-
-class CmdlineParser(ArgumentParser):
-    """ Command line parser for the Spectra program. """
-
-    # Extra keywords for argument parsing based on the option's data type.
-    _TYPE_KWDS = {int:  {"type": int},
-                  list: {"nargs": "+"}}
-
-    def __init__(self, *options):
-        """ Suppress defaults from unused arguments (resources have their own default settings). """
-        super().__init__(argument_default=SUPPRESS)
-        for opt_args in options:
-            self.add_option(*opt_args)
-
-    def add_option(self, key:str, default, desc:str="") -> None:
-        """ All options handled here must be parsed as long options connected by hyphens. """
-        key_suffix = key.rsplit("-", 1)[-1]
-        kwds = {"help": desc, "metavar": key_suffix.upper()}
-        tp = type(default)
-        if tp in self._TYPE_KWDS:
-            kwds.update(self._TYPE_KWDS[tp])
-        self.add_argument(f"--{key}", **kwds)
-
-    def parse(self) -> dict:
-        """ The parser replaces hyphens with underscores, but our keys need the hyphens. """
-        args = vars(self.parse_args())
-        return {k.replace("_", "-"): args[k] for k in args}
-
-
-class CmdlineOption:
-    """ Class option settable by the command line. """
-
-    _ALL_OPTIONS: dict = {}  # Contains all options declared by imported classes.
-
-    _value: object  # Read-only value for the option.
-
-    def __init__(self, key:str, default=None, desc:str=""):
-        self._value = default
-        self._ALL_OPTIONS[self] = key, default, desc
-
-    def __get__(self, instance:object, owner:type=None):
-        return self._value
-
-    @classmethod
-    def process_all(cls) -> None:
-        """ Get parameter tuples from every declared option and process them.
-            Update all options by setting the value attributes manually. """
-        all_opts = cls._ALL_OPTIONS
-        parser = CmdlineParser(*all_opts.values())
-        parsed_opts = parser.parse()
-        for opt, (key, default, desc) in all_opts.items():
-            if key in parsed_opts:
-                opt._value = parsed_opts[key]
+from .cmdline import CmdlineOption, CmdlineParser
+from .steno import StenoEngine
+from .system import SystemLayer
 
 
 class StenoApplication:
@@ -80,9 +25,9 @@ class StenoApplication:
     system: SystemLayer  # Logs system events to standard streams and/or files.
     steno: StenoEngine   # Primary runtime engine for steno operations such as parsing and graphics.
 
-    def __init__(self):
+    def __init__(self, *argv:str):
         """ Load command line options, assemble components, and run the application. """
-        CmdlineOption.process_all()
+        self.parse_cmdline(*argv)
         self.system = SystemLayer()
         self["app"] = self
         self["system"] = self.system
@@ -90,6 +35,13 @@ class StenoApplication:
         self.system.log_to(self.log_file)
         self.load()
         self.run()
+
+    def parse_cmdline(self, *argv):
+        """ Command-line arguments *must* be passed by the caller; sys.argv is not safe here. """
+        if argv:
+            parser = CmdlineParser()
+            parser.add_host(self)
+            parser.parse(*argv)
 
     def load(self) -> None:
         """ Load every available asset into its resource attribute before startup. """
@@ -119,9 +71,6 @@ class StenoApplication:
     def status(self, status:str) -> None:
         """ Log and print status messages (non-error) to stdout by default. """
         self.system.log(status)
-
-    def exc_traceback(self, tb_text:str) -> None:
-        self.system.log(f'EXCEPTION\n{tb_text}')
 
     def __setitem__(self, key:str, value:object) -> None:
         """ Add an app component to be tracked by the system. """
