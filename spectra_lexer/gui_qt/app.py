@@ -39,7 +39,7 @@ class QtApplication(StenoApplication):
         self.gui.close()
 
     def status(self, status:str) -> None:
-        super().status(status)
+        """ Print status messages straight on the GUI, skipping the console. """
         self.gui.status(status)
 
     def exception(self, exc:Exception) -> None:

@@ -1,6 +1,6 @@
+import pkgutil
 from typing import Callable, Dict, List
 
-from pkg_resources import resource_filename
 from PyQt5.QtWidgets import QCheckBox, QLabel, QLineEdit
 
 from .main_window import MainWindow
@@ -46,8 +46,8 @@ class QtGUI:
         window = self.window = MainWindow()
         widgets = window.map_widgets()
         self.__dict__.update(widgets)
-        fname = resource_filename(*self.ICON_PATH)
-        self.window.load_icon(fname)
+        data = pkgutil.get_data(*self.ICON_PATH)
+        self.window.load_icon(data)
         self._perform_action = perform_action
         self._state_vars = {}
         self._update_gui = GUIUpdater(self._output_methods())

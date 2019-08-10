@@ -49,7 +49,7 @@ class KeyLayout:
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
         self.from_rtfcre = self._stroke_operation(self._stroke_rtfcre_to_s_keys)
 
-    def _stroke_operation(self, fn):
+    def _stroke_operation(self, fn) -> partial:
         """ Create a partial function to apply a string operation to every stroke in a key string. """
         return partial(_stroke_map, fn, self.SEP)
 
@@ -92,7 +92,7 @@ class KeyLayout:
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
 
-    def verify(self):
+    def verify(self) -> None:
         """ Test various properties of the layout for correctness. """
         # There cannot be duplicate keys within a side.
         sides = [self.LEFT, self.CENTER, self.RIGHT]

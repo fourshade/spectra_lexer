@@ -4,24 +4,9 @@ import builtins
 import dis
 import types
 
-from .base import Container, if_hasattr, if_isinstance
+from .container import GeneratedContainer
 
 
-class GeneratedContainer(Container):
-    """ An immutable container that generates a dict and stores that instead of the original object. """
-
-    color = (32, 32, 128)  # Auto-generated containers are blue.
-    key_tooltip = value_tooltip = "Auto-generated item; cannot edit."
-
-    def __init__(self, obj):
-        d = self._gen_dict(obj)
-        super().__init__(d)
-
-    def _gen_dict(self, obj) -> dict:
-        return {}
-
-
-@if_hasattr("__dict__")
 class ClassContainer(GeneratedContainer):
     """ A container that displays the class hierarchy for custom classes. """
 
@@ -34,7 +19,6 @@ class ClassContainer(GeneratedContainer):
         return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
 
-@if_isinstance(BaseException)
 class ExceptionContainer(GeneratedContainer):
     """ A container for an exception object to show details about the entire stack. """
 
@@ -52,7 +36,6 @@ class ExceptionContainer(GeneratedContainer):
         return d
 
 
-@if_isinstance(types.FrameType)
 class FrameContainer(GeneratedContainer):
     """ Shows all information about a stack frame. """
 
@@ -62,9 +45,10 @@ class FrameContainer(GeneratedContainer):
                     globals=f.f_globals, locals=f.f_locals, code=code)
 
 
-@if_isinstance((types.MethodType, types.FunctionType, types.CodeType, classmethod, staticmethod))
 class CodeContainer(GeneratedContainer):
     """ Shows disassembly of a code object. """
+
+    CODE_TYPES = (types.MethodType, types.FunctionType, types.CodeType, classmethod, staticmethod)
 
     class instruction:
         __slots__ = ["_s"]
@@ -84,3 +68,9 @@ class CodeContainer(GeneratedContainer):
 
     def _gen_dict(self, obj) -> dict:
         return {f'{inst.offset} {inst.opname}': self.instruction().get(inst) for inst in dis.get_instructions(obj)}
+
+
+CONDITIONS = [(ClassContainer,     hasattr,    "__dict__"),
+              (ExceptionContainer, isinstance, BaseException),
+              (FrameContainer,     isinstance, types.FrameType),
+              (CodeContainer,      isinstance, CodeContainer.CODE_TYPES)]

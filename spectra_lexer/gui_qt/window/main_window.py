@@ -1,4 +1,4 @@
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QMainWindow
 
 from .main_window_ui import Ui_MainWindow
@@ -23,9 +23,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     w_strokes=self.w_search_type,
                     w_regex=self.w_search_regex)
 
-    def load_icon(self, filename:str) -> None:
-        """ Set up the main window icon from a filename. """
-        icon = QIcon(filename)
+    def load_icon(self, data:bytes) -> None:
+        """ Load the main window icon from a bytes object. """
+        im = QPixmap()
+        im.loadFromData(data)
+        icon = QIcon(im)
         self.setWindowIcon(icon)
 
     def show(self) -> None:

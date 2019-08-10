@@ -1,8 +1,41 @@
 """ Contains useful types for introspection and/or interactive interpreter operations. """
 
 from code import InteractiveConsole
+import inspect
 import sys
 from typing import Callable
+
+
+class xhelp:
+    """ You asked for help on help, didn't you? Boredom has claimed yet another victim.
+        This object overrides the builtin 'help', which breaks custom Python consoles. """
+
+    _HELP_SECTIONS = [lambda x: [f"OBJECT - {x!r}"],
+                      lambda x: [f"  TYPE - {type(x).__name__}"],
+                      lambda x: ["----------SIGNATURE----------",
+                                 inspect.signature(x)],
+                      lambda x: ["----------ATTRIBUTES----------",
+                                 ', '.join([k for k in dir(x) if not k.startswith('_')]) or "None"],
+                      lambda x: ["-------------INFO-------------",
+                                 *map(str.lstrip, str(x.__doc__).splitlines())]]
+
+    def __call__(self, *args:object, write:Callable=print) -> None:
+        """ Write each help section that doesn't raise an exception, in order. """
+        if not args:
+            write(self)
+        for obj in args:
+            write("")
+            for fn in self._HELP_SECTIONS:
+                try:
+                    for line in fn(obj):
+                        write(line)
+                except Exception:
+                    # Arbitrary objects may raise arbitrary exceptions. Just skip sections that don't behave.
+                    continue
+            write("")
+
+    def __repr__(self) -> str:
+        return "Type help(object) for auto-generated help on any Python object."
 
 
 class AttrRedirector:
@@ -28,12 +61,13 @@ class SystemConsole:
     ps1: str = ">>> "                # Standard input prompt.
     ps2: str = "... "                # Input prompt when more lines are needed.
     interpreter: InteractiveConsole  # Interactive interpreter. Evaluates text input.
-    write_callback: Callable         # Optional callback to send text output.
 
-    def __init__(self, locals_ns:dict=None, write_to:Callable=None):
-        """ Set the write callback and write an opening message before input begins. """
+    def __init__(self, locals_ns:dict=None, *, write_to:Callable=None, **kwargs):
+        """ Add the help function, set the write callback and write an opening message before input begins. """
+        locals_ns.update(kwargs, help=xhelp())
         self.interpreter = InteractiveConsole(locals_ns)
-        self.write_callback = write_to
+        if write_to is not None:
+            self.write = write_to
         self.write(f"Spectra Console - Python {sys.version}\n"
                    f"Type 'dir()' to see a list of application components and other globals.\n{self.ps1}")
 
@@ -48,9 +82,6 @@ class SystemConsole:
             self.write(self.ps2 if more else self.ps1)
 
     def write(self, text_out:str) -> None:
-        """ Forward all output text to stdout, as well as the callback if one was given. """
+        """ Forward all output text to stdout by default. """
         sys.__stdout__.write(text_out)
         sys.__stdout__.flush()
-        write_cb = self.write_callback
-        if write_cb is not None:
-            write_cb(text_out)

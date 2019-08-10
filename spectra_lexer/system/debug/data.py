@@ -1,33 +1,22 @@
 """ Module for formatting and displaying types and values of arbitrary Python objects. """
 
 from functools import lru_cache
-from io import TextIOWrapper
 from itertools import islice
-
-from .container import ContainerData
+from typing import Callable, Iterable, Tuple
 
 
 @lru_cache(maxsize=None)
 class TypeParams:
     """ Contains row parameters for a data type. These are cached, so attributes may not be modified directly. """
 
-    # Base data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
-    _ATOMIC_TYPES = {type(None), type(...),      # System singletons.
-                     bool, int, float, complex,  # Guaranteed not iterable.
-                     str, bytes, bytearray,      # Items are just characters; do not iterate over these.
-                     range, slice,               # Items are just a pre-determined mathematical range.
-                     filter, map, zip,           # Iteration is destructive.
-                     TextIOWrapper}              # Iteration may crash the program if std streams are in use.
-
     _GRAPH_CONNECTIONS = {"└": "├",  # Replacement symbols when connecting to existing lines on a graph from the bottom.
                           "┴": "┼"}
 
-    __slots__ = ("name", "mro_names", "graph", "is_atomic")
+    __slots__ = ("name", "mro_names", "graph")
 
     def __init__(self, tp:type):
         self._add_names(tp)
         self._add_graph(tp)
-        self.is_atomic = tp in self._ATOMIC_TYPES
 
     def _add_names(self, tp:type) -> None:
         """ A type's icon is chosen from keywords describing it in order from specific to general.
@@ -65,22 +54,26 @@ class TypeParams:
         self.graph = "\n".join(map("".join, char_lines))
 
 
-class ValueParams:
-    """ Special utility for computing display values of Python objects in a node tree. """
+class ValueRepr:
+    """ Computes display values of Python objects in a node tree. """
 
-    MAX_LEN: int = 100        # Maximum string length for an object display.
-    MAX_ITEMS: int = 6        # Maximum item count for a container display.
-    PLACEHOLDER: str = '...'  # Replaces items past the item limit and deeper than the recursion limit.
+    max_len: int      # Maximum string length for an object display.
+    max_items: int    # Maximum item count for a container display.
+    max_levels: int   # Maximum recursion levels before placeholder is used.
+    placeholder: str  # Replaces items past the item limit and deeper than the recursion limit.
 
-    text: str              # Computed string for the object's value.
-    is_meta: bool          # True if object is a subclass of type.
-    is_exception: bool     # True if object is an exception (includes BaseExceptions).
-    _levels_left: int = 2  # Recursion levels left before placeholder is used. Default setting is the maximum.
+    _levels_left: int = 0  # Recursion levels left in current run.
 
-    def __init__(self, x:object):
-        self.text = self._repr(x)
-        self.is_meta = isinstance(x, type) and issubclass(x, type)
-        self.is_exception = isinstance(x, BaseException)
+    def __init__(self, max_len:int=100, max_items:int=6, max_levels:int=2, placeholder:str='...'):
+        self.max_len = max_len
+        self.max_items = max_items
+        self.max_levels = max_levels
+        self.placeholder = placeholder
+
+    def repr(self, x:object) -> str:
+        """ Compute and return a string for the value of object <x>. """
+        self._levels_left = self.max_levels
+        return self._repr(x)
 
     def _repr(self, x:object) -> str:
         tp = type(x)
@@ -94,22 +87,22 @@ class ValueParams:
             s = getattr(self, meth_name, repr)(x)
         except Exception:
             s = f'<{tp_name} at 0x{id(x):0>8X}>'
-        if len(s) > self.MAX_LEN:
-            s = s[:self.MAX_LEN - 3] + self.PLACEHOLDER
+        if len(s) > self.max_len:
+            s = s[:self.max_len - 3] + self.placeholder
         return s
 
     def _repr_iterable(self, x, left:str, right:str, repr_fn=None) -> str:
         if not x:
             return repr(x)
         if self._levels_left <= 0:
-            s = self.PLACEHOLDER
+            s = self.placeholder
         else:
-            maxsize = self.MAX_ITEMS
+            maxsize = self.max_items
             self._levels_left -= 1
             items = map(repr_fn or self._repr, islice(x, maxsize))
             self._levels_left += 1
             if len(x) > maxsize:
-                items = [*items, self.PLACEHOLDER]
+                items = [*items, self.placeholder]
             s = ', '.join(items)
         return f"{left}{s}{right}"
 
@@ -136,26 +129,42 @@ class ValueParams:
     repr_mappingproxy = repr_dict
 
 
-class RowData(dict):
-    """ A tree row consisting of three items. """
+class DebugData:
+    """ A structure used to fully describe an object for debug purposes. """
 
-    def __init__(self, obj:object, parent_data:dict=()):
-        """ Gather row parameters from the object's parent container, type, value, and possible contents. """
+    VALUE_REPR = ValueRepr().repr
+
+    color: Tuple[int, int, int] = (0, 0, 0)
+    key_text: str = ""
+    key_tooltip: str = ""
+    key_edit: Callable = None
+    child_data = None
+    type_text: str = ""
+    type_graph: str = ""
+    item_count: int = None
+    value_text: str = ""
+    value_tooltip: str = ""
+    value_edit: Callable = None
+
+    _icon_choices: Iterable[str] = ()
+
+    def add_params(self, obj:object) -> None:
+        """ Gather and add data related to the structure of an object by itself (not including its contents). """
         type_params = TypeParams(type(obj))
-        value_params = ValueParams(obj)
-        super().__init__(parent_data,
-                         icon_choices=type_params.mro_names,
-                         type_text=type_params.name,
-                         type_tooltip=type_params.graph,
-                         value_text=value_params.text)
+        self.type_text = type_params.name
+        self.type_graph = type_params.graph
+        self.value_text = self.VALUE_REPR(obj)
         # Metaclasses show a special icon.
-        if value_params.is_meta:
-            self["icon_choices"] = ("__METATYPE__", *self["icon_choices"])
+        icons = type_params.mro_names
+        if isinstance(obj, type) and issubclass(obj, type):
+            icons = ("__METATYPE__", *icons)
+        self._icon_choices = icons
         # Exceptions are bright red in any container.
-        if value_params.is_exception:
-            self["color"] = (192, 0, 0)
-        # Only allow container expansion for types where it is useful.
-        # Expanding strings into a row for each character is a mess just waiting to happen.
-        # (especially since each character is *also* a string...containing itself.)
-        if not type_params.is_atomic:
-            self.update(ContainerData(obj, self.__class__))
+        if isinstance(obj, BaseException):
+            self.color = (192, 0, 0)
+
+    def choose_icon(self, available_icons:dict):
+        """ Return the best of the given available icons out of our sequence of choices from most wanted to least. """
+        for k in self._icon_choices:
+            if k in available_icons:
+                return available_icons[k]

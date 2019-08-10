@@ -32,7 +32,7 @@ class StenoIndex(dict):
         k = random.choice(list(d))
         return k if strokes else d[k]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """ Recursive reprs on index objects are deadly. Only show the first level with item counts. """
         item_counts = {k: f"{len(self[k])} items" for k in self}
         return f"<{type(self).__name__}: {item_counts!r}>"

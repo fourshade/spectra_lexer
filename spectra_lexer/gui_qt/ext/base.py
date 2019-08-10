@@ -21,7 +21,6 @@ class QtGUIExtension:
 
     _steno: StenoEngine
     _system: SystemLayer
-    _debug_vars: dict
     _gui: QtGUI
     _window: QMainWindow  # All GUI menus and dialogs must be children of the main window.
     _menu: MainMenu
@@ -105,8 +104,8 @@ class QtGUIExtension:
 
     @MenuItem("Debug", "View Object Tree...")
     def TreeOpen(self) -> None:
-        """ Create and show the tree dialog using the debug dict as the root namespace. """
-        ObjectTreeDialog(self._window, self._system.debug_ns()).show()
+        """ Create and show the debug tree dialog. """
+        ObjectTreeDialog(self._window, self._system.debug_tree()).show()
 
     def _show_message(self, s:str):
         """ Show a status message on the main GUI. """

@@ -2,10 +2,9 @@
 
 from typing import AbstractSet, Iterator, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence
 
-from .base import Container, if_isinstance, MutableContainer, MutableKeyContainer
+from .container import Container, MutableContainer, MutableKeyContainer
 
 
-@if_isinstance(Mapping)
 class UnorderedContainer(Container):
     """ A sized, unordered iterable item container. The most generic acceptable type of iterable container.
         Items may be sorted for display if they are orderable. Mappings do not need a subclass beyond this. """
@@ -24,12 +23,10 @@ class UnorderedContainer(Container):
         return iter(self._obj)
 
 
-@if_isinstance(MutableMapping)
 class MutableMappingContainer(UnorderedContainer, MutableKeyContainer):
     """ The base container classes are already implemented as mappings. No changes need to be made. """
 
 
-@if_isinstance(AbstractSet)
 class SetContainer(UnorderedContainer):
 
     key_tooltip = "Hash value of the object. Cannot be edited."
@@ -45,7 +42,6 @@ class SetContainer(UnorderedContainer):
         return f"#{hash(key)}"
 
 
-@if_isinstance(MutableSet)
 class MutableSetContainer(SetContainer, MutableContainer):
 
     def __delitem__(self, key) -> None:
@@ -58,7 +54,6 @@ class MutableSetContainer(SetContainer, MutableContainer):
         self._obj.add(value)
 
 
-@if_isinstance(Sequence)
 class SequenceContainer(Container):
 
     show_item_count = True
@@ -72,7 +67,6 @@ class SequenceContainer(Container):
         return f".{key}"
 
 
-@if_isinstance(tuple)
 class TupleContainer(SequenceContainer):
 
     def _key_str(self, key:int) -> str:
@@ -82,7 +76,6 @@ class TupleContainer(SequenceContainer):
         return super()._key_str(key)
 
 
-@if_isinstance(MutableSequence)
 class MutableSequenceContainer(SequenceContainer, MutableKeyContainer):
 
     key_tooltip = "Double-click to move this item to a new index (non-negative integers only)."
@@ -92,3 +85,43 @@ class MutableSequenceContainer(SequenceContainer, MutableKeyContainer):
         k = int(new_key)
         self[k:k] = [self[old_key]]
         del self[old_key + (old_key >= k)]
+
+
+class AttrContainer(MutableKeyContainer):
+
+    key_tooltip: str = "Double-click to change this attribute name."
+    value_tooltip: str = "Double-click to edit this attribute value."
+
+    def __iter__(self) -> Iterator:
+        return iter(vars(self._obj))
+
+    def __len__(self) -> int:
+        return len(vars(self._obj))
+
+    def __getitem__(self, key:str):
+        """ Return the attribute under <key> by any method we can. """
+        try:
+            return vars(self._obj)[key]
+        except KeyError:
+            return getattr(self._obj, key)
+
+    def __delitem__(self, key:str) -> None:
+        """ Delete the attribute under <key> if it exists. """
+        if hasattr(self._obj, key):
+            delattr(self._obj, key)
+
+    def __setitem__(self, key:str, value) -> None:
+        """ __dict__ may be a mappingproxy, so setattr is the best way to set attributes.
+            Deleting the attribute before setting the new value may help to override data descriptors. """
+        del self[key]
+        setattr(self._obj, key, value)
+
+
+CONDITIONS = [(UnorderedContainer,       isinstance, Mapping),
+              (MutableMappingContainer,  isinstance, MutableMapping),
+              (SetContainer,             isinstance, AbstractSet),
+              (MutableSetContainer,      isinstance, MutableSet),
+              (SequenceContainer,        isinstance, Sequence),
+              (TupleContainer,           isinstance, tuple),
+              (MutableSequenceContainer, isinstance, MutableSequence),
+              (AttrContainer,            hasattr,    "__dict__")]

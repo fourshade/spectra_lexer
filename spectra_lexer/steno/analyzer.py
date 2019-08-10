@@ -1,9 +1,7 @@
 from collections import defaultdict, namedtuple
 from functools import partial
 from itertools import starmap
-from multiprocessing import cpu_count, Pool
 import sys
-from traceback import print_exc
 from typing import Callable, Dict, Iterable, List, Tuple
 
 from .lexer import StenoLexer
@@ -29,27 +27,26 @@ class ParallelMapper:
     processes: int
 
     def __init__(self, func:Callable, *args, processes:int=None, **kwargs):
-        """ Extra arguments are treated as partials applying to *every* call. """
+        """ If not specified, the number of processes defaults to the number of CPU cores.
+            Extra arguments are treated as partials applying to *every* call. """
         if args or kwargs:
             func = partial(func, *args, **kwargs)
         self.func = func
-        # If not specified, the number of processes defaults to the number of CPU cores.
-        self.processes = processes or cpu_count() or 1
+        self.processes = processes
 
     def starmap(self, iterable:Iterable[tuple]) -> list:
         """ Equivalent of itertools.starmap using multiprocessing. Returns a list instead of an iterator. """
-        if self.processes > 1:
-            # Make a list out of the iterable (which may be one-time use) in case we have to retry with one process.
-            iterable = list(iterable)
-            try:
-                # Use Pool.starmap() to call a function on each argument tuple in parallel.
-                with Pool(self.processes) as pool:
-                    return pool.starmap(self.func, iterable)
-            except Exception:
-                print_exc()
-                print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
-        # With only one process (or a failed process pool), use ordinary starmap.
-        return list(starmap(self.func, iterable))
+        # Make a list out of the iterable (which may be one-time use) in case we have to retry with one process.
+        iterable = list(iterable)
+        try:
+            # multiprocessing is fairly large, so don't import until we have to.
+            from multiprocessing import Pool
+            with Pool(processes=self.processes) as pool:
+                return pool.starmap(self.func, iterable)
+        except Exception:
+            # If the process pool failed, use ordinary starmap.
+            print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
+            return list(starmap(self.func, iterable))
 
 
 class IndexFilters(namedtuple("IndexFilters", "filter_in filter_out")):

@@ -8,7 +8,7 @@ import os
 import sys
 from typing import Iterator, List
 
-from pkg_resources import resource_string, resource_listdir
+from .pkg import resource_string, resource_listdir
 
 
 class AbstractPath:
