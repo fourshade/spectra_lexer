@@ -1,61 +1,74 @@
-from typing import List
+""" Module for console and batch operations. Not very popular... """
 
-from spectra_lexer.cmdline import CmdlineOption, CmdlineParser
-from spectra_lexer.steno import StenoEngine
-from spectra_lexer.system import SystemLayer
+from time import time
+from typing import Callable, Type, TypeVar
+
+from .app import StenoApplication, StenoOptions
+from .cmdline import Option, OptionNamespace
+from .console import SystemConsole
 
 
-class StenoApplication:
-    """ Base application class with all required system and steno components. The starting point for program logic. """
+class Spectra:
+    """ Defines a common lifecycle for each application entry point. """
 
-    log_file: str = CmdlineOption("log-file", default="~/status.log",
-                                  desc="Text file to log status and exceptions.")
-    resource_path: str = CmdlineOption("resource-dir", default=":/assets/",
-                                       desc="Directory with static steno resources")
-    translation_files: List[str] = CmdlineOption("translations-files", default=["~PLOVER/plover.cfg"],
-                                                 desc="JSON translation files to load on start.")
-    index_file: str = CmdlineOption("index-file", default="~/index.json",
-                                    desc="JSON index file to load on start and/or write to.")
-    config_file: str = CmdlineOption("config-file", default="~/config.cfg",
-                                     desc="CFG file with config settings to load at start and/or write to.")
+    NS_TP = TypeVar("NS_TP", bound=OptionNamespace, covariant=True)
 
-    system: SystemLayer  # Logs system events to standard streams and/or files.
-    steno: StenoEngine   # Primary runtime engine for steno operations such as parsing and graphics.
+    main: Callable[[NS_TP], int]
+    opt_cls: Type[NS_TP]
 
-    def __init__(self, *argv:str):
-        """ Load command line options, assemble components, and run the application. """
-        self.parse_cmdline(*argv)
-        self.system = SystemLayer()
-        self["app"] = self
-        self["system"] = self.system
-        self.steno = self["steno"] = StenoEngine(self.system)
-        self.load()
+    def __init__(self, main:Callable[[NS_TP], int], opt_cls:Type[NS_TP]) -> None:
+        self.main = main
+        self.opt_cls = opt_cls
 
-    def parse_cmdline(self, *argv):
-        """ Command-line arguments *must* be passed by the caller; sys.argv is not safe here. """
-        if argv:
-            parser = CmdlineParser()
-            parser.add_host(self)
-            parser.parse(*argv)
+    def __call__(self, *argv:str) -> int:
+        """ Load command line options and call the main entry point function. """
+        func = self.main
+        opts = self.opt_cls("Spectra", func.__doc__)
+        opts.parse(argv)
+        return func(opts)
 
-    def load(self) -> None:
-        """ Load every available asset into its resource attribute before startup. """
-        self.system.log_to(self.log_file)
-        self.status("Loading...")
-        self.steno.RSResourcesLoad(self.resource_path)
-        self.steno.RSTranslationsLoad(*self.translation_files)
-        self.steno.RSIndexLoad(self.index_file)
-        self.steno.RSConfigLoad(self.config_file)
-        self.status("Loading complete.")
 
-    def repl(self) -> None:
-        """ Run an interactive read-eval-print loop indefinitely. """
-        self.system.repl()
+def console_main(opts:StenoOptions) -> int:
+    """ Run an interactive read-eval-print loop in a new console with the app vars as the namespace. """
+    app = StenoApplication(opts)
+    SystemConsole(vars(app)).repl()
+    return 0
 
-    def status(self, status:str) -> None:
-        """ Log and print status messages (non-error) to stdout by default. """
-        self.system.log(status)
 
-    def __setitem__(self, key:str, value:object) -> None:
-        """ Add an app component to be tracked by the system. """
-        self.system[key] = value
+class BatchOptions(StenoOptions):
+    """ As part of the built-in resource block, rules have no default save location, so add one. """
+    rules_out: str = Option("--rules-out", "./rules.json", "Output file name for lexer-generated rules.")
+
+
+def timed(func:Callable) -> Callable:
+    """ Decorator to make an entry point for a new batch operation. """
+    def call(*args) -> int:
+        """ Run a batch operation and time its execution. """
+        start_time = time()
+        print("Operation started...")
+        code = func(*args)
+        total_time = time() - start_time
+        print(f"Operation done in {total_time:.1f} seconds.")
+        return code
+    return call
+
+
+@timed
+def analyze_main(opts:BatchOptions) -> int:
+    """ Run the lexer on every item in a JSON steno translations dictionary. """
+    app = StenoApplication(opts)
+    app.make_rules(opts.rules_out)
+    return 0
+
+
+@timed
+def index_main(*args) -> int:
+    """ Analyze translations files and create an index from them. """
+    app = StenoApplication(*args)
+    app.make_index()
+    return 0
+
+
+console = Spectra(console_main, StenoOptions)
+analyze = Spectra(analyze_main, BatchOptions)
+index = Spectra(index_main, BatchOptions)

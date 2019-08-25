@@ -36,7 +36,7 @@ class PrimitiveRow(Primitive):
     text: str    # String to draw.
     tag: object  # Identifier for the node.
 
-    def __init__(self, s:str, tag:object):
+    def __init__(self, s:str, tag:object) -> None:
         """ The row starts at the origin and extends to the right. """
         self.text = s
         self.tag = tag
@@ -53,7 +53,7 @@ class PrimitiveColumn(Primitive):
     text: str    # String to draw.
     tag: object  # Identifier for the node.
 
-    def __init__(self, s:str, tag:object):
+    def __init__(self, s:str, tag:object) -> None:
         """ The column starts at the origin and extends down. """
         self.text = s
         self.tag = tag
@@ -71,7 +71,7 @@ class PrimitiveRowReplace(Primitive):
     tag: object  # Identifier for the node.
     width = 0    # Row substitution operations should advance one row, but no columns.
 
-    def __init__(self, s:str, tag:object):
+    def __init__(self, s:str, tag:object) -> None:
         self.text = s
         self.tag = tag
 

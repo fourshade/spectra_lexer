@@ -13,10 +13,10 @@
   <property name="windowTitle">
    <string>Spectra Lexer</string>
   </property>
-  <widget class="QWidget" name="w_main">
+  <widget class="QWidget" name="w_central">
    <layout class="QGridLayout" name="layout_main" rowminimumheight="22,210,180" columnminimumwidth="150,275">
     <item row="0" column="0">
-     <widget class="QLineEdit" name="w_search_input">
+     <widget class="QLineEdit" name="w_input">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -42,12 +42,12 @@
        <bool>false</bool>
       </property>
       <property name="placeholderText">
-       <string>No dictionary.</string>
+       <string>Search...</string>
       </property>
      </widget>
     </item>
     <item row="0" column="1">
-     <widget class="TextTitleWidget" name="w_display_title">
+     <widget class="TextTitleWidget" name="w_title">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
         <horstretch>0</horstretch>
@@ -78,7 +78,7 @@
      </widget>
     </item>
     <item row="1" column="0">
-     <widget class="SearchListWidget" name="w_search_matches">
+     <widget class="SearchListWidget" name="w_matches">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -112,7 +112,7 @@
      </widget>
     </item>
     <item row="1" column="1">
-     <widget class="TextGraphWidget" name="w_display_text">
+     <widget class="TextGraphWidget" name="w_text">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
@@ -149,7 +149,7 @@
      </widget>
     </item>
     <item row="2" column="0">
-     <widget class="QFrame" name="w_search_bottom">
+     <widget class="QFrame" name="frame_mappings">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
         <horstretch>0</horstretch>
@@ -168,7 +168,7 @@
         <height>180</height>
        </size>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout">
+      <layout class="QVBoxLayout" name="layout_mappings">
        <property name="leftMargin">
         <number>0</number>
        </property>
@@ -182,7 +182,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="SearchListWidget" name="w_search_mappings">
+        <widget class="SearchListWidget" name="w_mappings">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -210,7 +210,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="w_search_type">
+        <widget class="QCheckBox" name="w_strokes">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -223,7 +223,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="w_search_regex">
+        <widget class="QCheckBox" name="w_regex">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -239,7 +239,7 @@
      </widget>
     </item>
     <item row="2" column="1">
-     <widget class="QFrame" name="w_display_info">
+     <widget class="QFrame" name="frame_info">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
         <horstretch>0</horstretch>
@@ -278,7 +278,7 @@
         <number>6</number>
        </property>
        <item>
-        <widget class="QLabel" name="w_display_desc">
+        <widget class="QLabel" name="w_desc">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
            <horstretch>0</horstretch>
@@ -312,7 +312,7 @@
         </widget>
        </item>
        <item>
-        <widget class="StenoBoardWidget" name="w_display_board" native="true">
+        <widget class="StenoBoardWidget" name="w_board" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -332,8 +332,23 @@
     </item>
    </layout>
   </widget>
+  <widget class="MainMenu" name="w_menu">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>580</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>MainMenu</class>
+   <extends>QMenuBar</extends>
+   <header>.main_menu</header>
+  </customwidget>
   <customwidget>
    <class>SearchListWidget</class>
    <extends>QListView</extends>

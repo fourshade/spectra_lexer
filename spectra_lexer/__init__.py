@@ -38,4 +38,4 @@
     App - Glues all of these components together, handling communication and passing information between them.
     Facilitating communication is *all* it should do; all other functionality should be implemented in components. """
 
-from .base import StenoApplication
+from .base import analyze, console, index, Spectra

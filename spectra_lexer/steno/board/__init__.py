@@ -1,1 +1,1 @@
-from .base import BoardElementParser, BoardGenerator
+from .base import BoardGenerator

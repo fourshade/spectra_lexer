@@ -1,3 +1,4 @@
+from typing import Iterable, Iterator, List
 from xml.parsers import expat
 
 
@@ -9,7 +10,7 @@ class XMLElement(dict):
     tail: str = ""          # Includes all text after the end tag but before the next element's start tag.
     _children: list         # List of all child nodes in order as read from the source document.
 
-    def __init__(self, *elems, **attrib):
+    def __init__(self, *elems, **attrib) -> None:
         """ Positional args are children, keyword args are attributes. """
         super().__init__(attrib)
         self._children = [*elems]
@@ -18,13 +19,13 @@ class XMLElement(dict):
     def append(self, child) -> None:
         self._children.append(child)
 
-    def extend(self, children) -> None:
+    def extend(self, children:Iterable) -> None:
         self._children += children
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return iter(self._children)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._children)
 
     @classmethod
@@ -62,7 +63,7 @@ class XMLElement(dict):
         self.serialize(s_list)
         return "".join(s_list).encode(encoding)
 
-    def serialize(self, s_list:list, _iter=dict.__iter__) -> None:
+    def serialize(self, s_list:List[str], _iter=dict.__iter__) -> None:
         """ Recursively write strings representing this object to a list (which will be joined at the end).
             Use += when possible to avoid method call overhead. This is even faster than using f-strings. """
         tag = self.tag

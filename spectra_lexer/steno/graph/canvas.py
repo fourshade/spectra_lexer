@@ -11,17 +11,6 @@ class Canvas(List[list]):
         list.__init__ should not be overridden; this will facilitate fast list copying. No bounds checking is done.
         Operations on the document as a whole may span multiple rows, and should be optimized for map(). """
 
-    # def memcpy(self, grid:List[list], row:int=0, col:int=0, _zip=zip, _len=len) -> None:
-    #     """ Copy the contents of one grid directly to this one at the given offset. """
-    #     col *= 2
-    #     for r, line in _zip(self[row:], grid):
-    #         r[col:col+_len(line)] = line
-    #
-    # def write_grid(self, grid:List[str], tag:object=None, row:int=0, col:int=0) -> None:
-    #     """ Copy a grid of strings with a single tag to this one at the given offset. """
-    #     for r, s in enumerate(grid, row):
-    #         self.write_row(s, tag, r, col)
-
     def write_row(self, seq:Sequence[str], tag:object=None, row:int=0, col:int=0, _len=len) -> None:
         """ Writes a string <seq>uence with a single <tag> across a row with the top-left starting at <row, col>.
             This is the most performance-critical method in graphing, called hundreds of times per frame.

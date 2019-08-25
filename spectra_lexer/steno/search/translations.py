@@ -19,7 +19,7 @@ class TranslationsDictionary(StripCaseSearchDict):
 
     _reverse: _ReverseSearchDict  # Reverse translations dict (English words -> strokes).
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, _strip=self.STRIP_CHARS, **kwargs)
         self._reverse = _ReverseSearchDict(_match=self, _strip=self.STRIP_CHARS)
 

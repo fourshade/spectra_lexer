@@ -73,7 +73,7 @@ class BoardElementProcessor:
 
     _proc_params: dict
 
-    def __init__(self, defs:dict):
+    def __init__(self, defs:dict) -> None:
         self._proc_params = {k: defs.get(k) or {} for k in self.PROC_TABLE}
 
     def __call__(self, elem:dict) -> ProcessedBoardElement:
@@ -174,7 +174,7 @@ class DocumentGroups:
     _defs: SVGDefs
     _groups: list
 
-    def __init__(self, base:SVGElement, elems:Iterable[BoardElement]):
+    def __init__(self, base:SVGElement, elems:Iterable[BoardElement]) -> None:
         """ Make a <use> element out of the base and add all given SVG elements to groups. """
         self._defs = SVGDefs()
         base_use = self._defs.make_usable(base)
@@ -212,7 +212,7 @@ class BoardFactory:
     _base: BoardElement
     _bounds: Iterable[int]  # x/y offset and width/height for the viewbox, per stroke diagram.
 
-    def __init__(self, base_elems:Iterable[BoardElement], bounds:Iterable[int]):
+    def __init__(self, base_elems:Iterable[BoardElement], bounds:Iterable[int]) -> None:
         """ Add all base elements to a new group (if more than one). """
         first, *others = [*base_elems] or [BoardElement()]
         self._base = BoardElement(first, *others) if others else first

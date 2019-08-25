@@ -8,7 +8,7 @@ class GraphLayout(Composite):
 
     parent_width: int  # Total width of the parent, past which endpieces must be added.
 
-    def __init__(self, node:GraphNode):
+    def __init__(self, node:GraphNode) -> None:
         """ Arrange all children according to the layout and connect them. Some children may not be included. """
         super().__init__()
         self.parent_width = node.bottom_length
@@ -22,7 +22,7 @@ class GraphLayout(Composite):
         """ Add a row index with every child, in order. To filter out a child, do not use that iteration. """
         raise NotImplementedError
 
-    def _first_row(self, node:GraphNode):
+    def _first_row(self, node:GraphNode) -> int:
         """ Start nodes three rows down by default.
             Only start two rows down if the node attaches at the bottom with a single connector. """
         return 3 - (node.bottom_length == 1)

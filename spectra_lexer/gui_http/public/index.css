@@ -19,15 +19,15 @@ div, select {width: inherit;
              height: inherit;}
 svg   {max-height: 250px;}
 
-#w_search_type, #w_search_regex  {margin: 8px 10px 8px 10px;}
-#w_display_title {width: 100%;
-                  background: #F7F7F7;
-                  border-style: none;}
-#w_display_text  {height: 210px;
-                  overflow: auto;}
-#w_display_link  {position: absolute;
-                  bottom: 4px;
-                  right: 4px;}
+#w_strokes, #w_regex  {margin: 8px 10px 8px 10px;}
+#w_title {width: 100%;
+          background: #F7F7F7;
+          border-style: none;}
+#w_text  {height: 210px;
+          overflow: auto;}
+#w_link  {position: absolute;
+          bottom: 4px;
+          right: 4px;}
 
 ul {height: 210px;
     padding: 0px;

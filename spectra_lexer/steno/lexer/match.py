@@ -1,7 +1,8 @@
 from collections import namedtuple
 from typing import Dict, List, Sequence
 
-from ..resource import KeyLayout, RuleFlags, StenoRule
+from ..keys import KeyLayout
+from ..rules import RuleFlags, StenoRule
 
 
 class LexerMatch(namedtuple("LexerMatch", "rule skeys letters skeys_len letters_len")):
@@ -39,7 +40,7 @@ class SpecialRuleFinder:
     _rule_sep: LexerMatch      # Separator rule constant.
     _rule_unknown: LexerMatch  # Unknown special rule constant.
 
-    def __init__(self, d:Dict[str, LexerMatch], sep:str, star:str):
+    def __init__(self, d:Dict[str, LexerMatch], sep:str, star:str) -> None:
         self._d = d
         self._key_sep = sep
         self._key_star = star
@@ -81,7 +82,7 @@ class PrefixTree:
 
     _root: dict  # Root node of the tree. Matches the empty sequence, which is a prefix of everything.
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._root = {"values": []}
 
     def __setitem__(self, k:Sequence, v:object) -> None:
@@ -123,7 +124,7 @@ class PrefixFinder:
     _key_sep: str        # Steno key used as stroke separator.
     _unordered_key: str  # Key to put into unordered set.
 
-    def __init__(self, items:Sequence[LexerMatch], sep:str, unordered_key:str):
+    def __init__(self, items:Sequence[LexerMatch], sep:str, unordered_key:str) -> None:
         """ Make the tree and the filter that returns which keys will be and won't be tested in prefixes.
             Separate the given sets of keys into ordered keys (which contain any prefix) and unordered keys.
             Index the rules, letters, and unordered keys under the ordered keys and compile the tree. """
@@ -160,7 +161,7 @@ class LexerRuleMatcher:
     _word_dict: Dict[str, LexerMatch]    # Rules that match by exact word only (whitespace-separated).
     _prefix_finder: PrefixFinder         # Rules that match by starting with certain keys in order.
 
-    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> None:
         """ Construct constants and a specially-structured series of dictionaries from a steno system. """
         self._key_sep = sep = layout.SEP
         star = layout.SPECIAL

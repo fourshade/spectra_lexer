@@ -10,23 +10,23 @@
 </head><body>
 <table class="main">
     <tr>
-        <td class="col1"><input id="w_search_input" placeholder="Search..." title="Search the dictionary for a text pattern."></td>
-        <td class="col2"><input class="mono" id="w_display_title" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'></td>
+        <td class="col1"><input id="w_input" placeholder="Search..." title="Search the dictionary for a text pattern."></td>
+        <td class="col2"><input class="mono" id="w_title" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'></td>
     </tr>
     <tr>
-        <td class="col1"><ul id="w_search_matches"></ul></td>
-        <td class="col2"><div id="w_display_text"><pre>Search for any word to see its breakdown.</pre></div></td>
+        <td class="col1"><ul id="w_matches"></ul></td>
+        <td class="col2"><div id="w_text"><pre>Search for any word to see its breakdown.</pre></div></td>
     </tr>
     <tr>
         <td class="col1">
-            <ul id="w_search_mappings" style="height:100px;"></ul>
-            <div><input type="checkbox" id="w_search_type"><span>Stroke Search</span></div>
-            <div><input type="checkbox" id="w_search_regex"><span>Regex Search</span></div>
+            <ul id="w_mappings" style="height:100px;"></ul>
+            <div><input type="checkbox" id="w_strokes"><span>Stroke Search</span></div>
+            <div><input type="checkbox" id="w_regex"><span>Regex Search</span></div>
         </td>
         <td class="col2" style="text-align:center;">
-            <div><pre id="w_display_desc">No translation selected.</pre></div>
-            <div id="w_display_board"><svg></svg></div>
-            <a id="w_display_link" href="#">More Examples</a>
+            <div><pre id="w_desc">No translation selected.</pre></div>
+            <div id="w_board"><svg></svg></div>
+            <a id="w_link" href="#">More Examples</a>
         </td>
     </tr>
 </table>

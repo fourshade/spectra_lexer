@@ -7,10 +7,21 @@ import re
 import pytest
 
 from spectra_lexer.steno.search.search import ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict
-from test import class_tester
+
+
+def class_hierarchy_tester(*test_classes:type):
+    """ Using a series of relevant test classes, create a decorator which configures test functions to run
+        not only on the designated classes, but also on any derived classes that appear in the test set. """
+    def using_bases(*bases:type):
+        """ Decorator to define the base classes for a class test, so that it may also be run on subclasses.
+            Make sure the test is still run on the defined bases at minimum even if they aren't in the list. """
+        targets = {c for cls in bases for c in test_classes if issubclass(c, cls)}
+        return pytest.mark.parametrize("cls", targets.union(bases))
+    return using_bases
+
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_tester(ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict)
+class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict)
 
 
 @class_test(SimilarKeyDict)

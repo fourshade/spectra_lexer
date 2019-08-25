@@ -59,7 +59,7 @@ class SVGDocument(SVGElement):
 
     tag = "svg"
 
-    def __init__(self, *elems, **attrib):
+    def __init__(self, *elems, **attrib) -> None:
         attrib.update(version="1.1", xmlns="http://www.w3.org/2000/svg")
         super().__init__(*elems, **attrib)
 

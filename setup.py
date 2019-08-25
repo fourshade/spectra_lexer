@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" Main build script for lexer program, originally copied from Plover and stripped down. Work in progress. """
+""" Build script for main program; originally copied from Plover and stripped down. """
 
 from glob import glob
 import os
@@ -8,109 +8,79 @@ import shutil
 import subprocess
 import sys
 
-import pkg_resources
-import setuptools.command.develop
-import setuptools.command.install
-
-CMDCLASS_DICT = {}
+from setuptools import Command as stCommand, setup
+from setuptools.command import develop, install, sdist
 
 
-class _EntrancyCounter:
-    """ Simple context manager to count stack depth and print corresponding indentations. """
-    depth = 0
-    def __enter__(self): self.depth += 1
-    def __exit__(self, *args): self.depth -= 1
-    def indent_for_depth(self, count): print(" " * (self.depth * count), end='')
-
-
-class Command:
+class BaseCommand(stCommand):
     """ Abstract command class that runs dependencies before the command itself. """
     requires = ""
-
-    def __init_subclass__(cls):
-        """ Each class is recorded in a dict to give to setuptools.setup(). """
-        CMDCLASS_DICT[cls.__name__] = cls
-
-    def finalize_options(self):
-        """ Run all commands in order, including dependencies. Make sure not to redo any. """
-        super().finalize_options()
-        getvar = vars(self.distribution).setdefault
-        stack = getvar("stack", _EntrancyCounter())
-        tracker = getvar("tracker", set())
-        with stack:
-            for cmd in self.requires.split():
-                if cmd not in tracker:
-                    stack.indent_for_depth(4)
-                    self.run_command(cmd)
-                    tracker.add(cmd)
+    def __init__(self, *args):
+        """ Run all dependency commands in order before touching the main one. """
+        super().__init__(*args)
+        for cmd in self.requires.split():
+            self.run_command(cmd)
 
 
-class CustomCommand(setuptools.Command):
-    """ setuptools.Command with default fields and methods defined. """
+class Command(BaseCommand):
+    """ BaseCommand with default fields and methods defined. """
     user_options = []
-    def initialize_options(self): self.args = []
-    def finalize_options(self): pass
+    def initialize_options(self):
+        self.args = []
+    def finalize_options(self):
+        pass
 
 
-class build_ui(Command, CustomCommand):
-    description = "Build new/modified UI files."
-    requires = "clean"
+class CommandNamespace:
+    """ Contains all command classes for use in setuptools.setup().
+        Any command here may be run by name, e.g. > python3 setup.py clean. """
 
-    def run(self):
-        """ Build Python code from QT UI files. """
-        for src in glob('**/*.ui', recursive=True):
-            dst = os.path.splitext(src)[0] + '_ui.py'
-            if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
-                continue
-            cmd = (sys.executable, '-m', 'PyQt5.uic.pyuic', '--from-import', src)
-            contents = subprocess.check_output(cmd).decode('utf-8')
-            with open(dst, 'w') as fp:
-                fp.write(contents)
+    class build_ui(Command):
+        description = "Build Python code from new/modified Qt UI files."
+        requires = "clean"
+        def run(self):
+            for src in glob('**/*.ui', recursive=True):
+                dst = os.path.splitext(src)[0] + '_ui.py'
+                if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+                    continue
+                cmd = (sys.executable, '-m', 'PyQt5.uic.pyuic', '--from-import', src)
+                with open(dst, 'w') as fp:
+                    subprocess.run(cmd, stdout=fp, text=True)
 
+    class clean(Command):
+        description = "Remove all build and test-generated files."
+        def run(self):
+            patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py')
+            matches = [m for p in patterns for m in glob(p, recursive=True)]
+            for f in filter(os.path.exists, matches):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
 
-class clean(Command, CustomCommand):
-    description = "Remove all build and test-generated files."
-    patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py')
+    class develop(BaseCommand, develop.develop):
+        requires = "build_ui"
 
-    def run(self):
-        matches = [m for p in self.patterns for m in glob(p, recursive=True)]
-        for f in filter(os.path.exists, matches):
-            if os.path.isdir(f):
-                shutil.rmtree(f)
-            else:
-                os.remove(f)
+    class install(BaseCommand, install.install):
+        requires = "build_ui"
 
+    class run(Command):
+        description = "Build UI, then run from source."
+        requires = "build_ui"
+        command_consumes_arguments = True
+        def run(self):
+            cmd = (sys.executable, '-m', 'spectra_lexer', *self.args)
+            subprocess.run(cmd, check=True)
 
-class develop(Command, setuptools.command.develop.develop):
-    requires = "build_ui"
+    class sdist(BaseCommand, sdist.sdist):
+        requires = "build_ui"
 
-
-class install(Command, setuptools.command.install.install):
-    requires = "build_ui"
-
-
-class run(Command, CustomCommand):
-    description = "Build UI, then run from source."
-    command_consumes_arguments = True
-    requires = "build_ui"
-
-    def run(self):
-        cmd = (sys.executable, '-m', 'spectra_lexer', *self.args)
-        subprocess.check_call(cmd)
-
-
-class sdist(Command, setuptools.command.sdist.sdist):
-    requires = "build_ui"
-
-
-class test(Command, CustomCommand):
-    description = "Build UI, then run all unit tests."
-    requires = "build_ui"
-
-    def run(self):
-        pkg_resources.working_set.__init__()
-        pkg_resources.load_entry_point('pytest', 'console_scripts', 'py.test')()
+    class test(Command):
+        description = "Build UI, then run all unit tests."
+        requires = "build_ui"
+        def run(self):
+            import pytest
+            pytest.main()
 
 
-# Any command above may be run by name, e.g. > python3 setup.py clean
-setuptools.setup(cmdclass=CMDCLASS_DICT)
+setup(cmdclass=dict(vars(CommandNamespace)))

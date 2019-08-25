@@ -1,26 +1,26 @@
 """ Module for generating steno board diagram elements and descriptions. """
 
 from collections import defaultdict
-from functools import lru_cache
-from typing import Callable, Dict
+from typing import Dict, Tuple
 
 from .elements import BoardElementProcessor, BoardFactory
 from .matcher import KeyElementFinder, RuleElementFinder
 from .xml import XMLElement
-from ..resource import KeyLayout, StenoRule
+from ..keys import KeyLayout
+from ..rules import StenoRule
 
 
 class BoardElementParser:
     """ Parser and catalog of SVG board elements by tag name. """
 
-    _process: Callable          # Processes raw XML element nodes into full SVG board elements.
-    _elems_by_tag: defaultdict  # Contains only elements with IDs, grouped into subdicts by tag.
+    _process: BoardElementProcessor  # Processes raw XML element nodes into full SVG board elements.
+    _elems_by_tag: defaultdict       # Contains only elements with IDs, grouped into subdicts by tag.
 
-    def __init__(self, xml_data:bytes, processor:Callable):
+    def __init__(self,  board_defs:dict, xml_data:bytes) -> None:
         """ Parse the board XML into individual steno key/rule elements. """
-        root = XMLElement.decode(xml_data)
-        self._process = processor
+        self._process = BoardElementProcessor(board_defs)
         self._elems_by_tag = defaultdict(dict)
+        root = XMLElement.decode(xml_data)
         self.add_recursive(root)
 
     def add_recursive(self, elem:XMLElement) -> None:
@@ -34,13 +34,17 @@ class BoardElementParser:
                 child.update(elem, **child)
                 self.add_recursive(child)
 
-    def key_elems(self) -> list:
-        return [self._elems_by_tag[k] for k in ("key", "qkey")]
+    def key_elems(self) -> Tuple[dict, dict]:
+        """ Return the element dicts corresponding to known and unknown keys, respectively. """
+        d = self._elems_by_tag
+        return d["key"], d["qkey"]
 
     def rule_elems(self) -> dict:
+        """ Return the element dict corresponding to known rule identifiers. """
         return self._elems_by_tag["rule"]
 
     def base_elems(self) -> list:
+        """ Return the list of elements that make up the base present in every stroke. """
         return list(self._elems_by_tag["base"].values())
 
 
@@ -53,22 +57,19 @@ class BoardGenerator:
     _rule_finder: RuleElementFinder
     _build_document: BoardFactory
 
-    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule], board_defs:dict, board_xml:bytes):
-        processor = BoardElementProcessor(board_defs)
-        parser = BoardElementParser(board_xml, processor)
-        kfinders = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]
-        self._key_finder, _ = kfinders
-        self._rule_finder = RuleElementFinder(parser.rule_elems(), rules, *kfinders)
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule], board_defs:dict, board_xml:bytes) -> None:
+        parser = BoardElementParser(board_defs, board_xml)
+        kfinder, ukfinder = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]
+        self._key_finder = kfinder
+        self._rule_finder = RuleElementFinder(parser.rule_elems(), rules, kfinder, ukfinder)
         self._build_document = BoardFactory(parser.base_elems(), board_defs["bounds"])
 
-    @lru_cache(maxsize=256)
     def from_keys(self, keys:str, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:
-        """ Generate a board diagram from keys. This isn't cheap, so the most recent ones are cached. """
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno keys. """
         elems = self._key_finder(keys)
         return self._build_document(elems, aspect_ratio)
 
-    @lru_cache(maxsize=256)
     def from_rule(self, rule:StenoRule, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:
-        """ Generate a board diagram from a rule. This isn't cheap, so the most recent ones are cached. """
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a steno rule. """
         elems = self._rule_finder(rule)
         return self._build_document(elems, aspect_ratio)

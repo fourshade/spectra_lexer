@@ -2,12 +2,8 @@ from functools import reduce
 from operator import attrgetter
 from typing import Callable, Iterable, List, Tuple
 
-from ..resource import RuleFlags, RuleMapItem, StenoRule
+from ..rules import GENERATED_FLAG_SET, RuleFlags, RuleMapItem, StenoRule
 
-# Flag constants for rule generation.
-_RARE_FLAG = RuleFlags.RARE
-_UNMATCHED_FLAGS = RuleFlags({RuleFlags.UNMATCHED})
-_GENERATED_FLAGS = RuleFlags({RuleFlags.GENERATED})
 # Full generic type for a single lexer result.
 RESULT_TYPE = Tuple[List[RuleMapItem], str, str, str]
 
@@ -18,7 +14,7 @@ class LexerRuleGenerator:
 
     _convert_to_rtfcre: Callable[[str], str]  # Conversion function from s-keys to RTFCRE.
 
-    def __init__(self, key_converter:Callable[[str],str]):
+    def __init__(self, key_converter:Callable[[str],str]) -> None:
         self._convert_to_rtfcre = key_converter
 
     def __call__(self, results:List[RESULT_TYPE], *defaults:str) -> StenoRule:
@@ -27,24 +23,21 @@ class LexerRuleGenerator:
             # If nothing matched at all, return a blank result with the default keys and word.
             keys, letters = defaults
             desc = "No matches found."
-            rulemap = [_unmatched_item(keys, letters)]
+            rule = StenoRule.unmatched(keys)
+            rulemap = [RuleMapItem(rule, 0, len(letters))]
         else:
             rulemap, unmatched, keys, letters = reduce(_keep_better, reversed(results))
             if unmatched:
                 # The output is nowhere near reliable if some keys couldn't be matched.
                 desc = "Incomplete match. Not reliable."
+                rule = StenoRule.unmatched(self._convert_to_rtfcre(unmatched))
                 last_match_end = rulemap[-1].start + rulemap[-1].length
-                rulemap.append(_unmatched_item(self._convert_to_rtfcre(unmatched), letters, last_match_end))
+                unmatched_span = len(letters) - last_match_end
+                rulemap.append(RuleMapItem(rule, last_match_end, unmatched_span))
             else:
                 desc = "Found complete match."
         # Freeze the rulemap and make a new rule marked as lexer-generated.
-        return StenoRule(keys, letters, _GENERATED_FLAGS, desc, (*rulemap,))
-
-
-def _unmatched_item(keys:str, letters:str, last_match_end:int=0) -> RuleMapItem:
-    """ Make a special rulemap item with unmatched keys to cover everything after the last match. """
-    rule = StenoRule(keys, "", _UNMATCHED_FLAGS, "unmatched keys", ())
-    return RuleMapItem(rule, last_match_end, len(letters) - last_match_end)
+        return StenoRule(keys, letters, GENERATED_FLAG_SET, desc, (*rulemap,))
 
 
 def _keep_better(self:RESULT_TYPE, other:RESULT_TYPE) -> RESULT_TYPE:
@@ -66,6 +59,6 @@ def _letters_matched(rulemap:Iterable[RuleMapItem], _get_letters=attrgetter("rul
     return sum(map(len, map(_get_letters, rulemap)))
 
 
-def _rare_count(rulemap:Iterable[RuleMapItem]) -> int:
+def _rare_count(rulemap:Iterable[RuleMapItem], _flag=RuleFlags.RARE) -> int:
     """ Get the number of rare rules in the map. """
-    return sum([_RARE_FLAG in i.rule.flags for i in rulemap])
+    return sum([_flag in i.rule.flags for i in rulemap])

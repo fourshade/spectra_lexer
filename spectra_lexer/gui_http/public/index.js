@@ -8,6 +8,7 @@ for (let p of queryParams){
         console.error(e);
     }
 }
+const titleDelim = " -> ";
 
 $(document).ready(function(){
     class ListHandler {
@@ -30,13 +31,12 @@ $(document).ready(function(){
         selectText(value){
             for (let elem of this.root.children){
                 if(elem.textContent == value){
-                    this.selectElem(elem);
+                    return this.selectElem(elem);
                 }
             }
-            return true;
         }
         event(evt){
-            var elem = evt.target
+            var elem = evt.target;
             if(this.selectElem(elem)){
                 state[this.statevar] = elem.textContent;
                 processAction(this.action);
@@ -55,46 +55,49 @@ $(document).ready(function(){
             }
         }
     }
-    const matchSelector = new ListHandler("w_search_matches",  "match_selected", "Lookup");
-    const mappingSelector = new ListHandler("w_search_mappings",  "mapping_selected", "Select");
+    const matchSelector = new ListHandler("w_matches",  "match_selected", "Lookup");
+    const mappingSelector = new ListHandler("w_mappings",  "mapping_selected", "Select");
 
-    const searchInput = document.getElementById("w_search_input");
-    const displayTitle = document.getElementById("w_display_title");
+    const searchInput = document.getElementById("w_input");
+    const displayTitle = document.getElementById("w_title");
     searchInput.addEventListener("input", function(){
         state.input_text = this.value;
         processAction("Search");
     });
     displayTitle.addEventListener("input", function(){
-        state.translation = this.value;
-        processAction("Query");
+        params = this.value.split(titleDelim)
+        if(params.length == 2){
+            state.translation = params.map(s => s.trim())
+            processAction("Query");
+        }
     });
 
-    const searchType = document.getElementById("w_search_type");
-    const searchRegex = document.getElementById("w_search_regex");
-    searchType.addEventListener("change", function(){
+    const searchModeStrokes = document.getElementById("w_strokes");
+    const searchModeRegex = document.getElementById("w_regex");
+    searchModeStrokes.addEventListener("change", function(){
         state.mode_strokes = this.checked;
         processAction("Search");
     });
-    searchRegex.addEventListener("change", function(){
+    searchModeRegex.addEventListener("change", function(){
         state.mode_regex = this.checked;
         processAction("Search");
     });
 
-    const displayLink = document.getElementById("w_display_link");
-    const displayDesc = document.getElementById("w_display_desc");
+    const displayLink = document.getElementById("w_link");
+    const displayDesc = document.getElementById("w_desc");
     displayLink.addEventListener("click", function(){
         processAction("SearchExamples");
         return false;
     });
 
-    const displayBoard = document.getElementById("w_display_board");
+    const displayBoard = document.getElementById("w_board");
     function onBoardResize(){
         state.board_aspect_ratio = displayBoard.clientWidth / 250;
     }
     $(window).resize(onBoardResize);
 
-    const displayText = document.getElementById("w_display_text");
-    $("#w_display_text").on("mouseenter", "a.gg", function(){
+    const displayText = document.getElementById("w_text");
+    $("#w_text").on("mouseenter", "a.gg", function(){
         var ref = "#" + this.href.split("#").pop();
         if(state.graph_node_ref!=ref){
             state.graph_node_ref = ref;
@@ -109,18 +112,19 @@ $(document).ready(function(){
         processAction("GraphClick");
         return false;
     });
-
     var updateTable = {
+        // These output variables do not need to be tracked. Since they can be large, they shouldn't be.
         matches(value) {matchSelector.update(value);},
-        match_selected(value) {matchSelector.selectText(value);},
         mappings(value) {mappingSelector.update(value);},
-        mapping_selected(value) {mappingSelector.selectText(value);},
-        input_text(value) {searchInput.value = value; return true;},
-        translation(value) {displayTitle.value = value; return true;},
-        link_ref(value) {displayLink.style.display = (value ? "" : "none"); return true;},
         board_caption(value) {displayDesc.textContent = value;},
         board_xml_data(value) {displayBoard.innerHTML = value;},
         graph_text(value) {displayText.innerHTML = value;},
+        // These output variables must be stored in the state for reference.
+        match_selected(value) {matchSelector.selectText(value); return true;},
+        mapping_selected(value) {mappingSelector.selectText(value); return true;},
+        input_text(value) {searchInput.value = value; return true;},
+        translation(value) {displayTitle.value = value.join(titleDelim); return true;},
+        link_ref(value) {displayLink.style.display = (value ? "" : "none"); return true;},
     };
     function updateState(new_state){
         // Keep state variables that either return true on GUI update or don't update the GUI at all.

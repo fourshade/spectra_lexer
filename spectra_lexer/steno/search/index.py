@@ -8,12 +8,6 @@ class StenoIndex(dict):
     """ A resource-heavy index dict-of-dicts for finding translations that contain a particular steno rule.
         Index search is a two-part search. The first part goes by rule name; only exact matches will work. """
 
-    def __init__(self, *args, **kwargs):
-        """ Make sure this wasn't just loaded from an arbitrary JSON file. """
-        super().__init__(*args, **kwargs)
-        if not all(type(v) is dict for v in self.values()):
-            raise TypeError("All first-level values in a JSON index must be objects.")
-
     def search(self, index_key:str, pattern:str, **kwargs) -> List[str]:
         """ Translation search dicts are memory hogs, and users tend to look at many results under the same rule.
             Convert native dicts (from JSON) to full-featured search dicts only on demand. """

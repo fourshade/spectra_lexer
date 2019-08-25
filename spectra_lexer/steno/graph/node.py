@@ -1,9 +1,9 @@
 """ Module for higher-level text objects such as graph nodes for text operations. """
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Iterator
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
-from ..resource import RuleFlags, StenoRule
+from ..rules import RuleFlags, StenoRule
 
 
 class GraphNode:
@@ -31,7 +31,7 @@ class GraphNode:
     depth: int = 0       # Nesting depth of the node. It is 0 for the root node, 1 for its children, and so on.
     ref_str: str = "#R"  # Unique reference string. Starts with a # for HTML anchor support.
 
-    def __init__(self, text:str, start:int=0, length:int=1, parent=None):
+    def __init__(self, text:str, start:int=0, length:int=1, parent=None) -> None:
         """ A root node (default arguments) has a depth of 0 and no parent, so its attach points are arbitrary. """
         self.text = text
         self.attach_start = start
@@ -46,13 +46,14 @@ class GraphNode:
             self.ref_str = f"{parent.ref_str}_{len(c)}"
             c.append(self)
 
-    def ancestors(self):
+    def ancestors(self) -> Iterator:
         """ Traverse and yield all ancestors of this node, starting with itself. """
-        while self is not None:
-            yield self
-            self = self.parent
+        node = self
+        while node is not None:
+            yield node
+            node = node.parent
 
-    def descendants(self):
+    def descendants(self) -> Iterator:
         """ Recurse over and yield all descendants of this node depth-first, starting with itself. """
         yield self
         for child in self.children:
@@ -115,7 +116,7 @@ class LeafNode(GraphNode):
 
     bottom_start: int = 0  # Start of the bottom attach point. Is only non-zero if there is an uncovered prefix.
 
-    def __init__(self, shift:int, *args):
+    def __init__(self, shift:int, *args) -> None:
         super().__init__(*args)
         self.bottom_start = shift
         self.bottom_length -= shift
@@ -221,7 +222,7 @@ class NodeIndex:
     _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
     _anchors_by_node: Dict[str, GraphNode]      # Mapping of each generated node to its anchor ref string.
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._rules_by_node = {}
         self._nodes_by_rule = {}
         self._anchors_by_node = {}
@@ -232,13 +233,13 @@ class NodeIndex:
         self._nodes_by_rule[node] = rule
         self._anchors_by_node[node.ref_str] = node
 
-    def select_ref(self, ref:str=""):
+    def select_ref(self, ref:str="") -> tuple:
         """ Return a node and corresponding rule to a reference string. """
         node = self._anchors_by_node.get(ref)
         selection = self._nodes_by_rule.get(node)
         return node, selection
 
-    def select_rule(self, rule:StenoRule):
+    def select_rule(self, rule:StenoRule) -> tuple:
         """ Return a node corresponding to a rule, along with the rule itself if that node exists. """
         selection = None
         node = self._rules_by_node.get(rule)

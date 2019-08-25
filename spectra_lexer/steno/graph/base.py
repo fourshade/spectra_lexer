@@ -1,12 +1,12 @@
 """ Base module for text graphing. Defines top-level graph classes and structures. """
 
-from functools import lru_cache
 from typing import Optional, Tuple
 
 from .format import CompatFormatter, HTMLFormatter
 from .layout import CascadedGraphLayout, CompressedGraphLayout
 from .node import NodeFactory, NodeIndex, GraphNode
-from ..resource import KeyLayout, StenoRule
+from ..keys import KeyLayout
+from ..rules import StenoRule
 
 
 class StenoGraph:
@@ -16,7 +16,7 @@ class StenoGraph:
     index: NodeIndex
     formatter: HTMLFormatter  # Formats the output text based on which node is selected (if any).
 
-    def __init__(self, factory:NodeFactory, rule:StenoRule, compressed:bool=True, compat:bool=False):
+    def __init__(self, factory:NodeFactory, rule:StenoRule, compressed:bool=True, compat:bool=False) -> None:
         """ Make a node tree layout out of the given rule and parameters, tracking the node<->rule relationships. """
         self._factory = factory
         root = factory.make_root(rule)
@@ -64,11 +64,10 @@ class GraphGenerator:
 
     _factory: NodeFactory
 
-    def __init__(self, layout:KeyLayout):
+    def __init__(self, layout:KeyLayout) -> None:
         self._factory = NodeFactory(layout.SEP, layout.SPLIT)
 
-    @lru_cache(maxsize=256)
-    def __call__(self, rule:StenoRule, recursive:bool=True, **kwargs) -> StenoGraph:
-        """ Generate a graph object. This isn't cheap, so the most recent ones are cached. """
+    def generate(self, rule:StenoRule, recursive:bool=True, **kwargs) -> StenoGraph:
+        """ Generate a text graph object from a rule. """
         cls = RecursiveStenoGraph if recursive else StenoGraph
         return cls(self._factory, rule, **kwargs)

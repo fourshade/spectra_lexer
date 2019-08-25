@@ -2,7 +2,8 @@ from typing import Callable, Dict, Iterable, Iterator, Tuple
 
 from .generate import LexerRuleGenerator, RESULT_TYPE
 from .match import LexerRuleMatcher
-from ..resource import KeyLayout, RuleMapItem, StenoRule
+from ..keys import KeyLayout
+from ..rules import RuleMapItem, StenoRule
 
 
 class StenoLexer:
@@ -13,7 +14,7 @@ class StenoLexer:
     _generate_rule: LexerRuleGenerator  # Makes rules from lexer matches.
     _to_skeys: Callable[[str], str]     # Performs thorough conversions on RTFCRE steno strings.
 
-    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> None:
         self._match_rules = LexerRuleMatcher(layout, rules)
         self._generate_rule = LexerRuleGenerator(layout.to_rtfcre)
         self._to_skeys = layout.cleanse_from_rtfcre
@@ -23,11 +24,12 @@ class StenoLexer:
         results = [*self._process(keys, word, **kwargs)]
         return self._generate_rule(results, keys, word)
 
-    def query_best(self, items:Iterable[Tuple[str, str]], **kwargs) -> StenoRule:
-        """ Return the best rule out of all (keys, word) pairs. """
+    def best_strokes(self, items:Iterable[Tuple[str, str]], **kwargs) -> str:
+        """ Return the best (most accurate) set of strokes out of all given (keys, word) pairs.
+            If nothing matches at all, just return the first set of strokes. """
         first, *others = pairs = [*items]
         results = [r for keys, word in pairs for r in self._process(keys, word, **kwargs)]
-        return self._generate_rule(results, *first)
+        return self._generate_rule(results, *first).keys
 
     def _process(self, keys:str, word:str, match_all_keys:bool=False) -> Iterator[RESULT_TYPE]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed

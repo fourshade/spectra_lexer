@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple
 
 from .index import StenoIndex
 from .translations import TranslationsDictionary
-from ..resource import StenoRule
+from ..rules import StenoRule
 
 
 class SearchEngine:

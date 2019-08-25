@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """ Master console script and primary entry point for the Spectra program. """
 
 import sys
@@ -11,7 +13,7 @@ class EntryPoints:
     _paths: dict          # Dict of all entry point module paths by mode.
     _descriptions: list   # List of all description strings.
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._paths = {}
         self._descriptions = []
 
@@ -58,12 +60,11 @@ class EntryPoints:
 entry_points = EntryPoints()
 add = entry_points.add
 
-add("spectra_lexer.console",  "analyze",     "Run the lexer on every item in a JSON steno translations dictionary.")
-add("spectra_lexer.console",  "console",     "Run commands interactively from console.")
-add("spectra_lexer.console",  "index",       "Analyze a translations file and index each one by the rules it uses.")
+add("spectra_lexer",          "console",     "Run commands interactively from console.")
+add("spectra_lexer",          "analyze",     "Run the lexer on every item in a JSON steno translations dictionary.")
+add("spectra_lexer",          "index",       "Analyze a translations file and index each one by the rules it uses.")
 add("spectra_lexer.gui_http", "http",        "Run the application as an HTTP web server.")
 add("spectra_lexer.gui_qt",   "gui",         "Run the application as a standalone GUI (default).", is_default=True)
-add("spectra_lexer.plover",   "plover_test", "Run the GUI application in Plover plugin test mode.")
 
 
 def main(_script:str="", mode:str="", *argv:str) -> int:

@@ -134,7 +134,7 @@ class PathChain(PathGenerator):
         actual_spacing = (length - body_length) / (link_count - 1)
         return [i * actual_spacing for i in range(link_count)]
 
-    def _draw_hemilinks(self, offsets:List[complex], angle:float, direction_cw:bool=False):
+    def _draw_hemilinks(self, offsets:List[complex], angle:float, direction_cw:bool=False) -> None:
         """ Draw one half of a chain link starting at every position in <offsets>.
             The first two moves can be relative, but the last one should be absolute for accurate shape closing. """
         radii = self.LINK_RADIUS * (1 + 1j)

@@ -5,58 +5,56 @@ from PyQt5.QtWidgets import QTextBrowser
 
 class TextGraphWidget(QTextBrowser):
     """ Formatted text widget meant to display a monospaced HTML text graph of the breakdown of English text
-        by steno rules as well as plaintext interpreter output such as error messages and exceptions. """
+        by steno rules as well as plaintext output such as error messages and exceptions. """
 
-    _last_ref: str = ""
-    _mouse_enabled: bool = True  # Does moving the mouse over the text do anything?
+    sig_over_ref = pyqtSignal([str])   # Sent with a node's reference when the mouse moves over a new one.
+    sig_click_ref = pyqtSignal([str])  # Sent with a node's reference when the mouse clicks one.
 
-    def __init__(self, *args):
+    _last_ref: str = ""           # Last graph node reference the mouse was over.
+    _graph_enabled: bool = False  # Does moving the mouse over the text do anything?
+
+    def __init__(self, *args) -> None:
         super().__init__(*args)
-        self.highlighted.connect(self.hover_link)
+        self.highlighted.connect(self._hover_link)
 
-    def set_plaintext(self, text:str) -> None:
-        """ Add plaintext to the widget. If it was in interactive mode before, completely replace the text instead. """
-        if self._mouse_enabled:
-            self._mouse_enabled = False
+    def add_plaintext(self, text:str) -> None:
+        """ Add plaintext to the widget. If it currently contains a graph, disable it and reset the formatting. """
+        if self._graph_enabled:
+            self._graph_enabled = False
+            self.clear()
             self.setCurrentCharFormat(QTextCharFormat())
-        else:
-            text = f"{self.toPlainText()}\n{text}"
-        self.setPlainText(text)
+        self.append(text)
 
-    def set_interactive_text(self, text:str, *, scroll_to:str=None) -> None:
-        """ Enable the mouse and replace the current text with new HTML formatted text.
-            Optionally <scroll_to> the "top", or don't if scroll_to=None. """
-        self._mouse_enabled = True
+    def set_graph_text(self, text:str) -> None:
+        """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
+        self._graph_enabled = True
+        # Scroll position is automatically reset to the top when the text is set in this widget.
+        # The scroll values must be manually saved and restored to negate any scrolling effect.
         sx, sy = self.horizontalScrollBar(), self.verticalScrollBar()
         px, py = sx.value(), sy.value()
         self.setHtml(text)
-        # Scroll position is automatically reset to the top when the text is set in this widget.
-        if scroll_to is None:
-            # The scroll values must be manually restored to negate any scrolling effect.
-            sx.setValue(px)
-            sy.setValue(py)
+        sx.setValue(px)
+        sy.setValue(py)
 
-    def hover_link(self, url:QUrl) -> None:
-        """ Mouseovers are error-prone, so they only select new targets with actual rules. """
-        if self._mouse_enabled:
-            s = self._last_ref = url.toString()
-            if s:
-                self.graphOver.emit(s)
+    def _hover_link(self, url:QUrl) -> None:
+        """ In general, if the mouse has moved over a new node reference, we save it and send the mouseover signal.
+            An empty string is given when the mouse moves off a reference, which counts as a deselection.
+            However, mouseovers are error-prone; there are unavoidable breaks between characters in a column.
+            To avoid twitchy selection/deselection, we only send mouseover signals when the reference isn't empty. """
+        if self._graph_enabled:
+            ref = self._last_ref = url.toString()
+            if ref:
+                self.sig_over_ref.emit(ref)
 
     def leaveEvent(self, *args) -> None:
-        """ Treat a mouse leave event as a mouseover on nothing (which is usually blocked). """
+        """ When the mouse leaves the widget entirely, send a signal to reset the node reference. """
         super().leaveEvent(*args)
-        if self._mouse_enabled:
-            self.graphOver.emit("")
+        if self._graph_enabled:
+            self.sig_over_ref.emit("")
 
     def mousePressEvent(self, *args) -> None:
-        """ Mouse clicks always select their target, even if that target is nothing.
-            Don't pass the event along to parents (unless disabled); they will tend to do their own selections. """
-        if self._mouse_enabled:
-            self.graphClick.emit(self._last_ref)
-        else:
-            super().mousePressEvent(*args)
-
-    # Signals
-    graphOver = pyqtSignal([str])
-    graphClick = pyqtSignal([str])
+        """ Mouse clicks always send a signal to select the last node that received a hover event.
+            If the node reference is empty, it is effectively a deselection. """
+        super().mousePressEvent(*args)
+        if self._graph_enabled:
+            self.sig_click_ref.emit(self._last_ref)

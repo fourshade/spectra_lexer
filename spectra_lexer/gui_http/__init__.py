@@ -1,3 +1,3 @@
 """ Package for the HTTP web application. """
 
-from .app import http
+from .base import http
