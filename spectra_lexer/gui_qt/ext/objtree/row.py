@@ -150,7 +150,7 @@ class RowData(dict):
                          value_text=value_params.text)
         # Metaclasses show a special icon.
         if value_params.is_meta:
-            self["icon_choices"] = ("METATYPE", *self["icon_choices"])
+            self["icon_choices"] = ("__METATYPE__", *self["icon_choices"])
         # Exceptions are bright red in any container.
         if value_params.is_exception:
             self["color"] = (192, 0, 0)

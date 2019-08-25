@@ -44,7 +44,7 @@ class PloverEngine:
     __exit__: Callable[..., None] = dummy
 
     @classmethod
-    def test(cls, d:dict=None, split_count:int=1):
+    def test(cls, d:dict=None, *, split_count:int=1):
         if d is None:
             d = {"TEFT": "test", "TE*S": "test", "TEFGT": "testing"}
         self = cls()
@@ -62,17 +62,18 @@ class PloverEngine:
 
 class PloverCompatibilityTester:
 
-    _write: Callable[[str], None]  # Error message write callback.
+    version: str  # Minimum allowed version of Plover.
 
-    def __init__(self, write_cb:Callable[[str], None]):
-        self._write = write_cb
+    def __init__(self, version:str):
+        self.version = version
 
-    def __call__(self, version:str) -> bool:
-        """ Check the current Python installation for a compatible version of Plover.
-            If the compatibility check fails, send an error message to the callback. """
+    def __call__(self, error_cb:Callable=None) -> bool:
+        """ Check the current Python installation for a compatible version of Plover. """
         try:
-            pkg_resources.working_set.require("plover>=" + version)
+            pkg_resources.working_set.require(f"plover>={self.version}")
             return True
         except pkg_resources.ResolutionError:
-            self._write(f"ERROR: Plover v{version} or greater required.")
+            # If the compatibility check fails and a callback is given, send an error message.
+            if error_cb is not None:
+                error_cb(f"ERROR: Plover v{self.version} or greater required.")
             return False

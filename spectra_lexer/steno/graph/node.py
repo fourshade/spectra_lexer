@@ -3,7 +3,7 @@
 from typing import Callable, Dict
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
-from spectra_lexer.resource import RuleFlags, StenoRule
+from ..resource import RuleFlags, StenoRule
 
 
 class GraphNode:

@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Tuple
 
 from .elements import BoardElement, BoardInversionGroup, BoardLinkedGroup, BoardStrokeGap
-from spectra_lexer.resource import RuleFlags, StenoRule
+from ..resource import RuleFlags, StenoRule
 
 
 class KeyElementFinder:

@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from .format import CompatFormatter, HTMLFormatter
 from .layout import CascadedGraphLayout, CompressedGraphLayout
 from .node import NodeFactory, NodeIndex, GraphNode
-from spectra_lexer.resource import KeyLayout, StenoRule
+from ..resource import KeyLayout, StenoRule
 
 
 class StenoGraph:

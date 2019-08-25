@@ -2,7 +2,7 @@ from typing import Callable, Dict, Iterable, Iterator, Tuple
 
 from .generate import LexerRuleGenerator, RESULT_TYPE
 from .match import LexerRuleMatcher
-from spectra_lexer.resource import KeyLayout, RuleMapItem, StenoRule
+from ..resource import KeyLayout, RuleMapItem, StenoRule
 
 
 class StenoLexer:

@@ -3,32 +3,25 @@
 """ Main test module for the Spectra steno lexer. Currently handles all major components except the GUI. """
 
 from collections import Counter
-import os
 import re
+import sys
 
 import pytest
 
-from spectra_lexer.core import SpectraCore
-from spectra_lexer.plover import PloverInterface
-from spectra_lexer.plover.types import PloverEngine
-from spectra_lexer.resource import ResourceManager, RuleFlags
-from spectra_lexer.resource.resource import cson_decode
-from spectra_lexer.steno import StenoEngine
+from spectra_lexer.app import StenoApplication
+from spectra_lexer.plover.interface import PloverInterface
+from spectra_lexer.steno.resource import RuleFlags
 from spectra_lexer.steno.search.index import StenoIndex
 from spectra_lexer.steno.search.translations import TranslationsDictionary
 from test import get_test_filename
 
-# Create the file handler and use its attributes to update others for loading files.
-CORE = SpectraCore()
-def with_file(cmp):
-    cls_attrs = vars(type(cmp))
-    for attr in vars(SpectraCore):
-        if attr not in cls_attrs:
-            setattr(cmp, attr, getattr(CORE, attr))
-    return cmp
-# Load all resources and update components with them as we need them.
-RESOURCE = with_file(ResourceManager())
-RES_DICT = RESOURCE.RSSystemLoad(RESOURCE.system_path)
+# Load all resources using default command-line arguments and create components as we need them.
+first, *rest = sys.argv
+sys.argv = [first]
+APP = StenoApplication()
+sys.argv += rest
+STENO = APP.steno
+RES_DICT = STENO.RSSystemLoad(APP.system_path)
 
 
 def test_layout():
@@ -53,19 +46,6 @@ def test_layout():
 
 
 RULES_DICT = RES_DICT["rules"]
-
-
-def test_rule_conflicts():
-    """ If the size of the dict is less than the sum of its components, some rule names must be identical. """
-    pairs = []
-    for data in RESOURCE._load(os.path.join(RESOURCE.system_path, "*.cson")):
-        pairs += cson_decode(data).items()
-    if len(RULES_DICT) < len(pairs):
-        keys = next(zip(*pairs))
-        conflicts = {k: f"{v} times" for k, v in Counter(keys).items() if v > 1}
-        assert not conflicts, f"Found rule keys appearing more than once: {conflicts}"
-
-
 VALID_FLAGS = set(vars(RuleFlags).values())
 IGNORED_KEYS = set("/-")
 IGNORED_COUNTER = Counter([*IGNORED_KEYS] * 99)
@@ -86,7 +66,7 @@ def test_rules(r):
         assert not keys, f"Entry {r} has mismatched keys vs. its child rules: {list(keys)}"
 
 
-TRANSLATIONS_DICT = TranslationsDictionary(RESOURCE.RSTranslationsLoad(get_test_filename("translations")))
+TRANSLATIONS_DICT = TranslationsDictionary(STENO.RSTranslationsLoad(get_test_filename("translations")))
 TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
 
 
@@ -103,7 +83,7 @@ def test_translations_search(trial):
     assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
-INDEX_DICT = StenoIndex(RESOURCE.RSIndexLoad(get_test_filename("index")))
+INDEX_DICT = StenoIndex(STENO.RSIndexLoad(get_test_filename("index")))
 TEST_INDEX = list(INDEX_DICT.items())
 
 
@@ -119,7 +99,6 @@ def test_index_search(trial):
     assert all_keys == all_keys.intersection(*kresults)
 
 
-STENO = StenoEngine()
 STENO.RSSystemReady(**RES_DICT)
 TEST_RESULTS = [STENO.LXLexerQuery(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
 
@@ -156,14 +135,9 @@ def test_graph(result):
     assert nodes_set >= set(node_index)
 
 
-PLOVER = PloverInterface()
-PLOVER.EngineReady(PloverEngine())
-
-
 def test_plover():
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
-    test_engine = PloverEngine.test(TRANSLATIONS_DICT, split_count=3)
-    translations_holder = []
-    PLOVER.RSTranslationsReady = translations_holder.append
-    PLOVER.FoundDicts(test_engine.dictionaries)
-    assert translations_holder.pop() == TRANSLATIONS_DICT
+    results = []
+    interface = PloverInterface(*([results.append] * 2))
+    interface.test(TRANSLATIONS_DICT, split_count=3)
+    assert results[0] == TRANSLATIONS_DICT

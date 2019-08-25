@@ -55,35 +55,35 @@ $(document).ready(function(){
             }
         }
     }
-    const matchSelector = new ListHandler("w_search_matches",  "match_selected", "VIEWLookup");
-    const mappingSelector = new ListHandler("w_search_mappings",  "mapping_selected", "VIEWSelect");
+    const matchSelector = new ListHandler("w_search_matches",  "match_selected", "Lookup");
+    const mappingSelector = new ListHandler("w_search_mappings",  "mapping_selected", "Select");
 
     const searchInput = document.getElementById("w_search_input");
     const displayTitle = document.getElementById("w_display_title");
     searchInput.addEventListener("input", function(){
         state.input_text = this.value;
-        processAction("VIEWSearch");
+        processAction("Search");
     });
     displayTitle.addEventListener("input", function(){
         state.translation = this.value;
-        processAction("VIEWQuery");
+        processAction("Query");
     });
 
     const searchType = document.getElementById("w_search_type");
     const searchRegex = document.getElementById("w_search_regex");
     searchType.addEventListener("change", function(){
         state.mode_strokes = this.checked;
-        processAction("VIEWSearch");
+        processAction("Search");
     });
     searchRegex.addEventListener("change", function(){
         state.mode_regex = this.checked;
-        processAction("VIEWSearch");
+        processAction("Search");
     });
 
     const displayLink = document.getElementById("w_display_link");
     const displayDesc = document.getElementById("w_display_desc");
     displayLink.addEventListener("click", function(){
-        processAction("VIEWSearchExamples");
+        processAction("SearchExamples");
         return false;
     });
 
@@ -98,15 +98,15 @@ $(document).ready(function(){
         var ref = "#" + this.href.split("#").pop();
         if(state.graph_node_ref!=ref){
             state.graph_node_ref = ref;
-            processAction("VIEWGraphOver");
+            processAction("GraphOver");
         }
         return false;
     }).on("click", "a.gg", function(){
-        processAction("VIEWGraphClick");
+        processAction("GraphClick");
         return false;
     }).click(function(){
         state.graph_node_ref = "";
-        processAction("VIEWGraphClick");
+        processAction("GraphClick");
         return false;
     });
 

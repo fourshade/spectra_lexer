@@ -332,49 +332,28 @@
     </item>
    </layout>
   </widget>
-  <widget class="MainMenu" name="m_menu">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>580</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>Segoe UI</family>
-     <pointsize>9</pointsize>
-    </font>
-   </property>
-  </widget>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MainMenu</class>
-   <extends>QMenuBar</extends>
-   <header>spectra_lexer.gui_qt.widgets.main_menu</header>
-  </customwidget>
-  <customwidget>
    <class>SearchListWidget</class>
    <extends>QListView</extends>
-   <header>spectra_lexer.gui_qt.widgets.search_list_widget</header>
-  </customwidget>
-  <customwidget>
-   <class>TextTitleWidget</class>
-   <extends>QLineEdit</extends>
-   <header>spectra_lexer.gui_qt.widgets.text_title_widget</header>
-  </customwidget>
-  <customwidget>
-   <class>TextGraphWidget</class>
-   <extends>QTextBrowser</extends>
-   <header>spectra_lexer.gui_qt.widgets.text_graph_widget</header>
+   <header>.search_list_widget</header>
   </customwidget>
   <customwidget>
    <class>StenoBoardWidget</class>
    <extends>QWidget</extends>
-   <header>spectra_lexer.gui_qt.widgets.steno_board_widget</header>
+   <header>.steno_board_widget</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>TextTitleWidget</class>
+   <extends>QLineEdit</extends>
+   <header>.text_title_widget</header>
+  </customwidget>
+  <customwidget>
+   <class>TextGraphWidget</class>
+   <extends>QTextBrowser</extends>
+   <header>.text_graph_widget</header>
   </customwidget>
  </customwidgets>
  <resources/>

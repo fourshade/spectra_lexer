@@ -1,4 +1,5 @@
 from PyQt5.QtCore import pyqtSignal, QUrl
+from PyQt5.QtGui import QTextCharFormat
 from PyQt5.QtWidgets import QTextBrowser
 
 
@@ -17,6 +18,7 @@ class TextGraphWidget(QTextBrowser):
         """ Add plaintext to the widget. If it was in interactive mode before, completely replace the text instead. """
         if self._mouse_enabled:
             self._mouse_enabled = False
+            self.setCurrentCharFormat(QTextCharFormat())
         else:
             text = f"{self.toPlainText()}\n{text}"
         self.setPlainText(text)
@@ -36,21 +38,24 @@ class TextGraphWidget(QTextBrowser):
 
     def hover_link(self, url:QUrl) -> None:
         """ Mouseovers are error-prone, so they only select new targets with actual rules. """
-        s = self._last_ref = url.toString()
-        if s:
-            self.graphOver.emit(s)
+        if self._mouse_enabled:
+            s = self._last_ref = url.toString()
+            if s:
+                self.graphOver.emit(s)
 
     def leaveEvent(self, *args) -> None:
         """ Treat a mouse leave event as a mouseover on nothing (which is usually blocked). """
         super().leaveEvent(*args)
-        self.graphOver.emit("")
+        if self._mouse_enabled:
+            self.graphOver.emit("")
 
     def mousePressEvent(self, *args) -> None:
         """ Mouse clicks always select their target, even if that target is nothing.
             Don't pass the event along to parents (unless disabled); they will tend to do their own selections. """
-        if not self._mouse_enabled:
+        if self._mouse_enabled:
+            self.graphClick.emit(self._last_ref)
+        else:
             super().mousePressEvent(*args)
-        self.graphClick.emit(self._last_ref)
 
     # Signals
     graphOver = pyqtSignal([str])

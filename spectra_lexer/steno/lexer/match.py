@@ -1,7 +1,7 @@
 from collections import namedtuple
 from typing import Dict, List, Sequence
 
-from spectra_lexer.resource import KeyLayout, RuleFlags, StenoRule
+from ..resource import KeyLayout, RuleFlags, StenoRule
 
 
 class LexerMatch(namedtuple("LexerMatch", "rule skeys letters skeys_len letters_len")):

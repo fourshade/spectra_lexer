@@ -4,19 +4,40 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QLayout, QWidget
 
 
-def load_files_dialog(parent:QWidget, res_type:str, *fmts:str) -> List[str]:
-    """ Present a modal dialog to select files with an extension in <fmts> for loading.
-        Return the file selection list, or an empty list if cancelled. """
-    title = f"Load {res_type.title()}"
-    filter_msg = f"Supported files (*{' *'.join(fmts)})"
-    return QFileDialog.getOpenFileNames(parent, title, ".", filter_msg)[0]
+class FileDialog:
+    """ Utility class for modal file dialogs. """
+
+    @classmethod
+    def open(cls, *args) -> str:
+        """ Open a file dialog to select a single file. Return None if cancelled. """
+        return cls._dialog(QFileDialog.getOpenFileName, *args)
+
+    @classmethod
+    def open_all(cls, *args) -> List[str]:
+        """ Open a file dialog to select a list of files. Return an empty list if cancelled. """
+        return cls._dialog(QFileDialog.getOpenFileNames, *args)
+
+    @classmethod
+    def _dialog(cls, loader:Callable, parent:QWidget, title:str, *fmts:str):
+        """ Present a modal dialog to select files with an extension in <fmts>. """
+        filter_msg = f"Supported files (*{' *'.join(fmts)})"
+        return loader(parent, title, ".", filter_msg)[0]
 
 
 class ToolDialog(QDialog):
-    """ Base class for a Qt dialog window object used by a GUI tool. """
+    """ Base class for a Qt dialog window object used by a GUI tool. No more than one of each subclass should exist. """
 
     TITLE: str = "Untitled"   # Dialog window title string.
     SIZE: tuple = (200, 200)  # Dimensions in pixels: (width, height).
+
+    _LAST_INSTANCE: QDialog = None
+
+    def __new__(cls, *args, **kwargs):
+        """ If an old dialog exists, close it first and overwrite the reference (which may destroy it). """
+        if cls._LAST_INSTANCE is not None:
+            cls._LAST_INSTANCE.close()
+        self = cls._LAST_INSTANCE = super().__new__(cls, *args, **kwargs)
+        return self
 
     def __init__(self, parent:QWidget, *args, **kwargs):
         """ Create the root UI dialog window and layout. """
@@ -63,22 +84,3 @@ class FormDialog(ToolDialog):
         if value is not None:
             self.callback(value)
             super().accept()
-
-
-class DialogContainer(dict):
-    """ Dict for Qt-based dialog container. Tracks dialog objects so that no more than one of each ever exists. """
-
-    def open(self, d_cls:type, *args, persistent:bool=False, **kwargs) -> None:
-        """ If a dialog does not exist or is not persistent, open a new one. """
-        if d_cls not in self or not persistent:
-            # If a dialog does exist but is not persistent, destroy the old one.
-            if d_cls in self:
-                self.close(d_cls)
-            self[d_cls] = d_cls(*args, **kwargs)
-        # Show the new/old dialog in any case.
-        self[d_cls].show()
-
-    def close(self, d_cls:type) -> None:
-        """ Close an existing dialog and delete the reference (which may destroy it). """
-        self[d_cls].close()
-        del self[d_cls]

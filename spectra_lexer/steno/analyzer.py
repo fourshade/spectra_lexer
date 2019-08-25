@@ -7,7 +7,7 @@ from traceback import print_exc
 from typing import Callable, Dict, Iterable, List, Tuple
 
 from .lexer import StenoLexer
-from spectra_lexer.resource import StenoRule
+from .resource import StenoRule
 
 
 class ParallelMapper:
@@ -108,14 +108,9 @@ class StenoAnalyzer:
     def make_index(self, *args) -> Dict[str, dict]:
         """ Run the lexer in parallel on all translation items and return a translation index.
             Only keep results with all keys matched to reduce garbage. """
-        if all(args):
-            filters = IndexFilters.from_size(*args)
-            results = self.make_rules(*filters, match_all_keys=True)
-            d = self._compile_index(results)
-        else:
-            # A sentinel value is required in empty indices to distinguish them from defaults.
-            d = {"EMPTY_SENTINEL": {}}
-        return d
+        filters = IndexFilters.from_size(*args)
+        results = self.make_rules(*filters, match_all_keys=True)
+        return self._compile_index(results)
 
     def _compile_index(self, rules:Iterable[StenoRule]) -> Dict[str, dict]:
         """ Using rulemaps, make dicts of all translations that use each built-in rule at the top level. """

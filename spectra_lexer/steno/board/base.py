@@ -6,7 +6,8 @@ from typing import Callable, Dict
 
 from .elements import BoardElementProcessor, BoardFactory
 from .matcher import KeyElementFinder, RuleElementFinder
-from spectra_lexer.resource import KeyLayout, StenoRule, XMLElement
+from .xml import XMLElement
+from ..resource import KeyLayout, StenoRule
 
 
 class BoardElementParser:
@@ -15,8 +16,9 @@ class BoardElementParser:
     _process: Callable          # Processes raw XML element nodes into full SVG board elements.
     _elems_by_tag: defaultdict  # Contains only elements with IDs, grouped into subdicts by tag.
 
-    def __init__(self, root:XMLElement, processor:Callable):
+    def __init__(self, xml_data:bytes, processor:Callable):
         """ Parse the board XML into individual steno key/rule elements. """
+        root = XMLElement.decode(xml_data)
         self._process = processor
         self._elems_by_tag = defaultdict(dict)
         self.add_recursive(root)
@@ -51,9 +53,9 @@ class BoardGenerator:
     _rule_finder: RuleElementFinder
     _build_document: BoardFactory
 
-    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule], board_defs:dict, board_elems:XMLElement):
+    def __init__(self, layout:KeyLayout, rules:Dict[str, StenoRule], board_defs:dict, board_xml:bytes):
         processor = BoardElementProcessor(board_defs)
-        parser = BoardElementParser(board_elems, processor)
+        parser = BoardElementParser(board_xml, processor)
         kfinders = [KeyElementFinder(elems, layout.from_rtfcre, layout.SEP) for elems in parser.key_elems()]
         self._key_finder, _ = kfinders
         self._rule_finder = RuleElementFinder(parser.rule_elems(), rules, *kfinders)

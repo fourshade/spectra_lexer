@@ -39,13 +39,15 @@ class ConsoleTextWidget(QTextEdit):
     _history: HistoryTracker        # Tracks previous keyboard input.
     _last_text_received: str = ""   # Last text received from outside, used as an unchangeable base for text input.
 
-    def __init__(self, parent:ToolDialog, input_cb:Callable):
-        """ Create the widget and connect the callback for a new line of input. """
+    def __init__(self, parent:ToolDialog):
         super().__init__(parent)
         self.setFont(QFont("Courier New", 10))
         self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
-        self.textKeyboardInput.connect(input_cb)
         self._history = HistoryTracker()
+
+    def connect(self, input_cb:Callable):
+        """ Connect the callback for a new line of input. """
+        self.textKeyboardInput.connect(input_cb)
 
     def add_text(self, text:str) -> None:
         """ Add to the text content of the widget and reset the cursor to the end. """
@@ -111,11 +113,13 @@ class ConsoleDialog(ToolDialog):
     TITLE = "Python Console"
     SIZE = (680, 480)
 
+    connect: Callable[[Callable], None] = None
     add_text: Callable[[str], None] = None
 
-    def make_layout(self, input_callback:Callable) -> None:
+    def make_layout(self) -> None:
         """ Create and add the sole widget to a vertical layout. """
         layout = QVBoxLayout(self)
-        w_text = ConsoleTextWidget(self, input_callback)
+        w_text = ConsoleTextWidget(self)
         layout.addWidget(w_text)
+        self.connect = w_text.connect
         self.add_text = w_text.add_text

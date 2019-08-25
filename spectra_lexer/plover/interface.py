@@ -1,45 +1,47 @@
-from typing import Sequence
+from typing import Callable, Dict, Sequence
 
-from .base import PLOVER
 from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
-from spectra_lexer.core import CORE
-from spectra_lexer.resource import RS
 
 
-class PloverInterface(CORE, RS, PLOVER):
+class PloverInterface:
     """ Main interface class for Plover. Receives dictionaries and translations from Plover using callbacks. """
 
-    _engine: PloverEngine
+    _engine: PloverEngine = PloverEngine()
+    _dict_callback: Callable[[Dict[str, str]], None]
+    _query_callback: Callable[[Sequence[str]], None]
     _translation: Sequence[str]  # Current set of contiguous strokes and text.
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, dict_callback:Callable, query_callback:Callable):
+        self._dict_callback = dict_callback
+        self._query_callback = query_callback
         self._reset()
 
-    def EngineReady(self, engine:PloverEngine) -> None:
-        """ Load the current Plover dictionaries to finish engine setup. """
+    def connect(self, engine:PloverEngine) -> None:
+        """ Connect all Plover engine signals to methods, which only call the callbacks on success. """
         self._engine = engine
-        self.FoundDicts(engine.dictionaries)
+        engine.signal_connect("dictionaries_loaded", self.convert_dicts)
+        engine.signal_connect("translated", self.parse_translation)
+        # Convert the current set of dictionaries from the engine to finish.
+        self.convert_dicts(engine.dictionaries)
 
-    def FoundDicts(self, steno_dc:PloverStenoDictCollection) -> None:
+    def convert_dicts(self, steno_dc:PloverStenoDictCollection) -> None:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
             They only have a subset of the normal dict methods. The fastest of these is .items().
-            As a worker thread, we lock the Plover engine just long enough to copy these with dict().
+            As a plugin, we lock the Plover engine just long enough to copy these with dict().
             The contents are strings and tuples, so we are thread-safe after this point. """
         with self._engine:
             dicts = [dict(d.items()) for d in steno_dc.dicts if d and d.enabled]
-        if dicts:
-            # Strokes in tuple form must be joined into strings.
-            converted_dict = {}
-            for d in dicts:
-                converted_dict.update(zip(map(join_strokes, d), d.values()))
-            self.RSTranslationsReady(converted_dict)
-            self.COREStatus("Loaded new dictionaries from Plover engine.")
+        if not dicts:
+            return None
+        # Strokes in tuple form must be joined into strings.
+        converted_dict = {}
+        for d in dicts:
+            converted_dict.update(zip(map(join_strokes, d), d.values()))
+        self._dict_callback(converted_dict)
 
-    def FoundTranslation(self, _, new_actions:Sequence[PloverAction]) -> None:
+    def parse_translation(self, _, new_actions:Sequence[PloverAction]) -> None:
         """ Process a Plover translation into standard data types and send it to the next component.
             Make sure that we have at least one new action and strokes from one new valid translation. """
-        # TODO: Import Plover steno system?
         strokes = self._get_last_strokes()
         if not strokes:
             self._reset()
@@ -53,7 +55,7 @@ class PloverInterface(CORE, RS, PLOVER):
         if not any([a.prev_attach for a in new_actions]):
             self._reset()
         self._combine(strokes, text)
-        self._send()
+        self._query_callback(self._translation)
 
     def _get_last_strokes(self) -> Sequence[str]:
         """ Lock the Plover engine thread to access the Plover translator state and get the newest strokes. """
@@ -74,7 +76,7 @@ class PloverInterface(CORE, RS, PLOVER):
         new_strokes = filter(None, [strokes, *new_strokes])
         self._translation = [join_strokes(new_strokes), text + new_text]
 
-    def _send(self) -> None:
-        """ User strokes may be composed of all sorts of custom briefs, so do not attempt to match every key. """
-        self.GUIQTUpdate(translation=" -> ".join(self._translation))
-        self.GUIQTAction("VIEWQuery", match_all_keys=False)
+    def test(self, *args, **kwargs) -> None:
+        """ Make a fake Plover engine and run some simple tests. Do not check for compatibility. """
+        self.connect(PloverEngine.test(*args, **kwargs))
+        self.parse_translation(None, [PloverAction()])

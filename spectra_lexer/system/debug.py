@@ -1,5 +1,39 @@
+import inspect
 import pkgutil
 import sys
+from typing import Callable
+
+
+class xhelp:
+    """ You asked for help on help, didn't you? Boredom has claimed yet another victim.
+        This object overrides the builtin 'help', which breaks custom Python consoles. """
+
+    _HELP_SECTIONS = [lambda x: [f"OBJECT - {x!r}"],
+                      lambda x: [f"  TYPE - {type(x).__name__}"],
+                      lambda x: ["----------SIGNATURE----------",
+                                 inspect.signature(x)],
+                      lambda x: ["----------ATTRIBUTES----------",
+                                 ', '.join([k for k in dir(x) if not k.startswith('_')]) or "None"],
+                      lambda x: ["-------------INFO-------------",
+                                 *map(str.lstrip, str(x.__doc__).splitlines())]]
+
+    def __call__(self, *args:object, write:Callable=print) -> None:
+        """ Write each help section that doesn't raise an exception, in order. """
+        if not args:
+            write(self)
+        for obj in args:
+            write("")
+            for fn in self._HELP_SECTIONS:
+                try:
+                    for line in fn(obj):
+                        write(line)
+                except Exception:
+                    # Arbitrary objects may raise arbitrary exceptions. Just skip sections that don't behave.
+                    continue
+            write("")
+
+    def __repr__(self) -> str:
+        return "Type help(object) for auto-generated help on any Python object."
 
 
 class package(dict):
@@ -55,21 +89,15 @@ class DebugDict(dict):
 
     __slots__ = ()
 
-    def __init__(self, components:list, **kwargs):
+    def __init__(self, *args, **kwargs):
         """ Auto-import tends to pollute namespaces with tons of garbage. We don't need that at the top level.
             The actual auto-import dict is hidden as __builtins__, and is tried only after the main dict fails. """
-        # The class constructor will copy the real global builtins dict; it won't be corrupted.
-        super().__init__(kwargs, __builtins__=AutoImporter(__builtins__))
-        self._add_info(components)
-
-    def _add_info(self, components:list) -> None:
-        """ Make directories containing the given components and all currently loaded modules.
-            Each component is indexed by its class's module path. Do not include the root package name.
-            A 'base' module represents its entire package, as does one with the same name as the package. """
-        d = self["components"] = package()
-        for cmp in components:
-            ks = type(cmp).__module__.split(".")
-            if len(ks) > 1 and ks[-1] in (ks[-2], "base"):
-                ks.pop()
-            d["_".join(ks[1:])] = cmp
+        super().__init__(*args, **kwargs)
+        # The AutoImporter constructor will copy the real global builtins dict; it won't be corrupted.
+        self["__builtins__"] = AutoImporter(__builtins__, help=xhelp())
         self["modules"] = package(sys.modules).nested()
+
+    def add_component(self, key:str, obj:object):
+        """ Mark the object as a component and add it to the namespace. """
+        obj.__class__.__COMPONENT__ = True
+        self[key] = obj

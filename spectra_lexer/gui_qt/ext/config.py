@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLayout, QLi
     QVBoxLayout, QWidget
 
 from .dialog import FormDialog
-from spectra_lexer.view import ConfigItem
+from spectra_lexer.steno.view.config import ConfigItem
 
 
 class OptionWidgetBool(QCheckBox):

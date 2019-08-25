@@ -1,18 +1,13 @@
 """ Main entry point for Spectra's Plover plugin application. """
 
-import sys
+from typing import Dict, Sequence
 
-from .base import PLOVER
-from .plover import PloverInterface
-from .types import dummy, PloverAction, PloverCompatibilityTester, PloverEngine
-from spectra_lexer.gui_qt import QtApplication
-from spectra_lexer.gui_qt.widgets import MainWindow
-
-# Minimum version of Plover required for plugin compatibility.
-VERSION_REQUIRED = "4.0.0.dev8"
+from .interface import PloverInterface
+from .types import dummy, PloverCompatibilityTester, PloverEngine
+from spectra_lexer.gui_qt import MainWindow, QtApplication
 
 
-class PloverPluginApplication(QtApplication, PLOVER):
+class PloverPluginApplication(QtApplication):
     """ Main entry point and dialog proxy to Plover. Translates some attributes into engine calls and fakes others.
         It runs on the standard Qt GUI with a couple (important) differences.
         Notably, the app must not create its own QApplication object or run its own event loop.
@@ -25,36 +20,47 @@ class PloverPluginApplication(QtApplication, PLOVER):
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
-    _plover_engine: PloverEngine
+    VERSION_REQUIRED = "4.0.0.dev8"  # Minimum version of Plover required for plugin compatibility.
+    VERSION_TEST = PloverCompatibilityTester(VERSION_REQUIRED)
 
-    def __init__(self, plover_engine:PloverEngine):
-        """ We get our translations from the Plover engine, so auto-loading from disk must be suppressed. """
-        sys.argv.append("--translations-files=NUL.json")
-        self._plover_engine = plover_engine
+    engine: PloverEngine
+    interface: PloverInterface
+
+    def __init__(self, engine:PloverEngine=None):
+        self.engine = engine
         super().__init__()
 
-    def _build_components(self) -> list:
-        """ Parsing large dictionaries is expensive, so the Plover plugin components run on the worker thread. """
-        return [*super()._build_components(), PloverInterface()]
+    def load(self) -> None:
+        self.interface = PloverInterface(self._on_new_dictionaries, self._on_new_translation)
+        self["plover_engine"] = self.engine
+        self["plover_interface"] = self.interface
+        super().load()
+
+    def load_translations(self) -> None:
+        """ We get our translations from the Plover engine, so auto-loading from disk must be suppressed. """
+
+    def _on_new_dictionaries(self, converted_dict:Dict[str, str]) -> None:
+        """ Send any converted translations dictionaries to the main engine. """
+        self.steno.RSTranslationsReady(converted_dict)
+        self.status("Loaded new dictionaries from Plover engine.")
+
+    def _on_new_translation(self, translation:Sequence[str]) -> None:
+        """ User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
+        self.window.update(translation=" -> ".join(translation))
+        self.window.action("Query", match_all_keys=False)
 
     def run(self) -> int:
-        """ Plover engine signals can only be caught by the main thread, so connect them here. """
-        if self.compat_check():
-            engine = self._plover_engine
-            engine.signal_connect("dictionaries_loaded", self.FoundDicts)
-            engine.signal_connect("translated", self.FoundTranslation)
-            self.EngineReady(engine)
+        """ Connect the engine if the version is compatible and return control to Plover. """
+        if self.VERSION_TEST(self.status):
+            self.interface.connect(self.engine)
         return 0
 
-    def compat_check(self) -> bool:
-        """ Add the Plover engine only if the version is compatible. """
-        return PloverCompatibilityTester(self.COREStatus)(VERSION_REQUIRED)
-
     def show(self, *args) -> None:
-        self.GUIQTShowWindow()
+        self.window.show()
 
     def close(self, *args) -> None:
-        self.GUIQTCloseWindow()
+        """ Closing the main window should kill the program in standalone mode, but not as a plugin. """
+        self.window.close()
 
     def __getattr__(self, *args):
         """ As a proxy, we fake any attribute we don't want to handle to avoid incompatibility. """
@@ -62,16 +68,8 @@ class PloverPluginApplication(QtApplication, PLOVER):
 
 
 class PloverPluginTest(PloverPluginApplication):
-    """ Make a fake Plover engine and run some simple tests. """
-
-    def __init__(self, *args):
-        super().__init__(PloverEngine.test())
-
-    def compat_check(self) -> bool:
-        """ We do not need Plover for the tests, so compatibility is not required. """
-        return True
 
     def run(self) -> int:
-        super().run()
-        self.FoundTranslation(None, [PloverAction()])
-        return self._qt_app.exec_()
+        """ Run some simple tests, then run the normal event loop. """
+        self.interface.test()
+        return self.loop()

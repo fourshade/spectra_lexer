@@ -1,7 +1,7 @@
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-from .base import VIEW
-from spectra_lexer.resource import StenoRule
+from ..base import LX
+from ..resource import StenoRule
 
 MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
 
@@ -31,42 +31,14 @@ class ViewState:
     board_caption: str = ""      # Rule caption above the board.
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
 
-    _DEFAULTS = {k: v for k, v in locals().items() if not k.startswith("_")}  # Keep track of defaults for the above.
-
-    # Standard config options.
-    compound_board: bool = True
-    recursive_graph: bool = True
-    compressed_graph: bool = True
-    match_all_keys: bool = False
-    matches_per_page: int = 100
-    links_enabled: bool = True
-
-    CONFIG_INFO = [("compound_board", True, "board", "compound_keys",
-                    "Show special labels for compound keys (i.e. `f` instead of TP)."),
-                   ("recursive_graph", True, "graph", "recursive",
-                    "Include rules that make up other rules."),
-                   ("compressed_graph", True, "graph", "compressed",
-                    "Compress the graph vertically to save space."),
-                   ("match_all_keys", False, "lexer", "need_all_keys",
-                    "Only return lexer results that match every key in the stroke."),
-                   ("matches_per_page", 100, "search", "match_limit",
-                    "Maximum number of matches returned on one page of a search."),
-                   ("links_enabled", True, "search", "example_links",
-                    "Show hyperlinks to indexed examples of selected rules.")]
-
-    # Web-specific config options.
-    graph_compat: bool = False  # Draw the graph using tables for browsers with bad monospace font support.
-
     _result: dict  # Holds all attributes and values that were changed since creation.
-    _view: VIEW    # Has access to all outside components.
+    _engine: LX    # Has access to all outside components.
 
-    def __init__(self, d:dict, view:VIEW, **config):
-        """ Update the attribute dict directly with a state dict <d> and config keyword args.
-            Empty the original dict and keep it to return with the results. It may have metadata on it. """
-        self.__dict__.update(config, **d)
-        d.clear()
-        self._result = d
-        self._view = view
+    def __init__(self, d:dict, engine:LX):
+        """ Update the attribute dict directly with a state dict <d>. """
+        self.__dict__.update(d)
+        self._result = {}
+        self._engine = engine
 
     def __setattr__(self, attr:str, value) -> None:
         """ Add any modified public attributes to the results dict. """
@@ -74,30 +46,22 @@ class ViewState:
         if not attr.startswith("_"):
             self._result[attr] = value
 
-    def __getattr__(self, attr:str):
-        return getattr(self._view, attr)
-
-    def run(self, action:str) -> Optional[dict]:
+    def run(self, action:str) -> dict:
         """ Run an action (if valid) and return the result dict with all items that were changed. """
-        if action.startswith("VIEW") and hasattr(self, action):
-            method = getattr(self, action)
-            method()
-            return self._result
+        method = getattr(self, f"RUN{action}")
+        method()
+        return self._result
 
-    def VIEWReset(self) -> None:
-        """ Reset the GUI state with the default value of each public, non-callable class attribute. """
-        self._result.update(self._DEFAULTS)
-
-    def VIEWSearchExamples(self) -> None:
+    def RUNSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
-        selection, self.input_text = self.LXSearchFindExample(self.link_ref, strokes=self.mode_strokes)
+        selection, self.input_text = self._engine.LXSearchFindExample(self.link_ref, strokes=self.mode_strokes)
         self.page_count = 1
         self._search()
         if selection in self.matches:
             self.match_selected = selection
             self._lookup()
 
-    def VIEWSearch(self) -> None:
+    def RUNSearch(self) -> None:
         """ Do a new search unless the input is blank. """
         self.page_count = 1
         if not self.input_text:
@@ -109,7 +73,7 @@ class ViewState:
                 self.match_selected = self.matches[0]
                 self._lookup()
 
-    def VIEWLookup(self) -> None:
+    def RUNLookup(self) -> None:
         """ If the user clicked "more", search again with another page. """
         if self.match_selected == MORE_TEXT:
             self.page_count += 1
@@ -139,15 +103,16 @@ class ViewState:
             selection, *others = mappings
             if others:
                 # If there is more than one mapping, make a product query to select the best combination.
-                rule = self.LXLexerQueryProduct(mappings, [match])
+                rule = self._engine.LXLexerQueryProduct(mappings, [match])
                 selection = rule.keys
             self.mapping_selected = selection
             self._query_from_selection()
 
     def _call_search(self, *args, **kwargs) -> List[str]:
-        return self.LXSearchQuery(self.input_text, *args, strokes=self.mode_strokes, regex=self.mode_regex, **kwargs)
+        kwargs.update(strokes=self.mode_strokes, regex=self.mode_regex)
+        return self._engine.LXSearchQuery(self.input_text, *args, **kwargs)
 
-    def VIEWSelect(self) -> None:
+    def RUNSelect(self) -> None:
         """ Do a lexer query based on the current search selections. """
         self._query_from_selection()
 
@@ -160,7 +125,7 @@ class ViewState:
         self.translation = f'{keys} -> {letters}'
         self._new_graph()
 
-    def VIEWQuery(self) -> None:
+    def RUNQuery(self) -> None:
         """ Execute and display a lexer query. """
         self._new_graph()
 
@@ -168,40 +133,46 @@ class ViewState:
         """ Draw a new graph. Only a previous linked example rule may be selected. """
         self.graph_node_ref = ""
         select = self.graph_has_selection
-        self._new_query(select, prev=self.LXSearchFindRule(self.link_ref) if select else None)
+        self._new_query(select, prev=self._engine.LXSearchFindRule(self.link_ref) if select else None)
 
-    def VIEWGraphOver(self) -> None:
+    def RUNGraphOver(self) -> None:
         """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected.
             Mouseovers should do nothing as long as a selection is active. """
         if not self.graph_has_selection:
             self._new_query(False)
 
-    def VIEWGraphClick(self) -> None:
+    def RUNGraphClick(self) -> None:
         """ On click, find the node owning the character at (row, col) and select it with a bright color. """
         self._new_query(True)
 
     def _new_query(self, select:bool, **kwargs) -> None:
         params = (*map(str.strip, self.translation.split('->', 1)),)
         if len(params) == 2 and all(params):
-            rule = self.LXLexerQuery(*params, match_all_keys=self.match_all_keys)
+            rule = self._engine.LXLexerQuery(*params, match_all_keys=self.match_all_keys)
             self.graph_text, selection = self._get_graph(rule, select, **kwargs)
             if selection:
                 self.graph_has_selection = select
             else:
                 self.graph_has_selection = False
                 selection = rule
-            self.link_ref = self.LXSearchFindLink(selection) if self.links_enabled else ""
+            self.link_ref = self._engine.LXSearchFindLink(selection) if self.links_enabled else ""
             self.board_caption = selection.caption()
             self.board_xml_data = self._get_board_data(selection)
 
     def _get_graph(self, rule:StenoRule, select:bool, prev:StenoRule=None) -> Tuple[str, StenoRule]:
-        graph = self.LXGraphGenerate(rule, recursive=self.recursive_graph,
+        graph = self._engine.LXGraphGenerate(rule, recursive=self.recursive_graph,
                                      compressed=self.compressed_graph, compat=self.graph_compat)
         return graph.render(self.graph_node_ref, prev, select)
 
     def _get_board_data(self, rule:StenoRule) -> bytes:
         ratio = self.board_aspect_ratio
         if self.compound_board:
-            return self.LXBoardFromRule(rule, ratio)
+            return self._engine.LXBoardFromRule(rule, ratio)
         else:
-            return self.LXBoardFromKeys(rule.keys, ratio)
+            return self._engine.LXBoardFromKeys(rule.keys, ratio)
+
+    @classmethod
+    def set_defaults(cls, info:List[tuple]):
+        """ Set default config settings on the class. """
+        for key, default, *_ in info:
+            setattr(cls, key, default)
