@@ -4,17 +4,16 @@ from PyQt5.QtWidgets import QTextBrowser
 
 
 class TextGraphWidget(QTextBrowser):
-    """ Formatted text widget meant to display a monospaced HTML text graph of the breakdown of English text
-        by steno rules as well as plaintext output such as error messages and exceptions. """
+    """ Formatted text widget for displaying a monospaced HTML graph of the breakdown of text by steno rules.
+        May also display plaintext output such as error messages and exceptions when necessary. """
 
     sig_over_ref = pyqtSignal([str])   # Sent with a node's reference when the mouse moves over a new one.
     sig_click_ref = pyqtSignal([str])  # Sent with a node's reference when the mouse clicks one.
 
-    _last_ref: str = ""           # Last graph node reference the mouse was over.
-    _graph_enabled: bool = False  # Does moving the mouse over the text do anything?
-
     def __init__(self, *args) -> None:
         super().__init__(*args)
+        self._last_ref = ""          # Last graph node reference the mouse was over.
+        self._graph_enabled = False  # Does moving the mouse over the text do anything?
         self.highlighted.connect(self._hover_link)
 
     def add_plaintext(self, text:str) -> None:

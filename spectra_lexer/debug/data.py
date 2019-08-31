@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Tuple
 
 @lru_cache(maxsize=None)
 class TypeParams:
-    """ Contains row parameters for a data type. These are cached, so attributes may not be modified directly. """
+    """ Contains display parameters for an object type. Most types have lots of instances, so these are cached. """
 
     _GRAPH_CONNECTIONS = {"└": "├",  # Replacement symbols when connecting to existing lines on a graph from the bottom.
                           "┴": "┼"}
@@ -15,17 +15,14 @@ class TypeParams:
     __slots__ = ("name", "mro_names", "graph")
 
     def __init__(self, tp:type) -> None:
-        self._add_names(tp)
-        self._add_graph(tp)
-
-    def _add_names(self, tp:type) -> None:
         """ A type's icon is chosen from keywords describing it in order from specific to general.
             For now, the icon choices are just the names of each type in the MRO in order. """
         self.name = tp.__name__
         self.mro_names = (*[cls.__name__ for cls in tp.__mro__],)
+        self.graph = self._draw_graph(tp)
 
-    def _add_graph(self, tp:type) -> None:
-        """ Compute a string representation of a type's MRO using monospaced box characters. """
+    def _draw_graph(self, tp:type) -> str:
+        """ Compute and return a string representation of a type's MRO using monospaced box characters. """
         connect_tbl = self._GRAPH_CONNECTIONS
         pos_by_cls = {}
         char_lines = []
@@ -51,24 +48,18 @@ class TypeParams:
                     new_line += "???"
             new_line += cls.__name__
             char_lines.append(new_line)
-        self.graph = "\n".join(map("".join, char_lines))
+        return "\n".join(map("".join, char_lines))
 
 
 class ValueRepr:
-    """ Computes display values of Python objects in a node tree. """
-
-    max_len: int      # Maximum string length for an object display.
-    max_items: int    # Maximum item count for a container display.
-    max_levels: int   # Maximum recursion levels before placeholder is used.
-    placeholder: str  # Replaces items past the item limit and deeper than the recursion limit.
-
-    _levels_left: int = 0  # Recursion levels left in current run.
+    """ Computes string values of Python objects for display in a node tree. """
 
     def __init__(self, max_len:int=100, max_items:int=6, max_levels:int=2, placeholder:str='...') -> None:
-        self.max_len = max_len
-        self.max_items = max_items
-        self.max_levels = max_levels
-        self.placeholder = placeholder
+        self.max_len = max_len          # Maximum string length for an object display.
+        self.max_items = max_items      # Maximum item count for a container display.
+        self.max_levels = max_levels    # Maximum recursion levels before placeholder is used.
+        self.placeholder = placeholder  # Replaces items past the item limit and deeper than the recursion limit.
+        self._levels_left = 0           # Recursion levels left in current run.
 
     def repr(self, x:object) -> str:
         """ Compute and return a string for the value of object <x>. """
@@ -76,15 +67,18 @@ class ValueRepr:
         return self._repr(x)
 
     def _repr(self, x:object) -> str:
+        """ If we have a custom method for this object type, call it, otherwise use a default repr. """
         tp = type(x)
         tp_name = tp.__name__
         try:
+            # If there is no __repr__ defined, use our default in the except rather than object.__repr__
             if tp.__repr__ is object.__repr__:
                 raise Exception()
             meth_name = f'repr_{tp_name}'
             if ' ' in tp_name:
                 meth_name = meth_name.replace(' ', '_')
-            s = getattr(self, meth_name, repr)(x)
+            meth = getattr(self, meth_name, repr)
+            s = meth(x)
         except Exception:
             s = f'<{tp_name} at 0x{id(x):0>8X}>'
         if len(s) > self.max_len:
@@ -135,18 +129,17 @@ class DebugData:
     VALUE_REPR = ValueRepr().repr
 
     color: Tuple[int, int, int] = (0, 0, 0)
-    key_text: str = ""
+    key_text: str = "undefined"
     key_tooltip: str = ""
     key_edit: Callable = None
     child_data = None
-    type_text: str = ""
+    type_text: str = "undefined"
     type_graph: str = ""
     item_count: int = None
-    value_text: str = ""
+    value_text: str = "undefined"
     value_tooltip: str = ""
     value_edit: Callable = None
-
-    _icon_choices: Iterable[str] = ()
+    icon_choices: Iterable[str] = ()
 
     def add_params(self, obj:object) -> None:
         """ Gather and add data related to the structure of an object by itself (not including its contents). """
@@ -158,13 +151,7 @@ class DebugData:
         icons = type_params.mro_names
         if isinstance(obj, type) and issubclass(obj, type):
             icons = ("__METATYPE__", *icons)
-        self._icon_choices = icons
+        self.icon_choices = icons
         # Exceptions are bright red in any container.
         if isinstance(obj, BaseException):
             self.color = (192, 0, 0)
-
-    def choose_icon(self, available_icons:dict):
-        """ Return the best of the given available icons out of our sequence of choices from most wanted to least. """
-        for k in self._icon_choices:
-            if k in available_icons:
-                return available_icons[k]

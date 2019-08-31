@@ -1,38 +1,14 @@
 from io import TextIOWrapper
-from typing import List, Callable, Iterator, Tuple
+from typing import Iterable, Iterator
 
-from . import generated, iterable
-from .container import Container
+from .container import BaseContainer, CONTAINER_TYPES
 from .data import DebugData
 
 
-class ContainerIter:
-
-    _containers: List[Container]
-    _factory: Callable
-
-    def __init__(self, containers:List[Container], factory:Callable) -> None:
-        self._containers = containers
-        self._factory = factory
-
-    def __iter__(self) -> Iterator[DebugData]:
-        """ Create and yield rows from each container in turn. """
-        for container in self._containers:
-            try:
-                for k in container:
-                    data = DebugData()
-                    obj = container[k]
-                    container.set_data(k, data)
-                    yield self._factory(obj, data)
-            except Exception as e:
-                # Unpredictable exceptions may arise during introspection, so just present an error for any one.
-                data = DebugData()
-                data.key_text = "ERROR"
-                yield self._factory(e, data)
-
-
 class DataFactory:
-    """ Handles data for all containers that display the contents of an object. """
+    """ Generates data for displaying the properties and contents of a Python object.
+        generate() can create a data item directly from an object. The root item *must* be created this way.
+        __iter__  will generate items from a series of "containers" stored in the instance. """
 
     # Base data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
     _ATOMIC_TYPES = {type(None), type(...),      # System singletons.
@@ -42,36 +18,47 @@ class DataFactory:
                      filter, map, zip,           # Iteration is destructive.
                      TextIOWrapper}              # Iteration may crash the program if std streams are in use.
 
-    _conditions: List[Tuple[type, Callable, object]]
+    def __init__(self, containers:Iterable[BaseContainer]=()) -> None:
+        self._containers = containers  # Containers from which to generate more child data objects.
 
-    def __init__(self) -> None:
-        """ Each container class has a condition which attempts to match some property of an object.
-            The object provided as the key for .matches is always the first argument to a comparison function.
-            Each recorded decorator has a property that is tested against this object as the second argument.
-            If the comparison is True, that container class will be instantiated and may add items to the tree. """
-        self._conditions = [*generated.CONDITIONS, *iterable.CONDITIONS]
-
-    def generate(self, obj:object) -> DebugData:
-        """ Return a root data object from scratch. """
+    @classmethod
+    def generate(cls, obj:object) -> DebugData:
+        """ Create a root data object from scratch. """
         data = DebugData()
-        return self.populate(obj, data)
+        cls.populate(obj, data)
+        return data
 
-    def populate(self, obj:object, data:DebugData) -> DebugData:
-        """ Gather and add parameters from the object's type, value, and possible contents. """
+    @classmethod
+    def populate(cls, obj:object, data:DebugData) -> None:
+        """ Gather parameters from the object's type, value, and possible contents. Add these parameters to <data>. """
         data.add_params(obj)
         # Only allow container expansion for types where it is useful.
         # Expanding strings into a row for each character is a mess just waiting to happen.
         # (especially since each character is *also* a string...containing itself.)
-        if type(obj) in self._ATOMIC_TYPES:
-            return data
-        # Get container classes from each index that match the object's properties.
-        # If any container classes are in a direct inheritance line, only keep the most derived class.
-        classes = [tp for tp, cmp, prop in self._conditions if cmp(obj, prop)]
-        containers = [tp(obj) for tp in classes if sum([issubclass(m, tp) for m in classes]) == 1]
+        if type(obj) in cls._ATOMIC_TYPES:
+            return
+        # Use the container type registry to make containers which match the object's properties.
+        containers = CONTAINER_TYPES.match(obj)
         if containers:
+            # If containers exist, make a new factory with them to handle generating children.
             if any(containers):
-                data.child_data = ContainerIter(containers, self.populate)
+                data.child_data = cls(containers)
             item_counts = [len(c) for c in containers if c.show_item_count]
             if item_counts:
                 data.item_count = sum(item_counts)
-        return data
+
+    def __iter__(self) -> Iterator[DebugData]:
+        """ Create and yield data items from each container in turn. """
+        for container in self._containers:
+            try:
+                for k in container:
+                    data = DebugData()
+                    obj = container[k]
+                    container.set_data(k, data)
+                    self.populate(obj, data)
+                    yield data
+            except Exception as e:
+                # Unpredictable exceptions may arise during introspection, so just present an error for any one.
+                data = self.generate(e)
+                data.key_text = "ERROR"
+                yield data

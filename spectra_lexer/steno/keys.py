@@ -3,7 +3,9 @@ from functools import partial
 
 
 class KeyLayout:
-    """ There are two general string-based formats of steno keys:
+    """ Contains all sections and characters required in a standard steno key layout.
+
+    There are two general string-based formats of steno keys:
     s-keys - Each key is a unique character. Lowercase letters are used for right-side keys.
              Used by the lexer since one key is always one character with no possible
              ambiguity over sides even if the keys are in the wrong order.
@@ -59,9 +61,10 @@ class KeyLayout:
         return self.from_rtfcre(s.translate(self._valid_table))
 
     def _stroke_s_keys_to_rtfcre(self, s:str) -> str:
-        """ Find the first right-side key (if there is one).
+        """ Find the first right-side key in the stroke (if there is one).
             If it doesn't follow a center key, insert a hyphen before it.
-            Only uppercase the string if right-side keys exist. """
+            Only uppercase the string if right-side keys exist.
+            This is idempotent; it will do nothing if the input is already RTFCRE. """
         for i, c in enumerate(s):
             if c in self._r_keys_set:
                 if not i or s[i - 1] not in self._c_keys_set:

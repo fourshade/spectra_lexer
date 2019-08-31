@@ -1,5 +1,3 @@
-from typing import Callable, List
-
 from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
@@ -11,12 +9,10 @@ from spectra_lexer.console import SystemConsole
 class HistoryTracker:
     """ Tracks previous lines of keyboard input, minus the newline. """
 
-    _lines: List[str]  # Tracked sections of text. May include internal newline characters.
-    _pointer: int = 0  # Pointer to current history line, 0 = earliest line.
-
     def __init__(self) -> None:
         """ There will always be at least one empty line, at the beginning. """
-        self._lines = [""]
+        self._lines = [""]  # Tracked sections of text. May include internal newline characters.
+        self._pointer = 0   # Pointer to current history line, 0 = earliest line.
 
     def add(self, s:str) -> None:
         """ Add a new line to the history and reset the pointer to just *after* the end.
@@ -41,18 +37,12 @@ class HistoryTracker:
 class ConsoleTextWidget(QTextEdit):
     """ Formatted text widget meant to display plaintext interpreter input and output as a terminal. """
 
-    _history: HistoryTracker        # Tracks previous keyboard input.
-    _last_text_received: str = ""   # Last text received from outside, used as an unchangeable base for text input.
+    textKeyboardInput = pyqtSignal([str])  # Sent with a line of user input upon pressing Enter.
 
     def __init__(self, parent:ToolDialog) -> None:
         super().__init__(parent)
-        self.setFont(QFont("Courier New", 10))
-        self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
-        self._history = HistoryTracker()
-
-    def connect(self, input_cb:Callable[[str], None]) -> None:
-        """ Connect a callback to send a new line of user input to the console. """
-        self.textKeyboardInput.connect(input_cb)
+        self._history = HistoryTracker()  # Tracks previous keyboard input.
+        self._last_text_received = ""     # Last external text received; used as an unchangeable base for text input.
 
     def add_text(self, text:str) -> None:
         """ Add to the text content of the widget and reset the cursor to the end. """
@@ -108,20 +98,17 @@ class ConsoleTextWidget(QTextEdit):
             c.setPosition(min_position)
             self.setTextCursor(c)
 
-    # Signals
-    textKeyboardInput = pyqtSignal([str])
-
 
 class ConsoleDialog(ToolDialog):
     """ Qt console dialog window object. Routes signals between the console, a text widget, and the keyboard. """
 
-    TITLE = "Python Console"
-    SIZE = (680, 480)
-
     def setup(self, locals_ns:dict) -> None:
         """ Create a console widget and connect it to a new interpreter console instance. """
-        layout = QVBoxLayout(self)
+        self.setup_window("Python Console", 680, 480)
         w_text = ConsoleTextWidget(self)
-        layout.addWidget(w_text)
+        w_text.setFont(QFont("Courier New", 10))
+        w_text.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
         console = SystemConsole(locals_ns, write_to=w_text.add_text)
-        w_text.connect(console)
+        w_text.textKeyboardInput.connect(console)
+        layout = QVBoxLayout(self)
+        layout.addWidget(w_text)

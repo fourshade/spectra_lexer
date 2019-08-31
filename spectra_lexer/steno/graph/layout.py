@@ -4,22 +4,25 @@ from .node import GraphNode, SeparatorNode
 from .primitive import Composite
 
 
-class GraphLayout(Composite):
+class BaseGraphLayout(Composite):
+    """ Abstract class for a graph composite containing one level of child nodes laid out in rows.
+        May contain other layouts recursively. """
 
     parent_width: int  # Total width of the parent, past which endpieces must be added.
 
     def __init__(self, node:GraphNode) -> None:
-        """ Arrange all children according to the layout and connect them. Some children may not be included. """
+        """ Arrange all children according to the layout and connect them. """
         super().__init__()
         self.parent_width = node.bottom_length
         node.body(self.add)
         if node.children:
+            # Child objects are added to the layout from left-to-right.
+            # Reverse the list at the end in order to ensure that the leftmost objects get drawn last.
             self._layout(node.children)
-            # Reverse the list in order to ensure that the leftmost objects get drawn last.
             self.reverse()
 
     def _layout(self, nodes:Sequence[GraphNode]) -> None:
-        """ Add a row index with every child, in order. To filter out a child, do not use that iteration. """
+        """ Add a row index with every child, in order. Some children may not be included. """
         raise NotImplementedError
 
     def _first_row(self, node:GraphNode) -> int:
@@ -36,16 +39,18 @@ class GraphLayout(Composite):
         self.add(obj, row, col)
 
 
-class CascadedGraphLayout(GraphLayout):
-    """ Nodes are drawn in descending order like a waterfall from the top-down going left-to-right.
+class CascadedGraphLayout(BaseGraphLayout):
+    """ Graph layout with nodes in descending order like a waterfall from the top-down going left-to-right.
         Recursive construction with one line per node means everything fits naturally with no overlap.
         Window space economy is poor (the triangle shape means half the space is wasted off the top).
         Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
 
     def _layout(self, nodes:Sequence[GraphNode]) -> None:
+        """ Every time a new node is placed, we simply move down by a number of rows equal to its height. """
         bottom_bound = 0
         right_bound = 0
         for node in nodes:
+            # Nodes that have children themselves are recursively laid out first to determine their height and width.
             obj = self.__class__(node)
             col = node.attach_start
             # Advance to the next free row. Move down one more if this child shares columns with the last one.
@@ -58,7 +63,7 @@ class CascadedGraphLayout(GraphLayout):
             right_bound = col + obj.width
 
 
-class CompressedGraphLayout(GraphLayout):
+class CompressedGraphLayout(BaseGraphLayout):
     """ Graph layout that attempts to arrange nodes and connections in the minimum number of rows.
         Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
 

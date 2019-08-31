@@ -1,14 +1,13 @@
 import time
-from typing import List, TextIO
+from typing import TextIO
 
 
 class StreamLogger:
-
-    _streams: List[TextIO]  # List of writable/appendable text streams for logging.
-    _last_msg: str = ""     # Most recently logged string.
+    """ Basic logger class. Writes to pre-opened text streams. """
 
     def __init__(self, *streams:TextIO) -> None:
-        self._streams = [*streams]
+        self._streams = [*streams]  # List of writable/appendable text streams for logging.
+        self._last_msg = ""         # Most recently logged string.
 
     def add_stream(self, stream:TextIO) -> None:
         """ Add a text stream for logging. """

@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QLabel, QWidget
 
 
 class StenoBoardWidget(QWidget):
-    """ Widget to display all the keys that make up a steno stroke pictorally. """
+    """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
     sig_activate_link = pyqtSignal()     # Sent when examples link is clicked.
     sig_new_ratio = pyqtSignal([float])  # Sent on board resize with the new aspect ratio.

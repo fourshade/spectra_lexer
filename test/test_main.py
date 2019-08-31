@@ -5,15 +5,14 @@
 from collections import Counter
 import os
 import re
-import sys
 
 import pytest
 
-from spectra_lexer.app import StenoApplication
-from spectra_lexer.gui_qt.plover.parser import PloverTranslationParser
-from spectra_lexer.gui_qt.plover.types import PloverEngine
-from spectra_lexer.steno.search.index import StenoIndex
-from spectra_lexer.steno.search.translations import TranslationsDictionary
+from spectra_lexer.app import StenoMain
+from spectra_lexer.plover.parser import PloverTranslationParser
+from spectra_lexer.plover.types import FakePloverEngine
+from spectra_lexer.steno import RuleFlags
+from spectra_lexer.steno.search import IndexSearchDict, TranslationsSearchDict
 
 
 def _test_file_path(filename:str) -> str:
@@ -21,49 +20,45 @@ def _test_file_path(filename:str) -> str:
     return os.path.join(__file__, "..", "data", filename)
 
 
-# Load all resources using default command-line arguments and create components as we need them.
-first, *rest = sys.argv
-sys.argv = [first]
-APP = StenoApplication()
-sys.argv += rest
+# Load resources using default command-line arguments and create components as we need them.
+opts = StenoMain()
+APP = opts.build_app(with_translations=False, with_index=False, with_config=False)
 RES = APP._res
 STENO = APP._engine
-RULES_DICT = RES._rule_parser._rules
+RULES_DICT = STENO._rules
 IGNORED_KEYS = set("/-")
+VALID_FLAGS = {v for v in vars(RuleFlags).values() if isinstance(v, str)}
 
 
-@pytest.mark.parametrize("r", RULES_DICT.values())
-def test_rules(r):
-    """ Go through each rule and perform extensive integrity checks. """
-    flags = r.flags
-    if flags:
-        # If the entry has flags, verify that all of them are valid.
-        bad_flags = flags.get_invalid()
-        assert not bad_flags, f"Entry {r} has illegal flag(s): {bad_flags}"
-    rulemap = r.rulemap
+@pytest.mark.parametrize("rule", RULES_DICT.values())
+def test_rules(rule):
+    """ Go through each rule and perform integrity checks. First verify that all flags are valid. """
+    flags = rule.flags
+    for f in flags:
+        assert f in VALID_FLAGS, f"Entry {rule} has illegal flag: {f}"
+    rulemap = rule.rulemap
     if rulemap:
         # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
         # Make sure the child rules contain all the keys of the parent between them, and no extras.
-        parent_len = len(r.letters)
-        key_count = Counter(r.keys)
+        parent_len = len(rule.letters)
+        key_count = Counter(rule.keys)
         for child, start, length in rulemap:
             assert start >= 0
             assert length >= 0
             assert start + length <= parent_len
             key_count.subtract(child.keys)
         mismatched = [k for k in key_count if key_count[k] and k not in IGNORED_KEYS]
-        assert not mismatched, f"Entry {r} has mismatched keys vs. its child rules: {mismatched}"
+        assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
 
 
-TRANSLATIONS_DICT = TranslationsDictionary(RES.load_translations(_test_file_path("translations.json")))
-TEST_TRANSLATIONS = list(TRANSLATIONS_DICT.items())
+TRANSLATIONS = [*RES.load_translations(_test_file_path("translations.json")).items()]
+TRANSLATIONS_DICT = TranslationsSearchDict(TRANSLATIONS)
 
 
-@pytest.mark.parametrize("trial", TEST_TRANSLATIONS)
-def test_translations_search(trial):
-    """ Go through each loaded test translation and check the search method in all modes. """
-    keys, word = trial
-    # Search should return a list with only the item itself (or its value) in any mode.
+@pytest.mark.parametrize("keys, word", TRANSLATIONS)
+def test_translations_search(keys, word):
+    """ Go through each loaded test translation and check the search method in all modes.
+        Search should return a list with only the item itself (or its value) in any mode. """
     assert TRANSLATIONS_DICT.search(keys, count=2, strokes=True) == [keys]
     assert TRANSLATIONS_DICT.search(word, count=2, strokes=False) == [word]
     assert TRANSLATIONS_DICT.search(keys, count=None, strokes=True) == [word]
@@ -72,40 +67,39 @@ def test_translations_search(trial):
     assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
-INDEX_DICT = StenoIndex(RES.load_index(_test_file_path("index.json")))
-TEST_INDEX = list(INDEX_DICT.items())
+INDEX = [*RES.load_index(_test_file_path("index.json")).items()]
+INDEX_DICT = IndexSearchDict(INDEX)
 
 
-@pytest.mark.parametrize("trial", TEST_INDEX)
-def test_index_search(trial):
-    # Any rule with translations in the index should have its keys and letters somewhere in every entry.
-    rname, tdict = trial
-    rule = RULES_DICT[rname]
-    wresults = INDEX_DICT.search(rname, "", count=100, strokes=False)
+@pytest.mark.parametrize("rule_name", INDEX_DICT.keys())
+def test_index_search(rule_name):
+    """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
+    rule = RULES_DICT[rule_name]
+    wresults = INDEX_DICT.search(rule_name, "", count=100, strokes=False)
     assert all([rule.letters in r for r in wresults])
-    kresults = INDEX_DICT.search(rname, "", count=100, strokes=True)
+    kresults = INDEX_DICT.search(rule_name, "", count=100, strokes=True)
     all_keys = set(rule.keys) - IGNORED_KEYS
     assert all_keys == all_keys.intersection(*kresults)
 
 
-TEST_RESULTS = [STENO.lexer_query(*t, match_all_keys=True) for t in TEST_TRANSLATIONS]
+RESULTS = [STENO.lexer_query(*t, match_all_keys=True) for t in TRANSLATIONS]
 
 
-@pytest.mark.parametrize("result", TEST_RESULTS)
+@pytest.mark.parametrize("result", RESULTS)
 def test_lexer(result):
     """ The parsing tests fail if the parser can't match all the keys. """
     rulemap = result.rulemap
     assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
 
 
-@pytest.mark.parametrize("result", TEST_RESULTS)
+@pytest.mark.parametrize("result", RESULTS)
 def test_board(result):
     """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
     STENO.board_from_keys(result.keys)
     STENO.board_from_rule(result)
 
 
-@pytest.mark.parametrize("result", TEST_RESULTS)
+@pytest.mark.parametrize("result", RESULTS)
 def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
     graph = STENO.graph_generate(result)
@@ -125,6 +119,6 @@ def test_graph(result):
 
 def test_plover():
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
-    plover = PloverEngine.test(TRANSLATIONS_DICT, split_count=3)
-    parser = PloverTranslationParser(plover)
+    engine = FakePloverEngine(TRANSLATIONS_DICT, split_count=3)
+    parser = PloverTranslationParser(engine)
     assert parser.convert_dicts() == TRANSLATIONS_DICT

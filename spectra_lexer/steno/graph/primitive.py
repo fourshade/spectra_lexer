@@ -1,14 +1,13 @@
 """ Module for primitive operations consisting of drawing lines and columns of text. """
 
 from functools import lru_cache
-from typing import Callable, Sequence, Tuple
+from typing import Callable, Sequence
 
 from .canvas import Canvas
 
 
-class Primitive:
-    """ Abstract object to write text to a canvas. Defines a rectangle size, a source string, and a node tag.
-        No attribute is consistently used by every subclass, so __init__ is not defined here. """
+class BasePrimitive:
+    """ Abstract object to write text to a canvas. Defines only a maximum rectangle size. """
 
     height: int = 1  # Total height in rows.
     width: int = 1   # Total width in columns.
@@ -16,9 +15,20 @@ class Primitive:
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
         """ Draw the object on the text canvas. By default, nothing happens. """
 
+    def render(self, row:int=0, col:int=0) -> Canvas:
+        """ Render this primitive onto a grid of minimum required size. Try again with a larger one if it fails. """
+        s = row + col
+        canvas = Canvas.blanks(self.height + s, self.width + s)
+        try:
+            self.write(canvas, row, col)
+            return canvas
+        except ValueError:
+            dim = s % 2
+            return self.render(row + dim, col + (not dim))
+
     def __str__(self) -> str:
-        canvas = Canvas.blanks(self.height + 2, self.width + 2)
-        self.write(canvas, 1, 1)
+        """ Return the rendered text grid followed by a grid of numbers representing each distinct node tag. """
+        canvas = self.render()
         tags = canvas.compile_tags()
         unique = {t for line in tags for t in line if t is not None}
         chars = {None: ' '}
@@ -30,16 +40,13 @@ class Primitive:
         return f'<{self.__class__.__name__}:\n{self}>'
 
 
-class PrimitiveRow(Primitive):
-    """ Writes tagged text to a row of a canvas. """
-
-    text: str    # String to draw.
-    tag: object  # Identifier for the node.
+class PrimitiveRow(BasePrimitive):
+    """ Writes a text string to a row of a canvas under a single node tag. """
 
     def __init__(self, s:str, tag:object) -> None:
         """ The row starts at the origin and extends to the right. """
-        self.text = s
-        self.tag = tag
+        self.text = s   # String to draw.
+        self.tag = tag  # Identifier for the node.
         self.width = len(s)
 
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
@@ -47,16 +54,13 @@ class PrimitiveRow(Primitive):
         canvas.write_row(self.text, self.tag, row, col)
 
 
-class PrimitiveColumn(Primitive):
-    """ Writes tagged text to a column of a canvas. """
-
-    text: str    # String to draw.
-    tag: object  # Identifier for the node.
+class PrimitiveColumn(BasePrimitive):
+    """ Writes a text string to a column of a canvas under a single node tag. """
 
     def __init__(self, s:str, tag:object) -> None:
         """ The column starts at the origin and extends down. """
-        self.text = s
-        self.tag = tag
+        self.text = s   # String to draw.
+        self.tag = tag  # Identifier for the node.
         self.height = len(s)
 
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
@@ -64,28 +68,26 @@ class PrimitiveColumn(Primitive):
         canvas.write_column(self.text, self.tag, row, col)
 
 
-class PrimitiveRowReplace(Primitive):
-    """ Replaces every space in the given row with its character. """
+class PrimitiveRowReplace(BasePrimitive):
+    """ Replaces every space in a canvas row with a given character. """
 
-    text: str    # String to draw.
-    tag: object  # Identifier for the node.
-    width = 0    # Row substitution operations should advance one row, but no columns.
+    width = 0  # Row substitution operations should advance one row, but no columns.
 
-    def __init__(self, s:str, tag:object) -> None:
-        self.text = s
-        self.tag = tag
+    def __init__(self, c:str, tag:object) -> None:
+        self.text = c   # Character to draw.
+        self.tag = tag  # Identifier for the node.
 
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        """ Replace every space in the row with unowned separators. """
+        """ Replace every space in the row with unowned copies of the character. """
         canvas.row_replace(row, " ", self.text)
 
 
-class Composite(list, Primitive):
+class Composite(list, BasePrimitive):
     """ An ordered composite of text primitives with offsets in the form (row, col, item). """
 
     height = width = 0  # Empty containers take up no space.
 
-    def add(self, item:Primitive, row:int=0, col:int=0) -> None:
+    def add(self, item:BasePrimitive, row:int=0, col:int=0) -> None:
         """ Add a text object with a specific offset from this container's origin.
             Maintain the container's width and height as the maximum extent of any of its children. """
         self.append((item, row, col))
@@ -120,7 +122,7 @@ def _pattern_generator(prim_cls:type) -> Callable:
             if length < 2:
                 return single
             return first + middle * (length - 2) + last
-        def make_primitive(self, length:int) -> Primitive:
+        def make_primitive(self, length:int) -> BasePrimitive:
             return prim_cls(constructor(length), self)
         return make_primitive
     return primitive_generator
@@ -130,24 +132,20 @@ PatternRow = _pattern_generator(PrimitiveRow)
 PatternColumn = _pattern_generator(PrimitiveColumn)
 
 
-class ClipMatrix(tuple):
+class ClipMatrix:
     """ Provides integer matrix multiplication with bounds clipping. """
 
-    _low: Sequence[int]   # Lower bounds on each factor.
-    _high: Sequence[int]  # Upper bounds on each factor.
+    def __init__(self, *args:Sequence[int], lower_bound:Sequence[int]=None, upper_bound:Sequence[int]=None) -> None:
+        self._mat = args          # Tuple of integer sequences to form a matrix.
+        self._low = lower_bound   # Lower bounds on each factor.
+        self._high = upper_bound  # Upper bounds on each factor.
 
-    def __new__(cls, *args:Sequence[int], lower_bound:tuple=None, upper_bound:tuple=None):
-        """ For memoization to work, this object must be hashable, i.e. a tuple of tuples. """
-        self = super().__new__(cls, map(tuple, args))
-        self._low = lower_bound
-        self._high = upper_bound
-        return self
-
-    def __matmul__(self, col:Sequence[int]) -> Tuple[int, ...]:
-        return tuple([sum([a * b for a, b in zip(row, col)]) for row in self])
+    def __matmul__(self, col:Sequence[int]) -> Sequence[int]:
+        """ Multiply the vector <col> by this matrix and return the resulting column vector. """
+        return [sum([a * b for a, b in zip(row, col)]) for row in self._mat]
 
     @lru_cache(maxsize=None)
-    def __call__(self, *col:int) -> Tuple[int, ...]:
+    def __call__(self, *col:int) -> Sequence[int]:
         """ Combine all factors using matrix multiplication, clip at the optional bounds and cache the results. """
         val = self @ col
         if self._low is not None:

@@ -1,4 +1,4 @@
-""" Module for generic key-search dicts. """
+""" Module for key-search dictionaries from generic to specialized. """
 
 from bisect import bisect_left
 from collections import defaultdict
@@ -90,7 +90,7 @@ class SimilarKeyDict(Dict[KT, VT]):
     def popitem(self) -> Tuple[KT,VT]:
         """ Remove the last (key, value) pair as found in the list and return it. The dict must not be empty. """
         if not self:
-            raise KeyError
+            raise KeyError()
         sk, k = self._list[-1]
         return k, self.pop(k)
 
@@ -216,32 +216,19 @@ class StringSearchDict(SimilarKeyDict):
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))
 
-
-class StripCaseSearchDict(StringSearchDict):
-    """ Class that performs string-based searches after stripping symbols and neutralizing case. """
-
-    def __init__(self, *args, _strip:str=None, **kwargs):
-        """ Make similarity functions that remove case and strip a user-defined set of symbols for the constructor. """
-        if _strip is not None:
-            def simfn(s:str) -> str:
-                return s.strip(_strip).lower()
-            # Also define a mapped version for use across a large number of keys.
-            # Mapping the built-in string methods separately provides a large speed boost.
-            def mapfn(s_iter:Iterable[str]) -> map:
-                return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
-            kwargs.update(simfn=simfn, mapfn=mapfn)
-        super().__init__(*args, **kwargs)
+    @classmethod
+    def strip_case_fns(cls, _strip:str=" ") -> dict:
+        """ Return similarity function kwargs that remove case and strip a user-defined set of symbols. """
+        def simfn(s:str) -> str:
+            return s.strip(_strip).lower()
+        # Mapping the built-in string methods separately provides a good speed boost for large dictionaries.
+        def mapfn(s_iter:Iterable[str]) -> map:
+            return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
+        return dict(simfn=simfn, mapfn=mapfn)
 
 
 class ReverseDict(dict):
     """ A reverse dictionary. Inverts a mapping from (key: value) to (value: [keys]). """
-
-    def __init__(self, *args, _match:dict=None, **kwargs):
-        """ Create a matching inverse to the forward dict in the keyword argument <_match> if given.
-            Add items from other arguments normally to remain compatible with other dict constructors. """
-        super().__init__(*args, **kwargs)
-        if _match is not None:
-            self.match_forward(_match)
 
     def add(self, k, v) -> None:
         """ Add the value <v> to the list located under the key <k>.
@@ -259,10 +246,62 @@ class ReverseDict(dict):
         if not i:
             del self[k]
 
-    def match_forward(self, fdict:dict) -> None:
-        """ Make this dict into the reverse of the given forward dict by rebuilding all of the lists.
-            It is a fast way to populate a reverse dict from scratch after creation. """
-        self.clear()
+    @classmethod
+    def from_forward(cls, fdict:dict, **kwargs):
+        """ Create a matching inverse to the forward dict in <fdict>.
+            It is a fast way to populate a reverse dict from scratch. """
         rdict = defaultdict(list)
         list(map(list.append, [rdict[v] for v in fdict.values()], fdict))
-        self.update(rdict)
+        return cls(rdict, **kwargs)
+
+
+class TranslationsSearchDict(StringSearchDict):
+    """ A hybrid forward+reverse steno translation dict. Must also behave as a normal dict. """
+
+    def __init__(self, *args, _strip=" -", **kwargs) -> None:
+        """ For translation-based searches, spaces and hyphens should be stripped off each end by default. """
+        fns = self.strip_case_fns(_strip)
+        super().__init__(*args, **fns, **kwargs)  # Forward translations dict (strokes -> English words).
+        rev_dict = ReverseDict.from_forward(self)
+        self._reverse = StringSearchDict(rev_dict, **fns)  # Reverse dict (English words -> strokes).
+
+    def search(self, pattern:str, count:int=None, strokes:bool=False, prefix:bool=True, regex:bool=False) -> List[str]:
+        """ Perform a special search for <pattern> with the given flags. Return up to <count> matches.
+            If <count> is None, perform a normal lookup instead. The dict only depends on the strokes mode. """
+        d = self if strokes else self._reverse
+        if count is None:
+            # Make sure to wrap the result in a list. Reverse dict values are always lists.
+            v = d.get(pattern)
+            if v:
+                return [v] if strokes else v
+            return []
+        if regex:
+            try:
+                return d.regex_match_keys(pattern, count)
+            except re.error:
+                return ["REGEX ERROR"]
+        if prefix:
+            return d.prefix_match_keys(pattern, count)
+        return d.get_nearby_keys(pattern, count)
+
+
+class IndexSearchDict(dict):
+    """ A resource-heavy index dict-of-dicts for finding translations that contain a particular steno rule.
+        Index search is a two-part search. The first part goes by rule name; only exact matches will work. """
+
+    def search(self, index_key:str, pattern:str, **kwargs) -> List[str]:
+        """ Translation search dicts are memory hogs, and users tend to look at many results under the same rule.
+            Convert native dicts (from JSON) to full-featured search dicts only on demand. """
+        d = self.get(index_key)
+        if not d:
+            return []
+        if not isinstance(d, TranslationsSearchDict):
+            d = self[index_key] = TranslationsSearchDict(d)
+        # Manually set the search flags.
+        kwargs.update(prefix=False, regex=False)
+        return d.search(pattern, **kwargs)
+
+    def __repr__(self) -> str:
+        """ Recursive reprs on index objects are deadly. Only show the first level with item counts. """
+        item_counts = {k: f"{len(self[k])} items" for k in self}
+        return f"<{type(self).__name__}: {item_counts!r}>"

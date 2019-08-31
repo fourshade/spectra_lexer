@@ -2,83 +2,85 @@
 
 """ cProfile benchmarks for each lexer component. Counts are tailored for a reasonable running time. """
 
-import random
 import sys
 
 from .bench import bench
 
 
-def _on_input(ifunc, engine, operation, n=5000):
-    bench(operation, ifunc(engine, n), count=n)
+class ComponentBench:
 
+    def __init__(self, engine):
+        self.engine = engine
+        self.translations = engine._translations.items()
+        self.n = 5000
 
-def _spaced_translations(engine, n=None):
-    items = [*engine._analyzer._translations]
-    if n is None:
-        return items
-    step = len(items) // n
-    return items[::step]
+    def _run(self, *args):
+        bench(*args, count=self.n)
 
+    def _spaced_translations(self):
+        items = [*self.translations]
+        step = len(items) // self.n
+        return items[::step]
 
-def _spaced_rules(engine, n):
-    translations = _spaced_translations(engine, n)
-    query = engine.lexer_query
-    return zip([query(k, w) for k, w in translations])
+    def _spaced_rules(self):
+        translations = self._spaced_translations()
+        query = self.engine.lexer_query
+        return zip([query(k, w) for k, w in translations])
 
+    def run_lexer(self):
+        self._run(self.engine.lexer_query, self._spaced_translations())
 
-def run_lexer(engine):
-    _on_input(_spaced_translations, engine, engine.lexer_query)
+    def make_board(self):
+        self._run(self.engine.board_from_rule, self._spaced_rules())
 
+    def make_graph(self):
+        self._run(lambda r: self.engine.graph_generate(r).render(ref='1'), self._spaced_rules())
 
-def make_board(engine):
-    _on_input(_spaced_rules, engine, engine.board_from_rule)
+    def run_search(self):
+        import random
+        from spectra_lexer.steno.search import TranslationsSearchDict
+        self.n = 50000
+        random.seed(123)
+        translations = self.translations
+        prefixes_and_counts = [(letters[:random.randint(1, len(letters))], 100) for keys, letters in translations]
+        d = TranslationsSearchDict(translations)
+        self._run(d.search, prefixes_and_counts)
 
-
-def make_graph(engine):
-    _on_input(_spaced_rules, engine, lambda r: engine.graph_generate(r).render(ref='1'))
-
-
-def run_search(engine):
-    from spectra_lexer.steno.search.translations import TranslationsDictionary
-    random.seed(123)
-    translations = _spaced_translations(engine)
-    prefixes_and_counts = [(letters[:random.randint(1, len(letters))], 100) for keys, letters in translations]
-    d = TranslationsDictionary(translations)
-    bench(d.search, prefixes_and_counts, count=50000)
-
-
-def init_plover(engine):
-    from spectra_lexer.plover.parser import PloverTranslationParser
-    from spectra_lexer.plover.types import PloverEngine
-    translations = dict(_spaced_translations(engine))
-    plover = PloverEngine.test(translations, split_count=1)
-    parser = PloverTranslationParser(plover)
-    bench(parser.convert_dicts, count=10)
+    def init_plover(self):
+        from spectra_lexer.plover.parser import PloverTranslationParser
+        from spectra_lexer.plover.types import FakePloverEngine
+        self.n = 10
+        plover = FakePloverEngine(dict(self.translations), split_count=1)
+        parser = PloverTranslationParser(plover)
+        self._run(parser.convert_dicts)
 
 
 def app_start():
-    from spectra_lexer.app import StenoApplication
-    return StenoApplication()
+    from spectra_lexer.app import StenoMain
+    return StenoMain().build_app()
 
 
 def app_analyze():
-    from spectra_lexer import analyze
+    from spectra_lexer.app import analyze
     analyze("--index-file=NUL", "--rules-out=NUL")
 
 
 def app_index():
-    from spectra_lexer import index
+    from spectra_lexer.app import index
     index("--index-file=NUL")
 
 
 def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:
     """ Application startup benchmarks also include import time.
         Only one run at a time is allowed, since imports are cached after that. """
-    func = globals()[operation]
     if operation.startswith("app"):
+        func = globals()[operation]
         bench(func, count=1, best_of=1, max_lines=100)
-    # Other benchmarks require an already-started app engine.
-    func(app_start()._engine)
+    else:
+        # Other benchmarks require an already-started app's engine.
+        engine = app_start()._engine
+        b = ComponentBench(engine)
+        getattr(b, operation)()
     return 0
 
 

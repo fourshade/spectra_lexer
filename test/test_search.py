@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from spectra_lexer.steno.search.search import ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict
+from spectra_lexer.steno.search import ReverseDict, SimilarKeyDict, StringSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -21,7 +21,7 @@ def class_hierarchy_tester(*test_classes:type):
 
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict, StripCaseSearchDict)
+class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict)
 
 
 @class_test(SimilarKeyDict)
@@ -246,8 +246,9 @@ def test_reverse_dict(cls):
     fd = {1: "a", 2: "b", 3: "a", 4: "c",
           5: "a", 6: "b", 7: "a", 8: "d"}
     rd = cls()
-    rd.match_forward(fd)
-    rd2 = cls(_match=fd)
+    for k in fd:
+        rd.add(fd[k], k)
+    rd2 = cls.from_forward(fd)
     assert rd == rd2 == {"a": [1, 3, 5, 7],
                          "b": [2, 6],
                          "c": [4],

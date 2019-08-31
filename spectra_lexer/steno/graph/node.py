@@ -1,9 +1,9 @@
-""" Module for higher-level text objects such as graph nodes for text operations. """
+""" Module for text graph node types and properties. """
 
 from typing import Callable, Dict, Iterator
 
 from .primitive import ClipMatrix, PatternColumn, PatternRow, PrimitiveRow, PrimitiveRowReplace
-from ..rules import RuleFlags, StenoRule
+from ..rules import StenoRule
 
 
 class GraphNode:
@@ -113,6 +113,7 @@ class SeparatorNode(GraphNode):
 
 
 class LeafNode(GraphNode):
+    """ A standard node with no children. """
 
     bottom_start: int = 0  # Start of the bottom attach point. Is only non-zero if there is an uncovered prefix.
 
@@ -179,56 +180,15 @@ class RootNode(BranchNode):
                        [0,   0,   0,   0])
 
 
-class NodeFactory:
-
-    _key_sep: str     # Steno key used as stroke separator.
-    _key_split: str   # Steno key used to split sides in RTFCRE.
-
-    def __init__(self, key_sep:str, key_split:str):
-        self._key_sep = key_sep
-        self._key_split = key_split
-
-    def make_root(self, rule:StenoRule) -> RootNode:
-        return RootNode(rule.letters)
-
-    def make_base(self, rule:StenoRule, *args) -> GraphNode:
-        """ Base rules (i.e. leaf nodes) show their keys. """
-        text = rule.keys
-        if text == self._key_sep:
-            return SeparatorNode(text, *args)
-        # The text is shifted one to the right if the keys start with '-'.
-        shift = (len(text) > 1 and text[0] == self._key_split)
-        if RuleFlags.UNMATCHED in rule.flags:
-            return UnmatchedNode(shift, text, *args)
-        else:
-            return LeafNode(shift, text, *args)
-
-    def make_derived(self, rule:StenoRule, *args) -> BranchNode:
-        """ Derived rules (i.e. branch nodes) show their letters. """
-        text = rule.letters
-        flags = rule.flags
-        if RuleFlags.INVERSION in flags:
-            node_cls = InversionNode
-        elif RuleFlags.LINKED in flags:
-            node_cls = LinkedNode
-        else:
-            node_cls = BranchNode
-        return node_cls(text, *args)
-
-
 class NodeIndex:
-
-    _rules_by_node: Dict[StenoRule, GraphNode]  # Mapping of each rule to its generated node.
-    _nodes_by_rule: Dict[GraphNode, StenoRule]  # Mapping of each generated node to its rule.
-    _anchors_by_node: Dict[str, GraphNode]      # Mapping of each generated node to its anchor ref string.
+    """ Keeps track of nodes and rules in case we need one from the other, as well as 'anchor' reference strings. """
 
     def __init__(self) -> None:
-        self._rules_by_node = {}
-        self._nodes_by_rule = {}
-        self._anchors_by_node = {}
+        self._rules_by_node: Dict[StenoRule, GraphNode] = {}  # Mapping of each rule to its generated node.
+        self._nodes_by_rule: Dict[GraphNode, StenoRule] = {}  # Mapping of each generated node to its rule.
+        self._anchors_by_node: Dict[str, GraphNode] = {}      # Mapping of each generated node to its anchor ref string.
 
     def add(self, node:GraphNode, rule:StenoRule) -> None:
-        """ Keep track of nodes and rules in case we need one from the other, as well as the general anchor refs. """
         self._rules_by_node[rule] = node
         self._nodes_by_rule[node] = rule
         self._anchors_by_node[node.ref_str] = node
@@ -246,3 +206,58 @@ class NodeIndex:
         if node is not None:
             selection = rule
         return node, selection
+
+
+class NodeFactory(NodeIndex):
+    """ Creates node trees, documenting each node and its corresponding rule in an index. """
+
+    def __init__(self, key_sep:str, key_split:str, recursive:bool=True) -> None:
+        super().__init__()
+        self._key_sep = key_sep      # Steno key used as stroke separator.
+        self._key_split = key_split  # Steno key used to split sides in RTFCRE.
+        self._recursive = recursive  # If False, don't make derived nodes beyond the root.
+
+    def make_root(self, rule:StenoRule) -> RootNode:
+        """ Create a root node and its children recursively. """
+        root = RootNode(rule.letters)
+        self.add(root, rule)
+        self._make_children(root, rule)
+        return root
+
+    def _make_children(self, node:GraphNode, rule:StenoRule) -> None:
+        """ Make children from a rulemap and index them. """
+        for m_rule, start, length in rule.rulemap:
+            child = self._make_node(m_rule, start, length, node)
+            self.add(child, m_rule)
+
+    def _make_node(self, rule:StenoRule, *args) -> GraphNode:
+        """ Only create derived type nodes if a rule has children and recursion is allowed. """
+        if not self._recursive or not rule.rulemap:
+            return self.make_base(rule, *args)
+        return self.make_derived(rule, *args)
+
+    def make_base(self, rule:StenoRule, *args) -> GraphNode:
+        """ Base rules (i.e. leaf nodes) show their keys. """
+        text = rule.keys
+        if text == self._key_sep:
+            return SeparatorNode(text, *args)
+        # The text is shifted one to the right if the keys start with '-'.
+        shift = (len(text) > 1 and text[0] == self._key_split)
+        if rule.flags.unmatched:
+            return UnmatchedNode(shift, text, *args)
+        else:
+            return LeafNode(shift, text, *args)
+
+    def make_derived(self, rule:StenoRule, *args) -> BranchNode:
+        """ Derived rules (i.e. branch nodes) show their letters. """
+        text = rule.letters
+        flags = rule.flags
+        if flags.inversion:
+            node_cls = InversionNode
+        elif flags.linked:
+            node_cls = LinkedNode
+        else:
+            node_cls = BranchNode
+        node = node_cls(text, *args)
+        self._make_children(node, rule)
+        return node

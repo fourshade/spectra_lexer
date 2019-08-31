@@ -1,27 +1,34 @@
+""" Module for the GUI state machine. """
+
 from typing import Any, List
 
+from spectra_lexer.option import ConfigOption
 from spectra_lexer.steno import StenoEngine, StenoRule
 
-# State attributes that can be user-configured in the GUI version, or sent in query strings in the HTML version.
-CONFIG_INFO = [("compound_board", True, "board", "compound_keys",
-                "Show special labels for compound keys (i.e. `f` instead of TP)."),
-               ("recursive_graph", True, "graph", "recursive",
-                "Include rules that make up other rules."),
-               ("compressed_graph", True, "graph", "compressed",
-                "Compress the graph vertically to save space."),
-               ("match_all_keys", False, "lexer", "need_all_keys",
-                "Only return lexer results that match every key in the stroke."),
-               ("matches_per_page", 100, "search", "match_limit",
-                "Maximum number of matches returned on one page of a search."),
-               ("links_enabled", True, "search", "example_links",
-                "Show hyperlinks to indexed examples of selected rules.")]
-# Web-specific config options, sent in query strings.
-WEB_CONFIG_INFO = [("graph_compat", False, "graph", "compatibility_mode",
-                    "Draw the graph using tables (for browsers with poor monospace font support.)")]
+
+class ViewConfig:
+    """ State attributes that can be user-configured (desktop), or sent in query strings (HTTP). """
+    compound_board: bool = ConfigOption("board", "compound_keys", True,
+                                        "Show special labels for compound keys (i.e. `f` instead of TP).")
+    recursive_graph: bool = ConfigOption("graph", "recursive", True,
+                                         "Include rules that make up other rules.")
+    compressed_graph: bool = ConfigOption("graph", "compressed", True,
+                                          "Compress the graph vertically to save space.")
+    match_all_keys: bool = ConfigOption("lexer", "need_all_keys", False,
+                                        "Only return lexer results that match every key in the stroke.")
+    matches_per_page: int = ConfigOption("search", "match_limit", 100,
+                                         "Maximum number of matches returned on one page of a search.")
+    links_enabled: bool = ConfigOption("search", "example_links", True,
+                                       "Show hyperlinks to indexed examples of selected rules.")
 
 
-class ViewState:
-    """ Contains a complete representation of the state of the main GUI. """
+class ViewState(ViewConfig):
+    """ The primary GUI state machine. Contains a complete representation of the state of the main GUI operations.
+        The general flow of information goes from the search box, to a list of words matching the search, to a list
+        of mappings (strokes <-> translations) that correspond to the chosen word, and finally to the lexer.
+        After the lexer is finished with a translation, a graph and board diagram are generated.
+        Various steps of the process may be done automatically; for example, if there is only one
+        possible mapping of a certain word, it will be chosen automatically and a lexer query sent. """
 
     _MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
 
@@ -47,14 +54,14 @@ class ViewState:
     board_caption: str = ""      # Rule caption above the board.
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
 
-    _result: dict         # Holds all attributes and values that were changed since creation.
-    _engine: StenoEngine  # Has access to all outside components.
+    # Web-specific - for browsers with poor monospace font support.
+    graph_compat: bool = False   # If True, draw the graph using HTML tables with a cell for each character.
 
     def __init__(self, d:dict, engine:StenoEngine) -> None:
         """ Update the attribute dict directly with a state dict <d>. """
         self.__dict__.update(d)
-        self._result = {}
-        self._engine = engine
+        self._result = {}      # Holds all attributes and values that were changed since creation.
+        self._engine = engine  # Has access to outside components.
 
     def __setattr__(self, attr:str, value:Any) -> None:
         """ Add any modified public attributes to the results dict. """
@@ -70,7 +77,7 @@ class ViewState:
 
     def RUNSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
-        selection, self.input_text = self._engine.search_examples(self.link_ref, strokes=self.mode_strokes)
+        selection, self.input_text = self._engine.find_example(self.link_ref, strokes=self.mode_strokes)
         self.page_count = 1
         self._search()
         if selection in self.matches:
@@ -126,7 +133,7 @@ class ViewState:
 
     def _call_search(self, *args, **kwargs) -> List[str]:
         kwargs.update(strokes=self.mode_strokes, regex=self.mode_regex)
-        return self._engine.search_query(self.input_text, *args, **kwargs)
+        return self._engine.search(self.input_text, *args, **kwargs)
 
     def RUNSelect(self) -> None:
         """ Do a lexer query based on the current search selections. """
@@ -144,6 +151,7 @@ class ViewState:
         self._new_graph()
 
     def _new_graph(self) -> None:
+        """ A brand new graph should clear any existing selection and reset the link ref. """
         self.graph_node_ref = ""
         self._new_query(False)
 
@@ -157,18 +165,18 @@ class ViewState:
         """ On click, find the node owning the character at (row, col) and select it with a bright color. """
         self._new_query(True)
 
-    def _new_query(self, *args) -> None:
+    def _new_query(self, select:bool) -> None:
         keys, letters = self.translation
         if keys and letters:
             rule = self._engine.lexer_query(keys, letters, match_all_keys=self.match_all_keys)
-            self._draw_all(rule, *args)
+            self._draw_all(rule, select)
 
     def _draw_all(self, rule:StenoRule, select:bool) -> None:
         """ Draw the graph and board. Only a previous linked example rule may be selected, and only on a new graph. """
         graph = self._engine.graph_generate(rule, recursive=self.recursive_graph,
                                             compressed=self.compressed_graph, compat=self.graph_compat)
         try_prev = self.graph_has_selection and not select
-        prev = self._engine.search_rules(self.link_ref) if try_prev else None
+        prev = self._engine.link_to_rule(self.link_ref) if try_prev else None
         select = select or try_prev
         self.graph_text, selection = graph.render(self.graph_node_ref, prev, select)
         if selection:
@@ -179,16 +187,6 @@ class ViewState:
         self._set_board_data(selection)
 
     def _set_board_data(self, rule:StenoRule) -> None:
-        self.link_ref = self._engine.search_links(rule) if self.links_enabled else ""
+        self.link_ref = self._engine.rule_to_link(rule) if self.links_enabled else ""
         self.board_caption = rule.caption()
-        ratio = self.board_aspect_ratio
-        if self.compound_board:
-            xml_data = self._engine.board_from_rule(rule, ratio)
-        else:
-            xml_data = self._engine.board_from_keys(rule.keys, ratio)
-        self.board_xml_data = xml_data
-
-
-# Update the class with all possible config defaults.
-for key, default, *_ in (*CONFIG_INFO, *WEB_CONFIG_INFO):
-    setattr(ViewState, key, default)
+        self.board_xml_data = self._engine.board_from_rule(rule, self.board_aspect_ratio, compound=self.compound_board)

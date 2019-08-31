@@ -1,7 +1,7 @@
 """ Module for generating steno board diagram elements. """
 
 from math import ceil
-from typing import Iterable
+from typing import Dict, Iterable, List, Tuple
 
 from .path import PathChain, PathGenerator, PathInversion
 from .svg import SVGDefs, SVGDocument, SVGElement, SVGPath
@@ -9,7 +9,9 @@ from .svg import SVGDefs, SVGDocument, SVGElement, SVGPath
 
 class BoardElement(SVGElement):
 
-    offset: complex = 0j  # Offsets are stored and added as complex numbers, which work well for 2D points.
+    offset: complex = 0j       # Offsets are stored and added as complex numbers, which work well for 2D points.
+    ends_stroke: bool = False  # Does this element signal the end of a stroke?
+    add_global = None          # Reserved for elements that add to multiple strokes.
 
     def _add_offset(self, dx:float, dy:float) -> None:
         self.offset += complex(dx, dy)
@@ -18,27 +20,24 @@ class BoardElement(SVGElement):
         elem.translate(self.offset.real, self.offset.imag)
         self.append(elem)
 
-    def add_final(self, group:SVGElement) -> None:
-        """ Add any required elements to the final group. """
-        group.append(self)
-
 
 class ProcessedBoardElement(BoardElement):
 
     _txtmaxarea: tuple = (20.0, 20.0)
     _txtspacing: float = 14.4
 
-    def proc_path(self, id:str, d:dict) -> None:
-        elem = SVGPath(d=d[id])
+    def proc_path(self, e_id:str, d:dict) -> None:
+        elem = SVGPath(d=d[e_id])
         self._append_at_offset(elem)
 
-    def proc_pos(self, id:str, d:dict) -> None:
+    def proc_pos(self, e_id:str, d:dict) -> None:
         """ Add to the total offset used in text and annotations (such as inversion arrows)."""
-        self._add_offset(*d[id])
+        self._add_offset(*d[e_id])
 
-    def proc_shape(self, id:str, d:dict) -> None:
-        attrs = d[id]
-        self.proc_path("d", attrs)
+    def proc_shape(self, e_id:str, d:dict) -> None:
+        attrs = d[e_id]
+        elem = SVGPath(d=attrs["d"])
+        self._append_at_offset(elem)
         self._add_offset(*attrs["txtcenter"])
         self._txtmaxarea = (*attrs["txtarea"],)
         self._txtspacing = attrs["txtspacing"]
@@ -68,13 +67,11 @@ class ProcessedBoardElement(BoardElement):
 
 class BoardElementProcessor:
 
-    # Record every processor method attribute (and its key) found in the elements class.
-    PROC_TABLE = {attr[5:]: attr for attr in dir(ProcessedBoardElement) if attr.startswith("proc_")}
-
-    _proc_params: dict
-
-    def __init__(self, defs:dict) -> None:
-        self._proc_params = {k: defs.get(k) or {} for k in self.PROC_TABLE}
+    def __init__(self, defs:Dict[str, dict]) -> None:
+        # Record every processor method attribute (and its key) found in the elements class.
+        self._proc_table = {attr[5:]: attr for attr in dir(ProcessedBoardElement) if attr.startswith("proc_")}
+        self._proc_params = {k: defs.get(k) or {} for k in self._proc_table}
+        self.bounds = defs["document"]["bounds"]
 
     def __call__(self, elem:dict) -> ProcessedBoardElement:
         """ Process node-type elements recursively into board elements. """
@@ -85,8 +82,8 @@ class BoardElementProcessor:
     def process(self, elem:ProcessedBoardElement) -> None:
         """ Parse XML proc attributes. Merge any redundant elements at the end. """
         for k in [*elem.keys()]:
-            if k in self.PROC_TABLE:
-                attr = self.PROC_TABLE[k]
+            if k in self._proc_table:
+                attr = self._proc_table[k]
                 proc = getattr(elem, attr)
                 proc(elem.pop(k), self._proc_params[k])
 
@@ -131,22 +128,23 @@ class PathConnectorChain(PathConnector, PathChain):
 class BoardStrokeGap(BoardElement):
     """ Essentially a sentinel class for the gap between strokes. """
 
-    def add_final(self, group:BoardElement) -> None:
-        pass
+    ends_stroke = True
 
 
 class BoardInversionGroup(BoardElement):
     """ Draws bent arrows pointing between its children. """
 
-    def add_final(self, group:BoardElement) -> None:
-        group.extend(self)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         first, *_, last = self
         arrows = PathConnectorInversion().connection(first, last)
-        group.append(arrows)
+        self.append(arrows)
 
 
 class BoardLinkedGroup(BoardElement):
     """ Draws a chain connecting its children, which are shifted independently of the main stroke groupings. """
+
+    ends_stroke = True
 
     class _LinkedElement(BoardElement):
         """ Chain endpoint element wrapper. """
@@ -156,10 +154,7 @@ class BoardLinkedGroup(BoardElement):
             self.translate(dx, dy)
             self._add_offset(dx, dy)
 
-    def add_final(self, group:BoardElement) -> None:
-        group.on_tf = self.add_chain
-
-    def add_chain(self, sx:float, sy:float, ex:float, ey:float) -> BoardElement:
+    def add_global(self, sx:float, sy:float, ex:float, ey:float) -> BoardElement:
         """ Wrap elements involved in a chain so the originals aren't mutated. """
         first, *_, last = map(self._LinkedElement, self)
         first.set_offset(sx, sy)
@@ -168,77 +163,78 @@ class BoardLinkedGroup(BoardElement):
         return BoardElement(chain, first, last)
 
 
-class DocumentGroups:
-    """ Groups, transforms, and encodes SVG elements into a final SVG steno board document. """
-
-    _defs: SVGDefs
-    _groups: list
-
-    def __init__(self, base:SVGElement, elems:Iterable[BoardElement]) -> None:
-        """ Make a <use> element out of the base and add all given SVG elements to groups. """
-        self._defs = SVGDefs()
-        base_use = self._defs.make_usable(base)
-        last = BoardElement(base_use)
-        groups = self._groups = [last]
-        for elem in elems:
-            # Only provide the last group. If nothing is added, start a new group instead.
-            start = len(last)
-            elem.add_final(last)
-            if len(last) == start:
-                last = BoardElement(base_use)
-                groups.append(last)
-
-    def __len__(self) -> int:
-        return len(self._groups)
-
-    def transform(self, tfrms:list) -> None:
-        """ Place all diagrams in their proper location, tiled left-to-right, top-to-bottom in a grid layout. """
-        for i, (dx, dy) in enumerate(tfrms):
-            group = self._groups[i]
-            group.translate(dx, dy)
-            if hasattr(group, "on_tf"):
-                self._groups.append(group.on_tf(dx, dy, *tfrms[i+1]))
-
-    def finish(self, *viewbox:int) -> bytes:
-        """ Create the final document with the viewbox and all defs and return it encoded. """
-        document = SVGDocument(self._defs, *self._groups)
-        document.set_viewbox(*viewbox)
-        return document.encode()
-
-
 class BoardFactory:
     """ Top-level class for preparing SVG steno board documents from elements. """
 
-    _base: BoardElement
-    _bounds: Iterable[int]  # x/y offset and width/height for the viewbox, per stroke diagram.
-
-    def __init__(self, base_elems:Iterable[BoardElement], bounds:Iterable[int]) -> None:
-        """ Add all base elements to a new group (if more than one). """
-        first, *others = [*base_elems] or [BoardElement()]
-        self._base = BoardElement(first, *others) if others else first
-        self._bounds = bounds
+    def __init__(self, base:SVGElement, x:int, y:int, w:int, h:int) -> None:
+        """ Groups and transforms SVG elements into a final series of SVG steno board graphics. """
+        self._defs = defs = SVGDefs()
+        self._base = defs.make_usable(base)  # Base SVG element (or group of elements) that is shown on every stroke.
+        self._offset = x, y                  # x/y offset for the viewbox, per stroke diagram.
+        self._size = w, h                    # width/height for the viewbox, per stroke diagram.
 
     def __call__(self, elems:Iterable[BoardElement], device_ratio:float) -> bytes:
-        """ Group and transform each SVG element, then encode them in a new SVG document. """
-        groups = DocumentGroups(self._base, elems)
-        count = len(groups)
-        x, y, w, h = self._bounds
+        """ Split all given SVG elements into strokes, then create groups with defs that <use> the current base.
+            Transform the groups according to the aspect ratio, then encode them in a new SVG document. """
+        strokes = self._split(elems)
+        count = len(strokes)
+        rows, cols = self._dimensions(count, device_ratio)
+        groups = self._arrange(strokes, cols)
+        return self._make_document(groups, rows, cols)
+
+    @staticmethod
+    def _split(elems:Iterable[BoardElement]) -> List[List[BoardElement]]:
+        """ Split the iterable of elements into a separate list for each stroke. """
+        last = []
+        strokes = [last]
+        for elem in elems:
+            last.append(elem)
+            if elem.ends_stroke:
+                last = []
+                strokes.append(last)
+        return strokes
+
+    def _arrange(self, lists:List[Iterable[BoardElement]], cols:int) -> List[BoardElement]:
+        """ Arrange all diagrams in their proper location, tiled left-to-right, top-to-bottom in a grid layout. """
+        groups = [BoardElement(self._base) for _ in lists]
+        tfrms = self._get_transforms(cols, len(lists))
+        for i, (dx, dy) in enumerate(tfrms):
+            g = groups[i]
+            for el in lists[i]:
+                if el.add_global is None:
+                    g.append(el)
+                else:
+                    groups.append(el.add_global(dx, dy, *tfrms[i + 1]))
+            g.translate(dx, dy)
+        return groups
+
+    def _dimensions(self, count:int, device_ratio:float) -> Tuple[int, int]:
+        """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale.
+            <rel_ratio> is the aspect ratio of one diagram divided by that of the device viewing area. """
+        w, h = self._size
         board_ratio = w / h
-        rows, cols = self._dimensions(count, board_ratio / device_ratio)
+        rel_ratio = board_ratio / device_ratio
+        r = min(rel_ratio, 1 / rel_ratio)
+        s = int((count * r) ** 0.5) or 1
+        s += r * ceil(count / s) > (s + 1)
+        t = ceil(count / s)
+        return (s, t) if rel_ratio < 1 else (t, s)
+
+    def _get_transforms(self, cols:int, count:int) -> List[Tuple[int, int]]:
+        """ Create a list of evenly spaced (dx, dy) grid translations for the current bounds. """
+        w, h = self._size
         tfrms = []
         for i in range(count):
             step_y, step_x = divmod(i, cols)
             dx = w * step_x
             dy = h * step_y
             tfrms.append((dx, dy))
-        groups.transform(tfrms)
-        return groups.finish(x, y, w * cols, h * rows)
+        return tfrms
 
-    def _dimensions(self, count:int, rel_ratio:float) -> tuple:
-        """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale.
-            <rel_ratio> is the aspect ratio of one diagram divided by that of the device viewing area. """
-        r = min(rel_ratio, 1 / rel_ratio)
-        s = int((count * r) ** 0.5) or 1
-        s += r * ceil(count / s) > (s + 1)
-        t = ceil(count / s)
-        return (s, t) if rel_ratio < 1 else (t, s)
+    def _make_document(self, groups:Iterable[BoardElement], rows:int, cols:int) -> bytes:
+        """ Encode all groups in a new SVG document. """
+        document = SVGDocument(self._defs, *groups)
+        x, y = self._offset
+        w, h = self._size
+        document.set_viewbox(x, y, w * cols, h * rows)
+        return document.encode()

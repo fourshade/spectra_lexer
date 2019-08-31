@@ -25,17 +25,12 @@
     Each stroke is shown separately, with certain rules shown as "compound" keys (such as `n` for -PB) in a
     different color. The board layout is updated to show individual rules when the mouse is moved over the graph.
 
-    View/processing - In order to accept input from the user and display output, there must be a general GUI
-    controller that decides how to handle all interaction from the outside world. The view layer translates GUI
-    actions into calls to other components, and updates the GUI state with any results.
+    App - Glues all of these components together, handling communication and passing information between them.
+    Facilitating communication is *all* it should do; all other functionality should be implemented in components.
 
     GUI - As the frontend, the GUI is conceptually separate from the other components. It may run on a standalone
     framework with its own thread, meaning we can't directly call other components without some intermediary.
-    Its connection to the view layer involves a single object representing the "state" of the GUI. It is a simple
-    data object; a copy is passed to the view, updated with changes, then passed back. The original object is then
-    overwritten with any changes made to the copy. Using copies in this manner ensures thread safety.
+    Its connection to the rest of the app involves a single object representing the "state" of the GUI.
+    It is a simple data object which is passed to the app, updated with changes, then passed back. """
 
-    App - Glues all of these components together, handling communication and passing information between them.
-    Facilitating communication is *all* it should do; all other functionality should be implemented in components. """
-
-from .base import analyze, console, index, Spectra
+from .base import Spectra

@@ -1,19 +1,22 @@
+from functools import partial
 from typing import Dict, Optional, Sequence, Tuple
 
-from .types import join_strokes, PloverAction, PloverEngine, PloverStenoDictCollection
+from .types import join_strokes, IPloverAction, IPloverEngine, IPloverStenoDictCollection
 
 
 class PloverTranslationParser:
     """ Parses dictionaries and translations from Plover. """
 
-    _engine: PloverEngine          # Engine object, either from Plover or a fake for testing.
-    _translation: Tuple[str, str]  # Current set of contiguous strokes and text.
+    def __init__(self, engine:IPloverEngine) -> None:
+        self._engine = engine       # Engine object, either from Plover or a fake for testing.
+        self._translation = "", ""  # Current set of contiguous strokes and text.
 
-    def __init__(self, engine:PloverEngine) -> None:
-        self._engine = engine
-        self._reset()
+    def signal_connect(self, key, callback):
+        """ Connect a Plover engine signal to a callback.
+            The callback must be wrapped in a partial for signals to reach it...no idea why. """
+        self._engine.signal_connect(key, partial(callback))
 
-    def convert_dicts(self, steno_dc:PloverStenoDictCollection=None) -> Dict[str, str]:
+    def convert_dicts(self, steno_dc:IPloverStenoDictCollection=None) -> Dict[str, str]:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
             They only have a subset of the normal dict methods. The fastest of these is .items().
             As a plugin, we lock the Plover engine just long enough to copy these with dict().
@@ -29,7 +32,7 @@ class PloverTranslationParser:
             converted_dict.update(zip(map(join_strokes, d), d.values()))
         return converted_dict
 
-    def parse_translation(self, _, new_actions:Sequence[PloverAction]) -> Optional[Tuple[str, str]]:
+    def parse_translation(self, _, new_actions:Sequence[IPloverAction]) -> Optional[Tuple[str, str]]:
         """ Process a Plover translation into standard data types and return the current state if it is valid.
             Make sure that we have at least one new action and strokes from one new valid translation. """
         strokes = self._get_last_strokes()

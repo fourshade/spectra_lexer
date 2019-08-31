@@ -3,26 +3,24 @@
 import json
 from mimetypes import MimeTypes
 import os
-from typing import Any, Callable, Dict, Union
+from typing import Any, Union
 
 from .request import HTTPRequest
 from .response import HTTPResponse, HTTPError
 
 
-class HTTPMethodHandler:
+class HTTPRequestHandler:
     """ Interface for an HTTP data processor that creates a response object from a request object. """
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         raise NotImplementedError
 
 
-class HTTPMethodTable(HTTPMethodHandler):
-    """ Master method handler that redirects requests to other handlers based on method type. """
+class HTTPMethodTable(HTTPRequestHandler):
+    """ Master request handler that redirects requests to other handlers based on method type. """
 
-    _handlers: Dict[str, HTTPMethodHandler]  # Table of HTTP method handlers.
-
-    def __init__(self, **handlers) -> None:
-        self._handlers = handlers
+    def __init__(self, **handlers:HTTPRequestHandler) -> None:
+        self._handlers = handlers  # Table of HTTP method handlers.
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Route HTTP requests by method. Handlers must be completely thread safe. """
@@ -33,17 +31,13 @@ class HTTPMethodTable(HTTPMethodHandler):
         return handler(request)
 
 
-class HTTPFileGetter(HTTPMethodHandler):
-    """ Handles methods specific to file retrieval (generally using GET and HEAD requests). """
+class HTTPFileGetter(HTTPRequestHandler):
+    """ Handles requests specific to file retrieval (generally using GET and HEAD methods). """
 
-    _directory: str       # Root directory for public HTTP file requests.
-    _index_filename: str  # When a directory path is accessed, redirect to this landing page inside it.
-    _types: MimeTypes     # Called to find MIME types for files based on their paths.
-
-    def __init__(self, directory:str=None, index_filename:str="index.html") -> None:
-        self._directory = directory or os.getcwd()
-        self._index_filename = index_filename
-        self._types = MimeTypes()
+    def __init__(self, directory:str, index_filename:str="index.html") -> None:
+        self._directory = directory   # Root directory for public HTTP file requests.
+        self._index = index_filename  # When a directory path is accessed, redirect to this landing page inside it.
+        self._types = MimeTypes()     # Called to find MIME types for files based on their paths.
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Common file-serving code for GET and HEAD commands. """
@@ -80,12 +74,12 @@ class HTTPFileGetter(HTTPMethodHandler):
         file_path = os.path.join(self._directory, *new_comps)
         # Route bare directory paths to the index (whether or not it exists).
         if os.path.isdir(file_path):
-            file_path = os.path.join(file_path, self._index_filename)
+            file_path = os.path.join(file_path, self._index)
         return file_path
 
 
-class HTTPDataProcessor(HTTPMethodHandler):
-    """ Abstract class; handles methods specific to data processing (generally using POST requests). """
+class HTTPDataProcessor(HTTPRequestHandler):
+    """ Abstract class; handles requests specific to data processing (generally using the POST method). """
 
     CTYPE: str = "text/html"  # MIME content type for outgoing data.
 
@@ -115,19 +109,14 @@ class HTTPDataProcessor(HTTPMethodHandler):
 
 
 class HTTPJSONProcessor(HTTPDataProcessor):
-    """ Decodes a JSON object from HTTP content, applies a function, and returns a JSON-encoded result. """
+    """ Abstract class; decodes a JSON object from HTTP content, processes it, and returns a JSON-encoded result. """
 
     ENCODING = 'utf-8'
     CTYPE = "application/json"
 
-    _size_limit: int      # Limit on total size of JSON data in bytes.
-    _char_limits: tuple   # Limits on special JSON characters.
-
-    def __init__(self, func:Callable, *, size_limit:int=100000, char_limits:tuple=((b"{", 20), (b"[", 20))):
-        """ We use an external callback <func> to process the JSON object into something else. """
-        self.process = func
-        self._size_limit = size_limit
-        self._char_limits = char_limits
+    def __init__(self, *, size_limit:int=100000, char_limits:tuple=((b"{", 20), (b"[", 20))):
+        self._size_limit = size_limit    # Limit on total size of JSON data in bytes.
+        self._char_limits = char_limits  # Limits on special JSON characters.
 
     def decode(self, data:bytes) -> object:
         """ Validate and decode incoming JSON data from a client. """

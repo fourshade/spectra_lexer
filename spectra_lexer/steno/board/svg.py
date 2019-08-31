@@ -55,13 +55,13 @@ class SVGDefs(SVGElement):
 
 
 class SVGDocument(SVGElement):
-    """ Top-level SVG document. """
+    """ Top-level SVG document. Requires version and XML namespace attribute. """
 
     tag = "svg"
 
     def __init__(self, *elems, **attrib) -> None:
-        attrib.update(version="1.1", xmlns="http://www.w3.org/2000/svg")
         super().__init__(*elems, **attrib)
+        self.update(version="1.1", xmlns="http://www.w3.org/2000/svg")
 
     def set_viewbox(self, *coords:float) -> None:
         """ Set the (x, y, w, h) sequence of coordinates for the viewbox. """

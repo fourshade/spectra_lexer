@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import islice
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
@@ -8,28 +8,62 @@ from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QTreeView, QVBoxLayout
 
 from .dialog import ToolDialog
-from spectra_lexer.debug import DebugData, DebugTree
+from spectra_lexer.debug import DataFactory, DebugData, DebugIcons, package
+
+
+class RenderedIcons:
+    """ SVG icon dict that renders SVG bytes data on transparent bitmap images. """
+
+    def __init__(self, xml_icons:DebugIcons, bg:QColor=QColor.fromRgb(255, 255, 255, 0)) -> None:
+        self._xml_icons = xml_icons  # Original container of XML icon data.
+        self._bg = bg                # Background color for icon rendering; default is transparent white.
+        self._rendered = {}          # Cache of icons already rendered, keyed by the XML that generated it.
+
+    def _render(self, xml:bytes) -> None:
+        """ Create a template with the given background color, render the XML in place, and convert it to an icon.
+            Use the viewbox dimensions as pixel sizes. Store the icon in the cache when finished. """
+        svg = QSvgRenderer(xml)
+        viewbox = svg.viewBox().size()
+        im = QImage(viewbox, QImage.Format_ARGB32)
+        im.fill(self._bg)
+        with QPainter(im) as p:
+            # Icons are small but important; set render hints for best quality.
+            p.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
+            svg.render(p)
+        icon = QIcon(QPixmap.fromImage(im))
+        self._rendered[xml] = icon
+
+    def get(self, data:DebugData) -> Optional[QIcon]:
+        """ Look up the best icon for the given data. Return None if no suitable icon is found.
+            If we have the XML rendered, return the icon from memory. Otherwise, render it to the cache first. """
+        xml = self._xml_icons.get_best(data)
+        if xml is not None:
+            if xml not in self._rendered:
+                self._render(xml)
+            return self._rendered[xml]
 
 
 class BaseItem:
-    """ A single item in a row of the tree. Contains model data in attributes and role data in the dict. """
+    """ Abstract class for a single item in the tree. Contains model data in attributes and role data in the dict. """
 
     HEADING: str = "UNDEFINED"  # Heading that appears above this item type's column.
 
-    parent: QModelIndex    # Model index of the direct parent of this item (None for the root).
     flags: Qt.ItemFlags = Qt.ItemIsSelectable | Qt.ItemIsEnabled  # Default item flags. Items are black and selectable.
     edit: Callable = None  # Callback to edit the value of this item, or None if not editable.
     child_data: Iterable[DebugData] = None  # Iterable to produce child rows, or None if there are no children.
 
-    _roles: Dict[int, Any]  # Contains all Qt role display data for this item.
+    def __init__(self, parent:QModelIndex=None, *args) -> None:
+        self._roles = {}      # Contains all display data for this item indexed by Qt roles (really ints).
+        self.parent = parent  # Model index of the direct parent of this item (None for the root).
+        if args:
+            self.update(*args)
 
-    def __init__(self, parent:QModelIndex, data:DebugData) -> None:
-        """ Assign the parent, item flags, and various pieces of data in string keys to Qt roles for item display. """
-        self._roles = {}
-        self.parent = parent
-        self.set_color(data.color)
+    def update(self, data:DebugData, *args) -> None:
+        """ Update the item flags and Qt display roles from various pieces of data in a data structure. """
+        raise NotImplementedError
 
     def role_data(self, role:int) -> Any:
+        """ Return a role data item. Used heavily by the Qt item model. """
         return self._roles.get(role)
 
     def set_text(self, text:str) -> None:
@@ -51,22 +85,24 @@ class BaseItem:
             self.edit = edit
             self.flags = Qt.ItemFlags(self.flags) | Qt.ItemIsEditable
 
+    def set_icon(self, icon:QIcon) -> None:
+        self._roles[Qt.DecorationRole] = icon
+
 
 class KeyItem(BaseItem):
     """ Column 0 is the primary tree item with the key and icon. Possible icons are based on type. """
 
     HEADING = "Name"
 
-    def __init__(self, parent:QModelIndex, data:DebugData, icons:Dict[str, QIcon]) -> None:
-        super().__init__(parent, data)
+    def update(self, data:DebugData, icons:RenderedIcons=None) -> None:
+        self.set_color(data.color)
         self.set_text(data.key_text)
         self.set_tooltip(data.key_tooltip)
         self.set_edit_cb(data.key_edit)
         self.child_data = data.child_data
-        self.set_icon(data.choose_icon(icons))
-
-    def set_icon(self, icon:QIcon) -> None:
-        self._roles[Qt.DecorationRole] = icon
+        if icons is not None:
+            icon = icons.get(data)
+            self.set_icon(icon)
 
 
 class TypeItem(BaseItem):
@@ -74,14 +110,15 @@ class TypeItem(BaseItem):
 
     HEADING = "Type/Item Count"
 
-    def __init__(self, parent:QModelIndex, data:DebugData, *args) -> None:
-        super().__init__(parent, data)
-        text = data.type_text
-        item_count = data.item_count
+    def update(self, data:DebugData, *args) -> None:
+        self.set_color(data.color)
+        self.set_text(data.type_text, data.item_count)
+        self.set_tooltip(data.type_graph)
+
+    def set_text(self, text:str, item_count:int=None) -> None:
         if item_count is not None:
             text += f' - {item_count} item{"s" * (item_count != 1)}'
-        self.set_text(text)
-        self.set_tooltip(data.type_graph)
+        super().set_text(text)
 
 
 class ValueItem(BaseItem):
@@ -89,30 +126,23 @@ class ValueItem(BaseItem):
 
     HEADING = "Value"
 
-    def __init__(self, parent:QModelIndex, data:DebugData, *args) -> None:
-        super().__init__(parent, data)
+    def update(self, data:DebugData, *args) -> None:
+        self.set_color(data.color)
         self.set_text(data.value_text)
         self.set_tooltip(data.value_tooltip)
         self.set_edit_cb(data.value_edit)
 
 
-_GRID_TYPE = List[List[BaseItem]]
-
-
 class RowModel:
     """ Formats each tree item as a single row with a dict of parameters. """
 
-    # Determines what columns appear in the tree.
-    COL_TYPES = (KeyItem, TypeItem, ValueItem)
+    COL_TYPES = (KeyItem, TypeItem, ValueItem)  # Determines what columns appear in the tree.
 
-    _icons: Dict[str, QIcon]  # Dict of pre-rendered icons corresponding to data types.
-    _child_limit: int         # Maximum number of child object rows to show for each object.
+    def __init__(self, icons:RenderedIcons, child_limit:int=200) -> None:
+        self._icons = icons              # Contains pre-rendered icons corresponding to data types.
+        self._child_limit = child_limit  # Maximum number of child object rows to show for each object.
 
-    def __init__(self, icons:Dict[str, QIcon], child_limit:int=200) -> None:
-        self._icons = icons
-        self._child_limit = child_limit
-
-    def expand(self, item_idx:QModelIndex, item:BaseItem) -> _GRID_TYPE:
+    def expand(self, item_idx:QModelIndex, item:BaseItem) -> List[List[BaseItem]]:
         """ Generate rows of tree items by iterating over the "child_data" entry up to a limit.
             It is a lazy iterator, so we can limit the rows generated using islice. """
         child_data = item.child_data
@@ -132,57 +162,15 @@ class RowModel:
             return QSize(0, 25)
 
 
-class RenderedIconDict(dict):
-    """ SVG icon dict that renders SVG bytes data on transparent bitmap images. """
-
-    _TRANSPARENT_WHITE = QColor.fromRgb(255, 255, 255, 0)
-
-    def __init__(self, xml_dict:Dict[str, bytes], bg:QColor=_TRANSPARENT_WHITE) -> None:
-        """ Render each icon from packaged bytes data and add them to a dict under each alias.
-            Some aliases may use the same icon; to avoid rendering these multiple times, use a memo. """
-        super().__init__()
-        memo = {}
-        for alias, xml in xml_dict.items():
-            if xml not in memo:
-                memo[xml] = self._render(xml, bg)
-            self[alias] = memo[xml]
-
-    def _render(self, xml:bytes, bg:QColor) -> QIcon:
-        """ Create a template with the given background color, render the XML in place, and convert it to an icon.
-            Use the viewbox dimensions as pixel sizes. """
-        svg = QSvgRenderer(xml)
-        viewbox = svg.viewBox().size()
-        im = QImage(viewbox, QImage.Format_ARGB32)
-        im.fill(bg)
-        with QPainter(im) as p:
-            # Icons are small but important; set render hints for best quality.
-            p.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
-            svg.render(p)
-        return QIcon(QPixmap.fromImage(im))
-
-
-class ObjectTreeModel(QAbstractItemModel):
+class ObjectTreeItemModel(QAbstractItemModel):
     """ A data model storing a tree of rows containing info about arbitrary Python objects. """
 
-    _row_model: RowModel                         # Formats items in each row with flags and roles.
-    _eval_fn: Callable                           # Callable for evaluation of user input strings as Python code.
-    _idx_to_grid: Dict[QModelIndex, _GRID_TYPE]  # Contains all expanded parent model indices mapped to grids of items.
-    _idx_to_item: Dict[QModelIndex, BaseItem]    # Contains all generated model indices mapped to items.
-
-    def __init__(self, *args) -> None:
-        """ Create the index dictionaries and eval callback and fill out the root level of the tree. """
+    def __init__(self, row_model:RowModel, idx_to_item:Dict[QModelIndex, BaseItem]) -> None:
+        """ Create the index dictionaries with the root level of the tree. """
         super().__init__()
-        tree = DebugTree(*args)
-        root_data = tree.data()
-        icon_data = tree.icons()
-        icons = RenderedIconDict(icon_data)
-        self._row_model = RowModel(icons)
-        self._eval_fn = tree.eval
-        self._idx_to_grid = defaultdict(list)
-        root_idx = QModelIndex()
-        root_item = KeyItem(None, root_data, {})
-        self._idx_to_item = {root_idx: root_item}
-        self.expand(root_idx)
+        self._row_model = row_model            # Formats items in each row with flags and roles.
+        self._idx_to_item = idx_to_item        # Contains all model indices mapped to items.
+        self._idx_to_grid = defaultdict(list)  # Contains all parent model indices mapped to grids of their children.
 
     def index(self, row:int, col:int, parent:QModelIndex=None, *args) -> QModelIndex:
         try:
@@ -215,15 +203,15 @@ class ObjectTreeModel(QAbstractItemModel):
         if orientation == Qt.Horizontal:
             return self._row_model.col_data(role, section)
 
-    def setData(self, idx:QModelIndex, new_data:str, *args) -> bool:
+    def setData(self, idx:QModelIndex, new_value:str, *args) -> bool:
         """ Attempt to change an object's value. Re-expand the parent on success, otherwise turn the item red. """
         # A blank field will not evaluate to anything; the user just clicked off of the field.
-        if not new_data:
+        if not new_value:
             return False
         # Either the value or the color will change, and either will affect the display, so return True.
         item = self._idx_to_item[idx]
         try:
-            item.edit(new_data, eval_fn=self._eval_fn)
+            item.edit(new_value)
             self.expand(item.parent)
         except Exception:
             # Non-standard container classes could raise anything, so just ignore the specifics.
@@ -251,17 +239,26 @@ class ObjectTreeModel(QAbstractItemModel):
 class ObjectTreeDialog(ToolDialog):
     """ Qt tree dialog window object. """
 
-    TITLE: str = "Python Object Tree View"
-    SIZE: tuple = (600, 450)
-
     def setup(self, *args) -> None:
-        """ Create the tree widget and item model, connect the expansion signal, and format the header. """
-        model = ObjectTreeModel(*args)
+        """ Create the item model by putting together debug data structures and a row model with icons.
+            Create the tree widget with the item model, connect the expansion signal, and format the header. """
+        self.setup_window("Python Object Tree View", 600, 450)
+        root_dict = package.with_modules(*args)
+        root_data = DataFactory.generate(root_dict)
+        root_item = KeyItem(None, root_data)
+        xml_icons = DebugIcons()
+        xml_icons.load()
+        qicons = RenderedIcons(xml_icons)
+        row_model = RowModel(qicons)
+        root_idx = QModelIndex()
+        idx_to_item = {root_idx: root_item}
+        item_model = ObjectTreeItemModel(row_model, idx_to_item)
+        item_model.expand(root_idx)
         view = QTreeView(self)
         view.setFont(QFont("Segoe UI", 9))
         view.setUniformRowHeights(True)
-        view.setModel(model)
-        view.expanded.connect(model.expand)
+        view.setModel(item_model)
+        view.expanded.connect(item_model.expand)
         header = view.header()
         header.setDefaultSectionSize(120)
         header.resizeSection(0, 200)

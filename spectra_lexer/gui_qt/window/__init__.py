@@ -1,1 +1,1 @@
-from .base import WindowController
+from .base import QtWindow
