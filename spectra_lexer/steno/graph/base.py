@@ -39,7 +39,7 @@ class GraphGenerator:
             Generate a text graph object from this tree using a layout and formatter defined by flags. """
         factory = NodeFactory(self._sep, self._split, recursive)
         root = factory.make_root(rule)
-        layout = CompressedGraphLayout(root) if compressed else CascadedGraphLayout(root)
-        canvas = layout.render()
-        formatter = CompatFormatter(canvas) if compat else HTMLFormatter(canvas)
+        layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
+        graph = layout.build(root)
+        formatter = CompatFormatter.from_graph(graph) if compat else HTMLFormatter.from_graph(graph)
         return StenoGraph(factory, formatter)

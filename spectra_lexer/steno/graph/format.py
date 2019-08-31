@@ -1,5 +1,6 @@
 from .canvas import Canvas
 from .node import GraphNode
+from .primitive import BasePrimitive
 
 
 class HTMLFormatter:
@@ -9,26 +10,54 @@ class HTMLFormatter:
     _HEADER = '<style>a.gg {color: black; text-decoration: none;}</style><pre>'
     _FOOTER = '</pre>'
 
-    def __init__(self, canvas:Canvas) -> None:
-        self._canvas = canvas  # Root canvas of text to format.
+    def __init__(self, canvas:Canvas, row_shift=0, col_shift=0) -> None:
+        self._canvas = canvas        # Root canvas of text to format.
+        self._row_shift = row_shift  # Row offset of the graph vs. the canvas.
+        self._col_shift = col_shift  # Column offset of the graph vs. the canvas.
+
+    @classmethod
+    def from_graph(cls, graph:BasePrimitive, row=0, col=0):
+        """ Render the graph onto a grid of minimum required size. Try again with a larger one if it fails. """
+        s = row + col
+        canvas = Canvas.blanks(graph.height + s, graph.width + s)
+        try:
+            graph.write(canvas, row, col)
+            return cls(canvas, row, col)
+        except ValueError:
+            dim = s % 2
+            return cls.from_graph(graph, row + dim, col + (not dim))
 
     def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
-        """ Highlight the full ancestry line of the target node (if any), starting with itself up to the root. """
+        """ Highlight the ancestry line of the target node (if any), starting with itself up to the root. """
         if target is None:
-            ancestors = cols = ()
+            # If there is no target, highlight nothing.
+            def is_highlighted(node:GraphNode, col:int) -> bool:
+                return False
+        elif target.parent is None:
+            # If the root node is the target, highlight it (and only it) entirely.
+            def is_highlighted(node:GraphNode, col:int) -> bool:
+                return node is target
         else:
-            # For ancestors that are not the target object, only highlight the columns directly above the target.
-            ancestors = set(target.ancestors())
-            start = sum([node.attach_start for node in ancestors])
-            cols = range(start, start + target.attach_length)
+            # If the root node is not the target, only highlight columns it shares with the target.
+            # Highlight all non-root ancestors fully, including the target itself.
+            *others, second, root = target.ancestors()
+            start = self._col_shift + second.attach_start
+            col_set = {*range(start, start + second.attach_length)}
+            if others:
+                start += sum([node.attach_start for node in others])
+                col_set.intersection_update(range(start, start + target.attach_length))
+            all_ancestors = {*others, second, root}
+            def is_highlighted(node:GraphNode, col:int) -> bool:
+                return node in all_ancestors and (node is not root or col in col_set)
         formatted = []
-        for row, line in enumerate(self._canvas):
+        for row, line in enumerate(self._canvas, -self._row_shift):
             col = 0
             text = []
             it = iter(line)
             for char, node in zip(it, it):
                 if node is not None:
-                    char = node.format(char, node in ancestors and (node is target or col in cols), row, intense)
+                    highlight = is_highlighted(node, col)
+                    char = node.format(char, highlight, row, intense)
                 text.append(char)
                 col += 1
             formatted.append(self.joined(text))

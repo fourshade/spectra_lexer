@@ -4,7 +4,6 @@ import pkg_resources
 
 from .parser import PloverTranslationParser
 from .types import dummy, IPloverEngine
-from spectra_lexer.app import StenoApplication
 from spectra_lexer.gui_qt import QtGUI, QtMain, QtWindow
 
 
@@ -17,8 +16,8 @@ class PloverGUI(QtGUI):
         super().__init__(*args)
         self.parser = parser  # Converts Plover dictionaries and translates user strokes.
 
-    def connect(self, app:StenoApplication) -> None:
-        super().connect(app)
+    def _ext_tasks(self) -> None:
+        """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """
         try:
             pkg_resources.working_set.require(f"plover>={self.VERSION_REQUIRED}")
             self.parser.signal_connect("dictionaries_loaded", self.on_new_dictionaries)
@@ -27,6 +26,7 @@ class PloverGUI(QtGUI):
         except pkg_resources.ResolutionError:
             # If the compatibility check fails, send an error message.
             self.window.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
+        super()._ext_tasks()
 
     def on_new_dictionaries(self, *args) -> None:
         """ Convert any translations dictionaries and send them to the main engine. """

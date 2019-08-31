@@ -13,31 +13,24 @@ class BasePrimitive:
     width: int = 1   # Total width in columns.
 
     def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        """ Draw the object on the text canvas. By default, nothing happens. """
-
-    def render(self, row:int=0, col:int=0) -> Canvas:
-        """ Render this primitive onto a grid of minimum required size. Try again with a larger one if it fails. """
-        s = row + col
-        canvas = Canvas.blanks(self.height + s, self.width + s)
-        try:
-            self.write(canvas, row, col)
-            return canvas
-        except ValueError:
-            dim = s % 2
-            return self.render(row + dim, col + (not dim))
+        """ Draw the object on <canvas> with an offset of <row, col>. """
+        raise NotImplementedError
 
     def __str__(self) -> str:
         """ Return the rendered text grid followed by a grid of numbers representing each distinct node tag. """
-        canvas = self.render()
+        canvas = Canvas.blanks(self.height + 2, self.width + 2)
+        self.write(canvas, 1, 1)
+        lines = canvas.compile_strings()
         tags = canvas.compile_tags()
-        unique = {t for line in tags for t in line if t is not None}
-        chars = {None: ' '}
-        chars.update({t: chr(i) for i, t in enumerate(unique, ord('0'))})
-        tags = ["".join(map(chars.get, line)) for line in tags]
-        return "\n".join(["", *canvas.compile_strings(), "", *tags, ""])
+        unique_tags = {t for line in tags for t in line if t is not None}
+        tag_chars = {t: chr(i) for i, t in enumerate(unique_tags, ord('0'))}
+        tag_chars[None] = ' '
+        for line, t in zip(lines, tags):
+            line += map(tag_chars.get, t)
+        return "\n".join(map("".join, lines))
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}:\n{self}>'
+        return f'<{self.__class__.__name__}:\n\n{self}>'
 
 
 class PrimitiveRow(BasePrimitive):

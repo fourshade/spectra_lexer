@@ -11,14 +11,14 @@ class ComponentBench:
 
     def __init__(self, engine):
         self.engine = engine
-        self.translations = engine._translations.items()
+        self.translations = engine._translations
         self.n = 5000
 
     def _run(self, *args):
         bench(*args, count=self.n)
 
     def _spaced_translations(self):
-        items = [*self.translations]
+        items = [*self.translations.items()]
         step = len(items) // self.n
         return items[::step]
 
@@ -34,23 +34,21 @@ class ComponentBench:
         self._run(self.engine.board_from_rule, self._spaced_rules())
 
     def make_graph(self):
-        self._run(lambda r: self.engine.graph_generate(r).render(ref='1'), self._spaced_rules())
+        self._run(lambda r: self.engine.graph_generate(r).render(ref='#R_0'), self._spaced_rules())
 
     def run_search(self):
         import random
-        from spectra_lexer.steno.search import TranslationsSearchDict
         self.n = 50000
         random.seed(123)
         translations = self.translations
-        prefixes_and_counts = [(letters[:random.randint(1, len(letters))], 100) for keys, letters in translations]
-        d = TranslationsSearchDict(translations)
-        self._run(d.search, prefixes_and_counts)
+        prefixes_and_counts = [(letters[:random.randint(1, len(letters))], 100) for letters in translations.values()]
+        self._run(translations.search, prefixes_and_counts)
 
     def init_plover(self):
         from spectra_lexer.plover.parser import PloverTranslationParser
         from spectra_lexer.plover.types import FakePloverEngine
         self.n = 10
-        plover = FakePloverEngine(dict(self.translations), split_count=1)
+        plover = FakePloverEngine(self.translations, split_count=1)
         parser = PloverTranslationParser(plover)
         self._run(parser.convert_dicts)
 

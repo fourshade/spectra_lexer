@@ -1,103 +1,111 @@
-from typing import Sequence
+from typing import Iterable
 
 from .node import GraphNode, SeparatorNode
 from .primitive import Composite
 
 
-class BaseGraphLayout(Composite):
-    """ Abstract class for a graph composite containing one level of child nodes laid out in rows.
-        May contain other layouts recursively. """
+class LayoutComposite(Composite):
+    """ Composite text graph object created by a graph layout engine. """
 
-    parent_width: int  # Total width of the parent, past which endpieces must be added.
-
-    def __init__(self, node:GraphNode) -> None:
-        """ Arrange all children according to the layout and connect them. """
+    def __init__(self, parent_width:int) -> None:
         super().__init__()
-        self.parent_width = node.bottom_length
-        node.body(self.add)
-        if node.children:
-            # Child objects are added to the layout from left-to-right.
-            # Reverse the list at the end in order to ensure that the leftmost objects get drawn last.
-            self._layout(node.children)
-            self.reverse()
+        self._parent_width = parent_width  # Total width of the parent, past which endpieces must be added.
 
-    def _layout(self, nodes:Sequence[GraphNode]) -> None:
-        """ Add a row index with every child, in order. Some children may not be included. """
+    def connect(self, child:GraphNode, child_obj:Composite, row:int, col:int) -> None:
+        """ Add a child graph object to this one with connectors. """
+        overhang = col - self._parent_width + 1
+        if overhang > 0:
+            child.overhang(self.add, col, overhang)
+        child.connectors(self.add, row, col)
+        self.add(child_obj, row, col)
+
+
+class BaseGraphLayout:
+    """ Abstract class for a layout engine that arranges rows of graph nodes. """
+
+    def __init__(self, top_row=3, max_width=50, max_height=50) -> None:
+        self._top_row = top_row        # Starting row for child nodes relative to parent.
+        self._max_width = max_width    # Graphs should never be wider than this many columns.
+        self._max_height = max_height  # Graphs should never be taller than this many rows.
+
+    def build(self, node:GraphNode) -> LayoutComposite:
+        """ Build a new graph object from <node> and arrange all of its children according to the layout. """
+        obj = LayoutComposite(node.bottom_length)
+        node.body(obj.add)
+        if node.children:
+            # Reverse the composite list at the end in order to ensure that the leftmost objects get drawn last.
+            self._layout(node.children, obj)
+            obj.reverse()
+        return obj
+
+    def _layout(self, children:Iterable[GraphNode], parent_obj:Composite) -> None:
+        """ Lay out <children> in rows and connect them to <parent_obj>. Some children may not be included. """
         raise NotImplementedError
 
-    def _first_row(self, node:GraphNode) -> int:
-        """ Start nodes three rows down by default.
-            Only start two rows down if the node attaches at the bottom with a single connector. """
-        return 3 - (node.bottom_length == 1)
-
-    def _connect(self, node:GraphNode, obj:Composite, row:int, col:int) -> None:
-        """ Add the connectors and child layout object. """
-        overhang = col - self.parent_width + 1
-        if overhang > 0:
-            node.overhang(self.add, col, overhang)
-        node.connectors(self.add, row, col)
-        self.add(obj, row, col)
+    def _first_row(self, child:GraphNode) -> int:
+        """ Start one row higher if the child attaches at the bottom with a single connector. """
+        return self._top_row - (child.bottom_length == 1)
 
 
 class CascadedGraphLayout(BaseGraphLayout):
-    """ Graph layout with nodes in descending order like a waterfall from the top-down going left-to-right.
+    """ Graph layout engine that places nodes in descending order like a waterfall from the top down.
         Recursive construction with one line per node means everything fits naturally with no overlap.
         Window space economy is poor (the triangle shape means half the space is wasted off the top).
         Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
 
-    def _layout(self, nodes:Sequence[GraphNode]) -> None:
+    def _layout(self, children:Iterable[GraphNode], parent_obj:LayoutComposite) -> None:
         """ Every time a new node is placed, we simply move down by a number of rows equal to its height. """
         bottom_bound = 0
         right_bound = 0
-        for node in nodes:
+        for child in children:
             # Nodes that have children themselves are recursively laid out first to determine their height and width.
-            obj = self.__class__(node)
-            col = node.attach_start
+            child_obj = self.build(child)
+            col = child.attach_start
             # Advance to the next free row. Move down one more if this child shares columns with the last one.
-            row = bottom_bound or self._first_row(node)
-            if right_bound > col and type(node) is not SeparatorNode:
+            row = bottom_bound or self._first_row(child)
+            if right_bound > col and type(child) is not SeparatorNode:
                 row += 1
-            self._connect(node, obj, row, col)
-            # Advance the bounds by its height and width.
-            bottom_bound = row + obj.height
-            right_bound = col + obj.width
+            # Connect the child at the current position.
+            parent_obj.connect(child, child_obj, row, col)
+            # Advance the bounds by the child's height and width.
+            bottom_bound = row + child_obj.height
+            right_bound = col + child_obj.width
 
 
 class CompressedGraphLayout(BaseGraphLayout):
-    """ Graph layout that attempts to arrange nodes and connections in the minimum number of rows.
+    """ Graph layout engine that attempts to arrange nodes and connections in the minimum number of rows.
         Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
 
-    _MAX_HEIGHT: int = 50  # Graphs should never be taller than this many rows.
-    _MAX_WIDTH: int = 50   # Graphs should never be wider than this many columns.
-
-    def _layout(self, nodes:Sequence[GraphNode]) -> None:
+    def _layout(self, children:Iterable[GraphNode], parent_obj:LayoutComposite) -> None:
         """ Place nodes into rows using a slot-based system. Each node records which row slot it occupies starting from
             the top down, and the rightmost column it needs. After that column, the slot becomes free again. """
         top_bound = 0
         right_bound = 0
-        bounds = [-1] * self._MAX_HEIGHT
-        for node in nodes:
-            obj = self.__class__(node)
-            col = node.attach_start
+        bounds = [-1] * self._max_height
+        for child in children:
+            child_obj = self.build(child)
+            col = child.attach_start
             # Make sure strokes don't run together. Separators will not enter the row list.
-            if type(node) is SeparatorNode:
-                right_bound = self._MAX_WIDTH
+            if type(child) is SeparatorNode:
+                right_bound = self._max_width
                 continue
-            start = self._first_row(node)
+            start = self._first_row(child)
             # If this node starts where the last one ended and there's no overlap, use the same row.
             row = top_bound
             if col < right_bound or row < start:
                 # Search for the next free row from the top down and place the node there.
-                height = obj.height
-                for r in range(start, self._MAX_HEIGHT):
+                height = child_obj.height
+                for r in range(start, self._max_height):
                     if bounds[r] <= col:
                         if height == 1 or all([b <= col for b in bounds[r+1:r+height]]):
                             row = r
                             break
-            self._connect(node, obj, row, col)
+            # Connect the child at the current position.
+            parent_obj.connect(child, child_obj, row, col)
+            # Advance the bounds by the child's height and width.
+            bottom_bound = row + child_obj.height
+            right_bound = col + child_obj.width
             top_bound = row
-            bottom_bound = row + obj.height
-            right_bound = col + obj.width
             bounds[top_bound:bottom_bound] = [right_bound] * (bottom_bound - top_bound)
             # Prevent other text from starting adjacent to this text (unless handled specially as above).
             bounds[bottom_bound-1] = right_bound + 1

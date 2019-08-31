@@ -202,10 +202,6 @@ class QtGUI:
         self.state = None
         self.dialogs = None
 
-    def menu_add(self, menu_callback:Callable, *args, **kwargs) -> None:
-        """ Qt may provide (useless) args to menu action callbacks. Throw them away. """
-        self.window.menu_add(self._protect(lambda *_: menu_callback()), *args, **kwargs)
-
     def connect(self, app:StenoApplication) -> None:
         """ Once the user layer is loaded, it is safe to connect GUI extensions to it and enable it. """
         self.app = app
@@ -215,15 +211,23 @@ class QtGUI:
         # Create the dialog container and connect all menu items.
         dlg_factory = QtDialogFactory(window.dialog_parent(), vars(self))
         dialogs = self.dialogs = QtGUIDialogManager(app, self.runner, dlg_factory)
-        self.menu_add(dialogs.open_translations, "File", "Load Translations...", pos=0)
-        self.menu_add(dialogs.open_index, "File", "Load Index...", pos=1)
-        self.menu_add(dialogs.config_editor, "Tools", "Edit Configuration...")
-        self.menu_add(dialogs.custom_index, "Tools", "Make Index...")
-        self.menu_add(dlg_factory.console, "Debug", "Open Console...")
-        self.menu_add(dlg_factory.objtree, "Debug", "View Object Tree...")
+        self._menu_add(dialogs.open_translations, "File", "Load Translations...", pos=0)
+        self._menu_add(dialogs.open_index, "File", "Load Index...", pos=1)
+        self._menu_add(dialogs.config_editor, "Tools", "Edit Configuration...")
+        self._menu_add(dialogs.custom_index, "Tools", "Make Index...")
+        self._menu_add(dlg_factory.console, "Debug", "Open Console...")
+        self._menu_add(dlg_factory.objtree, "Debug", "View Object Tree...")
+        self._ext_tasks()
+
+    def _menu_add(self, menu_callback:Callable, *args, **kwargs) -> None:
+        """ Qt may provide (useless) args to menu action callbacks. Throw them away. """
+        self.window.menu_add(self._protect(lambda *_: menu_callback()), *args, **kwargs)
+
+    def _ext_tasks(self):
+        """ Perform final setup tasks, including subclass-specific setup. """
         # If there is no index file on first start, send up a dialog.
-        if app.index_missing:
-            dialogs.default_index()
+        if self.app.index_missing:
+            self.dialogs.default_index()
 
 
 class QtMain(StenoMain):

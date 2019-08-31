@@ -1,5 +1,7 @@
-6.2.0
+7.0.0
 -----
+* Refactored the framework...again
+* Further improved HTML display
 * Added monospace compatibility mode to graph
 
 6.1.1
