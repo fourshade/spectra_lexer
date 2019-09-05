@@ -2,14 +2,12 @@
 
 import builtins
 import dis
-from functools import partial
+import io
+import pkgutil
 import types
-from types import CodeType, FrameType, FunctionType, MethodType
+from types import CodeType, FrameType, FunctionType, MethodType, ModuleType
 from typing import AbstractSet, Any, Callable, Iterator, List, Mapping, MutableMapping, MutableSequence, MutableSet, \
     Sequence, Type, Union, Hashable
-
-from .data import DebugData
-from .resource import AutoImporter
 
 
 class BaseContainer(Mapping):
@@ -20,6 +18,8 @@ class BaseContainer(Mapping):
     color: tuple = (96, 64, 64)  # Immutable containers have a light color.
     key_tooltip: str = "Immutable structure; cannot edit."
     value_tooltip: str = key_tooltip
+    key_edit: Callable[[Any, str], None] = None
+    value_edit: Callable[[Any, str], None] = None
     show_item_count: bool = False  # If True, len of items will be added to the base object's data.
 
     def __init__(self, obj:Any) -> None:
@@ -39,15 +39,38 @@ class BaseContainer(Mapping):
             Most containers can be subscripted. Ones that can't must have an alternate way to find items by key. """
         return self._obj[key]
 
-    def set_data(self, key:Any, data:DebugData) -> None:
-        """ Add all base container data for the given key. This data usually has the lowest override priority.
-            This data comes from properties of the *container* only, not the object inside. """
-        data.color = self.color
-        data.key_tooltip = self.key_tooltip
-        data.key_text = self._key_str(key)
-        data.value_tooltip = self.value_tooltip
+    key_str = str  # Return the key display value. It is just str(key) by default; subclasses should override this.
 
-    _key_str = str  # Return the key display value. It is just str(key) by default; subclasses should override this.
+
+class AutoImporter(dict):
+    """ Namespace helper dict that functions as a copy of __builtins__ with extra features.
+        It automatically tries to import missing modules any time code would otherwise throw a NameError. """
+
+    def __missing__(self, k:str) -> ModuleType:
+        """ Try to import missing modules before raising a KeyError (which becomes a NameError).
+            If successful, attempt to import submodules recursively. """
+        try:
+            module = self[k] = __import__(k, self, locals(), [])
+        except Exception:
+            raise KeyError(k)
+        try:
+            for finder, name, ispkg in pkgutil.walk_packages(module.__path__, f'{k}.'):
+                __import__(name, self, locals(), [])
+        except Exception:
+            pass
+        return module
+
+    @classmethod
+    def eval_namespace(cls, *args, **kwargs) -> dict:
+        """ Make a globals namespace dict for eval(), within which an auto-importer will function as __builtins__.
+            The auto-import dict, as with normal __builtins__, will be tried only after the namespace fails.
+            The separate namespace is necessary; this class should *not* be used directly as an eval namespace.
+             (If used directly, __missing__ will be called *before* any builtin lookup is attempted.
+              This attempts a module import, and either outcome is terrible:
+              - The import succeeds, in which case the builtin is now shadowed.
+              - The import fails, which means the import machinery tried everything and failed.
+                Doing this on *every* builtin access is extremely expensive.) """
+        return dict(*args, __builtins__=cls(__builtins__), **kwargs)
 
 
 class MutableContainer(BaseContainer):
@@ -57,7 +80,7 @@ class MutableContainer(BaseContainer):
     key_tooltip = "This key may not be changed."
     value_tooltip = "Double-click to edit this value."
 
-    _eval_ns: AutoImporter = None  # Namespace for evaluation of user input strings as Python code.
+    _eval_ns = AutoImporter.eval_namespace()  # Namespace for evaluation of user input strings as Python code.
 
     def __delitem__(self, key:Any) -> None:
         del self._obj[key]
@@ -65,26 +88,14 @@ class MutableContainer(BaseContainer):
     def __setitem__(self, key:Any, value:Any) -> None:
         self._obj[key] = value
 
-    def set_data(self, key:Any, data:DebugData) -> None:
-        """ Include a callback for editing of values in the data dict with Python expressions. """
-        super().set_data(key, data)
-        data.value_edit = partial(self.eval_setitem, key)
-
-    def eval_setitem(self, key:Any, user_input:str) -> None:
+    def value_edit(self, key:Any, user_input:str) -> None:
         """ Since only strings can be entered, we must evaluate them as Python expressions.
             ast.literal_eval is safer, but not quite as useful (or fun). No need for restraint here. """
         try:
-            self[key] = self.eval(user_input)
+            self[key] = eval(user_input, self._eval_ns)
         except Exception as e:
             # User input + eval = BREAK ALL THE THINGS!!! At least try to replace the item with the exception.
             self[key] = e
-
-    @classmethod
-    def eval(cls, user_input:str) -> Any:
-        """ Only create the auto-import dict if someone tries to make a change. """
-        if cls._eval_ns is None:
-            cls._eval_ns = AutoImporter()
-        return cls._eval_ns.eval(user_input)
 
 
 class MovableKeyContainer(MutableContainer):
@@ -97,12 +108,7 @@ class MovableKeyContainer(MutableContainer):
         self[new_key] = self[old_key]
         del self[old_key]
 
-    def set_data(self, key:Any, data:DebugData) -> None:
-        """ Include a callback for editing of string keys in the data dict. """
-        super().set_data(key, data)
-        data.key_edit = partial(self.eval_moveitem, key)
-
-    def eval_moveitem(self, key:Any, user_input:str) -> None:
+    def key_edit(self, key:Any, user_input:str) -> None:
         """ Only allow movement using literal string input for now. """
         self.moveitem(key, user_input)
 
@@ -125,6 +131,14 @@ class GeneratedContainer(BaseContainer):
 class ContainerRegistry:
     """ Tracks container classes by their conditions for use. """
 
+    # Base data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
+    ATOMIC_TYPES = {type(None), type(...),      # System singletons.
+                    bool, int, float, complex,  # Guaranteed not iterable.
+                    str, bytes, bytearray,      # Items are just characters; do not iterate over these.
+                    range, slice,               # Items are just a pre-determined mathematical range.
+                    filter, map, zip,           # Iteration is destructive.
+                    io.TextIOWrapper}           # Iteration may crash the program if std streams are in use.
+
     class Condition:
         """ Each container class is decorated with a condition which attempts to match some property of an object. """
         def __init__(self, cmp_func:Callable[[object, object], bool], prop:object) -> None:
@@ -139,11 +153,16 @@ class ContainerRegistry:
     def __init__(self) -> None:
         self._conditions = []  # List of classes together with their use conditions.
 
-    def match(self, obj:object) -> List[BaseContainer]:
-        """ Return container classes that match conditions on the object's properties.
-            If a condition is met, that container class will be instantiated and may provide data from the object.
-            If any container classes are in a direct inheritance line, only keep the most derived class. """
+    def match(self, obj:object, atomic_types=frozenset(ATOMIC_TYPES)) -> List[BaseContainer]:
+        """ Return container classes that match conditions regarding properties of <obj>. """
+        # "Atomic" data types are prevented from acting like containers even if they do have iterable contents.
+        # Strings are the primary use case; expanding strings into characters is not useful and just makes a mess.
+        # (especially since each character is a string containing *itself*, leading to infinite recursion.)
+        if type(obj) in atomic_types:
+            return []
+        # If a container condition is met, that class will be instantiated and may provide data from the object.
         classes = [cond.cls for cond in self._conditions if cond.cmp_func(obj, cond.prop)]
+        # If any container classes are in a direct inheritance line, only keep the most derived class.
         return [cls(obj) for cls in classes if cls and sum([issubclass(m, cls) for m in classes]) == 1]
 
     def register(self, cmp_func:Callable, prop:object) -> Callable:
@@ -192,7 +211,7 @@ class SetContainer(UnorderedContainer):
             return key
         raise KeyError(key)
 
-    def _key_str(self, key:Hashable) -> str:
+    def key_str(self, key:Hashable) -> str:
         """ Since objects behave as both the keys and the values, display hashes in the key field. """
         return f"#{hash(key)}"
 
@@ -219,7 +238,7 @@ class SequenceContainer(BaseContainer):
         """ Generate sequential index numbers as the keys. """
         return iter(range(len(self._obj)))
 
-    def _key_str(self, key:int) -> str:
+    def key_str(self, key:int) -> str:
         """ Add a dot in front of each index for clarity. """
         return f".{key}"
 
@@ -227,11 +246,11 @@ class SequenceContainer(BaseContainer):
 @CONTAINER_TYPES.register(isinstance, tuple)
 class TupleContainer(SequenceContainer):
 
-    def _key_str(self, key:int) -> str:
+    def key_str(self, key:int) -> str:
         """ By default, namedtuples display as regular tuples. Show them with their named fields instead. """
         if hasattr(self._obj, "_fields"):
             return f".{key} - {self._obj._fields[key]}"
-        return super()._key_str(key)
+        return super().key_str(key)
 
 
 @CONTAINER_TYPES.register(isinstance, MutableSequence)
@@ -250,8 +269,8 @@ class MutableSequenceContainer(SequenceContainer, MovableKeyContainer):
 class AttrContainer(MovableKeyContainer):
     """ A container that displays (and edits) the contents of an object's attribute dict. """
 
-    key_tooltip: str = "Double-click to change this attribute name."
-    value_tooltip: str = "Double-click to edit this attribute value."
+    key_tooltip = "Double-click to change this attribute name."
+    value_tooltip = "Double-click to edit this attribute value."
 
     def __iter__(self) -> Iterator:
         return iter(vars(self._obj))
@@ -289,6 +308,14 @@ class ClassContainer(GeneratedContainer):
     def _gen_dict(self, obj:Any) -> dict:
         """ Add each valid parent class as a child item. """
         return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
+
+
+@CONTAINER_TYPES.register(hasattr, "__self__")
+class MethodContainer(GeneratedContainer):
+    """ A container that exposes the targets of bound methods. """
+
+    def _gen_dict(self, obj:Any) -> dict:
+        return {"self": obj.__self__}
 
 
 @CONTAINER_TYPES.register(isinstance, BaseException)
