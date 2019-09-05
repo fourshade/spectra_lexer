@@ -1,5 +1,6 @@
 from functools import partial
 import pkgutil
+from typing import Callable
 
 from .main_window import MainWindow
 from .main_window_ui import Ui_MainWindow
@@ -19,8 +20,11 @@ class QtWindow(Ui_MainWindow):
         self.show = window.show
         self.close = window.close
         self.set_status = self.w_title.set_status
-        self.menu_add = self.w_menu.add
         self.menu_add(window.close, "File", "Close", after_sep=True)
+
+    def menu_add(self, menu_callback:Callable, *args, **kwargs) -> None:
+        """ Qt may provide (useless) args to menu action callbacks. Throw them away in a lambda. """
+        self.w_menu.add(lambda *_: menu_callback(), *args, **kwargs)
 
     def connect(self, update_action) -> None:
         """ Make a list of all GUI input events that can result in a call to a steno engine action.
@@ -74,3 +78,18 @@ class QtWindow(Ui_MainWindow):
         self.w_title.setText("Well, this is embarrassing...")
         self.w_text.add_plaintext(tb_text)
         self.set_enabled(True)
+
+    def start_blocking_task(self, callback:Callable=None, msg_in:str=None, msg_out:str=None) -> Callable[..., None]:
+        """ Disable the window controls in order to start a blocking task and show <msg_in>.
+            Return a callback that will re-enable the controls and show <msg_out>, to call when the task is done.
+            This may wrap another <callback> that will be called with the original arguments. """
+        self.set_enabled(False)
+        if msg_in is not None:
+            self.set_status(msg_in)
+        def on_task_finish(*args, **kwargs) -> None:
+            self.set_enabled(True)
+            if msg_out is not None:
+                self.set_status(msg_out)
+            if callback is not None:
+                callback(*args, **kwargs)
+        return on_task_finish

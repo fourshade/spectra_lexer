@@ -3,7 +3,6 @@ import sys
 from threading import Lock, Thread
 
 from .http import BaseTCPServer, HTTPDispatcher, HTTPFileGetter, HTTPJSONProcessor, HTTPMethodTable
-from spectra_lexer import Spectra
 from spectra_lexer.app import StenoApplication, StenoMain
 from spectra_lexer.console import SystemConsole
 from spectra_lexer.log import StreamLogger
@@ -73,4 +72,4 @@ class HttpMain(StenoMain):
         return 0
 
 
-http = Spectra(HttpMain)
+http = HttpMain()

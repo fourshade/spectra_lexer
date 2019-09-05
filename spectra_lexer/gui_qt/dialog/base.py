@@ -11,10 +11,8 @@ from .objtree import ObjectTreeDialog
 class QtDialogFactory:
     """ Factory for GUI menu dialog tools. """
 
-    def __init__(self, parent:QWidget, debug_vars:dict) -> None:
-        """ Save the app and debug vars for dialog use. """
-        self._parent = parent          # All GUI dialogs must be children of some widget.
-        self._debug_vars = debug_vars  # Instance attributes for use in a console or debug context.
+    def __init__(self, parent:QWidget) -> None:
+        self._parent = parent  # All GUI dialogs must be children of some widget.
 
     def open_translations(self) -> List[str]:
         """ Present a dialog for the user to select translation files. """
@@ -28,18 +26,18 @@ class QtDialogFactory:
         """ Present a dialog for the user to make a default-sized index. """
         return default_index_dialog(self._parent)
 
-    def custom_index(self, callback:Callable[[int],None], *args) -> None:
+    def custom_index(self, callback:Callable[[int], None]) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        SliderIndexDialog.new(self._parent, *args, callback=callback)
+        SliderIndexDialog.new(self._parent, callback=callback)
 
     def config(self, callback:Callable[[dict], None], *args) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         ConfigDialog.new(self._parent, *args, callback=callback)
 
-    def console(self) -> None:
+    def console(self, *args) -> None:
         """ Create and show the debug console dialog. """
-        ConsoleDialog.new(self._parent, self._debug_vars)
+        ConsoleDialog.new(self._parent, *args)
 
-    def objtree(self) -> None:
+    def objtree(self, *args) -> None:
         """ Create and show the debug tree dialog. """
-        ObjectTreeDialog.new(self._parent, self._debug_vars)
+        ObjectTreeDialog.new(self._parent, *args)

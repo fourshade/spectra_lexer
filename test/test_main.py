@@ -9,6 +9,7 @@ import re
 import pytest
 
 from spectra_lexer.app import StenoMain
+from spectra_lexer.io import ResourceIO
 from spectra_lexer.plover.parser import PloverTranslationParser
 from spectra_lexer.plover.types import FakePloverEngine
 from spectra_lexer.steno import RuleFlags
@@ -22,9 +23,8 @@ def _test_file_path(filename:str) -> str:
 
 # Load resources using default command-line arguments and create components as we need them.
 opts = StenoMain()
-APP = opts.build_app(with_translations=False, with_index=False, with_config=False)
-RES = APP._res
-STENO = APP._engine
+IO = ResourceIO()
+STENO = opts.build_engine()
 RULES_DICT = STENO._rules
 IGNORED_KEYS = set("/-")
 VALID_FLAGS = {v for v in vars(RuleFlags).values() if isinstance(v, str)}
@@ -51,7 +51,7 @@ def test_rules(rule):
         assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
 
 
-TRANSLATIONS = [*RES.load_translations(_test_file_path("translations.json")).items()]
+TRANSLATIONS = [*IO.load_translations(_test_file_path("translations.json")).items()]
 TRANSLATIONS_DICT = TranslationsSearchDict(TRANSLATIONS)
 
 
@@ -67,7 +67,7 @@ def test_translations_search(keys, word):
     assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
-INDEX = [*RES.load_index(_test_file_path("index.json")).items()]
+INDEX = [*IO.load_index(_test_file_path("index.json")).items()]
 INDEX_DICT = IndexSearchDict(INDEX)
 
 

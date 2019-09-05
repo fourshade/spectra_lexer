@@ -22,15 +22,17 @@ class StenoEngine:
         """ Delegate methods for view-based operations. Add caches to the most expensive and/or frequently called ones.
             Only components with invariant state and methods with immutable output are allowed to have caches. """
         self._rules = rules  # Parses rules from JSON and keeps track of the refs for inverse parsing.
-        self._rev_rules = {rules[name]: name for name in rules}
+        self._board = board
+        self._graph = graph
+        self._lexer = lexer
         self._translations = TranslationsSearchDict()
         self._index = IndexSearchDict()
-        self.lexer_query = lru_cache()(lexer.query)
-        self.lexer_query_uncached = lexer.query
-        self.lexer_best_strokes = lexer.best_strokes
-        self.graph_generate = lru_cache()(graph.generate)
+        self._rev_rules = {rules[name]: name for name in rules}
         self.board_from_keys = lru_cache()(board.from_keys)
         self.board_from_rule = lru_cache()(board.from_rule)
+        self.graph_generate = lru_cache()(graph.generate)
+        self.lexer_query = lru_cache()(lexer.query)
+        self.lexer_best_strokes = lexer.best_strokes
 
     def set_translations(self, translations:Dict[str,str]) -> None:
         """ Load a new translations search dict. """
@@ -66,7 +68,7 @@ class StenoEngine:
 
     def make_rules(self, *args, **kwargs) -> Dict[str, list]:
         """ Run the lexer on all translations and return a list of raw rules for saving. """
-        mapper = ParallelMapper(self.lexer_query_uncached, **kwargs)
+        mapper = ParallelMapper(self._lexer.query, **kwargs)
         results = mapper.filtermap(self._translations.items(), *args)
         return self._rules.compile_to_raw(results)
 
@@ -74,7 +76,7 @@ class StenoEngine:
         """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
             Make a index for each built-in rule containing a dict of every translation that used it.
             Only keep results with all keys matched by default to reduce garbage. """
-        mapper = IndexMapper(self.lexer_query_uncached, match_all_keys=match_all_keys)
+        mapper = IndexMapper(self._lexer.query, match_all_keys=match_all_keys)
         results = mapper.sized_filtermap(self._translations.items(), *args)
         return IndexCompiler(self._rev_rules).compile(results)
 

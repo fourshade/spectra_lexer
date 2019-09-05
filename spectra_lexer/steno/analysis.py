@@ -58,8 +58,8 @@ class ParallelMapper:
         return results
 
 
-class IndexMapper(ParallelMapper):
-    """ Filter mapper with basic integer size control for index creation. """
+class IndexInfo:
+    """ Constants regarding index generation. """
 
     MINIMUM_SIZE = 1   # Minimum index size. Below this size, input filters block everything.
     DEFAULT_SIZE = 12  # Default index size. Essentially the maximum word length.
@@ -71,8 +71,21 @@ class IndexMapper(ParallelMapper):
                          "size = 15: slower index with more advanced words.",
                          "size = 20: includes everything."]
 
-    def sized_filtermap(self, iterable:Iterable[tuple], size:int=DEFAULT_SIZE) -> list:
+    SIZE_WARNING = "An extremely large index is not necessarily more useful. " \
+                   "The index is created from the Plover dictionary, which is very large " \
+                   "(about 150,000 translations) with many useless and even erroneous entries. " \
+                   "As the index grows, so does the loading time, " \
+                   "and past a certain point the garbage will start to crowd out useful information. " \
+                   "Unless you are doing batch analysis, there is little benefit to a maximum-sized index."
+
+
+class IndexMapper(ParallelMapper, IndexInfo):
+    """ Filter mapper with basic integer size control for index creation. """
+
+    def sized_filtermap(self, iterable:Iterable[tuple], size:int=None) -> list:
         """ Generate filters to control index size. Larger translations are excluded with smaller index sizes. """
+        if size is None:
+            size = self.DEFAULT_SIZE
         if size < self.MINIMUM_SIZE:
             # If the size is below minimum, it could be a dummy run. Don't run an analysis; just return an empty list.
             return []

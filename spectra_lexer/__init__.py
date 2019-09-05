@@ -32,5 +32,3 @@
     framework with its own thread, meaning we can't directly call other components without some intermediary.
     Its connection to the rest of the app involves a single object representing the "state" of the GUI.
     It is a simple data object which is passed to the app, updated with changes, then passed back. """
-
-from .base import Spectra

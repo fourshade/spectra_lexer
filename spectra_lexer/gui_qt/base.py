@@ -10,111 +10,73 @@ from PyQt5.QtWidgets import QApplication
 
 from .dialog import QtDialogFactory
 from .window import QtWindow
-from spectra_lexer import Spectra
 from spectra_lexer.app import StenoApplication, StenoMain
 from spectra_lexer.log import StreamLogger
-from spectra_lexer.steno.analysis import IndexMapper
 
 
-class QtDispatcher(QObject):
-    """ Enables long-running operations on separate threads while keeping the GUI responsive. """
+class QtExceptionTrap(QObject):
+    """ Traps exceptions for the Qt GUI and emits them as signals. """
 
-    sig_exception = pyqtSignal(Exception)  # Sent when an exception is encountered running protected code.
-
-    _sig_done = pyqtSignal([object, object])  # Internal signal; used to send results back to the main thread.
+    _sig_traceback = pyqtSignal([Exception])  # Sent when an exception is encountered in protected code.
 
     def __init__(self) -> None:
         super().__init__()
-        self._sig_done.connect(self._on_async_done)
+        self.connect = self._sig_traceback.connect
 
     def __enter__(self) -> None:
-        """ Enter this object as a context manager to prevent exceptions from escaping the following code. """
+        """ Qt may crash if Python exceptions propagate back to the event loop.
+            Enter this object as a context manager to prevent exceptions from escaping the following code. """
         return None
 
     def __exit__(self, _, exc:BaseException, *args) -> bool:
-        """ Catch any exception thrown by the wrapped code and send it off for logging/printing using the signal.
+        """ Emit any thrown exception as a Qt signal.
             Do NOT catch BaseExceptions - these are typically caused by the user wanting to exit the program. """
         if isinstance(exc, Exception):
-            self.sig_exception.emit(exc)
+            self._sig_traceback.emit(exc)
             return True
 
-    def protected(self, func:Callable) -> Callable:
-        """ Qt may crash if Python exceptions propagate back to the event loop.
-            This thread-safe wrapper takes care of exceptions before they make it back there. """
-        def protected_call(*args) -> Any:
+    def wrap(self, func:Callable) -> Callable[..., None]:
+        """ Wrap a callable to trap and emit any exceptions propagating from it. It will not return a value. """
+        def trapped_call(*args, **kwargs) -> None:
             with self:
-                return func(*args)
-        return protected_call
+                func(*args, **kwargs)
+        return trapped_call
 
-    def async_run(self, *args, **kwargs) -> None:
-        """ Call a function on a new thread and disable the GUI while the thread is busy. """
-        Thread(target=self._async_run, args=args, kwargs=kwargs, daemon=True).start()
 
-    def _async_run(self, func:Callable, *args, callback:Callable=None, **kwargs) -> None:
+class QtAsyncDispatcher(QObject):
+    """ Enables long-running operations on separate threads while keeping the GUI responsive. """
+
+    _sig_done = pyqtSignal([object, object])  # Internal signal; used to send results back to the main thread.
+
+    def __init__(self, exc_trap:QtExceptionTrap) -> None:
+        super().__init__()
+        self._exc_trap = exc_trap
+        self._sig_done.connect(self._done)
+
+    def dispatch(self, *args, **kwargs) -> None:
+        """ Call a function on a new thread. """
+        Thread(target=self._run, args=args, kwargs=kwargs, daemon=True).start()
+
+    def _run(self, func:Callable, *args, callback:Callable=None, **kwargs) -> None:
         """ Run <func> with the given args/kwargs and send back results using a Qt signal.
             <callback>, if given, must accept the return value of this function as its only argument. """
-        with self:
+        with self._exc_trap:
             value = func(*args, **kwargs)
             if callback is not None:
                 self._sig_done.emit(callback, value)
 
-    def _on_async_done(self, callback:Callable, value:Any) -> None:
+    def _done(self, callback:Callable, value:Any) -> None:
         """ Call the callback on the main thread once the task is done. """
-        with self:
+        with self._exc_trap:
             callback(value)
-
-
-class QtTaskRunner:
-    """ Runs async tasks, disabling the GUI while doing so. """
-
-    def __init__(self, dsp:QtDispatcher, window:QtWindow) -> None:
-        self._dsp = dsp
-        self._window = window
-        self._callback = None  # Callback to run on task complete.
-        self._msg_out = None   # Message to show on task complete.
-
-    def run(self, func, *args, callback=None, msg_in=None, msg_out:str=None, **kwargs) -> None:
-        """ Show an optional status message, disable the GUI, and start the task. """
-        self._window.set_enabled(False)
-        if msg_in is not None:
-            self._window.set_status(msg_in)
-        self._callback = callback
-        self._msg_out = msg_out
-        self._dsp.async_run(func, *args, callback=self._on_finish, **kwargs)
-
-    def _on_finish(self, value) -> None:
-        """ Re-enable the GUI once the thread is clear and show a message. """
-        self._window.set_enabled(True)
-        if self._msg_out is not None:
-            self._window.set_status(self._msg_out)
-        if self._callback is not None:
-            self._callback(value)
-
-
-class QtExceptions:
-    """ Display and tracks exceptions for the Qt GUI. Stores the last exception to be displayed by debug tools. """
-
-    last_exception: Exception = None
-
-    def __init__(self, logger:StreamLogger, window:QtWindow, *, max_frames:int=20) -> None:
-        self._logger = logger
-        self._window = window
-        self._max_frames = max_frames  # Maximum number of stack frames to print/log.
-
-    def handle(self, exc:Exception) -> None:
-        """ Format, log, and display a stack trace. Save the exception for introspection. """
-        self.last_exception = exc
-        tb_text = "".join(format_exception(type(exc), exc, exc.__traceback__, limit=self._max_frames))
-        self._logger.log('EXCEPTION\n' + tb_text)
-        self._window.show_exception(tb_text)
 
 
 class QtGUIState:
     """ Handles communication between the app's state machine and the Qt GUI's main widgets. """
 
-    def __init__(self, app:StenoApplication, methods:dict) -> None:
+    def __init__(self, app:StenoApplication, window:QtWindow) -> None:
         self._process = app.process_action  # Main state processor.
-        self._methods = methods             # Dict of GUI methods to call with process output.
+        self._methods = window.methods()    # Dict of GUI methods to call with process output.
         self._state_vars = {}               # Contains a complete representation of the current state of the GUI.
 
     def query(self, strokes:str, word:str) -> None:
@@ -144,90 +106,101 @@ class QtGUIState:
         self._update(**changed)
 
 
-class QtGUIDialogManager:
-    """ Delegate for all tasks related to Qt dialog windows. """
-
-    def __init__(self, app:StenoApplication, runner:QtTaskRunner, dialogs:QtDialogFactory) -> None:
-        self._app = app
-        self._run = runner.run
-        self._dialogs = dialogs
-
-    def open_translations(self) -> None:
-        """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
-        filenames = self._dialogs.open_translations()
-        if filenames:
-            self._run(self._app.load_translations, *filenames, msg_out="Loaded translations from file dialog.")
-
-    def open_index(self) -> None:
-        """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
-        filename = self._dialogs.open_index()
-        if filename:
-            self._run(self._app.load_index, filename, msg_out="Loaded index from file dialog.")
-
-    def config_editor(self) -> None:
-        """ Create and show the GUI configuration manager dialog with info from all active components. """
-        self._dialogs.config(self._update_config, self._app.get_config_info())
-
-    def _update_config(self, options:dict) -> None:
-        self._run(self._app.set_config, options, msg_out="Configuration saved.")
-
-    def default_index(self) -> None:
-        """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
-            Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
-        if self._dialogs.default_index():
-            self._make_index(IndexMapper.DEFAULT_SIZE)
-        else:
-            self._make_index(0, msg_out="Skipped index creation.")
-
-    def custom_index(self) -> None:
-        """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        self._dialogs.custom_index(self._make_index, IndexMapper.MINIMUM_SIZE, IndexMapper.MAXIMUM_SIZE,
-                                   IndexMapper.DEFAULT_SIZE, IndexMapper.SIZE_DESCRIPTIONS)
-
-    def _make_index(self, size:int, *, msg_out="Successfully created index!") -> None:
-        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self._run(self._app.make_index, size, msg_in="Making new index...", msg_out=msg_out)
-
-
 class QtGUI:
     """ Top-level object for Qt GUI operations. Contains all components for the application as a whole. """
 
-    def __init__(self, dsp:QtDispatcher, exceptions:QtExceptions,
-                 window:QtWindow, runner:QtTaskRunner, **kwargs) -> None:
-        self._protect = dsp.protected
-        self.exceptions = exceptions
+    last_exception: Exception = None  # Most recently trapped exception, saved for debug tools.
+
+    def __init__(self, logger:StreamLogger, exc_trap:QtExceptionTrap, async_dsp:QtAsyncDispatcher,
+                 window:QtWindow, dialogs:QtDialogFactory, **kwargs) -> None:
+        self.logger = logger
+        self.exc_trap = exc_trap
+        self.async_dsp = async_dsp
         self.window = window
-        self.runner = runner
+        self.dialogs = dialogs
         self.app = None
         self.state = None
-        self.dialogs = None
+        exc_trap.connect(self.handle_exception)
 
     def connect(self, app:StenoApplication) -> None:
         """ Once the user layer is loaded, it is safe to connect GUI extensions to it and enable it. """
         self.app = app
         window = self.window
-        state = self.state = QtGUIState(app, window.methods())
-        window.connect(self._protect(state.update_action))
-        # Create the dialog container and connect all menu items.
-        dlg_factory = QtDialogFactory(window.dialog_parent(), vars(self))
-        dialogs = self.dialogs = QtGUIDialogManager(app, self.runner, dlg_factory)
-        self._menu_add(dialogs.open_translations, "File", "Load Translations...", pos=0)
-        self._menu_add(dialogs.open_index, "File", "Load Index...", pos=1)
-        self._menu_add(dialogs.config_editor, "Tools", "Edit Configuration...")
-        self._menu_add(dialogs.custom_index, "Tools", "Make Index...")
-        self._menu_add(dlg_factory.console, "Debug", "Open Console...")
-        self._menu_add(dlg_factory.objtree, "Debug", "View Object Tree...")
-        self._ext_tasks()
-
-    def _menu_add(self, menu_callback:Callable, *args, **kwargs) -> None:
-        """ Qt may provide (useless) args to menu action callbacks. Throw them away. """
-        self.window.menu_add(self._protect(lambda *_: menu_callback()), *args, **kwargs)
-
-    def _ext_tasks(self):
-        """ Perform final setup tasks, including subclass-specific setup. """
+        state = self.state = QtGUIState(app, window)
+        trap = self.exc_trap.wrap
+        window.connect(trap(state.update_action))
+        # Connect all dialog menu items through an exception trap.
+        def menu_add(menu_callback:Callable, *args, **kwargs) -> None:
+            window.menu_add(trap(menu_callback), *args, **kwargs)
+        menu_add(self.open_translations, "File", "Load Translations...", pos=0)
+        menu_add(self.open_index, "File", "Load Index...", pos=1)
+        menu_add(self.config_editor, "Tools", "Edit Configuration...")
+        menu_add(self.custom_index, "Tools", "Make Index...")
+        menu_add(self.debug_console, "Debug", "Open Console...")
+        menu_add(self.debug_tree, "Debug", "View Object Tree...")
+        self._subcls_tasks()
         # If there is no index file on first start, send up a dialog.
-        if self.app.index_missing:
-            self.dialogs.default_index()
+        if app.index_missing:
+            self.default_index()
+
+    def _subcls_tasks(self) -> None:
+        """ Perform subclass-specific setup. """
+        pass
+
+    def open_translations(self) -> None:
+        """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
+        filenames = self.dialogs.open_translations()
+        if filenames:
+            self.run_async(self.app.load_translations, *filenames, msg_out="Loaded translations from file dialog.")
+
+    def open_index(self) -> None:
+        """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
+        filename = self.dialogs.open_index()
+        if filename:
+            self.run_async(self.app.load_index, filename, msg_out="Loaded index from file dialog.")
+
+    def config_editor(self) -> None:
+        """ Create and show the GUI configuration manager dialog with info from all active components. """
+        self.dialogs.config(self._update_config, self.app.get_config_info())
+
+    def _update_config(self, options:dict) -> None:
+        self.run_async(self.app.set_config, options, msg_out="Configuration saved.")
+
+    def default_index(self) -> None:
+        """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
+            Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
+        if self.dialogs.default_index():
+            self._make_index()
+        else:
+            self._make_index(0, msg_out="Skipped index creation.")
+
+    def custom_index(self) -> None:
+        """ Create and show a dialog for the index size slider that submits a positive number on accept. """
+        self.dialogs.custom_index(self._make_index)
+
+    def _make_index(self, size:int=None, *, msg_out="Successfully created index!") -> None:
+        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
+        self.run_async(self.app.make_index, size, msg_in="Making new index...", msg_out=msg_out)
+
+    def debug_console(self) -> None:
+        """ Create and show the debug console dialog. """
+        self.dialogs.console(vars(self).copy())
+
+    def debug_tree(self) -> None:
+        """ Create and show the debug tree dialog. """
+        self.dialogs.objtree(vars(self).copy())
+
+    def run_async(self, func:Callable, *args, **kwargs) -> None:
+        """ Start a blocking async task. """
+        on_finish = self.window.start_blocking_task(**kwargs)
+        self.async_dsp.dispatch(func, *args, callback=on_finish)
+
+    def handle_exception(self, exc:Exception, max_frames=20) -> None:
+        """ Format, log, and display a stack trace for any thrown exception. Store the exception for introspection. """
+        self.last_exception = exc
+        tb_text = "".join(format_exception(type(exc), exc, exc.__traceback__, limit=max_frames))
+        self.logger.log('EXCEPTION\n' + tb_text)
+        self.window.show_exception(tb_text)
 
 
 class QtMain(StenoMain):
@@ -236,13 +209,12 @@ class QtMain(StenoMain):
     def build_gui(self, gui_cls:Type[QtGUI], **kwargs) -> QtWindow:
         """ Load the user layer asynchronously on a new thread to avoid blocking the GUI. """
         logger = self.build_logger()
-        dsp = QtDispatcher()
+        exc_trap = QtExceptionTrap()
+        dsp = QtAsyncDispatcher(exc_trap)
         window = QtWindow()
-        runner = QtTaskRunner(dsp, window)
-        exceptions = QtExceptions(logger, window)
-        gui = gui_cls(dsp, exceptions, window, runner, **kwargs)
-        dsp.sig_exception.connect(exceptions.handle)
-        runner.run(self.build_app, callback=gui.connect, msg_in="Loading...", msg_out="Loading complete.")
+        dialogs = QtDialogFactory(window.dialog_parent())
+        gui = gui_cls(logger, exc_trap, dsp, window, dialogs, **kwargs)
+        gui.run_async(self.build_app, callback=gui.connect, msg_in="Loading...", msg_out="Loading complete.")
         window.show()
         return window
 
@@ -256,4 +228,4 @@ class QtMain(StenoMain):
 
 
 # Standalone GUI Qt application entry point.
-gui = Spectra(QtMain)
+gui = QtMain()

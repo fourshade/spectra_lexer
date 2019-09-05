@@ -16,7 +16,7 @@ class PloverGUI(QtGUI):
         super().__init__(*args)
         self.parser = parser  # Converts Plover dictionaries and translates user strokes.
 
-    def _ext_tasks(self) -> None:
+    def _subcls_tasks(self) -> None:
         """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """
         try:
             pkg_resources.working_set.require(f"plover>={self.VERSION_REQUIRED}")
@@ -26,7 +26,7 @@ class PloverGUI(QtGUI):
         except pkg_resources.ResolutionError:
             # If the compatibility check fails, send an error message.
             self.window.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
-        super()._ext_tasks()
+        super()._subcls_tasks()
 
     def on_new_dictionaries(self, *args) -> None:
         """ Convert any translations dictionaries and send them to the main engine. """
@@ -42,12 +42,15 @@ class PloverGUI(QtGUI):
             self.state.query(*translation)
 
 
-class plover(QtMain):
+class PloverMain(QtMain):
+    """ We get translations from the Plover engine, so auto-loading from disk must be suppressed. """
+    translations_files = []
+
+
+class plover:
     """ Entry point wrapper and dialog proxy to Plover. Translates some attributes into app calls and fakes others.
         In order to be recognized as a valid plugin, this proxy class must face outwards as the entry point itself.
         We must not create our own QApplication object or run our own event loop if Plover is running. """
-
-    translations_files = []  # We get translations from the Plover engine, so auto-loading from disk must be suppressed.
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
@@ -60,8 +63,7 @@ class plover(QtMain):
         """ Main entry point for Spectra's Plover plugin.
             The Plover engine is the only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        super().__init__()
-        self.original = self.build_gui(PloverGUI, parser=PloverTranslationParser(engine))
+        self.original = PloverMain().build_gui(PloverGUI, parser=PloverTranslationParser(engine))
 
     def __getattr__(self, attr:str) -> Any:
         """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """

@@ -1,9 +1,8 @@
-from typing import List
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QMessageBox, QSlider, QToolTip, QVBoxLayout, QWidget
 
 from .dialog import ToolDialog
+from spectra_lexer.steno import IndexInfo
 
 
 STARTUP_MESSAGE = """
@@ -22,13 +21,6 @@ def default_index_dialog(parent:QWidget) -> bool:
     return (button == yes)
 
 
-SIZE_WARNING = """
-<p align="justify">An extremely large index is not necessarily more useful. The index is created from the Plover
-dictionary, which is very large (about 150,000 translations) with many useless and even erroneous entries. As the
-index grows, so does the loading time, and past a certain point the garbage will start to crowd out useful information.
-Unless you are doing batch analysis, there is little benefit to a maximum-sized index.</p>"""
-
-
 class SliderIndexDialog(ToolDialog):
     """ Qt dialog window with an interactive slider that submits a positive number on accept, or 0 on cancel. """
 
@@ -36,23 +28,23 @@ class SliderIndexDialog(ToolDialog):
         super().__init__(*args)
         self._slider = QSlider(self)  # Horizontal slider.
 
-    def setup(self, min_size:int, max_size:int, start_size:int, size_categories:List[str]) -> None:
+    def setup(self) -> None:
         self.setup_window("Choose Index Size", 360, 320)
         heading_label = QLabel(self)
         heading_label.setWordWrap(True)
-        heading_lines = ['Please choose a size for the new index.', *size_categories]
+        heading_lines = ['Please choose a size for the new index.', *IndexInfo.SIZE_DESCRIPTIONS]
         heading_text = '<br><br>'.join(heading_lines)
         heading_label.setText(heading_text)
-        self._slider.setMinimum(min_size)
-        self._slider.setMaximum(max_size)
-        self._slider.setValue(start_size)
+        self._slider.setMinimum(IndexInfo.MINIMUM_SIZE)
+        self._slider.setMaximum(IndexInfo.MAXIMUM_SIZE)
+        self._slider.setValue(IndexInfo.DEFAULT_SIZE)
         self._slider.setOrientation(Qt.Horizontal)
         self._slider.setTickPosition(QSlider.TicksBelow)
         self._slider.setTickInterval(1)
         self._slider.valueChanged.connect(self.new_slider_value)
         desc_label = QLabel(self)
         desc_label.setWordWrap(True)
-        desc_label.setText(SIZE_WARNING)
+        desc_label.setText(f"<p align='justify'>{IndexInfo.SIZE_WARNING}</p>")
         layout = QVBoxLayout(self)
         layout.addWidget(heading_label)
         layout.addWidget(self._slider)

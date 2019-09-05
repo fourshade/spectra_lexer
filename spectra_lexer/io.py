@@ -39,13 +39,15 @@ class FilePath:
 class PathIO:
     """ Opens, reads, and writes filename paths that may need conversion first. """
 
+    # The name of this module's root package is used as a default path for built-in assets and user files.
+    ROOT_PACKAGE = __package__.split(".", 1)[0]
     # Default user path components are for Linux, since it has several possible platform identifiers.
     DEFAULT_USERPATH_COMPONENTS = (".local", "share", "{0}")
     # User path components specific to Windows and Mac OS.
     PLATFORM_USERPATH_COMPONENTS = {"win32": ("AppData", "Local", "{0}", "{0}"),
                                     "darwin": ("Library", "Application Support", "{0}")}
 
-    def __init__(self, asset_package:str="", user_path:str="") -> None:
+    def __init__(self, asset_package:str=ROOT_PACKAGE, user_path:str=ROOT_PACKAGE) -> None:
         """ Deciphers file paths that may point to special places. """
         self._asset_package = asset_package  # Full name of Python package to search for application assets.
         self._user_path = user_path          # Base path to search for app data files within the user's home directory.
@@ -113,7 +115,7 @@ class PloverConfigPath(FilePath):
         return []
 
 
-class ResourceLoader(PathIO):
+class ResourceIO(PathIO):
     """ Performs all necessary filesystem and asset I/O. """
 
     def __init__(self, *args, encoding='utf-8', comment_prefixes=b"#/") -> None:
