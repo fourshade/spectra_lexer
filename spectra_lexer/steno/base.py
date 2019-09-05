@@ -3,11 +3,10 @@ import random
 from typing import Dict, List, Tuple
 
 from .analysis import IndexCompiler, IndexMapper, ParallelMapper
-from .board import BoardGenerator
+from .board import BoardElementParser, BoardGenerator
 from .graph import GraphGenerator
 from .keys import KeyLayout
 from .lexer import PrefixRuleFinder, SpecialRuleFinder, StenoLexer
-
 from .rules import RulesDictionary, StenoRule
 from .search import IndexSearchDict, TranslationsSearchDict
 
@@ -97,7 +96,12 @@ class StenoResources:
         layout = KeyLayout(self.raw_layout)
         rules = RulesDictionary()
         rules.update_from_raw(self.raw_rules)
-        board = BoardGenerator.build(layout, rules, self.board_defs, self.board_xml)
+        board_parser = BoardElementParser(self.board_defs)
+        board_parser.parse_xml(self.board_xml)
+        board_index = board_parser.make_index(layout, rules)
+        defs, base = board_parser.defs_base_pair()
+        bounds = board_parser.diagram_bounds()
+        board = BoardGenerator(board_index, defs, base, *bounds)
         graph = GraphGenerator(layout)
         sep = layout.SEP
         star = layout.SPECIAL

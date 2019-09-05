@@ -44,14 +44,11 @@ class SVGDefs(SVGElement):
 
     tag = "defs"
 
-    def make_usable(self, child:SVGElement) -> SVGUse:
-        """ Add a reusable child element by ID and return a reference <use> element. """
-        try:
-            child_id = child["id"]
-        except KeyError as e:
-            raise ValueError("Only elements with an ID are usable from a <defs> element.") from e
-        self.append(child)
-        return SVGUse(href=f"#{child_id}")
+    def make_usable(self, elem:SVGElement) -> SVGUse:
+        """ Add an element for reuse by ID and return a reference <use> element. Make up an ID if there isn't one. """
+        elem_id = elem.setdefault("id", str(id(elem)))
+        self.append(elem)
+        return SVGUse(href=f"#{elem_id}")
 
 
 class SVGDocument(SVGElement):

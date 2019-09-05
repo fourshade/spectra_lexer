@@ -2,14 +2,16 @@ from cmath import phase, pi, polar, rect
 from math import ceil
 from typing import List
 
+from .svg import SVGPath
+
 
 def _fmt(x:complex) -> str:
-    """ Format a complex number. Remove trailing zeros to reduce file size. """
+    """ Format a complex number as a coordinate pair. Remove trailing zeros to reduce file size. """
     return f"{x.real:.4g},{x.imag:.4g}"
 
 
-class PathGenerator(List[str]):
-    """ Generates SVG path strings from a series of commands. """
+class PathCommands(List[str]):
+    """ List of SVG path command strings. """
 
     def move_to(self, p:complex, relative:bool=False) -> None:
         """ Move to <p> and start a new primitive path. Must be called before using any drawing commands below. """
@@ -37,16 +39,22 @@ class PathGenerator(List[str]):
         """ After drawing with the above commands, close and fill a complete path. """
         self += "z",
 
-    def draw(self, start:complex, end:complex, reverse:bool=False) -> None:
-        """ Draw a path between two complex endpoints. """
-        pass
-
     def to_string(self) -> str:
+        """ Return an SVG path string from the current series of commands. """
         return " ".join(self)
 
 
-class PathInversion(PathGenerator):
-    """ Inversions are denoted by bent arrows drawn using a quadratic Bezier curve. """
+class ConnectionPathCommands(PathCommands):
+    """ Abstract class for commands that can connect two points. """
+
+    def connect(self, start:complex, end:complex) -> None:
+        """ Add commands for a path connecting two complex endpoints (with dummy implementation). """
+        self.move_to(start)
+        self.line_to(end)
+
+
+class ArrowPathCommands(ConnectionPathCommands):
+    """ Steno order inversions are denoted by curved arrows drawn using a quadratic Bezier curve. """
 
     ENDPOINT_SHIFT = 12.0      # Amount to pull the arrow endpoints back away from the element centers.
     CURVE_SHIFT = 15.0         # Amount to "bend" the arrow body outward perpendicular from the straight case.
@@ -54,11 +62,9 @@ class PathInversion(PathGenerator):
     MIN_HEAD_LENGTH = 5.0      # Minimum length for head edges (the lines that make the "point" of the arrow).
     SPREAD_ANGLE = pi / 8      # Angle in radians between each head edge and the arrow body.
 
-    def draw(self, tail:complex, head:complex, reverse:bool=False) -> None:
-        """ Draw a bent arrow path from <tail> to <head>. Back up endpoints to avoid covering up letters.
+    def connect(self, tail:complex, head:complex) -> None:
+        """ Draw a curved arrow path from <tail> to <head>. Back up endpoints to avoid covering up letters.
             The control point starts on the line connecting the endpoints, then is shifted perpendicular to it. """
-        if reverse:
-            tail, head = head, tail
         i_control = self._get_control_point(tail, head)
         tail = self._shift_endpoint_to(tail, i_control)
         head = self._shift_endpoint_to(head, i_control)
@@ -93,7 +99,7 @@ class PathInversion(PathGenerator):
         return ep + rect(shift_mag, phase(cp - ep) + angle_offset)
 
 
-class PathChain(PathGenerator):
+class ChainPathCommands(ConnectionPathCommands):
     """ For correct overlap, the entire chain must be divided into a top and bottom half.
         There are two major complications with this:
         1. For a given half of a single link, all of its layers must be composited before its successor is started.
@@ -114,12 +120,15 @@ class PathChain(PathGenerator):
 
     _LINK_LENGTH = 2 * LINK_RADIUS + LINK_EXTEND  # Computed length of a single chain link.
 
-    def draw(self, start:complex, end:complex, reverse:bool=False) -> None:
-        """ Draw a chain path from <start> to <end> with alternating halves of each link. """
+    def connect(self, start:complex, end:complex) -> None:
+        """ Draw one side of a chain path from <start> to <end> with alternating halves of each link.
+            Calling this with the endpoints reversed will always draw the missing side. """
+        reverse = (start.real < end.real)
+        if reverse:
+            start, end = end, start
         length, angle = polar(end - start)
         offsets = [start + rect(off, angle) for off in self._link_offsets(length)]
         for half in (False, True):
-            # Ensure that <reverse> always draws the missing side.
             direction = half ^ reverse
             self._draw_hemilinks(offsets[half::2], angle, direction)
 
@@ -134,7 +143,7 @@ class PathChain(PathGenerator):
         actual_spacing = (length - body_length) / (link_count - 1)
         return [i * actual_spacing for i in range(link_count)]
 
-    def _draw_hemilinks(self, offsets:List[complex], angle:float, direction_cw:bool=False) -> None:
+    def _draw_hemilinks(self, offsets:List[complex], angle:float, direction_cw:bool) -> None:
         """ Draw one half of a chain link starting at every position in <offsets>.
             The first two moves can be relative, but the last one should be absolute for accurate shape closing. """
         radii = self.LINK_RADIUS * (1 + 1j)
@@ -147,3 +156,37 @@ class PathChain(PathGenerator):
             self.arc_to(radii, arc_move_out, direction_cw, relative=True)
             self.line_to(line_move, relative=True)
             self.arc_to(radii, start + arc_move_in, direction_cw)
+
+
+class LayeredPathList(List[SVGPath]):
+    """ Contains layered SVG paths for bidirectional connections. """
+
+    cmds_cls = ConnectionPathCommands  # Commands class to connect points with path data.
+    layer_data = [(0j, "fill:none;")]  # Contains offsets and styles for layers in order from bottom to top.
+
+    def connect(self, start:complex, end:complex) -> None:
+        """ Add SVG path elements that compose paths between two endpoints in both directions.
+            The paths are shifted by an optional offset after each iteration to create a drop shadow appearance. """
+        for p1, p2 in ((start, end), (end, start)):
+            path = ""
+            for offset, style in self.layer_data:
+                # If the path hasn't moved, don't regenerate the string data; it will be the same.
+                if offset or not path:
+                    cmds = self.cmds_cls()
+                    cmds.connect(p1 + offset, p2 + offset)
+                    path = cmds.to_string()
+                self.append(SVGPath(d=path, style=style))
+
+
+class ArrowPathList(LayeredPathList):
+
+    cmds_cls = ArrowPathCommands
+    layer_data = [(0j,  "fill:none;stroke:#800000;stroke-width:1.5px;"),
+                  (-1j, "fill:none;stroke:#FF0000;stroke-width:1.5px;")]
+
+
+class ChainPathList(LayeredPathList):
+
+    cmds_cls = ChainPathCommands
+    layer_data = [(0j, "fill:none;stroke:#000000;stroke-width:5.0px;"),
+                  (0j, "fill:none;stroke:#B0B0B0;stroke-width:2.0px;")]

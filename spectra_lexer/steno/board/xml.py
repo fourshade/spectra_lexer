@@ -3,7 +3,8 @@ from xml.parsers import expat
 
 
 class XMLElement(dict):
-    """ Generic XML element with a tree structure. """
+    """ Generic XML element with a tree structure. Optimized for fast access and parsing.
+        The optimal structure is a dict of XML attributes with certain methods overridden to provide child access. """
 
     tag: str = "UNDEFINED"  # Tag name enclosed in <> at element start (and end, if children are included).
     text: str = ""          # Includes all text after the start tag but before the first child (if any).
@@ -63,7 +64,7 @@ class XMLElement(dict):
         self.serialize(s_list)
         return "".join(s_list).encode(encoding)
 
-    def serialize(self, s_list:List[str], _iter=dict.__iter__) -> None:
+    def serialize(self, s_list:List[str]) -> None:
         """ Recursively write strings representing this object to a list (which will be joined at the end).
             Use += when possible to avoid method call overhead. This is even faster than using f-strings. """
         tag = self.tag
@@ -71,8 +72,8 @@ class XMLElement(dict):
         tail = self.tail
         children = self._children
         s_list += '<', tag
-        for k in _iter(self):
-            s_list += ' ', k, '="', self[k], '"'
+        for k, v in self.items():
+            s_list += ' ', k, '="', v, '"'
         if children or text:
             s_list += '>', text
             for child in children:

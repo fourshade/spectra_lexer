@@ -53,30 +53,30 @@
 	<key id="z" pos="z" shape="round"  text="Z"/>
 </g>
 <!-- Placeholders for keys with unknown function  -->
-<g fill="#DFDFDF">
+<g fill="#DFDFDF" text="?">
 	<qkey id="#" pos="#" shape="number" text="?????"/>
-	<qkey id="S" pos="S" shape="tall"   text="?"/>
-	<qkey id="T" pos="T" shape="square" text="?"/>
-	<qkey id="K" pos="K" shape="round"  text="?"/>
-	<qkey id="P" pos="P" shape="square" text="?"/>
-	<qkey id="W" pos="W" shape="round"  text="?"/>
-	<qkey id="H" pos="H" shape="square" text="?"/>
-	<qkey id="R" pos="R" shape="round"  text="?"/>
-	<qkey id="A" pos="A" shape="round"  text="?"/>
-	<qkey id="O" pos="O" shape="round"  text="?"/>
-	<qkey id="*" pos="*" shape="tall"   text="?"/>
-	<qkey id="E" pos="E" shape="round"  text="?"/>
-	<qkey id="U" pos="U" shape="round"  text="?"/>
-	<qkey id="f" pos="f" shape="square" text="?"/>
-	<qkey id="r" pos="r" shape="round"  text="?"/>
-	<qkey id="p" pos="p" shape="square" text="?"/>
-	<qkey id="b" pos="b" shape="round"  text="?"/>
-	<qkey id="l" pos="l" shape="square" text="?"/>
-	<qkey id="g" pos="g" shape="round"  text="?"/>
-	<qkey id="t" pos="t" shape="square" text="?"/>
-	<qkey id="s" pos="s" shape="round"  text="?"/>
-	<qkey id="d" pos="d" shape="square" text="?"/>
-	<qkey id="z" pos="z" shape="round"  text="?"/>
+	<qkey id="S" pos="S" shape="tall"  />
+	<qkey id="T" pos="T" shape="square"/>
+	<qkey id="K" pos="K" shape="round" />
+	<qkey id="P" pos="P" shape="square"/>
+	<qkey id="W" pos="W" shape="round" />
+	<qkey id="H" pos="H" shape="square"/>
+	<qkey id="R" pos="R" shape="round" />
+	<qkey id="A" pos="A" shape="round" />
+	<qkey id="O" pos="O" shape="round" />
+	<qkey id="*" pos="*" shape="tall"  />
+	<qkey id="E" pos="E" shape="round" />
+	<qkey id="U" pos="U" shape="round" />
+	<qkey id="f" pos="f" shape="square"/>
+	<qkey id="r" pos="r" shape="round" />
+	<qkey id="p" pos="p" shape="square"/>
+	<qkey id="b" pos="b" shape="round" />
+	<qkey id="l" pos="l" shape="square"/>
+	<qkey id="g" pos="g" shape="round" />
+	<qkey id="t" pos="t" shape="square"/>
+	<qkey id="s" pos="s" shape="round" />
+	<qkey id="d" pos="d" shape="square"/>
+	<qkey id="z" pos="z" shape="round" />
 </g>
 <!-- Normal rules. Only make labels for rules that are NOT strictly phonetic with respect to their keys.  -->
 <!-- Single keys  -->
@@ -144,39 +144,39 @@
 	<rule id=".xt"  pos="l"  shape="diag" text="xt"/>
 </g>
 <!-- Rules using the asterisk, including fingerspelling -->
-<g fill="#7F7FFF">
-	<rule id="-P:FS" pos="p" shape="square" path="uparrow"/>
-	<rule id="a*"><elem pos="*" shape="tall" text="*"/><elem pos="A"   shape="round"  text="a"/></rule>
-	<rule id="b*"><elem pos="*" shape="tall" text="*"/><elem pos="P"   shape="tall"   text="b"/></rule>
-	<rule id="c*"><elem pos="*" shape="tall" text="*"/><elem pos="K"   shape="r_r"    text="c"/></rule>
-	<rule id="d*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="tall"   text="d"/></rule>
-	<rule id="e*"><elem pos="*" shape="tall" text="*"/><elem pos="E"   shape="round"  text="e"/></rule>
-	<rule id="f*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="rect"   text="f"/></rule>
-	<rule id="g*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="2x2"    text="g"/></rule>
-	<rule id="h*"><elem pos="*" shape="tall" text="*"/><elem pos="H"   shape="square" text="h"/></rule>
-	<rule id="i*"><elem pos="*" shape="tall" text="*"/><elem pos="E"   shape="wide"   text="i"/></rule>
-	<rule id="j*"><elem pos="*" shape="tall" text="*"/><elem pos="S2"  shape="4wide"  text="j"/></rule>
-	<rule id="k*"><elem pos="*" shape="tall" text="*"/><elem pos="K"   shape="round"  text="k"/></rule>
-	<rule id="l*"><elem pos="*" shape="tall" text="*"/><elem pos="H"   shape="tall"   text="l"/></rule>
-	<rule id="m*"><elem pos="*" shape="tall" text="*"/><elem pos="P"   shape="rect"   text="m"/></rule>
-	<rule id="n*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="3rect"  text="n"/></rule>
-	<rule id="o*"><elem pos="*" shape="tall" text="*"/><elem pos="O"   shape="round"  text="o"/></rule>
-	<rule id="p*"><elem pos="*" shape="tall" text="*"/><elem pos="P"   shape="square" text="p"/></rule>
-	<rule id="q*"><elem pos="*" shape="tall" text="*"/><elem pos="K"   shape="wide"   text="q"/></rule>
-	<rule id="r*"><elem pos="*" shape="tall" text="*"/><elem pos="R"   shape="round"  text="r"/></rule>
-	<rule id="s*"><elem pos="*" shape="tall" text="*"/><elem pos="S"   shape="tall"   text="s"/></rule>
-	<rule id="t*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="square" text="t"/></rule>
-	<rule id="u*"><elem pos="*" shape="tall" text="*"/><elem pos="U"   shape="round"  text="u"/></rule>
-	<rule id="v*"><elem pos="*" shape="tall" text="*"/><elem pos="S2"  shape="r__r"   text="v"/></rule>
-	<rule id="w*"><elem pos="*" shape="tall" text="*"/><elem pos="W"   shape="round"  text="w"/></rule>
-	<rule id="x*"><elem pos="*" shape="tall" text="*"/><elem pos="T"   shape="diag"   text="x"/></rule>
-	<rule id="y*"><elem pos="*" shape="tall" text="*"/><elem pos="K"   shape="3wide"  text="y"/></rule>
-	<rule id="z*"><elem pos="*" shape="tall" text="*"/><elem pos="S"   shape="2x2"    text="z"/></rule>
-	<rule id="z."><elem pos="*" shape="tall" text="*"/><elem pos="S"   shape="tall"   text="z"/></rule>
-	<rule id=".mp+"><elem pos="*" shape="tall" text="*"/><elem pos="p" shape="rect"   text="mp"/></rule>
-	<rule id=".k~"><elem pos="*" shape="tall" text="*"/><elem pos="g"  shape="round"  text="k"/></rule>
-	<rule id=".th"><elem pos="*" shape="tall" text="*"/><elem pos="t"  shape="square" text="th"/></rule>
-	<rule id=".st+"><elem pos="*" shape="tall" text="*"/><elem pos="s" shape="round"  text="st"/></rule>
+<rule id="-P:FS" fill="#7F7FFF" pos="p" shape="square" path="uparrow"/>
+<g fill="#7F7FFF" pos="*" shape="tall" text="*">
+	<rule id="a*"  ><elem pos="A"  shape="round"  text="a"/></rule>
+	<rule id="b*"  ><elem pos="P"  shape="tall"   text="b"/></rule>
+	<rule id="c*"  ><elem pos="K"  shape="r_r"    text="c"/></rule>
+	<rule id="d*"  ><elem pos="T"  shape="tall"   text="d"/></rule>
+	<rule id="e*"  ><elem pos="E"  shape="round"  text="e"/></rule>
+	<rule id="f*"  ><elem pos="T"  shape="rect"   text="f"/></rule>
+	<rule id="g*"  ><elem pos="T"  shape="2x2"    text="g"/></rule>
+	<rule id="h*"  ><elem pos="H"  shape="square" text="h"/></rule>
+	<rule id="i*"  ><elem pos="E"  shape="wide"   text="i"/></rule>
+	<rule id="j*"  ><elem pos="S2" shape="4wide"  text="j"/></rule>
+	<rule id="k*"  ><elem pos="K"  shape="round"  text="k"/></rule>
+	<rule id="l*"  ><elem pos="H"  shape="tall"   text="l"/></rule>
+	<rule id="m*"  ><elem pos="P"  shape="rect"   text="m"/></rule>
+	<rule id="n*"  ><elem pos="T"  shape="3rect"  text="n"/></rule>
+	<rule id="o*"  ><elem pos="O"  shape="round"  text="o"/></rule>
+	<rule id="p*"  ><elem pos="P"  shape="square" text="p"/></rule>
+	<rule id="q*"  ><elem pos="K"  shape="wide"   text="q"/></rule>
+	<rule id="r*"  ><elem pos="R"  shape="round"  text="r"/></rule>
+	<rule id="s*"  ><elem pos="S"  shape="tall"   text="s"/></rule>
+	<rule id="t*"  ><elem pos="T"  shape="square" text="t"/></rule>
+	<rule id="u*"  ><elem pos="U"  shape="round"  text="u"/></rule>
+	<rule id="v*"  ><elem pos="S2" shape="r__r"   text="v"/></rule>
+	<rule id="w*"  ><elem pos="W"  shape="round"  text="w"/></rule>
+	<rule id="x*"  ><elem pos="T"  shape="diag"   text="x"/></rule>
+	<rule id="y*"  ><elem pos="K"  shape="3wide"  text="y"/></rule>
+	<rule id="z*"  ><elem pos="S"  shape="2x2"    text="z"/></rule>
+	<rule id="z."  ><elem pos="S"  shape="tall"   text="z"/></rule>
+	<rule id=".mp+"><elem pos="p"  shape="rect"   text="mp"/></rule>
+	<rule id=".k~" ><elem pos="g"  shape="round"  text="k" /></rule>
+	<rule id=".th" ><elem pos="t"  shape="square" text="th"/></rule>
+	<rule id=".st+"><elem pos="s"  shape="round"  text="st"/></rule>
 </g>
 <!-- Rarely encountered rules  -->
 <g fill="#9FCFFF">
@@ -187,10 +187,10 @@
 	<rule id=".gion"    pos="g"  shape="wide"  text="GEN"/>
 </g>
 <!-- Connection modifiers  -->
-<g fill="#3FAFAF">
-	<rule id="KWR:PS"   pos="K"  shape="3wide" text="..."/>
-	<rule id="SKWR:PS"  pos="S2" shape="4wide" text="..."/>
-	<rule id="-RBGS:PS" pos="r"  shape="4wide" text="..."/>
+<g fill="#3FAFAF" text="...">
+	<rule id="KWR:PS"   pos="K"  shape="3wide"/>
+	<rule id="SKWR:PS"  pos="S2" shape="4wide"/>
+	<rule id="-RBGS:PS" pos="r"  shape="4wide"/>
 </g>
 <!-- Number keys and specific number-based modifiers  -->
 <g fill="#00BFBF">
