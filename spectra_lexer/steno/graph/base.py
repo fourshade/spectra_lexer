@@ -28,7 +28,7 @@ class StenoGraph:
 
 
 class GraphGenerator:
-    """ Main graph generator class. Requires minimal external resources. """
+    """ Top-level factory for creating text graphs from user input. Requires minimal external resources. """
 
     def __init__(self, layout:KeyLayout) -> None:
         self._sep = layout.SEP      # Steno key used as stroke separator.

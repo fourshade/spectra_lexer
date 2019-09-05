@@ -1,3 +1,8 @@
+7.0.1
+-----
+* Improved board generator code
+* Updated documentation
+
 7.0.0
 -----
 * Refactored the framework...again

@@ -49,8 +49,9 @@ class HTMLFormatter:
             all_ancestors = {*others, second, root}
             def is_highlighted(node:GraphNode, col:int) -> bool:
                 return node in all_ancestors and (node is not root or col in col_set)
-        formatted = []
-        for row, line in enumerate(self._canvas, -self._row_shift):
+        formatted = [self._HEADER]
+        row = -self._row_shift
+        for line in self._canvas:
             col = 0
             text = []
             it = iter(line)
@@ -61,7 +62,9 @@ class HTMLFormatter:
                 text.append(char)
                 col += 1
             formatted.append(self.joined(text))
-        return "\n".join([self._HEADER, *formatted, self._FOOTER])
+            row += 1
+        formatted.append(self._FOOTER)
+        return "\n".join(formatted)
 
     # Join and return a line with no modifications.
     joined = "".join

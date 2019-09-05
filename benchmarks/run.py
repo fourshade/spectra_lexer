@@ -60,12 +60,12 @@ def app_start():
 
 def app_analyze():
     from spectra_lexer.app import analyze
-    analyze("--index-file=NUL", "--rules-out=NUL")
+    analyze("--index=NUL", "--out=NUL")
 
 
 def app_index():
     from spectra_lexer.app import index
-    index("--index-file=NUL")
+    index("--index=NUL")
 
 
 def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:

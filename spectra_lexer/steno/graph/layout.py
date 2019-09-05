@@ -28,7 +28,7 @@ class BaseGraphLayout:
         self._max_width = max_width    # Graphs should never be wider than this many columns.
         self._max_height = max_height  # Graphs should never be taller than this many rows.
 
-    def build(self, node:GraphNode) -> LayoutComposite:
+    def build(self, node:GraphNode) -> Composite:
         """ Build a new graph object from <node> and arrange all of its children according to the layout. """
         obj = LayoutComposite(node.bottom_length)
         node.body(obj.add)
