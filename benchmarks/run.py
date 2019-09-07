@@ -45,10 +45,9 @@ class ComponentBench:
         self._run(translations.search, prefixes_and_counts)
 
     def init_plover(self):
-        from spectra_lexer.plover.parser import PloverTranslationParser
-        from spectra_lexer.plover.types import FakePloverEngine
+        from spectra_lexer.plover import IPloverEngine, PloverTranslationParser
         self.n = 10
-        plover = FakePloverEngine(self.translations, split_count=1)
+        plover = IPloverEngine.test(self.translations, split_count=1)
         parser = PloverTranslationParser(plover)
         self._run(parser.convert_dicts)
 

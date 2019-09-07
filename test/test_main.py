@@ -10,8 +10,7 @@ import pytest
 
 from spectra_lexer.app import StenoMain
 from spectra_lexer.io import ResourceIO
-from spectra_lexer.plover.parser import PloverTranslationParser
-from spectra_lexer.plover.types import FakePloverEngine
+from spectra_lexer.plover import IPloverEngine, PloverTranslationParser
 from spectra_lexer.steno import RuleFlags
 from spectra_lexer.steno.search import IndexSearchDict, TranslationsSearchDict
 
@@ -119,6 +118,6 @@ def test_graph(result):
 
 def test_plover():
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
-    engine = FakePloverEngine(TRANSLATIONS_DICT, split_count=3)
+    engine = IPloverEngine.test(TRANSLATIONS_DICT, split_count=3)
     parser = PloverTranslationParser(engine)
     assert parser.convert_dicts() == TRANSLATIONS_DICT
