@@ -128,12 +128,12 @@ class StenoMain(Main):
     def build_engine(self) -> StenoEngine:
         """ From the base directory, load each steno resource component by a standard name or pattern """
         io = self._io
-        layout = io.load_layout(self._res_path("layout.json"))              # Steno key constants.
-        rules = io.load_rules(self._res_path("*.cson"))                     # CSON rules glob pattern.
-        board_defs = io.load_board_defs(self._res_path("board_defs.json"))  # Board shape definitions.
-        board_xml = io.load_board_xml(self._res_path("board_elems.xml"))    # XML steno board elements.
+        layout = io.load_layout(self._res_path("layout.json"))                 # Steno key constants.
+        rules = io.load_rules(self._res_path("[01]*.cson"))                    # CSON rules glob pattern.
+        board_defs = io.load_board_defs(self._res_path("board_defs.json"))     # Board shape definitions.
+        board_elems = io.load_board_elems(self._res_path("board_elems.cson"))  # Board elements definitions.
         # Create the engine with all required steno resources.
-        resources = StenoResources(layout, rules, board_defs, board_xml)
+        resources = StenoResources(layout, rules, board_defs, board_elems)
         return resources.build_engine()
 
     def build_config(self):

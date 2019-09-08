@@ -84,12 +84,13 @@ class StenoResources:
     """ Contains all static resources necessary for a steno system. The structures are mostly JSON dicts.
         Assets including a key layout, rules, and (optional) board graphics comprise the system. """
 
-    def __init__(self, raw_layout:dict, raw_rules:Dict[str,list], board_defs:Dict[str,dict], board_xml:bytes) -> None:
+    def __init__(self, raw_layout:dict, raw_rules:Dict[str, list],
+                 board_defs:Dict[str, dict], board_elems:Dict[str, dict]) -> None:
         """ All fields are static steno resources loaded from package assets. """
         self.raw_layout = raw_layout
         self.raw_rules = raw_rules
         self.board_defs = board_defs
-        self.board_xml = board_xml
+        self.board_elems = board_elems
 
     def build_engine(self) -> StenoEngine:
         """ Load all static resources into steno components and create an engine with them. """
@@ -97,7 +98,7 @@ class StenoResources:
         rules = RulesDictionary()
         rules.update_from_raw(self.raw_rules)
         board_parser = BoardElementParser(self.board_defs)
-        board_parser.parse_xml(self.board_xml)
+        board_parser.parse(self.board_elems)
         board_index = board_parser.make_index(layout, rules)
         defs, base = board_parser.defs_base_pair()
         bounds = board_parser.diagram_bounds()

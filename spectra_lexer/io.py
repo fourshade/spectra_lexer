@@ -150,9 +150,9 @@ class ResourceIO(PathIO):
         """ Read a JSON definitions file for a steno board layout. """
         return self._json_read(defs_path)
 
-    def load_board_xml(self, xml_path:str) -> bytes:
-        """ Read an XML definitions file with properties of steno board elements. """
-        return self.read(xml_path)
+    def load_board_elems(self, elems_path:str) -> Dict[str, dict]:
+        """ Read a CSON definitions file with properties of steno board elements. """
+        return self._cson_read(elems_path)
 
     def save_rules(self, raw_rules:Dict[str,list], filename:str) -> None:
         """ Save a raw rules dict to JSON. """

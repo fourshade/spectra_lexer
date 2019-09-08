@@ -6,7 +6,6 @@ from typing import Dict, List, Iterable, Iterator, Tuple
 
 from .path import ArrowPathList, ChainPathList
 from .svg import SVGElement, SVGDefs, SVGDocument, SVGPath
-from .xml import XMLElement
 from ..keys import KeyLayout
 from ..rules import StenoRule
 
@@ -29,91 +28,97 @@ class SeparatorBoardElements(BoardElements):
     ends_stroke = True
 
 
-class ConnectedBoardElements(BoardElements):
-    """ Elements which have some sort of connector between them. Only the first and last args are kept/connected. """
+class InversionBoardElements(BoardElements):
+    """ Contains curved arrows pointing between its children. Only the first and last groups are connected. """
 
-    def __init__(self, *board_elems:BoardElements) -> None:
-        self._first, *_, self._last = board_elems
-
-
-class InversionBoardElements(ConnectedBoardElements):
-    """ Contains curved arrows pointing between its children. """
+    def __init__(self, groups:List[BoardElements]) -> None:
+        self._groups = groups
 
     def __iter__(self) -> Iterator[SVGElement]:
-        """ Yield the first and last element sets, then a set of arrow path elements over top. """
+        """ Yield elements from all groups, then a set of arrow path elements over top. """
+        groups = self._groups
+        for g in groups:
+            yield from g
         paths = ArrowPathList()
-        paths += self._first
-        paths += self._last
-        paths.connect(self._first.offset, self._last.offset)
-        return iter(paths)
+        paths.connect(groups[0].offset, groups[-1].offset)
+        yield from paths
 
 
-class LinkedBoardElements(ConnectedBoardElements):
-    """ Contains a chain connecting its children, which are shifted independently of the main stroke groupings. """
+class LinkedBoardElements(BoardElements):
+    """ Contains a chain connecting two strokes, which are shifted independently of the main stroke groupings. """
 
     ends_stroke = True
+
+    def __init__(self, s_stroke:List[BoardElements], e_stroke:List[BoardElements]) -> None:
+        self._strokes = s_stroke, e_stroke
 
     def iter_overlays(self, sx:float, sy:float, ex:float, ey:float) -> Iterator[SVGElement]:
         """ Wrap elements involved in a chain so the originals aren't mutated.
             <sx, sy> is the offset of the beginning stroke, and <ex, ey> is the offset of the ending stroke. """
+        s_stroke, e_stroke = self._strokes
         paths = ChainPathList()
-        paths.connect(self._first.offset + complex(sx, sy), self._last.offset + complex(ex, ey))
-        elem = SVGElement(*self._first)
+        # For multi-element rules, connect the last element in the first stroke to the first element in the next.
+        paths.connect(s_stroke[-1].offset + complex(sx, sy), e_stroke[0].offset + complex(ex, ey))
+        yield from paths
+        elem = SVGElement()
+        for g in s_stroke:
+            elem.extend(g)
         elem.translate(sx, sy)
-        paths.append(elem)
-        elem = SVGElement(*self._last)
+        yield elem
+        elem = SVGElement()
+        for g in e_stroke:
+            elem.extend(g)
         elem.translate(ex, ey)
-        paths.append(elem)
-        return iter(paths)
+        yield elem
 
 
-class ProcessedBoardElements(List[SVGElement], BoardElements):
-    """ Group of elements with various processing functions applied based on XML attributes.
-        Since XML attributes are not guaranteed any order, the procs must be applied in order of method definition. """
+class ProcessedBoardElements(BoardElements):
+    """ Group of elements with various processing functions applied based on a 'p-string'. """
 
-    _txtmaxarea: tuple = (20.0, 20.0)  # Maximum available area for text. Determines text scale and orientation.
-    _txtspacing: float = 14.4          # Horizontal spacing of text in pixels at default scale.
+    _bg = "#000000"             # Background color for key shapes.
+    _txtmaxarea = [20.0, 20.0]  # Maximum available area for text. Determines text scale and orientation.
+
+    def __init__(self) -> None:
+        """ Elements are added by proc_* methods, which are executed in order according to an external file. """
+        self._elems = []
+
+    def __iter__(self) -> Iterator[SVGElement]:
+        return iter(self._elems)
 
     def _append_at_offset(self, elem:SVGElement) -> None:
         """ Translate an SVG element by the current offset and add it as a child. """
         elem.translate(self.offset.real, self.offset.imag)
-        self.append(elem)
+        self._elems.append(elem)
 
-    def process(self, proc_defs:Dict[str, dict], **attrib:str) -> None:
-        """ Pop XML attributes that match proc_ methods and call each method using the corresponding defs dict. """
-        for k in self.PROCS:
-            if k in attrib:
-                getattr(self, "proc_" + k)(attrib.pop(k), proc_defs.get(k) or {})
-        # If any attributes are left, propagate them to our children.
-        if attrib:
-            for child in self:
-                child.update(attrib, **child)
+    def proc_bg(self, e_id:str, d:dict) -> None:
+        """ Set the background color used by key shapes. """
+        self._bg = d[e_id]
 
     def proc_pos(self, e_id:str, d:dict) -> None:
-        """ Add to the total offset used in text and annotations (such as inversion arrows)."""
-        self.offset += complex(*d[e_id])
+        """ Set the offset used in text and annotations (such as inversion arrows). """
+        self.offset = complex(*d[e_id])
 
     def proc_shape(self, e_id:str, d:dict) -> None:
         """ Add an SVG path shape, then advance the offset to center any following text. """
         attrs = d[e_id]
-        elem = SVGPath(d=attrs["d"])
+        elem = SVGPath(d=attrs["d"], stroke="#000000", fill=self._bg)
         self._append_at_offset(elem)
         self.offset += complex(*attrs["txtcenter"])
-        self._txtmaxarea = (*attrs["txtarea"],)
-        self._txtspacing = attrs["txtspacing"]
+        self._txtmaxarea = attrs["txtarea"]
 
     def proc_path(self, e_id:str, d:dict) -> None:
         """ Add an SVG path at the current offset. """
-        elem = SVGPath(d=d[e_id])
+        elem = SVGPath(d=d[e_id], stroke="#000000")
         self._append_at_offset(elem)
 
-    def proc_text(self, text:str, glyphs:dict, _FONT_SIZE:int=24, _EM_SIZE:int=1000) -> None:
+    def proc_text(self, text:str, glyphs:dict, _FONT_SIZE=24, _EM_SIZE=1000, _TXTSPACING=14.4) -> None:
         """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
-            Max font size is 24 pt. Text paths are defined with an em box of 1000 units. """
+            Max font size is 24 pt. Text paths are defined with an em box of 1000 units.
+            14.4 px is the horizontal spacing of text in pixels. """
         elem = SVGElement(fill="#000000")
         self._append_at_offset(elem)
         n = len(text) or 1
-        spacing = self._txtspacing
+        spacing = _TXTSPACING
         w, h = self._txtmaxarea
         scale = min(1.0, w / (n * spacing))
         # If there is little horizontal space and plenty of vertical space, turn the text 90 degrees.
@@ -129,9 +134,6 @@ class ProcessedBoardElements(List[SVGElement], BoardElements):
             char.transform(font_scale, 0, 0, -font_scale, x, y)
             elem.append(char)
             x += spacing
-
-    # Record every processor method attribute in definition order.
-    PROCS = [attr[5:] for attr in locals() if attr.startswith("proc_")]
 
 
 class BoardElementIndex:
@@ -150,49 +152,50 @@ class BoardElementIndex:
         return [d[k] for k in self._convert_to_skeys(keys) if k in d]
 
     def match_rule(self, rule:StenoRule) -> List[BoardElements]:
-        """ Return board diagram elements from a steno rule recursively, with a key finder as backup. """
+        """ Return a list of board diagram elements from a steno rule. """
         # If the rule itself has an entry in the dict, just return that element.
         if rule in self._rule_elems:
             return [self._rule_elems[rule]]
-        elems = []
-        for item in rule.rulemap:
-            elems += self.match_rule(item.rule)
         flags = rule.flags
-        if not elems:
-            # If the rule has no children and no dict entry, just return elements for each raw key.
+        rulemap = rule.rulemap
+        # If the rule has no children and no dict entry, return elements for each raw key.
+        if not rulemap:
             return self.match_keys(rule.keys, flags.unmatched)
-        if flags:
-            # Rules using inversions or linked strokes may be drawn with connectors.
-            if flags.inversion:
-                return [InversionBoardElements(*elems)]
-            elif flags.linked:
-                return [LinkedBoardElements(*elems)]
+        # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
+        if flags.linked:
+            end_rules = rulemap[0].rule, rulemap[-1].rule
+            x = [*map(self.match_rule, end_rules)]
+            return [LinkedBoardElements(*x)]
+        # Add elements recursively from all child rules.
+        elems = []
+        for item in rulemap:
+            elems += self.match_rule(item.rule)
+        # A rule using inversion connects the first and last elements with arrows.
+        if flags.inversion:
+            return [InversionBoardElements(elems)]
         return elems
 
 
 class BoardElementParser:
-    """ Processes XML elements into steno board elements using a definitions dictionary. """
+    """ Processes steno board elements using a definitions dictionary. """
 
     def __init__(self, defs:Dict[str, dict]) -> None:
         self._proc_defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
         self._parsed_elems: dict = defaultdict(dict)     # Parsed board elements indexed by tag, then by ID.
 
-    def parse_xml(self, xml:bytes) -> None:
-        """ Parse all ID'd elements from a raw XML bytes document into full SVG board elements. """
-        root = XMLElement.decode(xml)
-        self._parse_xml(root)
+    def parse(self, board_elems:Dict[str, dict]) -> None:
+        """ Parse all elements from a JSON document into full SVG board element structures. """
+        for tag, d in board_elems.items():
+            self._parsed_elems[tag].update({e_id: self._process_element(p) for e_id, p in d.items()})
 
-    def _parse_xml(self, xml_elem:XMLElement) -> ProcessedBoardElements:
-        """ Parse an XML element recursively. If it has an ID, save it into one combined board element structure.
-            Each child inherits attributes (except ID) from its predecessor. """
+    def _process_element(self, p:str) -> ProcessedBoardElements:
+        """ Match p-string elements to proc_ methods and call each method using the corresponding defs dict. """
         board_elems = ProcessedBoardElements()
-        xml_id = xml_elem.pop("id", None)
-        if xml_id is not None:
-            self._parsed_elems[xml_elem.tag][xml_id] = board_elems
-        board_elems.process(self._proc_defs, **xml_elem)
-        for child in xml_elem:
-            child.update(xml_elem, **child)
-            board_elems += self._parse_xml(child)
+        for s in p.split(";"):
+            k, v = s.split("=", 1)
+            meth = getattr(board_elems, "proc_" + k, None)
+            if meth is not None:
+                meth(v, self._proc_defs[k])
         return board_elems
 
     def make_index(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardElementIndex:
