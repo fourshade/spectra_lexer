@@ -127,8 +127,7 @@ class ViewState(ViewConfig):
             selection, *others = mappings
             if others:
                 # If there is more than one mapping, make a query to select the best combination.
-                pairs = [(m, match) for m in mappings]
-                selection = self._engine.lexer_best_strokes(pairs)
+                selection = self._engine.lexer_best_strokes(mappings, match)
             self.mapping_selected = selection
             self._query_from_selection()
 
@@ -188,7 +187,7 @@ class ViewState(ViewConfig):
         self._set_board_data(selection)
 
     def _set_board_data(self, rule:StenoRule) -> None:
-        self.link_ref = self._engine.rule_to_link(rule)
-        self.show_link = bool(self.link_ref) and self.links_enabled
+        self.link_ref = rule.name
+        self.show_link = self._engine.has_examples(rule.name) and self.links_enabled
         self.board_caption = rule.caption()
         self.board_xml_data = self._engine.board_from_rule(rule, self.board_aspect_ratio, compound=self.compound_board)

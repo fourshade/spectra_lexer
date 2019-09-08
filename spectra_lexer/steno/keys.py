@@ -19,13 +19,14 @@ class KeyLayout:
     SEP = "/"
     # RTFCRE board split delimiter. Separates ambiguous strokes into left+center and right sides of the board.
     SPLIT = "-"
-    # Special modifier key. This key defies steno order to modify entire strokes.
-    SPECIAL = "*"
     # Unique characters for each key in steno order, moving left -> center -> right.
     # Right keys are internally lowercased, so they may re-use letters (but not symbols) from the left or center.
     LEFT = "#STKPWHR"
     CENTER = "AO*EU"
     RIGHT = "FRPBLGTSDZ"
+    # Some keys may ignore steno order to modify entire strokes. This has a large performance and accuracy cost.
+    # Only the asterisk is typically used in such a way that this treatment is worth it.
+    UNORDERED = "*"
     # Some keys can be designated as shift keys. They will end up at the beginning of steno order when it matters.
     # The number key is the main example. When held, keys mostly on the top row become numbers based on their position.
     # These numbers are considered "aliases" for those keys in steno parsing. They are allowed to be present directly
@@ -33,19 +34,21 @@ class KeyLayout:
     ALIAS_TABLE = {"0": "#O", "1": "#S", "2": "#T", "3": "#P", "4": "#H",
                    "5": "#A", "6": "#F", "7": "#P", "8": "#L", "9": "#T"}
 
-    def __init__(self, *args, **kwargs) -> None:
-        """ Merge all arguments into the instance attribute dict and verify correctness.
-            Pre-compute character sets and tables for fast membership tests and string conversion. """
-        self.__dict__.update(*args, **kwargs)
-        self.verify()
-        self._c_keys_set = set(self.CENTER)
-        self._r_keys_set = set(self.RIGHT.lower())
+    def __init__(self, **kwargs) -> None:
+        """ Start with the constructor kwargs as instance attributes.
+            Pre-compute character sets, tables, and functions for fast membership tests and string conversion. """
+        self.__dict__ = kwargs
+        self._c_keys_set = frozenset(self.CENTER)
+        self._r_keys_set = frozenset(self.RIGHT.lower())
+        self._unordered_set = frozenset(self.UNORDERED)
         self._valid_rtfcre = {self.SEP, self.SPLIT, *self.LEFT, *self.CENTER, *self.RIGHT}
         # Create optimized partial map functions to apply string operations to every stroke in a key string.
+        # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'.
+        self.from_rtfcre = partial(self._stroke_map, self._stroke_rtfcre_to_s_keys)
         # Transform an s-keys string back to RTFCRE.
         self.to_rtfcre = partial(self._stroke_map, self._stroke_s_keys_to_rtfcre)
-        # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
-        self.from_rtfcre = partial(self._stroke_map, self._stroke_rtfcre_to_s_keys)
+        # Filter out unordered keys that may used anywhere and return them in a set.
+        self.filter_unordered = self._unordered_set.intersection
 
     def _stroke_map(self, fn:Callable[[str], str], s:str) -> str:
         """ Split a set of keys, apply a string function to every stroke, and join them back together.
@@ -54,18 +57,6 @@ class KeyLayout:
         if sep in s:
             return sep.join(map(fn, s.split(sep)))
         return fn(s)
-
-    def _stroke_s_keys_to_rtfcre(self, s:str) -> str:
-        """ Find the first right-side key in the stroke (if there is one).
-            If it doesn't follow a center key, insert a hyphen before it.
-            Only uppercase the string if right-side keys exist.
-            This is idempotent; it will do nothing if the input is already RTFCRE. """
-        for i, c in enumerate(s):
-            if c in self._r_keys_set:
-                if not i or s[i - 1] not in self._c_keys_set:
-                    s = s[:i] + self.SPLIT + s[i:]
-                return s.upper()
-        return s
 
     def _stroke_rtfcre_to_s_keys(self, s:str) -> str:
         """ Translate an RTFCRE stroke into s-keys format. """
@@ -89,17 +80,33 @@ class KeyLayout:
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
 
-    def _replace_rtfcre(self, s:str, k:str) -> str:
-        """ Translate literal numbers or other aliases by replacing them with their raw key equivalents.
-            If they require a shift key/number key, add it to the start of the string if not present. """
+    def _replace_rtfcre(self, s:str, alias_key:str) -> str:
+        """ Translate a literal number or other alias by replacing it with its raw key equivalent.
+            If it requires a shift key/number key, add it to the start of the string if not present. """
         try:
-            shift_key, real_key = self.ALIAS_TABLE[k]
+            shift_key, real_key = self.ALIAS_TABLE[alias_key]
             if shift_key not in s:
                 s = shift_key + s
-            return s.replace(k, real_key)
         except KeyError:
             # If the character is completely invalid, remove it.
-            return s.replace(k, "")
+            real_key = ""
+        return s.replace(alias_key, real_key)
+
+    def _stroke_s_keys_to_rtfcre(self, s:str) -> str:
+        """ Find the first right-side key in the stroke (if there is one).
+            If it doesn't follow a center key, insert a hyphen before it.
+            Only uppercase the string if right-side keys exist.
+            This is idempotent; it will do nothing if the input is already RTFCRE. """
+        for i, c in enumerate(s):
+            if c in self._r_keys_set:
+                if not i or s[i - 1] not in self._c_keys_set:
+                    s = s[:i] + self.SPLIT + s[i:]
+                return s.upper()
+        return s
+
+    def first_stroke(self, keys:str) -> str:
+        """ Return the first stroke in a steno key string. """
+        return keys.split(self.SEP, 1)[0]
 
     def verify(self) -> None:
         """ Test various properties of the layout for correctness. """
@@ -115,5 +122,5 @@ class KeyLayout:
         all_keys = left | center | right
         assert self.SEP not in all_keys
         assert self.SPLIT not in all_keys
-        # Shift keys as well as their transform values must be valid keys previously defined.
-        assert set().union(*self.ALIAS_TABLE.values()) <= all_keys
+        # Unordered keys and alias mappings must be valid keys previously defined.
+        assert set().union(self.UNORDERED, *self.ALIAS_TABLE.values()) <= all_keys

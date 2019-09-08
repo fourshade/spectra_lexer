@@ -57,14 +57,13 @@ class StenoEngine:
         text = self.INDEX_DELIM.join([link, selection])
         return selection, text
 
-    def rule_to_link(self, rule:StenoRule) -> str:
-        """ Return the name of the given rule to use in a link, but only if it has examples in the index. """
-        name = self._rule_parser.get_name(rule)
-        return name if name in self._index else ""
+    def has_examples(self, name:str) -> bool:
+        """ Return True if the rule name has examples in the index. """
+        return name in self._index
 
-    def link_to_rule(self, link:str) -> StenoRule:
+    def link_to_rule(self, name:str) -> StenoRule:
         """ Return the rule under the given link name, or None if there is no rule by that name. """
-        return self._rule_parser.get(link)
+        return self._rule_parser.get(name)
 
     def make_rules(self, **kwargs) -> Dict[str, list]:
         """ Run the lexer on all translations and return a list of raw rules for saving. """
@@ -97,13 +96,15 @@ class StenoResources:
 
     def build_engine(self) -> StenoEngine:
         """ Load all static resources into steno components and create an engine with them. """
-        layout = KeyLayout(self.raw_layout)
+        layout = KeyLayout(**self.raw_layout)
+        layout.verify()
+        sep = layout.SEP
+        rule_sep = StenoRule.separator(sep)
         rule_parser = RuleParser(self.raw_rules)
-        rules = rule_parser.to_dict()
+        rules = rule_parser.to_list()
         board_parser = BoardElementParser(self.board_defs)
         board_parser.parse(self.board_elems)
-        board = board_parser.build_engine(layout, rules)
-        graph = GraphGenerator(layout.SEP)
-        lexer = StenoLexer(layout)
-        lexer.update(rules)
+        board = board_parser.build_engine(layout)
+        graph = GraphGenerator(sep)
+        lexer = StenoLexer.build(layout, rules, rule_sep)
         return StenoEngine(rule_parser, board, graph, lexer)

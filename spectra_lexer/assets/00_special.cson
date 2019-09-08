@@ -7,5 +7,6 @@
   "*:FS": ["*", "", ["SPEC"], "indicates fingerspelling"],
   "*:AB": ["*", "", ["SPEC"], "indicates an abbreviation"],
   "*:PR": ["*", "", ["SPEC"], "indicates a proper noun\n(names, places, etc.)"],
-  "*:PS": ["*", "", ["SPEC"], "indicates a prefix or suffix stroke"]
+  "*:PS": ["*", "", ["SPEC"], "indicates a prefix or suffix stroke"],
+  "*:??": ["*", "", ["SPEC"], "purpose unknown\nPossibly resolves a conflict"]
 }

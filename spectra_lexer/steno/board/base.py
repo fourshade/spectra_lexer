@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from math import ceil
-from typing import Dict, List, Iterable, Iterator, Tuple
+from typing import Dict, List, Iterable, Iterator, Tuple, Sequence
 
 from .path import ArrowPathList, ChainPathList
 from .svg import SVGElement, SVGDefs, SVGDocument, SVGPath
@@ -29,19 +29,17 @@ class SeparatorBoardElements(BoardElements):
 
 
 class InversionBoardElements(BoardElements):
-    """ Contains curved arrows pointing between its children. Only the first and last groups are connected. """
+    """ A set of curved arrows pointing between two other board element groups. """
 
-    def __init__(self, groups:List[BoardElements]) -> None:
-        self._groups = groups
+    def __init__(self, first:BoardElements, second:BoardElements) -> None:
+        self._first = first
+        self._second = second
 
     def __iter__(self) -> Iterator[SVGElement]:
-        """ Yield elements from all groups, then a set of arrow path elements over top. """
-        groups = self._groups
-        for g in groups:
-            yield from g
+        """ Yield a set of arrow paths connecting our element groups. """
         paths = ArrowPathList()
-        paths.connect(groups[0].offset, groups[-1].offset)
-        yield from paths
+        paths.connect(self._first.offset, self._second.offset)
+        return iter(paths)
 
 
 class LinkedBoardElements(BoardElements):
@@ -49,7 +47,7 @@ class LinkedBoardElements(BoardElements):
 
     ends_stroke = True
 
-    def __init__(self, s_stroke:List[BoardElements], e_stroke:List[BoardElements]) -> None:
+    def __init__(self, s_stroke:Sequence[BoardElements], e_stroke:Sequence[BoardElements]) -> None:
         self._strokes = s_stroke, e_stroke
 
     def iter_overlays(self, sx:float, sy:float, ex:float, ey:float) -> Iterator[SVGElement]:
@@ -89,6 +87,10 @@ class ProcessedBoardElements(BoardElements):
         """ Translate an SVG element by the current offset and add it as a child. """
         elem.translate(self.offset.real, self.offset.imag)
         self._elems.append(elem)
+
+    def proc_sep(self, *args) -> None:
+        """ Set this element to separate strokes. """
+        self.ends_stroke = True
 
     def proc_bg(self, e_id:str, d:dict) -> None:
         """ Set the background color used by key shapes. """
@@ -139,7 +141,7 @@ class ProcessedBoardElements(BoardElements):
 class BoardElementIndex:
     """ Index for finding board elements corresponding to key strings and/or steno rules. """
 
-    def __init__(self, layout:KeyLayout, rule_elems:Dict[StenoRule, BoardElements],
+    def __init__(self, layout:KeyLayout, rule_elems:Dict[str, BoardElements],
                  key_elems:Dict[str, BoardElements], unmatched_elems:Dict[str, BoardElements]) -> None:
         self._rule_elems = rule_elems                # Dict with elements for certain rules.
         self._key_elems = key_elems                  # Dict with normal steno key elements.
@@ -154,15 +156,15 @@ class BoardElementIndex:
     def match_rule(self, rule:StenoRule) -> List[BoardElements]:
         """ Return a list of board diagram elements from a steno rule. """
         # If the rule itself has an entry in the dict, just return that element.
-        if rule in self._rule_elems:
-            return [self._rule_elems[rule]]
-        flags = rule.flags
+        rule_elem = self._rule_elems.get(rule.name)
+        if rule_elem is not None:
+            return [rule_elem]
         rulemap = rule.rulemap
         # If the rule has no children and no dict entry, return elements for each raw key.
         if not rulemap:
-            return self.match_keys(rule.keys, flags.unmatched)
+            return self.match_keys(rule.keys, rule.is_unmatched)
         # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
-        if flags.linked:
+        if rule.is_linked:
             end_rules = rulemap[0].rule, rulemap[-1].rule
             x = [*map(self.match_rule, end_rules)]
             return [LinkedBoardElements(*x)]
@@ -170,9 +172,9 @@ class BoardElementIndex:
         elems = []
         for item in rulemap:
             elems += self.match_rule(item.rule)
-        # A rule using inversion connects the first and last elements with arrows.
-        if flags.inversion:
-            return [InversionBoardElements(elems)]
+        # A rule using inversion connects the first two elements with arrows.
+        if rule.is_inversion:
+            elems.append(InversionBoardElements(elems[0], elems[1]))
         return elems
 
 
@@ -277,26 +279,19 @@ class BoardElementParser:
                 meth(v, self._proc_defs[k])
         return board_elems
 
-    def build_engine(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardEngine:
-        """ Build a board-generating engine from our current resources. """
-        board_index = self._make_index(layout, rules)
+    def build_engine(self, layout:KeyLayout) -> BoardEngine:
+        """ Build an element index and board-generating engine from our current resources. """
+        # Elements corresponding to single steno keys.
+        key_elems = self._parsed_elems["key"]
+        # Elements corresponding to unmatched steno keys.
+        ukey_elems = self._parsed_elems["qkey"]
+        # Elements corresponding to known rule identifiers.
+        rule_elems = self._parsed_elems["rule"]
+        index = BoardElementIndex(layout, rule_elems, key_elems, ukey_elems)
         defs = SVGDefs()
         base = self._make_base(defs)
         bounds = self._proc_defs["document"]["bounds"]
-        return BoardEngine(board_index, defs, base, *bounds)
-
-    def _make_index(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardElementIndex:
-        """ Build an element index from various tag groups filled during parsing. """
-        # Elements corresponding to single steno keys.
-        key_elems = self._parsed_elems["key"]
-        key_elems[layout.SEP] = SeparatorBoardElements()
-        # Elements corresponding to unmatched steno keys.
-        ukey_elems = self._parsed_elems["qkey"]
-        ukey_elems[layout.SEP] = SeparatorBoardElements()
-        # Elements corresponding to known rule identifiers.
-        rule_elems = self._parsed_elems["rule"]
-        rule_elems = {rules[k]: rule_elems[k] for k in rule_elems}
-        return BoardElementIndex(layout, rule_elems, key_elems, ukey_elems)
+        return BoardEngine(index, defs, base, *bounds)
 
     def _make_base(self, defs:SVGDefs) -> SVGElement:
         """ Return a <use> element for the base present in every stroke matching a <defs> element. """

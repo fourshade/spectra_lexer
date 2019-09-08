@@ -250,16 +250,15 @@ class NodeFactory:
     def make_node(self, rule:StenoRule, tstart:int, tlen:int) -> GraphNode:
         """ Derived rules (i.e. branch nodes) show their letters. Base rules (i.e. leaf nodes) show their keys. """
         node_cls = GraphNode
-        flags = rule.flags
         bstart = 0
         if not tlen:
             tlen = 1
         if rule.rulemap:
             text = letters = rule.letters
             blen = len(letters)
-            if flags.inversion:
+            if rule.is_inversion:
                 connector = InversionConnectors(tlen, blen)
-            elif flags.linked:
+            elif rule.is_linked:
                 connector = LinkedConnectors(tlen, blen)
             else:
                 connector = ThickConnectors(tlen, blen)
@@ -273,7 +272,7 @@ class NodeFactory:
             if keys == self._key_sep:
                 node_cls = SeparatorNode
                 connector = BaseConnectors()
-            elif flags.unmatched:
+            elif rule.is_unmatched:
                 connector = UnmatchedConnectors(tlen, blen)
             else:
                 connector = SimpleConnectors(tlen, blen)

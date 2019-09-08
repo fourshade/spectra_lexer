@@ -2,4 +2,4 @@
 
 from .analysis import IndexInfo
 from .base import StenoEngine, StenoResources
-from .rules import RuleFlags, RuleMapItem, StenoRule
+from .rules import RuleMapItem, StenoRule

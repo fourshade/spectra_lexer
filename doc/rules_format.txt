@@ -76,12 +76,12 @@ letters     ::=  string
 flag        ::=  string
 ; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
 ; "SPEC" = special rule used internally, do not match directly using lexer
-; "STRK" = only matches a full stroke (i.e. fingerspelling)
-; "WORD" = only matches a full word (i.e. common briefs)
+; "STRK" = only matches a full stroke (e.g. fingerspelling)
+; "WORD" = only matches a full word (e.g. common briefs)
 ; "RARE" = rarely found in practice and/or may cause false positives. Matches are less reliable.
-; "OPT"  = optional/redundant/strict combination of other rules. May be omitted with little consequence.
 ; "INV"  = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
 ; "LINK" = rule that uses keys from two strokes. Anything that parses strokes individually must handle these carefully.
+; "SEP"  = rule that delimits two strokes. Should not contain any references.
 
 desc        ::=  string
 ; Contains an English description of the rule and its application.

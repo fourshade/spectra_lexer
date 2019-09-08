@@ -11,7 +11,7 @@ import pytest
 from spectra_lexer import plover
 from spectra_lexer.app import StenoMain
 from spectra_lexer.io import ResourceIO
-from spectra_lexer.steno import RuleFlags
+from spectra_lexer.steno import StenoRule
 from spectra_lexer.steno.search import IndexSearchDict, TranslationsSearchDict
 
 
@@ -25,12 +25,13 @@ opts = StenoMain()
 IO = ResourceIO()
 RESOURCES = opts.build_resources()
 STENO = RESOURCES.build_engine()
-RULES_DICT = STENO._rule_parser.to_dict()
+RULE_PARSER = STENO._rule_parser
+RULES_LIST = RULE_PARSER.to_list()
 IGNORED_KEYS = set("/-")
-VALID_FLAGS = {v for v in vars(RuleFlags).values() if isinstance(v, str)}
+VALID_FLAGS = {v for v in vars(StenoRule).values() if isinstance(v, str)}
 
 
-@pytest.mark.parametrize("rule", RULES_DICT.values())
+@pytest.mark.parametrize("rule", RULES_LIST)
 def test_rules(rule) -> None:
     """ Go through each rule and perform integrity checks. First verify that all flags are valid. """
     flags = rule.flags
@@ -74,7 +75,7 @@ INDEX_DICT = IndexSearchDict(INDEX)
 @pytest.mark.parametrize("rule_name", INDEX_DICT.keys())
 def test_index_search(rule_name) -> None:
     """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
-    rule = RULES_DICT[rule_name]
+    rule = RULE_PARSER.get(rule_name)
     wresults = INDEX_DICT.search(rule_name, "", count=100, strokes=False)
     assert all([rule.letters in r for r in wresults])
     kresults = INDEX_DICT.search(rule_name, "", count=100, strokes=True)
