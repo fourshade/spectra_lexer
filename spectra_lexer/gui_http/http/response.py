@@ -14,7 +14,7 @@ class HTTPStructMeta(type):
 
 
 class HTTPResponse(metaclass=HTTPStructMeta):
-    """ Describes the outcome of an HTTP request with a status line and a series of headers and/or content. """
+    """ Describes the outcome of an HTTP/1.1 request with a status line and a series of headers and/or content. """
 
     # Ordered table of HTTP header formatting functions. General headers are first, entity headers are last.
     HEADER_TYPES = [('date',     lambda _: f'Date: {email.utils.formatdate(usegmt=True)}'),
@@ -25,8 +25,8 @@ class HTTPResponse(metaclass=HTTPStructMeta):
                     ('content',  lambda b: f'Content-Length: {len(b)}')]
 
     def __init__(self, code:HTTPStatus, **params) -> None:
-        self._status = f'HTTP/1.1 {code} {code.phrase}'  # HTTP status line.
-        self._params = params                            # Initial parameters from which to build headers.
+        self._code = code      # HTTP status code.
+        self._params = params  # Initial parameters from which to build headers.
 
     def update(self, **params) -> None:
         """ Add additional header parameters. """
@@ -37,7 +37,7 @@ class HTTPResponse(metaclass=HTTPStructMeta):
         d = self._params
         headers = [fn(d[k]) for k, fn in self.HEADER_TYPES if k in d]
         # Add the status line header and the blank line endings, then write everything.
-        full_header = "\r\n".join([self._status, *headers, "", ""])
+        full_header = "\r\n".join([f'HTTP/1.1 {self}', *headers, "", ""])
         header_data = full_header.encode('latin-1', 'strict')
         stream.write(header_data)
         # If there was a content section, write it unless the request method was HEAD.
@@ -45,8 +45,9 @@ class HTTPResponse(metaclass=HTTPStructMeta):
             stream.write(d["content"])
 
     def __str__(self) -> str:
-        """ Return the status line as the string value of the response. """
-        return self._status
+        """ Return the status code and phrase as the string value of the response. """
+        code = self._code
+        return f'{code} {code.phrase}'
 
 
 class HTTPError(Exception, metaclass=HTTPStructMeta):

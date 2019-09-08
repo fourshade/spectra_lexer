@@ -34,7 +34,7 @@ class HTTPMethodTable(HTTPRequestHandler):
 class HTTPFileGetter(HTTPRequestHandler):
     """ Handles requests specific to file retrieval (generally using GET and HEAD methods). """
 
-    def __init__(self, directory:str, index_filename:str="index.html") -> None:
+    def __init__(self, directory:str, index_filename="index.html") -> None:
         self._directory = directory   # Root directory for public HTTP file requests.
         self._index = index_filename  # When a directory path is accessed, redirect to this landing page inside it.
         self._types = MimeTypes()     # Called to find MIME types for files based on their paths.
@@ -81,7 +81,7 @@ class HTTPFileGetter(HTTPRequestHandler):
 class HTTPDataProcessor(HTTPRequestHandler):
     """ Abstract class; handles requests specific to data processing (generally using the POST method). """
 
-    CTYPE: str = "text/html"  # MIME content type for outgoing data.
+    ctype = "text/html"  # MIME content type for outgoing data.
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Process content, path, and query data obtained from a client.
@@ -91,7 +91,7 @@ class HTTPDataProcessor(HTTPRequestHandler):
             obj_in = self.decode(data_in)
             obj_out = self.process(obj_in, request.path, request.query)
             data_out = self.encode(obj_out)
-            return HTTPResponse.OK(ctype=self.CTYPE, content=data_out)
+            return HTTPResponse.OK(ctype=self.ctype, content=data_out)
         except Exception as e:
             raise HTTPError.INTERNAL_SERVER_ERROR() from e
 
@@ -111,10 +111,10 @@ class HTTPDataProcessor(HTTPRequestHandler):
 class HTTPJSONProcessor(HTTPDataProcessor):
     """ Abstract class; decodes a JSON object from HTTP content, processes it, and returns a JSON-encoded result. """
 
-    ENCODING = 'utf-8'
-    CTYPE = "application/json"
+    ctype = "application/json"
+    encoding = 'utf-8'
 
-    def __init__(self, *, size_limit:int=100000, char_limits:tuple=((b"{", 20), (b"[", 20))):
+    def __init__(self, *, size_limit=100000, char_limits=((b"{", 20), (b"[", 20))):
         self._size_limit = size_limit    # Limit on total size of JSON data in bytes.
         self._char_limits = char_limits  # Limits on special JSON characters.
 
@@ -132,12 +132,12 @@ class HTTPJSONProcessor(HTTPDataProcessor):
     def encode(self, obj:object) -> bytes:
         """ Encode an object into JSON bytes data, handling contents with non-standard data types in self.default.
             An explicit encoder flag is required to keep non-ASCII Unicode characters intact. """
-        return json.dumps(obj, ensure_ascii=False, default=self.default).encode(self.ENCODING)
+        return json.dumps(obj, ensure_ascii=False, default=self.default).encode(self.encoding)
 
     def default(self, obj:Any) -> Union[str, list]:
         """ Convert bytes objects into strings and other arbitrary iterables into lists. """
         if isinstance(obj, (bytes, bytearray)):
-            return obj.decode(self.ENCODING)
+            return obj.decode(self.encoding)
         elif hasattr(obj, "__iter__"):
             return list(obj)
         raise TypeError(f"Could not encode object of type {type(obj)} into JSON.")

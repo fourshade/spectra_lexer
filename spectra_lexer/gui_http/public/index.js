@@ -19,7 +19,7 @@ $(document).ready(function(){
             this.statevar = statevar;
             this.action = action;
         }
-        selectElem(elem){
+        selectElem(elem) {
             if(this.root === elem || this.active === elem){
                 return false;
             }
@@ -28,21 +28,21 @@ $(document).ready(function(){
             elem.className = 'selected';
             return true;
         }
-        selectText(value){
+        selectText(value) {
             for (let elem of this.root.children){
                 if(elem.textContent == value){
                     return this.selectElem(elem);
                 }
             }
         }
-        event(evt){
+        event(evt) {
             var elem = evt.target;
             if(this.selectElem(elem)){
                 state[this.statevar] = elem.textContent;
                 processAction(this.action);
             }
         }
-        update(optArray){
+        update(optArray) {
             this.active = {};
             var root = this.root;
             while (root.hasChildNodes()) {
@@ -126,15 +126,15 @@ $(document).ready(function(){
         translation(value) {displayTitle.value = value.join(titleDelim); return true;},
         link_ref(value) {displayLink.style.display = (value ? "" : "none"); return true;},
     };
-    function updateState(new_state){
+    function updateState(stateChanges){
         // Keep state variables that either return true on GUI update or don't update the GUI at all.
         for (let prop in updateTable){
-            if(prop in new_state && !updateTable[prop](new_state[prop])){
-               delete new_state[prop]
+            if(prop in stateChanges && !updateTable[prop](stateChanges[prop])){
+               delete stateChanges[prop]
             }
         }
-        for (let prop in new_state){
-            state[prop] = new_state[prop];
+        for (let prop in stateChanges){
+            state[prop] = stateChanges[prop];
         }
     }
     function processAction(action){

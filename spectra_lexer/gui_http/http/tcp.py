@@ -74,12 +74,13 @@ class TCPServerSocket(_socket.socket):
 
 
 class BaseTCPServer:
-    """ Abstract base class for a simple TCP/IP stream server using sockets. Just implement __call__. """
+    """ Abstract base class for a simple TCP/IP stream server using sockets. Just implement connect(). """
 
     _running: bool = False  # State variable. When set to False, the server stops after its current polling cycle.
 
     def start(self, address:str, port:int, *, timeout:float=0.5) -> None:
-        """ Make a server socket object which creates other sockets for connections and poll it periodically. """
+        """ Make a server socket object bound to <address:port> which opens I/O streams for connections.
+            Poll it every <timeout> seconds until another thread calls shutdown(). """
         if self._running:
             raise RuntimeError("Server already running.")
         self._running = True
@@ -87,10 +88,11 @@ class BaseTCPServer:
             sock.setup(address, port)
             while self._running:
                 if sock.poll(timeout):
-                    self(*sock.accept())
+                    self.connect(*sock.accept())
 
-    def __call__(self, stream:RawIOBase, addr:str) -> None:
-        """ A raw TCP connection provides an I/O stream to send/receive data and an address information string. """
+    def connect(self, stream:RawIOBase, addr:str) -> None:
+        """ Handle a TCP connection for its entire duration. Make sure to close() the stream when finished.
+            A raw TCP connection provides an I/O stream to send/receive data and an address information string. """
         raise NotImplementedError
 
     def shutdown(self) -> None:
