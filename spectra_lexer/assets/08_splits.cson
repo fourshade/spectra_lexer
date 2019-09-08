@@ -1,17 +1,7 @@
-# Other unique rule patterns/combinations not specified elsewhere
+# Rules for letters that are split or slurred between multiple strokes
 
 {
-  # left bank
-  "ent.":   ["SPW",        "ent",         [], "prefix `ent` (SPWER → enter)"],
-  "int.":   ["SPW",        "int",         [], "prefix `int` (SPWELGT → intelligent)"],
-  "enter.": ["SPWR",       "(ent.)e(r.)", [], "ONLY works as prefix"],
-  "inter.": ["SPWR",       "(int.)e(r.)", [], "ONLY works as prefix"],
-
-  # right bank
-  ".ded":   ["-TD",        "(d|.t)(.ed)", [], "use -T for first of two `d`s (standard?) (SKWRAEUTD → jaded)"],
-  ".xed":   ["-BGD",       "(x|.k)(.ed)", [], "treat `x` as `k` to avoid -SD combo (PLEUBGD → mixed)"],
-
-  # split/slurred strokes
+  "~/~":    ["/",          "",                 ["SPEC"], "split stroke separator"],
   "b/b":    ["-B/PW",      "(.b)(~/~)(|b.)",   ["LINK"], "consonant `b` split between strokes"],
   "c/c":    ["-BG/K",      "(.c)(~/~)(|c.)",   ["LINK"], "hard `c` split between strokes"],
   "C/C":    ["-S/S",       "(.C)(~/~)(|C.)",   ["LINK"], "soft `c` split between strokes"],

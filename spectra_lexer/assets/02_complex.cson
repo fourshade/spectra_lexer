@@ -6,7 +6,7 @@
   "sh.":    ["SH",     "(s.)(h.)",   [], "left side `sh`"],
   "th.":    ["TH",     "(t.)(h.)",   [], "left side `th`"],
 
-  "C.+":    ["KR",     "c",          [], "used to disambiguate soft `c` vs. `s`"],
+  "C.+":    ["KR",     "c",    ["RARE"], "used to disambiguate soft `c` vs. `s`"],
   ".v.":    ["W",      "v",    ["RARE"], "rarely used as middle `v` (TKWOUR → devour, KAUPB/WHRAOUGS → convolution)"],
   "z.*":    ["STKPW",  "z",    ["RARE"], "used for `z` when asterisk is used elsewhere (STKPW*EUPBG → zinc)"],
 
@@ -18,6 +18,7 @@
   ".v+":    ["*F",     "(.v)(*:CF)", [], "used to disambiguate `f` vs. `v`"],
   ".s.":    ["-F",     "s",          [], "used as `s` when necessary to preserve steno order"],
   ".C.":    ["-F",     "c",          [], "used as soft `c` when necessary to preserve steno order"],
+  ".z.":    ["-F",     "z",          [], "used as `z` when necessary to preserve steno order"],
   ".st+":   ["*S",     "st",         [], "right side `st`; used in case of conflict with -FT"],
 
   ".m~":    ["-FR",    "m",    ["SPEC"], "ghost pattern for `m`; used when combined with certain letters"],
@@ -38,9 +39,9 @@
   ".nch":   ["-FRPB",  "nch",        [], "the 'NCH' sound"],
   ".nch+":  ["-FRPBLG","nch",  ["RARE"], "used to disambiguate `nch` vs. `rch` (HRUFRPBLG → lunch)"],
 
-  "~shun":  ["-GS",    "shun", ["SPEC"], "the 'SHUN' sound"],
-  "~kshun": ["-BGS",   "kshun",["SPEC"], "the 'KSHUN' sound; overlap of `k` and `shun`"],
-  ".gion":  ["-GS",    "gion", ["RARE"], "the 'GEN' sound"],
+  "~shun":  ["-GS",    "SHUN", ["SPEC"], "the 'SHUN' sound"],
+  "~kshun": ["-BGS",   "KSHUN",["SPEC"], "the 'KSHUN' sound; overlap of `k` and `shun`"],
+  "~gen" :  ["-GS",    "GEN",  ["SPEC"], "the 'GEN' sound"],
 
   # vowels
   "y":      ["EU",     "y",    [],   "used as `y` at the end of words"],

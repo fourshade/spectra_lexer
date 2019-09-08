@@ -16,6 +16,7 @@
   "ph.":    ["TP",       "(ph|f.)",    [],       "`ph`onetic"],
 
   "bb.":    ["PW",       "(bb|b.)",    [],       "doubled consonant"],
+  "cc.":    ["KP",       "(cc|x.)",    [],       "phonetic"],
   "dd.":    ["TK",       "(dd|d.)",    [],       "doubled consonant"],
   "ff.":    ["TP",       "(ff|f.)",    [],       "doubled consonant"],
   "gg.":    ["TKPW",     "(gg|g.)",    [],       "doubled consonant"],
@@ -47,8 +48,9 @@
   ".tion":  ["-GS",  "(tion|~shun)",   [],       "phonetic"],
   ".ction": ["-BGS", "(ction|~kshun)", [],       "phonetic"],
   ".ction+":["*BGS", "(.ction)(*:CF)", [],       "used to disambiguate 'KSHUN' sound vs. `x` (A*BGS → action)"],
+  ".cation":["-BGS", "(cation|~kshun)",[],       "phonetic"],
   ".xion":  ["-BGS", "(xion|~kshun)",  [],       "phonetic"],
-  ".xion+": ["*BGS", "(.xion)(*:CF)",  [],       "used to disambiguate 'KSHUN' sound vs. `x`"],
+  ".gion":  ["-GS",  "(gion|~gen)",    [],       "phonetic"],
 
   ".ck":    ["-BG",  "(ck|.k)",        [],       "combined consonant sounds"],
   ".dj":    ["-PBLG","(dj|.G)",        [],       "combined consonant sounds"],
@@ -129,8 +131,8 @@
   "wu~":   ["WU",       "(w.)(u)",     ["SPEC"], "`wu` sound"],
   "on.":   ["WUPB",     "(o|wu~)(.n)", ["RARE"], "unique `w` sound as in `one` and `once`"],
 
-  "ge.":   ["SKWRE",    "(G.)(e)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"],
-  "gi.":   ["SKWRAOEU", "(G.)(I)",     ["OPT"],  "soft `g` onset is usually followed by `e` or `i`"],
+  "ge.":   ["SKWRE",    "(G.)(e)",     [],       "soft `g` onset is usually followed by `e` or `i`"],
+  "gi.":   ["SKWRAOEU", "(G.)(I)",     [],       "soft `g` onset is usually followed by `e` or `i`"],
 
   "sion.": ["SHUPB", "(si.)(o|u)(.n)", [],       "left side 'SHUN' sound"],
   "tion.": ["SHUPB", "(ti.)(o|u)(.n)", [],       "left side 'SHUN' sound"]

@@ -9,6 +9,10 @@
   "ext.":    ["KP",     "(ex.)t",             [], "shortening of `ext`; must not conflict with other words using KP"],
   "ex+":     ["S",      "(ex|s.)",            [], "slurred short form of `ex` (SABGT → exact)"],
   "exp.":    ["SP",     "(ex+)(p.)",          [], "slurred short form of `exp`"],
+  "ent.":    ["SPW",    "ent",                [], "prefix `ent` (SPWER → enter)"],
+  "int.":    ["SPW",    "int",                [], "prefix `int` (SPWELGT → intelligent)"],
+  "enter.":  ["SPWR",   "(ent.)e(r.)",        [], "ONLY works as prefix"],
+  "inter.":  ["SPWR",   "(int.)e(r.)",        [], "ONLY works as prefix"],
 
   # right bank
   ".ing":    ["-G",     "in(.g)",             [], "common suffix; must not conflict with other words using -G"],
@@ -19,8 +23,6 @@
   ".es":     ["-S",     "e(.s)",              [], "drop unstressed vowel"],
   ".al":     ["-L",     "a(.l)",              [], "drop unstressed vowel"],
   ".el":     ["-L",     "e(.l)",              [], "drop unstressed vowel"],
-  ".king":   ["-G",     "king",               [], "`king`: special case for suffix after `k`"],
-  ".kly":    ["-LG",    "kly",                [], "`kly`: special case for suffix after `k`"],
 
   "-st":     ["*FT",    "(.s.)(.t)(*:PS)",    [], "standalone suffix stroke"],
   "-nd":     ["*PBD",   "(.n)(.d)(*:PS)",     [], "standalone suffix stroke"],
@@ -34,7 +36,12 @@
   ".ment":   ["-PLT",   "(.m)en(.t)",         [], "drop middle"],
   "-ment":   ["*PLT",   "(.ment)(*:PS)",      [], "standalone suffix stroke"],
   "-ness":   ["-PBS",   "(.n)e(.ss)",         [], "drop unstressed vowel"],
+
   ".xt":     ["-GT",    "(x|.g)(.t)",         [], "disambiguation from `kets`"],
+  ".xed":    ["-BGD",   "(x|.k)(.ed)",        [], "treat `x` as `k` to avoid -SD combo (PLEUBGD → mixed)"],
+  ".ded":    ["-TD",    "(d|.t)(.ed)",        [], "use -T for first of two `d`s (standard?) (SKWRAEUTD → jaded)"],
+  ".king":   ["-G",     "king",               [], "`king`: special case for suffix after `k`"],
+  ".kly":    ["-LG",    "kly",                [], "`kly`: special case for suffix after `k`"],
 
   # full board
   "o~":      ["AU",     "o",            ["SPEC"], "alternative vowel combo for `o` when used in prefix"],
@@ -52,6 +59,10 @@
   "-ous":    ["OUS",    "(~ou)(.s)",          [], "standalone suffix stroke"],
   "-ious":   ["KWROUS", "(i~)(-ous)",         [], "standalone suffix stroke"],
 
+  "KWR:PS":  ["KWR",    "",             ["RARE"], "connects multiple strokes"],
+  "SKWR:PS": ["SKWR",   "",             ["RARE"], "uncommon prefix/suffix modifier"],
+  "-RBGS:PS":["-RBGS",  "",             ["RARE"], "uncommon prefix modifier"],
+  "A*U:PS":  ["A*U",    "",             ["STRK"], "suffix stroke to indicate international spelling"],
   "-a":      ["KWRA",   "(a)(KWR:PS)",  ["STRK"], "standalone suffix stroke"],
   "-y":      ["KWREU",  "(y)(KWR:PS)",  ["STRK"], "standalone suffix stroke"],
 
@@ -68,10 +79,10 @@
   "ary.":    ["REU",    "a(-ry)",             [], "drop unstressed vowel"],
   "ery.":    ["REU",    "e(-ry)",             [], "drop unstressed vowel"],
 
-  "-ary":    ["AER",    "(a)(.ry)",     ["STRK"], "standalone suffix stroke"],
-  "-ally":   ["AEL",    "(a)(.lly)",    ["STRK"], "standalone suffix stroke"],
-  "-ual":    ["WAL",    "(u.)(a)(.l)",  ["STRK"], "standalone suffix stroke"],
-  "-ually":  ["WAEL",   "(u.)(-ally)",  ["STRK"], "standalone suffix stroke"],
-  "-uous":   ["WOUS",   "(u.)(-ous)",   ["STRK"], "standalone suffix stroke"],
-  "-tory":   ["TOER",   "(t.)(o)(.ry)", ["STRK"], "standalone suffix stroke"]
+  "-ary":    ["AER",    "(a)(.ry)",           [], "standalone suffix stroke"],
+  "-ally":   ["AEL",    "(a)(.lly)",          [], "standalone suffix stroke"],
+  "-ual":    ["WAL",    "(u.)(a)(.l)",        [], "standalone suffix stroke"],
+  "-ually":  ["WAEL",   "(u.)(-ally)",        [], "standalone suffix stroke"],
+  "-uous":   ["WOUS",   "(u.)(-ous)",         [], "standalone suffix stroke"],
+  "-tory":   ["TOER",   "(t.)(o)(.ry)",       [], "standalone suffix stroke"]
 }

@@ -20,7 +20,6 @@
   ".ce":  ["-S",    "(.C)e",      [], "soft `c` coda must end with silent `e`"],
   ".ge":  ["-PBLG", "(.G)e",      [], "soft `g` coda must end with silent `e`"],
   ".dge": ["-PBLG", "(.dg)e",     [], "soft `g` coda must end with silent `e`"],
-  ".nge": ["-PBG",  "(ng|.nj)e",  [], "soft `g` coda must end with silent `e`"],
   ".que": ["-BG",   "(.q)ue",     [], "`ue` is silent"],
   ".gue": ["-G",    "(.g)ue",     [], "`ue` is silent"],
 

@@ -3,26 +3,9 @@
 
 {
   # star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk
-  "*:CF":    ["*",    "", ["SPEC"], "resolves a conflict between words"],
-  "*:PR":    ["*",    "", ["SPEC"], "indicates a proper noun\n(names, places, etc.)"],
-  "*:AB":    ["*",    "", ["SPEC"], "indicates an abbreviation"],
-  "*:PS":    ["*",    "", ["SPEC"], "indicates a prefix or suffix stroke"],
-  "*:FS":    ["*",    "", ["SPEC"], "indicates fingerspelling"],
-  "*:OB":    ["*",    "", ["SPEC"], "indicates an obscenity\n(and makes it harder to be the result of a misstroke)"],
-
-  # affix/connection modifiers
-  "~/~":     ["/",    "", ["SPEC"], "split stroke"],
-  "KWR:PS":  ["KWR",  "", ["RARE"], "connects multiple strokes"],
-  "SKWR:PS": ["SKWR", "", ["RARE"], "uncommon prefix/suffix modifier"],
-  "-RBGS:PS":["-RBGS","", ["RARE"], "uncommon prefix modifier"],
-
-  # spelling modifiers
-  "-P:FS":   ["-P",   "", ["SPEC"], "use to capitalize fingerspelled letters"],
-  "SP-S:SP": ["SP-S", "", ["STRK"], "explicit space"],
-  "A*U:SP":  ["A*U",  "", ["STRK"], "ending stroke to indicate international spelling"],
-
-  # number modifiers
-  "#:NM":    ["#",    "", ["SPEC"], "use to shift to number mode"],
-  "EU:NM":   ["EU",   "", ["SPEC"], "use to invert the order of two digits"],
-  "-D:NM":   ["-D",   "", ["SPEC"], "use to double a digit"]
+  "*:CF": ["*", "", ["SPEC"], "resolves a conflict between words"],
+  "*:FS": ["*", "", ["SPEC"], "indicates fingerspelling"],
+  "*:AB": ["*", "", ["SPEC"], "indicates an abbreviation"],
+  "*:PR": ["*", "", ["SPEC"], "indicates a proper noun\n(names, places, etc.)"],
+  "*:PS": ["*", "", ["SPEC"], "indicates a prefix or suffix stroke"]
 }

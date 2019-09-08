@@ -35,7 +35,7 @@
   ".tely": ["-LT",  "(.t)e(.ly)",   ["INV"], "folded -ly"],
   ".sly":  ["-LS",  "(.s)(.ly)",    ["INV"], "folded -ly"],
   ".sely": ["-LS",  "(.s)e(.ly)",   ["INV"], "folded -ly"],
-  ".cely": ["-LS",  "(.ce)(.ly)",   ["INV"], "folded -ly"],
+  ".cely": ["-LS",  "(.C)e(.ly)",   ["INV"], "folded -ly"],
   ".dly":  ["-LD",  "(.d)(.ly)",    ["INV"], "folded -ly"],
   ".mar":  ["-RPL", "(.m)a(.r)",    ["INV"], "folded -ar"],
   ".mer":  ["-RPL", "(.m)(.er)",    ["INV"], "folded -er"],
@@ -57,6 +57,7 @@
   ".dy":   ["ED",   "(.d)(~y)",     ["INV"], "uses E as folded -y"],
   ".ddy":  ["ED",   "(.dd)(~y)",    ["INV"], "uses E as folded -y"],
   ".lly":  ["EL",   "(.ll)(~y)",    ["INV"], "uses E as folded -y"],
+  ".cy":   ["ES",   "(.C)(~y)",     ["INV"], "uses E as folded -y"],
   ".ry":   ["ER",   "(.r)(~y)",     ["INV"], "uses E as folded -y"],
   ".ry+":  ["EUR",  "(.r)(y)",      ["INV"], "uses EU as folded -y"],
   ".rry":  ["ER",   "(.rr)(~y)",    ["INV"], "uses E as folded -y"]
