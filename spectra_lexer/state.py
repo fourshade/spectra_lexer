@@ -3,7 +3,7 @@
 from typing import Any, List
 
 from spectra_lexer.option import ConfigOption
-from spectra_lexer.steno import StenoEngine, StenoRule
+from spectra_lexer.steno import StenoEngine
 
 
 class ViewConfig:
@@ -43,9 +43,9 @@ class ViewState(ViewConfig):
     board_aspect_ratio: float = 100.0  # Last aspect ratio for board viewing area.
 
     # The user typically can't change these values directly. They are held for future reference.
-    link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
-    page_count: int = 1                # Number of pages in the upper list.
-    graph_has_selection: bool = False  # Is there a selected rule on the graph?
+    link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
+    page_count: int = 1            # Number of pages in the upper list.
+    graph_has_focus: bool = False  # Is a node under focus on the graph?
 
     # Pure output values.
     matches: list = []           # New items in the upper list.
@@ -58,23 +58,30 @@ class ViewState(ViewConfig):
     # Web-specific - for browsers with poor monospace font support.
     graph_compat: bool = False   # If True, draw the graph using HTML tables with a cell for each character.
 
-    def __init__(self, d:dict, engine:StenoEngine) -> None:
-        """ Update the attribute dict directly with a state dict <d>. """
-        self.__dict__.update(d)
-        self._result = {}      # Holds all attributes and values that were changed since creation.
+    def __init__(self, engine:StenoEngine) -> None:
         self._engine = engine  # Has access to outside components.
+        self._modified = {}    # Tracks attributes that are changed by action methods.
 
-    def __setattr__(self, attr:str, value:Any) -> None:
-        """ Add any modified public attributes to the results dict. """
-        super().__setattr__(attr, value)
-        if not attr.startswith("_"):
-            self._result[attr] = value
+    def __setattr__(self, name:str, value:Any) -> None:
+        """ Add public attributes that are modified to the tracking dict. """
+        super().__setattr__(name, value)
+        if not name.startswith("_"):
+            self._modified[name] = value
 
-    def run(self, action:str) -> dict:
-        """ Run an action (if valid) and return the result dict with all items that were changed. """
+    def update(self, *args, **kwargs) -> None:
+        """ Update state attributes without affecting the modified tracker. """
+        self.__dict__.update(*args, **kwargs)
+
+    def get_modified(self) -> dict:
+        """ Return all state attributes that have been modified, then reset the tracker. """
+        last_modified = self._modified
+        self._modified = {}
+        return last_modified
+
+    def run(self, action:str) -> None:
+        """ Run an action method (if valid). """
         method = getattr(self, f"RUN{action}")
         method()
-        return self._result
 
     def RUNSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
@@ -115,6 +122,7 @@ class ViewState(ViewConfig):
         self._set_matches(matches)
 
     def _set_matches(self, matches:List[str]) -> None:
+        """ Set a new match list. This invalidates the previous mappings. """
         self.matches = matches
         self.mappings = []
 
@@ -140,54 +148,48 @@ class ViewState(ViewConfig):
         self._query_from_selection()
 
     def _query_from_selection(self) -> None:
-        """ The order of strokes/word in the lexer command is reversed for strokes mode. """
+        """ The order of lexer parameters must be reversed for strokes mode. """
         self.translation = translation = [self.match_selected, self.mapping_selected]
         if not self.mode_strokes:
             translation.reverse()
         self._new_graph()
 
     def RUNQuery(self) -> None:
-        """ Execute and display a lexer query. """
+        """ Execute and display a graph of a lexer query. """
         self._new_graph()
 
     def _new_graph(self) -> None:
-        """ A brand new graph should clear any existing selection and reset the link ref. """
+        """ A new graph should clear the last node ref and look for a new one that uses the same rule. """
         self.graph_node_ref = ""
-        self._new_query(False)
+        self._exec_query(self.graph_has_focus, True)
 
     def RUNGraphOver(self) -> None:
-        """ On mouseover, highlight the node at (row, col) temporarily if nothing is selected.
-            Mouseovers should do nothing as long as a selection is active. """
-        if not self.graph_has_selection:
-            self._new_query(False)
+        """ On mouseover, highlight the current graph node temporarily if nothing is focused.
+            Mouseovers should do nothing as long as focus is active. """
+        if not self.graph_has_focus:
+            self._exec_query(False, False)
 
     def RUNGraphClick(self) -> None:
-        """ On click, find the node owning the character at (row, col) and select it with a bright color. """
-        self._new_query(True)
+        """ On click, find the current graph node and set focus on it (or clear focus if None). """
+        self._exec_query(False, True)
 
-    def _new_query(self, select:bool) -> None:
+    def _exec_query(self, find_rule:bool, set_focus:bool) -> None:
+        """ Execute a new lexer query and load the state with the output to draw the graph and board.
+            If <set_focus> is True, lock onto any valid selection with a bright color.
+            If <find_rule> is True, attempt to move focus to a node with the same rule as the previous one. """
         keys, letters = self.translation
-        if keys and letters:
-            rule = self._engine.lexer_query(keys, letters, match_all_keys=self.match_all_keys)
-            self._draw_all(rule, select)
-
-    def _draw_all(self, rule:StenoRule, select:bool) -> None:
-        """ Draw the graph and board. Only a previous linked example rule may be selected, and only on a new graph. """
-        graph = self._engine.graph_generate(rule, recursive=self.recursive_graph,
-                                            compressed=self.compressed_graph, compat=self.graph_compat)
-        try_prev = self.graph_has_selection and not select
-        prev = self._engine.link_to_rule(self.link_ref) if try_prev else None
-        select = select or try_prev
-        self.graph_text, selection = graph.render(self.graph_node_ref, prev, select)
-        if selection:
-            self.graph_has_selection = select
-        else:
-            self.graph_has_selection = False
-            selection = rule
-        self._set_board_data(selection)
-
-    def _set_board_data(self, rule:StenoRule) -> None:
-        self.link_ref = rule.name
-        self.show_link = self._engine.has_examples(rule.name) and self.links_enabled
-        self.board_caption = rule.caption()
-        self.board_xml_data = self._engine.board_from_rule(rule, self.board_aspect_ratio, compound=self.compound_board)
+        if not (keys and letters):
+            return
+        select_ref = self.link_ref if find_rule else self.graph_node_ref
+        data = self._engine.run(keys, letters,
+                                select_ref=select_ref,
+                                find_rule=find_rule,
+                                set_focus=set_focus,
+                                board_ratio=self.board_aspect_ratio,
+                                match_all_keys=self.match_all_keys,
+                                recursive_graph=self.recursive_graph,
+                                compressed_graph=self.compressed_graph,
+                                graph_compat=self.graph_compat,
+                                compound_board=self.compound_board)
+        self.graph_text, self.graph_has_focus, self.link_ref, self.board_caption, self.board_xml_data = data
+        self.show_link = bool(self.link_ref) and self.links_enabled

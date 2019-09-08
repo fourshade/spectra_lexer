@@ -1,22 +1,33 @@
-""" Module for the lowest-level text rendering operations. Performance is more critical than readability here. """
+""" Module for the lowest-level text graphing operations. """
 
-from collections import namedtuple
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, Iterator, List, Optional, Sequence, Tuple
 
-from ..rules import StenoRule
+from ..rules import RuleMapItem, StenoRule
 
 
 class BaseConnectors:
     """ Base class for a node connector character set. """
 
-    bold = False  # If True, this node's text (but not connectors) will be bold in markup.
+    __slots__ = ()
 
     def min_height(self) -> int:
         """ Return the minimum connector height, including the parent row but excluding the child row. """
-        return 0
+        raise NotImplementedError
 
     def strlist(self, height:int) -> List[str]:
         """ Return a list of strings. The one at index 0 goes under the parent, then extends to <height>. """
+        raise NotImplementedError
+
+
+class NullConnectors(BaseConnectors):
+    """ A blank connector set. Used for nodes such as separators that connect to nothing. """
+
+    __slots__ = ()
+
+    def min_height(self) -> int:
+        return 0
+
+    def strlist(self, height:int) -> List[str]:
         return [""] * height
 
 
@@ -40,21 +51,28 @@ class CharPattern(dict):
         return s
 
 
-class SimpleConnectors(namedtuple("SimpleConnectors", "t_len b_len"), BaseConnectors):
+class SimpleConnectors(BaseConnectors):
     """ A standard set of connector characters joining a node to its parent. """
-    _endpiece =  CharPattern("┐", "┬─┐")  # Pattern constructor for extension connectors.
-    _top =       CharPattern("│", "├─┘")  # Pattern constructor for the section below the text.
-    _connector = CharPattern("│")         # Pattern constructor for vertical connectors.
-    _bottom =    CharPattern("│", "├─┐")  # Pattern constructor for the section above the text.
+
+    __slots__ = ("_t_len", "_b_len")
+
+    _endpiece = CharPattern("┐", "┬┬┐")  # Pattern constructor for extension connectors.
+    _top = CharPattern("│", "├─┘")       # Pattern constructor for the section below the text.
+    _connector = CharPattern("│")        # Pattern constructor for vertical connectors.
+    _bottom = CharPattern("│", "├─┐")    # Pattern constructor for the section above the text.
+
+    def __init__(self, t_len:int, b_len:int) -> None:
+        self._t_len = t_len  # Length in columns of the attachment to the parent node.
+        self._b_len = b_len  # Length in columns of the attachment to the child node.
 
     def min_height(self) -> int:
         """ Minimum height is 3 characters, or 2 if the bottom is one unit wide. """
-        return 3 - (self.b_len == 1)
+        return 3 - (self._b_len == 1)
 
     def strlist(self, height:int) -> List[str]:
-        """ Add corner ┐ endpieces under the parent for when connectors run off the end.
-            Add a top container ├--┘ below the parent. We always need these at minimum. """
-        t_len, b_len = self
+        """ Add corner ┐ endpieces under the parent. These are only seen when connectors run off the right end.
+            Add a top container ├--┘ directly below the parent. We always need these at minimum. """
+        t_len = self._t_len
         items = [self._endpiece[t_len], self._top[t_len]]
         # If there's a wide gap, add a connector between the containers.
         gap_height = height - 3
@@ -62,14 +80,14 @@ class SimpleConnectors(namedtuple("SimpleConnectors", "t_len b_len"), BaseConnec
             items += self._connector[gap_height]
         # If there's a space available, add a bottom container ├--┐ at the end.
         if height > 2:
-            items.append(self._bottom[b_len])
+            items.append(self._bottom[self._b_len])
         return items
 
 
 class UnmatchedConnectors(SimpleConnectors):
-    """ A set of unmatched keys with broken connectors ending in question marks on both sides. """
+    """ A set of broken connectors with a single-row gap. Used for unmatched keys. """
 
-    _endpiece = CharPattern("┐", "┬┬┐")
+    __slots__ = ()
 
     def min_height(self) -> int:
         """ This connector requires at least 6 characters to show the full gap. """
@@ -77,185 +95,217 @@ class UnmatchedConnectors(SimpleConnectors):
 
     def strlist(self, height:int) -> List[str]:
         """ Unmatched key sets only occur at the end of rules. Use only the bottom length. """
-        t_len, b_len = self
-        top = ["¦" * b_len] * (height - 5)
-        return [self._endpiece[b_len], *top, "?" * b_len, "", "?" * b_len, "¦" * b_len]
+        b_len = self._b_len
+        connector_row = "¦" * b_len
+        upper_connectors = [connector_row] * (height - 5)
+        ending_row = "?" * b_len
+        return [self._endpiece[b_len],
+                *upper_connectors,
+                ending_row,
+                "",
+                ending_row,
+                connector_row]
 
 
 class ThickConnectors(SimpleConnectors):
-    """ A pattern for important nodes with thicker connecting lines and boldface. """
-    bold = True
-    _endpiece =  CharPattern("╗", "╦═╗")
-    _top =       CharPattern("║", "╠═╝")
+    """ A set of connectors with thicker lines for important nodes. """
+
+    __slots__ = ()
+
+    _endpiece = CharPattern("╖", "╥╥╖")
+    _top = CharPattern("║", "╠═╝")
     _connector = CharPattern("║")
-    _bottom =    CharPattern("║", "╠═╗")
+    _bottom = CharPattern("║", "╠═╗")
 
 
 class InversionConnectors(ThickConnectors):
-    """ Pattern for nodes describing an inversion of steno order. These show arrows to indicate reversal. """
-    _bottom =    CharPattern("║", "◄═►")
+    """ A set of thick connectors showing arrows to indicate an inversion of steno order. """
+
+    __slots__ = ()
+
+    _bottom = CharPattern("║", "◄═►")
 
 
 class LinkedConnectors(ThickConnectors):
-    """ Pattern for nodes describing two strokes linked together. """
-    _top =       CharPattern("♦", "♦═╝")
+    """ A set of thick connectors marking two strokes linked together. """
+
+    __slots__ = ()
+
+    _top = CharPattern("♦", "♦═╝")
     _connector = CharPattern("♦")
-    _bottom =    CharPattern("♦", "♦═╗")
+    _bottom = CharPattern("♦", "♦═╗")
 
 
-class Canvas(List[list]):
+class Canvas:
     """ A mutable 2D grid-like document structure that has metadata reference objects associated with strings.
-        Each string should contain exactly one printable character, with additional optional markup.
-        For performance, the implementation is low-level: each row is a list with alternating strings and refs.
-        No bounds checking is done. Operations may span multiple rows, and should be optimized for map(). """
+        Each string should contain exactly one printable character, with additional optional markup. """
+
+    _row_offset = 0  # Offset in rows to draw characters using special write methods.
+    _col_offset = 0  # Offset in columns to draw characters using special write methods.
 
     def __init__(self, rows:int, cols:int) -> None:
         """ Make a new, blank grid of spaces and None references by copying a single line repeatedly. """
-        super().__init__(map(list.copy, [[" "] * cols] * rows))
-        self.refs = [*map(list.copy, [[None] * cols] * rows)]
+        self._chars = [*map(list.copy, [[" "] * cols] * rows)]
+        self._refs = [*map(list.copy, [[None] * cols] * rows)]
 
-    def write_row(self, seq:Sequence[str], ref:object=None, row:int=0, col:int=0, _len=len) -> None:
-        """ Writes a string <seq>uence with a single <ref> across a row with the top-left starting at <row, col>.
-            This is the most performance-critical method in graphing, called hundreds of times per frame.
-            Avoid method call overhead by inlining everything and using slice assignment over list methods. """
-        r = self[row]
-        t = self.refs[row]
-        length = _len(seq)
-        if length == 1:  # fast path: <seq> contains one string.
-            r[col] = seq[0]
-            t[col] = ref
-            return
-        if col < 0:  # slow path: <seq> is arbitrarily long.
-            raise IndexError(col)
-        end = col + length
-        r[col:end] = seq
-        t[col:end] = [ref] * length
+    def write_row(self, seq:Sequence[str], ref:object, row:int, col:int) -> None:
+        """ Write a string <seq>uence with a single <ref> across a row with the top-left starting at <row, col>.
+            This is a serious hotspot during graphing; avoid method call overhead by inlining everything. """
+        if col < 0:
+            self._shift_cols(-col)
+            col = 0
+        char_row = self._chars[row]
+        ref_row = self._refs[row]
+        for s in seq:
+            char_row[col] = s
+            ref_row[col] = ref
+            col += 1
 
-    def write_column(self, seq:Sequence[str], ref:object=None, row:int=0, col:int=0) -> None:
-        """ Like write_row(), but writes the strings down a column instead of across a row.
-            This is much slower because a different list must be accessed and written for every item. """
-        refs = self.refs
-        for c in seq:
-            self[row][col] = c
-            refs[row][col] = ref
-            row += 1
+    def _shift_cols(self, ncols:int) -> None:
+        """ Pad the grid with columns to the left to compensate for an object attempting to draw at a negative index.
+            Redirect drawing instance methods to draw relative to the the new zero point. """
+        self._col_offset += ncols
+        for c in self._chars:
+            c[:0] = " " * ncols
+        for r in self._refs:
+            r[:0] = [None] * ncols
+        self.write_row = self._write_row_offset
+
+    def _write_row_offset(self, seq:Sequence[str], ref:object, row:int, col:int) -> None:
+        """ If the origin has been shifted by padding, draw new rows with an offset. """
+        self.__class__.write_row(self, seq, ref, row + self._row_offset, col + self._col_offset)
+
+    def get_offset(self) -> Tuple[int, int]:
+        """ Return the current origin offset. """
+        return self._row_offset, self._col_offset
 
     def row_replace(self, row:int, *args) -> None:
         """ Simulate a string replace operation on an entire row without altering any refs. """
-        r = self[row]
+        r = self._chars[row + self._row_offset]
         r[:] = "".join(r).replace(*args)
 
+    def chars(self) -> List[List[str]]:
+        """ Return the raw text grid. """
+        return self._chars
+
+    def refs(self) -> List[list]:
+        """ Return the raw reference grid. """
+        return self._refs
+
     def __str__(self) -> str:
-        """ Return the rendered text grid followed by a grid of numbers representing each distinct ref. """
-        refs = self.refs
+        """ Return the current text grid followed by a grid of numbers representing each distinct ref. """
+        chars = self.chars()
+        refs = self.refs()
         unique_refs = set().union(*refs) - {None}
         ref_chars = {r: chr(i) for i, r in enumerate(unique_refs, ord('0'))}
         ref_chars[None] = ' '
         sects = []
-        for line, rline in zip(self, refs):
+        for line, rline in zip(chars, refs):
             sects += [*line, *map(ref_chars.get, rline), "\n"]
         return "".join(sects)
 
 
-class IPrimitive:
-    """ Abstract primitive for operations consisting of drawing lines and columns of text to a canvas. """
-
-    def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        """ Draw the object on <canvas> with an offset of <row, col>. """
-        raise NotImplementedError
-
-
-class RowPrimitive(namedtuple("PRow", "text ref"), IPrimitive):
-    """ Writes a text string to a row of a canvas starting at the upper-left going right. """
-    def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        canvas.write_row(self.text, self.ref, row, col)
-
-
-class StrListPrimitive(namedtuple("PConn", "strlist ref"), IPrimitive):
-    """ Writes a left-aligned string list to a canvas. """
-    def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        for s in self.strlist:
-            canvas.write_row(s, self.ref, row, col)
-            row += 1
-
-
-class ReplacePrimitive(namedtuple("PReplace", "orig repl"), IPrimitive):
-    """ Replace every occurence of <orig> in a row with unowned copies of <repl>. """
-    def write(self, canvas:Canvas, row:int=0, col:int=0) -> None:
-        canvas.row_replace(row, self.orig, self.repl)
-
-
 class GraphNode:
-    """ Abstract class representing a visible node in a tree structure of steno rules.
-        Each node may have zero or more children and zero or one parent of the same type. """
+    """ A visible node in a tree structure of steno rules. Each node may have zero or more children. """
 
-    def __init__(self, text:str, bstart:int, blen:int, tstart:int, tlen:int, connector:BaseConnectors) -> None:
+    def __init__(self, text:str, bshift:int, blen:int, tstart:int, tlen:int,
+                 bold:bool, connector:BaseConnectors, children=()) -> None:
         self._text = text            # Text characters drawn on the last row as the node's "body".
-        self._bottom_start = bstart  # Index of the starting character of the attachment to this node's body.
-        self._bottom_length = blen   # Length in characters of the attachment to this node's body.
+        self._body_shift = bshift    # Columns to shift this node's body relative to its attachment.
         self._attach_start = tstart  # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen   # Length in characters of the attachment to the parent node.
         self._height = 1             # Total height in rows.
         self._width = blen           # Total width in columns.
+        self._bold = bold            # If True, this node's text (but not connectors) is always bold in markup.
         self._connector = connector  # Pattern constructor for connectors.
+        self._children = children    # Direct children of this node.
+
+    def __iter__(self) -> Iterator:
+        return iter(self._children)
 
     def attach_range(self) -> range:
         start = self._attach_start
         return range(start, start + self._attach_length)
 
     def layout_params(self) -> Tuple[int, int, int, int]:
+        """ Return all parameters needed for node layout. """
         return self._attach_start, self._height, self._width, self._connector.min_height()
 
-    def resize(self, heights, widths) -> None:
+    def resize(self, widths:List[int], heights:List[int]) -> None:
         """ Recalculate total width and height from the max child dimensions and self. """
         widths.append(self._width)
         heights.append(self._height)
-        self._height = max(widths)
-        self._width = max(heights)
+        self._width = max(widths)
+        self._height = max(heights)
 
-    def shift(self, items, row:int) -> List[Tuple[IPrimitive, int, int]]:
-        return [(item, r + row, c + self._attach_start) for (item, r, c) in items]
-
-    def body(self) -> Tuple[IPrimitive, int, int]:
-        """ The main primitive is a text row starting at the origin (optionally shifted to account for hyphens). """
-        return RowPrimitive(self._text, self), 0, -self._bottom_start
-
-    def connect(self, row:int) -> List[Tuple[IPrimitive, int, int]]:
-        """ Yield primitives representing this node relative to its parent.
-            The origin is the top-left corner of the parent, and the child should be <row> below it. """
-        return [(StrListPrimitive(self._connector.strlist(row), self), 0, self._attach_start)]
+    def write(self, canvas:Canvas, parent_row:int, this_row:int, this_col:int) -> None:
+        """ Draw the text in this row starting at the relative origin (optionally shifted to account for hyphens).
+            Then write the connector string list between this row and the parent if there is space. """
+        canvas.write_row(self._text, self, this_row, this_col + self._body_shift)
+        height = this_row - parent_row
+        if height:
+            for s in self._connector.strlist(height):
+                canvas.write_row(s, self, parent_row, this_col)
+                parent_row += 1
 
     def bold(self) -> bool:
-        return self._connector.bold
+        return self._bold
 
 
 class SeparatorNode(GraphNode):
     """ The singular stroke separator is not connected to anything. It may be removed by the layout. """
 
-    def body(self) -> Tuple[IPrimitive, int, int]:
-        """ Replace every space in a row with the separator. """
-        return ReplacePrimitive(" ", self._text), 0, 0
+    def write(self, canvas:Canvas, parent_row:int, this_row:int, this_col:int) -> None:
+        """ Replace every space in this row with the separator key. """
+        canvas.row_replace(this_row, " " * len(self._text), self._text)
 
 
 class NodeFactory:
+    """ Creates text graph nodes from steno rules and keeps indices matching these rules to their nodes. """
 
-    def __init__(self, sep:str, ignored:Iterable[str]='-') -> None:
-        self._key_sep = sep           # Steno key used as stroke separator.
+    def __init__(self, *, ignored:Iterable[str]='-', recursive=True) -> None:
         self._ignored = set(ignored)  # Tokens to ignore at the beginning of key strings (usually the hyphen '-')
+        self._recursive = recursive   # If True, also create children of children and so on.
+        self._nodes_by_name = {}      # Mapping of each rule's name to the node that used it last.
+        self._rules_by_node = {}      # Mapping of each generated node to its rule.
+
+    def lookup_node(self, rule_name:str) -> Optional[GraphNode]:
+        """ Return the last recorded node that matches <rule_name>, if any. """
+        return self._nodes_by_name.get(rule_name)
+
+    def lookup_rule(self, node:GraphNode) -> Optional[StenoRule]:
+        """ Return the rule from which <node> was built. """
+        return self._rules_by_node.get(node)
 
     def make_root(self, rule:StenoRule) -> GraphNode:
         """ The root node's attach points are arbitrary, so tstart=0 and tlen=blen. """
-        return self.make_node(rule, 0, len(rule.letters))
+        children = self._make_children(rule.rulemap)
+        return self._make_node(rule, 0, len(rule.letters), children)
 
-    def make_node(self, rule:StenoRule, tstart:int, tlen:int) -> GraphNode:
-        """ Derived rules (i.e. branch nodes) show their letters. Base rules (i.e. leaf nodes) show their keys. """
+    def _make_children(self, rulemap:Sequence[RuleMapItem]) -> List[GraphNode]:
+        """ Make child nodes from a rulemap. Only create grandchildren if recursion is allowed. """
+        nodes = []
+        for item in rulemap:
+            rule = item.rule
+            child_map = rule.rulemap
+            if child_map and self._recursive:
+                children = self._make_children(child_map)
+            else:
+                children = []
+            nodes.append(self._make_node(rule, item.start, item.length, children))
+        return nodes
+
+    def _make_node(self, rule:StenoRule, tstart:int, tlen:int, children) -> GraphNode:
+        """ Make a new graph node based on a rule's properties and/or child count. """
         node_cls = GraphNode
-        bstart = 0
+        bshift = 0
         if not tlen:
             tlen = 1
-        if rule.rulemap:
-            text = letters = rule.letters
-            blen = len(letters)
+        if children:
+            # Derived rules (i.e. branch nodes) show their letters in boldface.
+            bold = True
+            text = rule.letters
+            blen = len(text)
             if rule.is_inversion:
                 connector = InversionConnectors(tlen, blen)
             elif rule.is_linked:
@@ -263,17 +313,22 @@ class NodeFactory:
             else:
                 connector = ThickConnectors(tlen, blen)
         else:
+            # Base rules (i.e. leaf nodes) show their keys.
+            bold = False
             text = keys = rule.keys
             blen = len(keys)
-            # The text is shifted left if the keys start with an ignored token.
+            # The text is shifted left if it starts with (and does not consist solely of) an ignored token.
             if blen > 1 and keys[0] in self._ignored:
-                bstart += 1
+                bshift -= 1
                 blen -= 1
-            if keys == self._key_sep:
+            if rule.is_separator:
+                connector = NullConnectors()
                 node_cls = SeparatorNode
-                connector = BaseConnectors()
             elif rule.is_unmatched:
                 connector = UnmatchedConnectors(tlen, blen)
             else:
                 connector = SimpleConnectors(tlen, blen)
-        return node_cls(text, bstart, blen, tstart, tlen, connector)
+        node = node_cls(text, bshift, blen, tstart, tlen, bold, connector, children)
+        self._nodes_by_name[rule.name] = node
+        self._rules_by_node[node] = rule
+        return node

@@ -1,3 +1,1 @@
-""" Package controlling the layout of text graphs, including construction and placement of all drawable objects. """
-
-from .base import GraphGenerator, StenoGraph
+from .base import StenoGraph

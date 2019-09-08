@@ -85,11 +85,14 @@ class StenoApplication:
         """ Return all active config info with formatting instructions. """
         return self._config.info()
 
-    def process_action(self, state:dict, action:str) -> dict:
-        """ Perform an action with the given state dict, then return it with the changes.
-            Add config options to the state before processing (but only those the state doesn't already define). """
-        d = {**self._config, **state}
-        return ViewState(d, self._engine).run(action)
+    def process_action(self, state:Dict[str, Any], action:str) -> dict:
+        """ Perform an <action> on an initial view <state>, then return the changes.
+            Config options are added to the view state first. The main state variables may override them. """
+        view_state = ViewState(self._engine)
+        view_state.update(self._config)
+        view_state.update(state)
+        view_state.run(action)
+        return view_state.get_modified()
 
 
 class StenoMain(Main):

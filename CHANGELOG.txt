@@ -1,3 +1,8 @@
+8.0.0
+-----
+* Restructured rules format
+* Improved lexer and graph performance
+
 7.0.1
 -----
 * Improved board generator code
