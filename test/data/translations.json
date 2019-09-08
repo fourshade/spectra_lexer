@@ -1,7 +1,9 @@
 {
   "KW*P": "Q",
+  "2EU7": "72",
   "#T*PBD": "2nd",
   "A*BGS": "action",
+  "PHAFRT": "master",
   "PHO*PBT": "month",
   "PHOER": "mother",
   "PHAER": "marry",
@@ -15,5 +17,6 @@
   "ARPLT": "apartment",
   "TPHRABGS": "interaction",
   "HRAPB/SKAEUP": "landscape",
-  "RAEURBL/SKUGS/TPA/TAOEG/STKROEPL": "Racial Discussion Fatigue Syndrome"
+  "RAEURBL/SKUGS/TPA/TAOEG/STKROEPL": "Racial Discussion Fatigue Syndrome",
+  "eX EUPB/SRALD +$": "invalid"
 }

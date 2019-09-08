@@ -1,4 +1,4 @@
-from collections import defaultdict
+from functools import partial
 from typing import Callable
 
 
@@ -29,9 +29,9 @@ class KeyLayout:
     # Some keys can be designated as shift keys. They will end up at the beginning of steno order when it matters.
     # The number key is the main example. When held, keys mostly on the top row become numbers based on their position.
     # These numbers are considered "aliases" for those keys in steno parsing. They are allowed to be present directly
-    # in RTFCRE key strings. This is a table of alias mappings for each shift key.
-    SHIFT_TABLE = {"#": {"0": "O", "1": "S", "2": "T", "3": "P", "4": "H",
-                         "5": "A", "6": "F", "7": "P", "8": "L", "9": "T"}}
+    # in RTFCRE key strings. This is a table of aliases mapped to strings with two characters: "shift_key, real_key".
+    ALIAS_TABLE = {"0": "#O", "1": "#S", "2": "#T", "3": "#P", "4": "#H",
+                   "5": "#A", "6": "#F", "7": "#P", "8": "#L", "9": "#T"}
 
     def __init__(self, *args, **kwargs) -> None:
         """ Merge all arguments into the instance attribute dict and verify correctness.
@@ -40,30 +40,20 @@ class KeyLayout:
         self.verify()
         self._c_keys_set = set(self.CENTER)
         self._r_keys_set = set(self.RIGHT.lower())
-        aliases = {k for table in self.SHIFT_TABLE.values() for k in table}
-        self._aliases_in = aliases.intersection
-        self._alias_table = {s: {ord(k): v for k, v in d.items()} for s, d in self.SHIFT_TABLE.items()}
-        valid_chars = aliases.union(self.SEP, self.SPLIT, self.LEFT, self.CENTER, self.RIGHT)
-        self._valid_table = defaultdict(type(None), {ord(k): k for k in valid_chars})
+        self._valid_rtfcre = {self.SEP, self.SPLIT, *self.LEFT, *self.CENTER, *self.RIGHT}
+        # Create optimized partial map functions to apply string operations to every stroke in a key string.
         # Transform an s-keys string back to RTFCRE.
-        self.to_rtfcre = self._stroke_operation(self._stroke_s_keys_to_rtfcre)
+        self.to_rtfcre = partial(self._stroke_map, self._stroke_s_keys_to_rtfcre)
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
-        self.from_rtfcre = self._stroke_operation(self._stroke_rtfcre_to_s_keys)
+        self.from_rtfcre = partial(self._stroke_map, self._stroke_rtfcre_to_s_keys)
 
-    def _stroke_operation(self, fn:Callable) -> Callable:
-        """ Create an optimized map function to apply a string operation to every stroke in a key string. """
-        def stroke_map(s:str, _sep=self.SEP) -> str:
-            """ Split a set of keys, apply a string function to every stroke, and join them back together.
-                If there is only one stroke, skip the string carving and apply the function directly. """
-            if _sep in s:
-                return _sep.join(map(fn, s.split(_sep)))
-            return fn(s)
-        return stroke_map
-
-    def cleanse_from_rtfcre(self, s:str) -> str:
-        """ Lexer input may come from the user, in which case the formatting cannot be trusted.
-            Remove all characters that are considered invalid in steno strings before parsing it as usual. """
-        return self.from_rtfcre(s.translate(self._valid_table))
+    def _stroke_map(self, fn:Callable[[str], str], s:str) -> str:
+        """ Split a set of keys, apply a string function to every stroke, and join them back together.
+            If there is only one stroke, skip the string carving and apply the function directly. """
+        sep = self.SEP
+        if sep in s:
+            return sep.join(map(fn, s.split(sep)))
+        return fn(s)
 
     def _stroke_s_keys_to_rtfcre(self, s:str) -> str:
         """ Find the first right-side key in the stroke (if there is one).
@@ -78,13 +68,10 @@ class KeyLayout:
         return s
 
     def _stroke_rtfcre_to_s_keys(self, s:str) -> str:
-        """ Perform alias substitution, split each stroke into left and right sides, and convert the case. """
-        if self._aliases_in(s):
-            # Translate literal numbers by replacing them with their raw key equivalents and adding a number key.
-            for k, d in self._alias_table.items():
-                rep = s.translate(d)
-                if rep != s:
-                    s = k + rep
+        """ Translate an RTFCRE stroke into s-keys format. """
+        for k in s:
+            if k not in self._valid_rtfcre:
+                s = self._replace_rtfcre(s, k)
         # Attempt to split each stroke into LC/R keys.
         # If there's a hyphen, split the string there and rejoin with right side lowercase.
         if self.SPLIT in s:
@@ -96,11 +83,23 @@ class KeyLayout:
         for c in reversed(s):
             if c in self._c_keys_set:
                 # Partition string to separate left/center keys from right keys.
-                left, c, right = s.partition(c)
+                left, c, right = s.rpartition(c)
                 left += c
                 return left + right.lower()
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
+
+    def _replace_rtfcre(self, s:str, k:str) -> str:
+        """ Translate literal numbers or other aliases by replacing them with their raw key equivalents.
+            If they require a shift key/number key, add it to the start of the string if not present. """
+        try:
+            shift_key, real_key = self.ALIAS_TABLE[k]
+            if shift_key not in s:
+                s = shift_key + s
+            return s.replace(k, real_key)
+        except KeyError:
+            # If the character is completely invalid, remove it.
+            return s.replace(k, "")
 
     def verify(self) -> None:
         """ Test various properties of the layout for correctness. """
@@ -116,6 +115,5 @@ class KeyLayout:
         all_keys = left | center | right
         assert self.SEP not in all_keys
         assert self.SPLIT not in all_keys
-        # Shift keys as well as all transform values must be valid keys previously defined.
-        for shift_key, shift_transform in self.SHIFT_TABLE.items():
-            assert {shift_key, *shift_transform.values()} <= all_keys
+        # Shift keys as well as their transform values must be valid keys previously defined.
+        assert set().union(*self.ALIAS_TABLE.values()) <= all_keys
