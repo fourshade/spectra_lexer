@@ -2,12 +2,12 @@ from functools import lru_cache
 import random
 from typing import Dict, List, Tuple
 
-from .analysis import IndexCompiler, IndexMapper, ParallelMapper
-from .board import BoardElementParser, BoardGenerator
+from .analysis import IndexInfo, ParallelMapper
+from .board import BoardElementParser, BoardEngine
 from .graph import GraphGenerator
 from .keys import KeyLayout
-from .lexer import PrefixRuleFinder, SpecialRuleFinder, StenoLexer
-from .rules import RulesDictionary, StenoRule
+from .lexer import StenoLexer
+from .rules import RuleParser, StenoRule
 from .search import IndexSearchDict, TranslationsSearchDict
 
 
@@ -17,28 +17,29 @@ class StenoEngine:
 
     INDEX_DELIM: str = ";"  # Delimiter between rule name and query for index searches.
 
-    def __init__(self, rules:RulesDictionary, board:BoardGenerator, graph:GraphGenerator, lexer:StenoLexer) -> None:
+    def __init__(self, rule_parser:RuleParser, board:BoardEngine, graph:GraphGenerator, lexer:StenoLexer) -> None:
         """ Delegate methods for view-based operations. Add caches to the most expensive and/or frequently called ones.
             Only components with invariant state and methods with immutable output are allowed to have caches. """
-        self._rules = rules  # Parses rules from JSON and keeps track of the refs for inverse parsing.
+        self._rule_parser = rule_parser  # Parses rules from JSON and keeps track of the refs for inverse parsing.
         self._board = board
         self._graph = graph
         self._lexer = lexer
         self._translations = TranslationsSearchDict()
         self._index = IndexSearchDict()
-        self._rev_rules = {rules[name]: name for name in rules}
         self.board_from_keys = lru_cache()(board.from_keys)
         self.board_from_rule = lru_cache()(board.from_rule)
         self.graph_generate = lru_cache()(graph.generate)
         self.lexer_query = lru_cache()(lexer.query)
         self.lexer_best_strokes = lexer.best_strokes
 
-    def set_translations(self, translations:Dict[str,str]) -> None:
+    def set_translations(self, translations:Dict[str, str]) -> None:
         """ Load a new translations search dict. """
         self._translations = TranslationsSearchDict(translations)
 
-    def set_index(self, index:Dict[str,dict]) -> None:
-        """ Load a new search index. """
+    def set_index(self, index:Dict[str, dict]) -> None:
+        """ Load a new search index.  Make sure it is a dict of dicts and not arbitrary JSON. """
+        if type(index) is not dict or not all([type(v) is dict for v in index.values()]):
+            raise TypeError("All first-level values in an index must be dicts.")
         self._index = IndexSearchDict(index)
 
     def search(self, pattern:str, match:str=None, **kwargs) -> List[str]:
@@ -58,26 +59,28 @@ class StenoEngine:
 
     def rule_to_link(self, rule:StenoRule) -> str:
         """ Return the name of the given rule to use in a link, but only if it has examples in the index. """
-        name = self._rev_rules.get(rule)
+        name = self._rule_parser.get_name(rule)
         return name if name in self._index else ""
 
     def link_to_rule(self, link:str) -> StenoRule:
         """ Return the rule under the given link name, or None if there is no rule by that name. """
-        return self._rules.get(link)
+        return self._rule_parser.get(link)
 
-    def make_rules(self, *args, **kwargs) -> Dict[str, list]:
+    def make_rules(self, **kwargs) -> Dict[str, list]:
         """ Run the lexer on all translations and return a list of raw rules for saving. """
         mapper = ParallelMapper(self._lexer.query, **kwargs)
-        results = mapper.filtermap(self._translations.items(), *args)
-        return self._rules.compile_to_raw(results)
+        results = mapper.starmap(self._translations.items())
+        return self._rule_parser.compile_to_raw(results)
 
-    def make_index(self, *args, match_all_keys=True) -> Dict[str, dict]:
-        """ Generate a set of rules from translations using the lexer and compare them to the built-in rules.
-            Make a index for each built-in rule containing a dict of every translation that used it.
+    def make_index(self, size:int, match_all_keys=True, **kwargs) -> Dict[str, dict]:
+        """ Make a index from a parallel lexer query operation, using input and output filters to control size.
             Only keep results with all keys matched by default to reduce garbage. """
-        mapper = IndexMapper(self._lexer.query, match_all_keys=match_all_keys)
-        results = mapper.sized_filtermap(self._translations.items(), *args)
-        return IndexCompiler(self._rev_rules).compile(results)
+        info = IndexInfo(size)
+        mapper = ParallelMapper(self._lexer.query, match_all_keys=match_all_keys, **kwargs)
+        translations_in = info.filter_in(self._translations.items())
+        results = mapper.starmap(translations_in)
+        results_out = info.filter_out(results)
+        return self._rule_parser.compile_tr_index(results_out)
 
 
 class StenoResources:
@@ -95,20 +98,12 @@ class StenoResources:
     def build_engine(self) -> StenoEngine:
         """ Load all static resources into steno components and create an engine with them. """
         layout = KeyLayout(self.raw_layout)
-        rules = RulesDictionary()
-        rules.update_from_raw(self.raw_rules)
+        rule_parser = RuleParser(self.raw_rules)
+        rules = rule_parser.to_dict()
         board_parser = BoardElementParser(self.board_defs)
         board_parser.parse(self.board_elems)
-        board_index = board_parser.make_index(layout, rules)
-        defs, base = board_parser.defs_base_pair()
-        bounds = board_parser.diagram_bounds()
-        board = BoardGenerator(board_index, defs, base, *bounds)
-        sep = layout.SEP
-        star = layout.SPECIAL
-        split = layout.SPLIT
-        graph = GraphGenerator(sep, split)
-        special_finder = SpecialRuleFinder(sep, star)
-        prefix_finder = PrefixRuleFinder(sep, star)
-        lexer = StenoLexer(layout, special_finder, prefix_finder)
+        board = board_parser.build_engine(layout, rules)
+        graph = GraphGenerator(layout.SEP)
+        lexer = StenoLexer(layout)
         lexer.update(rules)
-        return StenoEngine(rules, board, graph, lexer)
+        return StenoEngine(rule_parser, board, graph, lexer)

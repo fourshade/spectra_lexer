@@ -5,7 +5,7 @@ import glob
 import json
 import os
 import sys
-from typing import Dict, IO, List, TextIO, Union
+from typing import Callable, Dict, IO, List, TextIO, Union
 
 
 class FilePath:
@@ -69,11 +69,11 @@ class PathIO:
         module_path = os.path.dirname(module.__file__)
         return os.path.join(module_path, *filename.split('/'))
 
-    def _convert_user_path(self, filename:str, app_name:str=None) -> str:
+    def _convert_user_path(self, filename:str) -> str:
         """ Find the application's user data directory based on the platform and expand the path. """
         path_components = self.PLATFORM_USERPATH_COMPONENTS.get(sys.platform) or self.DEFAULT_USERPATH_COMPONENTS
         path_fmt = os.path.join("~", *path_components, filename)
-        path = path_fmt.format(app_name or self._user_path)
+        path = path_fmt.format(self._user_path)
         return os.path.expanduser(path)
 
     def open(self, filename:str, *args) -> Union[IO, TextIO]:
@@ -93,123 +93,43 @@ class PathIO:
         return self._convert(pattern).expand()
 
 
-class PloverConfigPath(FilePath):
-    """ A specific identifier for the config file in the user's Plover installation with dictionary paths. """
+class _ResourceIO(PathIO):
+    """ Performs filesystem I/O and transcoding between several formats. """
 
-    def expand(self) -> List[str]:
-        """ Attempt to load a Plover config file and return all dictionary files in reverse priority order
-            (required since earlier keys override later ones in Plover, but dict.update does the opposite). """
-        try:
-            cfg = ConfigParser()
-            cfg.read(self._path)
-            if cfg:
-                # Dictionaries are located in the same directory as the config file.
-                # The section we need is read as a string, but it must be decoded as a JSON array.
-                section = cfg['System: English Stenotype']['dictionaries']
-                dict_files = json.loads(section)[::-1]
-                plover_dir = os.path.split(self._path)[0]
-                return [os.path.join(plover_dir, e['path']) for e in dict_files]
-        except (KeyError, OSError, ValueError):
-            # Catch-all for file loading errors. Just assume the required files aren't there and move on.
-            pass
-        return []
-
-
-class ResourceIO(PathIO):
-    """ Performs all necessary filesystem and asset I/O. """
-
-    def __init__(self, *args, encoding='utf-8', comment_prefixes=b"#/") -> None:
-        super().__init__(*args)
+    def __init__(self, *args, encoding='utf-8', comment_prefixes=b"#/", **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self._encoding = encoding                       # Encoding for all text-based files.
         self._comment_prefixes = set(comment_prefixes)  # Allowed prefixes for comments in CSON files.
 
-    def _convert(self, filename:str) -> FilePath:
-        """ A special pattern may be given to signify the loading of Plover's dictionaries from user data. """
-        if filename.startswith("~PLOVER/"):
-            filename = self._convert_user_path(filename[8:], "plover")
-            return PloverConfigPath(filename)
-        return super()._convert(filename)
-
-    def load_layout(self, layout_path:str) -> dict:
-        """ Read a key layout from a JSON file. """
-        return self._json_read(layout_path)
-
-    def load_rules(self, rules_path:str) -> Dict[str, list]:
-        """ Load and merge raw rules from CSON files on disk. """
+    def _read_merge(self, read_fn:Callable[[str], dict], *patterns:str, check_keys=False) -> dict:
+        """ Read and merge dicts from files on disk. """
         raw_dict = {}
-        for filename in self.expand(rules_path):
-            d = self._cson_read(filename)
-            # Check for key conflicts between this dict and previous ones before merging.
-            conflicts = d.keys() & raw_dict.keys()
-            if conflicts:
-                raise ValueError(f"Found rule keys appearing more than once: {conflicts}")
-            raw_dict.update(d)
+        for p in patterns:
+            for d in map(read_fn, self.expand(p)):
+                if check_keys and raw_dict:
+                    # Check for key conflicts between this dict and previous ones before merging.
+                    conflicts = d.keys() & raw_dict.keys()
+                    if conflicts:
+                        raise ValueError(f"Found keys appearing more than once: {conflicts}")
+                raw_dict.update(d)
         return raw_dict
 
-    def load_board_defs(self, defs_path:str) -> Dict[str, dict]:
-        """ Read a JSON definitions file for a steno board layout. """
-        return self._json_read(defs_path)
-
-    def load_board_elems(self, elems_path:str) -> Dict[str, dict]:
-        """ Read a CSON definitions file with properties of steno board elements. """
-        return self._cson_read(elems_path)
-
-    def save_rules(self, raw_rules:Dict[str,list], filename:str) -> None:
-        """ Save a raw rules dict to JSON. """
-        self._json_write(raw_rules, filename)
-
-    def load_translations(self, *patterns:str) -> Dict[str, str]:
-        """ Load and merge JSON translations files from disk. """
-        translations = {}
-        for p in patterns:
-            for filename in self.expand(p):
-                d = self._json_read(filename)
-                translations.update(d)
-        return translations
-
-    def save_translations(self, translations:Dict[str,str], filename:str) -> None:
-        """ Save a translations dict directly into JSON. """
-        self._json_write(translations, filename)
-
-    def load_index(self, filename:str) -> Dict[str, dict]:
-        """ Load a JSON index file from disk. Make sure it is a dict of dicts and not an arbitrary JSON file. """
-        index = self._json_read(filename)
-        if type(index) is not dict or not all([type(v) is dict for v in index.values()]):
-            raise TypeError("All first-level values in a JSON index must be objects.")
-        return index
-
-    def save_index(self, index:Dict[str,dict], filename:str) -> None:
-        """ Save an index structure directly into JSON. """
-        self._json_write(index, filename)
-
-    def load_config(self, filename:str) -> Dict[str, dict]:
-        """ Load config settings from disk into a two-level nested dict. """
-        parser = ConfigParser()
-        with self.open(filename, 'r') as fp:
-            parser.read_file(fp)
-        sects = list(parser)
-        # The first section is the default section; ignore it. Convert all other proxies into dicts.
-        return {sect: dict(parser[sect]) for sect in sects[1:]}
-
-    def save_config(self, cfg:Dict[str,dict], filename:str) -> None:
-        """ Save a two-level nested config dict into .cfg format. """
-        parser = ConfigParser()
-        parser.read_dict(cfg)
-        with self.open(filename, 'w') as fp:
-            parser.write(fp)
-
-    def _json_read(self, filename:str) -> dict:
+    def json_read(self, filename:str) -> dict:
         """ JSON standard library functions are among the fastest ways to load structured data in Python. """
         data = self.read(filename)
         return json.loads(data)
 
-    def _json_write(self, d:dict, filename:str) -> None:
+    def json_read_merge(self, *patterns:str, **kwargs) -> dict:
+        """ Find all JSON dicts whose filename resolves to one of <patterns> and return them merged. """
+        return self._read_merge(self.json_read, *patterns, **kwargs)
+
+    def json_write(self, d:dict, filename:str) -> None:
         """ Write a dict to a JSON file. Key sorting helps some parsing and search algorithms run faster.
             An explicit flag is required to preserve Unicode symbols. """
         data = json.dumps(d, sort_keys=True, ensure_ascii=False).encode(self._encoding)
         self.write(data, filename)
 
-    def _cson_read(self, filename:str) -> dict:
+    def cson_read(self, filename:str) -> dict:
         """ Read and decode a JSON file with full-line standalone comments (CSON = commented JSON). """
         data = self.read(filename)
         # JSON doesn't care about leading or trailing whitespace, so strip every line.
@@ -218,3 +138,49 @@ class ResourceIO(PathIO):
         data_lines = [line for line in stripped_line_iter if line and line[0] not in self._comment_prefixes]
         data = b"\n".join(data_lines)
         return json.loads(data)
+
+    def cson_read_merge(self, *patterns:str, **kwargs) -> dict:
+        """ Find all CSON dicts whose filename resolves to one of <patterns> and return them merged. """
+        return self._read_merge(self.cson_read, *patterns, **kwargs)
+
+    def cfg_read(self, filename:str) -> Dict[str, dict]:
+        """ Read config settings from disk into a two-level nested dict. """
+        parser = ConfigParser()
+        with self.open(filename, 'r') as fp:
+            parser.read_file(fp)
+        sects = list(parser)
+        # The first section is the default section; ignore it. Convert all other proxies into dicts.
+        return {sect: dict(parser[sect]) for sect in sects[1:]}
+
+    def cfg_write(self, cfg:Dict[str, dict], filename:str) -> None:
+        """ Write a two-level nested config dict into .cfg format. """
+        parser = ConfigParser()
+        parser.read_dict(cfg)
+        with self.open(filename, 'w') as fp:
+            parser.write(fp)
+
+
+class ResourceIO(_ResourceIO):
+    """ Adds a specific identifier to search the user's Plover installation for dictionaries. """
+
+    PLOVER_TRANSLATIONS = "$PLOVER_TRANSLATIONS"  # Sentinel pattern to load the user's Plover dictionaries.
+
+    def expand(self, pattern:str) -> List[str]:
+        """ If the sentinel is given, search the user's local app data for the Plover config file.
+            Parse the dictionaries section and return all dictionary filenames in reverse priority order
+            (required since earlier keys override later ones in Plover, but dict.update does the opposite). """
+        if pattern == self.PLOVER_TRANSLATIONS:
+            try:
+                io = PathIO(user_path="plover")
+                path = io.expand("~/plover.cfg")[0]
+                cfg = self.cfg_read(path)
+                # Dictionaries are located in the same directory as the config file.
+                # The section we need is read as a string, but it must be decoded as a JSON array.
+                section = cfg['System: English Stenotype']['dictionaries']
+                dict_files = json.loads(section)[::-1]
+                plover_dir = os.path.split(path)[0]
+                return [os.path.join(plover_dir, e['path']) for e in dict_files]
+            except (IndexError, KeyError, OSError, ValueError):
+                # Catch-all for file and parsing errors. The correct files aren't available, so just move on.
+                return []
+        return super().expand(pattern)

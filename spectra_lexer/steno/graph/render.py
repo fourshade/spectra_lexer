@@ -1,7 +1,7 @@
 """ Module for the lowest-level text rendering operations. Performance is more critical than readability here. """
 
 from collections import namedtuple
-from typing import List, Sequence, Tuple
+from typing import Iterable, List, Sequence, Tuple
 
 from ..rules import StenoRule
 
@@ -239,9 +239,9 @@ class SeparatorNode(GraphNode):
 
 class NodeFactory:
 
-    def __init__(self, sep:str, split:str) -> None:
-        self._key_sep = sep      # Steno key used as stroke separator.
-        self._key_split = split  # Steno key used to split sides in RTFCRE.
+    def __init__(self, sep:str, ignored:Iterable[str]='-') -> None:
+        self._key_sep = sep           # Steno key used as stroke separator.
+        self._ignored = set(ignored)  # Tokens to ignore at the beginning of key strings (usually the hyphen '-')
 
     def make_root(self, rule:StenoRule) -> GraphNode:
         """ The root node's attach points are arbitrary, so tstart=0 and tlen=blen. """
@@ -266,8 +266,8 @@ class NodeFactory:
         else:
             text = keys = rule.keys
             blen = len(keys)
-            # The text is shifted right if the keys start with '-'.
-            if blen > 1 and keys[0] == self._key_split:
+            # The text is shifted left if the keys start with an ignored token.
+            if blen > 1 and keys[0] in self._ignored:
                 bstart += 1
                 blen -= 1
             if keys == self._key_sep:

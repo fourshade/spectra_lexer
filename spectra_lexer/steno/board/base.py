@@ -23,7 +23,7 @@ class BoardElements:
 
 
 class SeparatorBoardElements(BoardElements):
-    """ Sentinel class for the gap between strokes. """
+    """ Sentinel class for a gap between strokes. """
 
     ends_stroke = True
 
@@ -176,57 +176,8 @@ class BoardElementIndex:
         return elems
 
 
-class BoardElementParser:
-    """ Processes steno board elements using a definitions dictionary. """
-
-    def __init__(self, defs:Dict[str, dict]) -> None:
-        self._proc_defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
-        self._parsed_elems: dict = defaultdict(dict)     # Parsed board elements indexed by tag, then by ID.
-
-    def parse(self, board_elems:Dict[str, dict]) -> None:
-        """ Parse all elements from a JSON document into full SVG board element structures. """
-        for tag, d in board_elems.items():
-            self._parsed_elems[tag].update({e_id: self._process_element(p) for e_id, p in d.items()})
-
-    def _process_element(self, p:str) -> ProcessedBoardElements:
-        """ Match p-string elements to proc_ methods and call each method using the corresponding defs dict. """
-        board_elems = ProcessedBoardElements()
-        for s in p.split(";"):
-            k, v = s.split("=", 1)
-            meth = getattr(board_elems, "proc_" + k, None)
-            if meth is not None:
-                meth(v, self._proc_defs[k])
-        return board_elems
-
-    def make_index(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardElementIndex:
-        """ Build an element index from various tag groups filled during parsing. """
-        # Elements corresponding to single steno keys.
-        key_elems = self._parsed_elems["key"]
-        key_elems[layout.SEP] = SeparatorBoardElements()
-        # Elements corresponding to unmatched steno keys.
-        ukey_elems = self._parsed_elems["qkey"]
-        ukey_elems[layout.SEP] = SeparatorBoardElements()
-        # Elements corresponding to known rule identifiers.
-        rule_elems = self._parsed_elems["rule"]
-        rule_elems = {rules[k]: rule_elems[k] for k in rule_elems}
-        return BoardElementIndex(layout, rule_elems, key_elems, ukey_elems)
-
-    def defs_base_pair(self) -> Tuple[SVGDefs, SVGElement]:
-        """ Return a <use> element for the base present in every stroke along with a matching <defs> element. """
-        base_elems = self._parsed_elems["base"]
-        base = SVGElement()
-        for grp in base_elems.values():
-            base.extend(grp)
-        defs = SVGDefs()
-        return defs, defs.make_usable(base)
-
-    def diagram_bounds(self) -> List[int]:
-        """ Return [x, y, w, h] integer coordinates for the bounds of one stroke diagram. """
-        return self._proc_defs["document"]["bounds"]
-
-
-class BoardGenerator:
-    """ Top-level factory for creating SVG steno board documents from user input. """
+class BoardEngine:
+    """ Top-level factory for SVG steno board documents corresponding to user input. """
 
     _DEFAULT_RATIO = 100.0  # If no aspect ratio is given, this ensures that all boards end up in one row.
 
@@ -302,3 +253,55 @@ class BoardGenerator:
                 stroke = []
                 i += 1
         parent.extend(overlays)
+
+
+class BoardElementParser:
+    """ Processes steno board elements using a definitions dictionary. """
+
+    def __init__(self, defs:Dict[str, dict]) -> None:
+        self._proc_defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
+        self._parsed_elems: dict = defaultdict(dict)     # Parsed board elements indexed by tag, then by ID.
+
+    def parse(self, board_elems:Dict[str, dict]) -> None:
+        """ Parse all elements from a JSON document into full SVG board element structures. """
+        for tag, d in board_elems.items():
+            self._parsed_elems[tag].update({e_id: self._process_element(p) for e_id, p in d.items()})
+
+    def _process_element(self, p:str) -> ProcessedBoardElements:
+        """ Match p-string elements to proc_ methods and call each method using the corresponding defs dict. """
+        board_elems = ProcessedBoardElements()
+        for s in p.split(";"):
+            k, v = s.split("=", 1)
+            meth = getattr(board_elems, "proc_" + k, None)
+            if meth is not None:
+                meth(v, self._proc_defs[k])
+        return board_elems
+
+    def build_engine(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardEngine:
+        """ Build a board-generating engine from our current resources. """
+        board_index = self._make_index(layout, rules)
+        defs = SVGDefs()
+        base = self._make_base(defs)
+        bounds = self._proc_defs["document"]["bounds"]
+        return BoardEngine(board_index, defs, base, *bounds)
+
+    def _make_index(self, layout:KeyLayout, rules:Dict[str, StenoRule]) -> BoardElementIndex:
+        """ Build an element index from various tag groups filled during parsing. """
+        # Elements corresponding to single steno keys.
+        key_elems = self._parsed_elems["key"]
+        key_elems[layout.SEP] = SeparatorBoardElements()
+        # Elements corresponding to unmatched steno keys.
+        ukey_elems = self._parsed_elems["qkey"]
+        ukey_elems[layout.SEP] = SeparatorBoardElements()
+        # Elements corresponding to known rule identifiers.
+        rule_elems = self._parsed_elems["rule"]
+        rule_elems = {rules[k]: rule_elems[k] for k in rule_elems}
+        return BoardElementIndex(layout, rule_elems, key_elems, ukey_elems)
+
+    def _make_base(self, defs:SVGDefs) -> SVGElement:
+        """ Return a <use> element for the base present in every stroke matching a <defs> element. """
+        base_elems = self._parsed_elems["base"]
+        base = SVGElement()
+        for grp in base_elems.values():
+            base.extend(grp)
+        return defs.make_usable(base)

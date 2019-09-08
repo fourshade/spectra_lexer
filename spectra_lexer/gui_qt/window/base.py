@@ -20,7 +20,6 @@ class QtWindow(Ui_MainWindow):
         self.show = window.show
         self.close = window.close
         self.set_status = self.w_title.set_status
-        self.menu_add(window.close, "File", "Close", after_sep=True)
 
     def menu_add(self, menu_callback:Callable, *args, **kwargs) -> None:
         """ Qt may provide (useless) args to menu action callbacks. Throw them away in a lambda. """

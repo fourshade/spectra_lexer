@@ -98,11 +98,8 @@ class StenoGraph:
         return text, selection
 
 
-class GraphGenerator:
+class GraphGenerator(NodeFactory):
     """ Top-level factory for creating text graphs from user input. Requires minimal external resources. """
-
-    def __init__(self, sep:str, split:str) -> None:
-        self._factory = NodeFactory(sep, split)
 
     def generate(self, rule:StenoRule, recursive=True, compressed=True, compat=False) -> StenoGraph:
         """ Make a node tree out of the given rule, tracking the node<->rule relationships.
@@ -110,7 +107,7 @@ class GraphGenerator:
         # Children are recursively laid out first to determine their height and width.
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
         tree = NodeTree(layout)
-        root = self._factory.make_root(rule)
+        root = self.make_root(rule)
         tree.add(root, rule)
         self._make_nodes(rule.rulemap, tree, root, recursive)
         canvas, r, c = tree.render(root)
@@ -122,8 +119,9 @@ class GraphGenerator:
 
     def _make_nodes(self, rulemap:Sequence[RuleMapItem], tree:NodeTree, parent:GraphNode, recursive=True) -> None:
         """ Make nodes from a rulemap and add them to a tree. Only create their children if recursion is allowed. """
-        for rule, *args in rulemap:
-            node = self._factory.make_node(rule, *args)
+        for item in rulemap:
+            rule = item.rule
+            node = self.make_node(rule, item.start, item.length)
             tree.add(node, rule, parent)
             child_map = rule.rulemap
             if child_map and recursive:

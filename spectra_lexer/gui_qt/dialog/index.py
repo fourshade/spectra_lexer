@@ -14,11 +14,11 @@ Would you like to create one now? You will not be asked again.</p>
 the Tools menu, and can expand it from the default size as well if it is not sufficient).</p>"""
 
 
-def default_index_dialog(parent:QWidget) -> bool:
-    """ Present a dialog for the user to make a default-sized index. Return True on accept, or False on cancel. """
+def default_index_dialog(parent:QWidget) -> int:
+    """ Present a dialog for the user to make a default-sized index. Return that size on accept, or 0 on cancel. """
     yes, no = QMessageBox.Yes, QMessageBox.No
     button = QMessageBox.question(parent, "Make Index", STARTUP_MESSAGE, yes | no)
-    return (button == yes)
+    return (button == yes) * IndexInfo.DEFAULT_SIZE
 
 
 class SliderIndexDialog(ToolDialog):

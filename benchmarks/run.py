@@ -14,8 +14,8 @@ class ComponentBench:
         self.translations = engine._translations
         self.n = 5000
 
-    def _run(self, *args):
-        bench(*args, count=self.n)
+    def _run(self, *args, **kwargs):
+        bench(*args, count=self.n, **kwargs)
 
     def _spaced_translations(self):
         items = [*self.translations.items()]
@@ -45,11 +45,9 @@ class ComponentBench:
         self._run(translations.search, prefixes_and_counts)
 
     def init_plover(self):
-        from spectra_lexer.plover import IPloverEngine, PloverTranslationParser
+        from spectra_lexer import plover
         self.n = 10
-        plover = IPloverEngine.test(self.translations, split_count=1)
-        parser = PloverTranslationParser(plover)
-        self._run(parser.convert_dicts)
+        self._run(lambda: plover.test_convert(self.translations, split_count=1))
 
 
 def app_start():
@@ -59,12 +57,12 @@ def app_start():
 
 def app_analyze():
     from spectra_lexer.app import analyze
-    analyze("--index=NUL", "--out=NUL")
+    analyze("--index=NUL", "--out=NUL", "--processes=1")
 
 
 def app_index():
     from spectra_lexer.app import index
-    index("--index=NUL")
+    index("--index=NUL", "--processes=1")
 
 
 def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:
@@ -72,7 +70,7 @@ def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:
         Only one run at a time is allowed, since imports are cached after that. """
     if operation.startswith("app"):
         func = globals()[operation]
-        bench(func, count=1, best_of=1, max_lines=100)
+        bench(func, count=1, max_lines=100)
     else:
         # Other benchmarks require an already-started app's engine.
         engine = app_start()._engine

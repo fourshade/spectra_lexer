@@ -5,10 +5,10 @@ from io import RawIOBase
 
 
 class HTTPStructMeta(type):
-    """ Convenience metaclass for structures that use an HTTP status code as their first argument. """
+    """ Convenience metaclass for structures that use an HTTP status code as their first constructor argument. """
 
     def __getattr__(cls, name:str) -> partial:
-        """ Create an instance corresponding directly to a member of HTTPStatus. """
+        """ Return a factory for an instance corresponding directly to a member of HTTPStatus. """
         code = getattr(HTTPStatus, name)
         return partial(cls, code)
 

@@ -59,13 +59,24 @@ class HTMLFormatter:
                             char = f'<b>{char}</b>'
                     # Add RGB color tags if highlighted.
                     if highlighted:
-                        rgb = _rgb(depths[node], row, intense)
+                        rgb = self._rgb(depths[node], row, intense)
                         char = f'<span style="color:#{bytes(rgb).hex()};">{char}</span>'
                     # The anchor link is simply the ref string.
                     cline[col] = f'<a class="gg" href="#{self._hrefs[node]}">{char}</a>'
                 col += 1
             row += 1
         return "\n".join([self._HEADER, *map(self.joined, grid), self._FOOTER])
+
+    @staticmethod
+    def _rgb(depth:int, row:int, intense:bool) -> Tuple[int, int, int]:
+        """ Each RGB color is represented by a row of coefficients. The first is the starting value. """
+        if not depth:
+            # The root node has a bright red color, or orange if selected.
+            return (255, 120, 0) if intense else (255, 0, 0)
+        r = min(64 * (depth - intense), 192)  # Vary red with nesting depth and selection (for purple),
+        g = min(8 * row + 100 * intense, 192)  # vary green with the row index and selection,
+        b = 255  # Start from pure blue
+        return r, g, b
 
     # Join and return a line with no modifications.
     joined = "".join
@@ -82,14 +93,3 @@ class CompatHTMLFormatter(HTMLFormatter):
         """ Join and return a line as an HTML table row. """
         cells = [f'<td class="tt">{s}</td>' for s in text_sections]
         return f'<tr>{"".join(cells)}</tr>'
-
-
-def _rgb(depth:int, row:int, intense:bool) -> Tuple[int, int, int]:
-    """ Each RGB color is represented by a row of coefficients. The first is the starting value. """
-    if not depth:
-        # The root node has a bright red color, or orange if selected.
-        return (255, 120, 0) if intense else (255, 0, 0)
-    r = min(64 * (depth - intense), 192)  # Vary red with nesting depth and selection (for purple),
-    g = min(8 * row + 100 * intense, 192)  # vary green with the row index and selection,
-    b = 255  # Start from pure blue
-    return r, g, b

@@ -1,8 +1,8 @@
-from collections import defaultdict
 from functools import partial
 from itertools import starmap
+import os
 import sys
-from typing import Callable, Dict, Iterable
+from typing import Callable, Iterable, List, Tuple
 
 from .rules import StenoRule
 
@@ -22,44 +22,47 @@ class ParallelMapper:
         performed *before* any work is done in parallel. However, if we want the possibility of retrying the computation
         with a single process, we have to evaluate the iterable and save the results to a list ourselves anyway. """
 
-    def __init__(self, func:Callable, *args, processes:int=None, **kwargs) -> None:
+    def __init__(self, func:Callable, *args, processes=0, retry=True, **kwargs) -> None:
         """ Extra arguments are treated as partials applying to *every* call. """
         if args or kwargs:
             func = partial(func, *args, **kwargs)
+        if not processes:
+            processes = os.cpu_count() or 1
         self._func = func            # Function to map over.
-        self._processes = processes  # If not specified, the number of processes defaults to the number of CPU cores.
-
-    def map(self, *iterables:Iterable) -> list:
-        """ Equivalent of map() using a mapper. Returns a list instead of an iterator. """
-        return self.starmap(zip(*iterables))
+        self._processes = processes  # Number of parallel processes (0 = one process for each logical CPU core).
+        self._retry = retry          # If True, retry with a single process on failure.
 
     def starmap(self, iterable:Iterable[tuple]) -> list:
-        """ Equivalent of itertools.starmap() using a mapper. Returns a list instead of an iterator. """
-        # Make a list out of the iterable (which may be one-time use) in case we have to retry with one process.
+        """ Using the saved function, perform the equivalent of itertools.starmap on <iterable> in parallel.
+            This will return a list instead of an iterator. No order is guaranteed in the results. """
+        # Don't add the overhead of multiprocessing if there's only one process.
+        if self._processes == 1:
+            return self._serial_starmap(iterable)
+        # The iterable may be one-time use. Make a list out of it in case we have to retry with one process.
         iterable = list(iterable)
         try:
-            # multiprocessing is fairly large, so don't import until we have to.
-            from multiprocessing import Pool
-            with Pool(processes=self._processes) as pool:
-                return pool.starmap(self._func, iterable)
+            return self._parallel_starmap(iterable)
         except Exception:
-            # If the process pool failed (usually due to pickling problems), use ordinary starmap.
+            if not self._retry:
+                raise
+            # If the process pool fails (usually due to pickling problems), retry with ordinary starmap.
             print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
-            return list(starmap(self._func, iterable))
+            return self._serial_starmap(iterable)
 
-    def filtermap(self, iterable:Iterable[tuple], filter_in:Callable=None, filter_out:Callable=None) -> list:
-        """ <filter_in> eliminates items before processing, and <filter_out> eliminates results afterward.
-            Run the items through filter_in, then the mapper, then filter_out. Return what's left in a list. """
-        if filter_in is not None:
-            iterable = filter(filter_in, iterable)
-        results = self.starmap(iterable)
-        if filter_out is not None:
-            results = list(filter(filter_out, results))
-        return results
+    def _parallel_starmap(self, iterable:Iterable[tuple]) -> list:
+        """ Map the function over <iterable> in parallel with Pool.starmap. """
+        # multiprocessing is fairly large, so don't import until we have to.
+        from multiprocessing import Pool
+        with Pool(processes=self._processes) as pool:
+            return pool.starmap(self._func, iterable)
+
+    def _serial_starmap(self, iterable:Iterable[tuple]) -> list:
+        """ Map the function over <iterable> with ordinary starmap. """
+        return list(starmap(self._func, iterable))
 
 
 class IndexInfo:
-    """ Constants regarding index generation. """
+    """ Contains constants regarding index generation. """
 
     MINIMUM_SIZE = 1   # Minimum index size. Below this size, input filters block everything.
     DEFAULT_SIZE = 12  # Default index size. Essentially the maximum word length.
@@ -78,46 +81,22 @@ class IndexInfo:
                    "and past a certain point the garbage will start to crowd out useful information. " \
                    "Unless you are doing batch analysis, there is little benefit to a maximum-sized index."
 
+    def __init__(self, size:int=DEFAULT_SIZE) -> None:
+        self._size = size  # Relative index size (1-20).
 
-class IndexMapper(ParallelMapper, IndexInfo):
-    """ Filter mapper with basic integer size control for index creation. """
-
-    def sized_filtermap(self, iterable:Iterable[tuple], size:int=None) -> list:
-        """ Generate filters to control index size. Larger translations are excluded with smaller index sizes. """
-        if size is None:
-            size = self.DEFAULT_SIZE
+    def filter_in(self, translations:Iterable[Tuple[str, str]]) -> Iterable[Tuple[str, str]]:
+        """ Filter input translations according to the required index size. """
+        size = self._size
         if size < self.MINIMUM_SIZE:
-            # If the size is below minimum, it could be a dummy run. Don't run an analysis; just return an empty list.
+            # If the size is below minimum, it could be a dummy run. Keep nothing.
             return []
-        def filter_in(translation:tuple) -> bool:
-            """ Filter function to eliminate larger entries from the index depending on the size factor. """
-            return max(map(len, translation)) <= size
         if size >= self.MAXIMUM_SIZE:
-            # Remove the overhead of the input filter if we're keeping everything.
-            filter_in = None
-        def filter_out(rule:StenoRule) -> bool:
-            """ Filter function to eliminate lexer results that are unmatched or basic rules themselves. """
-            return len(rule.rulemap) > 1
-        return self.filtermap(iterable, filter_in, filter_out)
+            # If the size is maximum, a filter is unnecessary. Keep everything.
+            return translations
+        # Eliminate long translations before processing depending on the size factor.
+        return [t for t in translations if max(map(len, t)) <= size]
 
-
-class IndexCompiler:
-    """ Turns lists of lexer-generated steno rules into dictionaries. """
-
-    def __init__(self, rev_rules:Dict[StenoRule, str]) -> None:
-        self._rev_rules = rev_rules  # Reverse dict of built-in rules.
-
-    def compile(self, results:Iterable[StenoRule]) -> Dict[str, dict]:
-        """ Using rulemaps, make dicts of all translations that use each built-in rule at the top level. """
-        tr_dicts = defaultdict(dict)
-        for rs in results:
-            keys = rs.keys
-            letters = rs.letters
-            for item in rs.rulemap:
-                tr_dicts[item.rule][keys] = letters
-        # Convert the rule keys to strings. Hardcoded and missing rules will map to None.
-        d = {self._rev_rules.get(k): v for k, v in tr_dicts.items()}
-        # Entries with no rule are useless, and None/null is not a valid key in JSON, so toss it.
-        if None in d:
-            del d[None]
-        return d
+    @staticmethod
+    def filter_out(results:Iterable[StenoRule]) -> List[StenoRule]:
+        """ Eliminate lexer results that are unmatched or basic rules themselves. """
+        return [rule for rule in results if len(rule.rulemap) > 1]

@@ -7,7 +7,7 @@ import pstats
 from time import time
 
 
-def bench(func, args_iter=((),), setup=lambda: None, *, count=1, best_of=3, max_lines=50, strip_to_level=1):
+def bench(func, args_iter=((),), setup=lambda: None, *, count=1, best_of=1, max_lines=50, strip_to_level=1):
     """
     Measure and print the execution time for each method composing a given function with given test arguments.
     :param func:             function to profile.
@@ -22,12 +22,12 @@ def bench(func, args_iter=((),), setup=lambda: None, *, count=1, best_of=3, max_
                              1: lib\\test.py
     """
     test_data = list(args_iter)
+    print("")
     raw_runner = RawTestRunner(func, test_data, setup)
     raw_runner.run(count, best_of)
+    raw_runner.print_best()
     pr_runner = ProfileTestRunner(func, test_data, setup)
     pr_runner.run(count, best_of)
-    print(f"\nBenchmark for {func.__qualname__}, best of {best_of}:\n")
-    raw_runner.print_best()
     pr_runner.print_best(max_lines, strip_to_level)
 
 
@@ -88,6 +88,7 @@ class ProfileTestRunner(BaseTestRunner):
         s_buf = StringIO()
         ps = pstats.Stats(best_pr, stream=s_buf).sort_stats('cumulative')
         ps.print_stats(max_lines)
+        print(f"Benchmark for {self.func.__qualname__}, best of {len(self.stats)}:\n")
         for line in s_buf.getvalue().splitlines()[5:]:
             if line.strip():
                 *fields, path = line.split(maxsplit=5)

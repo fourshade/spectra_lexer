@@ -120,82 +120,85 @@ class QtGUI:
         self.dialogs = dialogs
         self.app = None
         self.state = None
-        exc_trap.connect(self.handle_exception)
 
-    def connect(self, app:StenoApplication) -> None:
-        """ Once the user layer is loaded, it is safe to connect GUI extensions to it and enable it. """
+    def start(self, app_builder:Callable[[], StenoApplication]) -> None:
+        """ Connect all dialog menu items through the exception trap. """
+        self.exc_trap.connect(self._handle_exception)
+        def menu_add(menu_callback:Callable, *args, **kwargs) -> None:
+            self.window.menu_add(self.exc_trap.wrap(menu_callback), *args, **kwargs)
+        menu_add(self._open_translations, "File", "Load Translations...")
+        menu_add(self._open_index, "File", "Load Index...")
+        menu_add(self.window.close, "File", "Close", after_sep=True)
+        menu_add(self._config_editor, "Tools", "Edit Configuration...")
+        menu_add(self._custom_index, "Tools", "Make Index...")
+        menu_add(self._debug_console, "Debug", "Open Console...")
+        menu_add(self._debug_tree, "Debug", "View Object Tree...")
+        # Build the app object asynchronously on a new thread to avoid blocking the GUI.
+        self._run_async(app_builder, callback=self._connect, msg_in="Loading...", msg_out="Loading complete.")
+        self.window.show()
+
+    def _connect(self, app:StenoApplication) -> None:
+        """ Once the app object is loaded, it is safe to connect GUI extensions. """
         self.app = app
         window = self.window
         state = self.state = QtGUIState(app, window)
-        trap = self.exc_trap.wrap
-        window.connect(trap(state.update_action))
-        # Connect all dialog menu items through an exception trap.
-        def menu_add(menu_callback:Callable, *args, **kwargs) -> None:
-            window.menu_add(trap(menu_callback), *args, **kwargs)
-        menu_add(self.open_translations, "File", "Load Translations...", pos=0)
-        menu_add(self.open_index, "File", "Load Index...", pos=1)
-        menu_add(self.config_editor, "Tools", "Edit Configuration...")
-        menu_add(self.custom_index, "Tools", "Make Index...")
-        menu_add(self.debug_console, "Debug", "Open Console...")
-        menu_add(self.debug_tree, "Debug", "View Object Tree...")
+        window.connect(self.exc_trap.wrap(state.update_action))
         self._subcls_tasks()
         # If there is no index file on first start, send up a dialog.
         if app.index_missing:
-            self.default_index()
+            self._default_index()
 
     def _subcls_tasks(self) -> None:
         """ Perform subclass-specific setup. """
         pass
 
-    def open_translations(self) -> None:
+    def _open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self.dialogs.open_translations()
         if filenames:
-            self.run_async(self.app.load_translations, *filenames, msg_out="Loaded translations from file dialog.")
+            self._run_async(self.app.load_translations, *filenames, msg_out="Loaded translations from file dialog.")
 
-    def open_index(self) -> None:
+    def _open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
         filename = self.dialogs.open_index()
         if filename:
-            self.run_async(self.app.load_index, filename, msg_out="Loaded index from file dialog.")
+            self._run_async(self.app.load_index, filename, msg_out="Loaded index from file dialog.")
 
-    def config_editor(self) -> None:
+    def _config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         self.dialogs.config(self._update_config, self.app.get_config_info())
 
     def _update_config(self, options:dict) -> None:
-        self.run_async(self.app.set_config, options, msg_out="Configuration saved.")
+        self._run_async(self.app.set_config, options, msg_out="Configuration saved.")
 
-    def default_index(self) -> None:
+    def _default_index(self) -> None:
         """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
             Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
-        if self.dialogs.default_index():
-            self._make_index()
-        else:
-            self._make_index(0, msg_out="Skipped index creation.")
+        self.dialogs.default_index(self._make_index)
 
-    def custom_index(self) -> None:
+    def _custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
         self.dialogs.custom_index(self._make_index)
 
-    def _make_index(self, size:int=None, *, msg_out="Successfully created index!") -> None:
+    def _make_index(self, size:int) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self.run_async(self.app.make_index, size, msg_in="Making new index...", msg_out=msg_out)
+        msg_out = "Successfully created index!" if size else "Skipped index creation."
+        self._run_async(self.app.make_index, size, msg_in="Making new index...", msg_out=msg_out)
 
-    def debug_console(self) -> None:
+    def _debug_console(self) -> None:
         """ Create and show the debug console dialog. """
         self.dialogs.console(vars(self).copy())
 
-    def debug_tree(self) -> None:
+    def _debug_tree(self) -> None:
         """ Create and show the debug tree dialog. """
         self.dialogs.objtree(vars(self).copy())
 
-    def run_async(self, func:Callable, *args, **kwargs) -> None:
+    def _run_async(self, func:Callable, *args, **kwargs) -> None:
         """ Start a blocking async task. """
         on_finish = self.window.start_blocking_task(**kwargs)
         self.async_dsp.dispatch(func, *args, callback=on_finish)
 
-    def handle_exception(self, exc:Exception, max_frames=20) -> None:
+    def _handle_exception(self, exc:Exception, max_frames=20) -> None:
         """ Format, log, and display a stack trace for any thrown exception. Store the exception for introspection. """
         self.last_exception = exc
         tb_text = "".join(format_exception(type(exc), exc, exc.__traceback__, limit=max_frames))
@@ -207,15 +210,13 @@ class QtMain(StenoMain):
     """ Main entry point and factory for the Qt GUI. """
 
     def build_gui(self, gui_cls:Type[QtGUI], **kwargs) -> QtWindow:
-        """ Load the user layer asynchronously on a new thread to avoid blocking the GUI. """
+        """ Build all components necessary to operate the GUI. """
         logger = self.build_logger()
         exc_trap = QtExceptionTrap()
         dsp = QtAsyncDispatcher(exc_trap)
         window = QtWindow()
         dialogs = QtDialogFactory(window.dialog_parent())
-        gui = gui_cls(logger, exc_trap, dsp, window, dialogs, **kwargs)
-        gui.run_async(self.build_app, callback=gui.connect, msg_in="Loading...", msg_out="Loading complete.")
-        window.show()
+        gui_cls(logger, exc_trap, dsp, window, dialogs, **kwargs).start(self.build_app)
         return window
 
     def main(self) -> int:

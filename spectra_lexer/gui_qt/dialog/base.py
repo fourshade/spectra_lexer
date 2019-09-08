@@ -22,9 +22,9 @@ class QtDialogFactory:
         """ Present a dialog for the user to select an index file. """
         return QFileDialog.getOpenFileName(self._parent, "Load Index", ".", "JSON Files (*.json)")[0]
 
-    def default_index(self) -> int:
-        """ Present a dialog for the user to make a default-sized index. """
-        return default_index_dialog(self._parent)
+    def default_index(self, callback:Callable[[int], None]) -> None:
+        """ Present a dialog for the user to make a default-sized index and call the callback with the result. """
+        callback(default_index_dialog(self._parent))
 
     def custom_index(self, callback:Callable[[int], None]) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
