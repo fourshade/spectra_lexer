@@ -86,7 +86,7 @@ class RuleMapItem(namedtuple("RuleMapItem", "rule start length")):
 class RulesDictionary(Dict[str, StenoRule]):
     """ Dictionary of steno rules indexed by an internal reference name. """
 
-    _SUB_DELIMS = "()"  # Delimiters marking the start and end of a rule reference.
+    _REF_DELIMS = "()"  # Delimiters marking the start and end of a rule reference.
     _ALIAS_DELIM = "|"  # Delimiter between letters and their rule alias when different.
 
     def __init__(self, *args, **kwargs) -> None:
@@ -108,10 +108,10 @@ class RulesDictionary(Dict[str, StenoRule]):
             desc:    Optional description for when the rule is displayed in the GUI. """
         try:
             keys, pattern, *optional = self._raw_dict[k]
-        except KeyError as e:
-            raise KeyError(f"Illegal rule reference: {k}") from e
-        except ValueError as e:
-            raise ValueError(f"Not enough parameters for rule {k}") from e
+        except KeyError:
+            raise KeyError(f"Illegal rule reference: {k}")
+        except ValueError:
+            raise ValueError(f"Not enough parameters for rule {k}")
         flags = optional.pop(0) if optional else ()
         desc = optional.pop(0) if optional else ""
         if optional:
@@ -120,7 +120,7 @@ class RulesDictionary(Dict[str, StenoRule]):
         try:
             letters, rulemap = self._substitute(pattern)
         except ValueError as e:
-            raise RecursionError(f"Unmatched brackets in rule {k}") from e
+            raise ValueError(f"Unmatched brackets in rule {k}") from e
         except RecursionError as e:
             raise RecursionError(f"Circular reference descended from rule {k}") from e
         # The flags and rulemap must be frozen for immutability. The keys and description strings are fine as-is.
@@ -148,7 +148,7 @@ class RulesDictionary(Dict[str, StenoRule]):
         # Convert the pattern string into a list to allow in-place modification.
         p_list = [*pattern]
         index = p_list.index
-        lb, rb = self._SUB_DELIMS
+        lb, rb = self._REF_DELIMS
         while lb in p_list:
             # Rule substitutions must match a left bracket and a right bracket.
             start = index(lb)

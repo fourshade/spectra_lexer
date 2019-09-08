@@ -102,18 +102,19 @@ def test_board(result):
 def test_graph(result):
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
     graph = STENO.graph_generate(result)
+    tree = graph._tree
     # The root node uses the top-level rule and has no parent.
-    node_index = graph.index._nodes_by_rule
-    root = next(iter(node_index))
-    assert root.parent is None
-    # Every other node descends from it and is unique.
-    nodes_list = list(root.descendants())
+    indexed_nodes = list(tree._rules)
+    root = indexed_nodes[0]
+    assert tree.get_ancestors(root) == [root]
+    # Every node available for interaction descends from it and is unique.
+    # (FUN FACT: if you iterate over a tree with a self-modifying list, people will hate you).
+    nodes_list = [root]
+    for node in nodes_list:
+        nodes_list += tree._children.get(node) or ()
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
-    # Going the other direction, every node except the root must have its parent in the set.
-    assert all(node.parent in nodes_set for node in nodes_list[1:])
-    # The nodes available for interaction must be a subset of our collection.
-    assert nodes_set >= set(node_index)
+    assert nodes_set >= set(indexed_nodes)
 
 
 def test_plover():

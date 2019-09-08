@@ -1,5 +1,5 @@
 from collections import defaultdict
-from functools import partial
+from typing import Callable
 
 
 class KeyLayout:
@@ -45,15 +45,20 @@ class KeyLayout:
         self._alias_table = {s: {ord(k): v for k, v in d.items()} for s, d in self.SHIFT_TABLE.items()}
         valid_chars = aliases.union(self.SEP, self.SPLIT, self.LEFT, self.CENTER, self.RIGHT)
         self._valid_table = defaultdict(type(None), {ord(k): k for k in valid_chars})
-        # Create optimized map functions to convert every stroke in a string between forms.
         # Transform an s-keys string back to RTFCRE.
         self.to_rtfcre = self._stroke_operation(self._stroke_s_keys_to_rtfcre)
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'
         self.from_rtfcre = self._stroke_operation(self._stroke_rtfcre_to_s_keys)
 
-    def _stroke_operation(self, fn) -> partial:
-        """ Create a partial function to apply a string operation to every stroke in a key string. """
-        return partial(_stroke_map, fn, self.SEP)
+    def _stroke_operation(self, fn:Callable) -> Callable:
+        """ Create an optimized map function to apply a string operation to every stroke in a key string. """
+        def stroke_map(s:str, _sep=self.SEP) -> str:
+            """ Split a set of keys, apply a string function to every stroke, and join them back together.
+                If there is only one stroke, skip the string carving and apply the function directly. """
+            if _sep in s:
+                return _sep.join(map(fn, s.split(_sep)))
+            return fn(s)
+        return stroke_map
 
     def cleanse_from_rtfcre(self, s:str) -> str:
         """ Lexer input may come from the user, in which case the formatting cannot be trusted.
@@ -80,10 +85,11 @@ class KeyLayout:
                 rep = s.translate(d)
                 if rep != s:
                     s = k + rep
-        # Attempt to split each stroke into LC/R keys, If there's a hyphen, split the string there.
+        # Attempt to split each stroke into LC/R keys.
+        # If there's a hyphen, split the string there and rejoin with right side lowercase.
         if self.SPLIT in s:
             left, right = s.rsplit(self.SPLIT, 1)
-            return _lowercase_right_and_join(left, right)
+            return left + right.lower()
         # If there's no hyphen, we must search for the split point between C and R.
         # First find out what center keys we have. Allowable combinations up to here are L, LC, LCR, CR.
         # The last center key in the string (if any) is the place to split, so start looking from the right end.
@@ -91,7 +97,8 @@ class KeyLayout:
             if c in self._c_keys_set:
                 # Partition string to separate left/center keys from right keys.
                 left, c, right = s.partition(c)
-                return _lowercase_right_and_join(left + c, right)
+                left += c
+                return left + right.lower()
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
 
@@ -112,16 +119,3 @@ class KeyLayout:
         # Shift keys as well as all transform values must be valid keys previously defined.
         for shift_key, shift_transform in self.SHIFT_TABLE.items():
             assert {shift_key, *shift_transform.values()} <= all_keys
-
-
-def _lowercase_right_and_join(left:str, right:str) -> str:
-    """ Rejoin string with right side lowercase. If there are no right side keys, just return the left. """
-    return left + right.lower() if right else left
-
-
-def _stroke_map(fn, sep, s:str, _split=str.split) -> str:
-    """ Split a set of keys, apply a string function to every stroke, and join them back together.
-        If there is only one stroke, skip the string carving and apply the function directly. """
-    if sep in s:
-        return sep.join(map(fn, _split(s, sep)))
-    return fn(s)

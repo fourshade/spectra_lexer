@@ -3,7 +3,7 @@
 
 from collections import namedtuple
 from functools import reduce
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 from .keys import KeyLayout
@@ -82,10 +82,12 @@ class PrefixTree:
         self._compiled = {}          # Last compiled state of the tree.
 
     def __setitem__(self, k:Sequence, v:object) -> None:
-        """ Add a new value to the list under the given key. If it doesn't exist, create nodes until you reach it. """
+        """ Add a new value to the list under the given key. If it doesn't exist, create nodes until we reach it. """
         node = self._root
         for element in k:
-            node = node.get(element) or node.setdefault(element, {"values": []})
+            if element not in node:
+                node[element] = {"values": []}
+            node = node[element]
         node["values"].append(v)
 
     def compile(self) -> None:
@@ -147,29 +149,22 @@ class PrefixRuleFinder:
 
 
 class LexerResult(tuple):
-    """ Simple low-overhead type for a single lexer result. """
+    """ Simple low-overhead type for a single lexer result: (rulemap, unmatched s-keys, all keys, all letters) """
 
-    def keep_better(self, other):
+    def keep_better(self, other, _get_lc=itemgetter(2), _is_rare=attrgetter("rule.flags.rare")) -> tuple:
         """ Foldable function that keeps one of two lexer results based on which has a greater "value".
             Each criterion is lazily evaluated, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate maps have smaller values.
             As it is called repeatedly by reduce(), the full compare sequence
             is inlined to avoid method call overhead. """
-        rulemap, unmatched, keys, letters = self
-        n_rulemap, n_unmatched, n_keys, n_letters = other
-        return self if (-len(unmatched)           + len(n_unmatched) or              # Fewest keys unmatched
-                        self.letters_matched()    - other.letters_matched() or       # Most letters matched
-                        -self.rare_count()        + other.rare_count() or            # Fewest rare rules
-                        -len(keys)                + len(n_keys) or                   # Fewest total keys
-                        -len(rulemap)             + len(n_rulemap)) >= 0 else other  # Fewest child rules
-
-    def letters_matched(self, _get_letters=attrgetter("rule.letters")) -> int:
-        """ Get the number of characters matched by mapped rules. """
-        return sum(map(len, map(_get_letters, self[0])))
-
-    def rare_count(self, _get_rare=attrgetter("rule.flags.rare")) -> int:
-        """ Get the number of rare rules in the map. """
-        return sum(map(_get_rare, self[0]))
+        rulemap, unmatched, keys, _ = self
+        o_rulemap, o_unmatched, o_keys, _ = other
+        cmp = (-len(unmatched)              + len(o_unmatched) or               # Fewest keys unmatched
+               sum(map(_get_lc, rulemap))   - sum(map(_get_lc, o_rulemap)) or   # Most letters matched
+               -sum(map(_is_rare, rulemap)) + sum(map(_is_rare, o_rulemap)) or  # Fewest rare rules
+               -len(keys)                   + len(o_keys) or                    # Fewest total keys
+               -len(rulemap)                + len(o_rulemap))                   # Fewest child rules
+        return self if cmp >= 0 else other
 
 
 class StenoLexer:
@@ -213,14 +208,14 @@ class StenoLexer:
     def query(self, keys:str, word:str, **kwargs) -> StenoRule:
         """ Return the best rule that maps the given key string to the given word. """
         results = [*self._process(keys, word, **kwargs)]
-        return self._generate(results, keys, word)
+        return self._generate_rule(results, keys, word)
 
     def best_strokes(self, items:Iterable[Tuple[str, str]], **kwargs) -> str:
         """ Return the best (most accurate) set of strokes out of all given (keys, word) pairs.
             If nothing matches at all, just return the first set of strokes. """
         first, *others = pairs = [*items]
         results = [r for keys, word in pairs for r in self._process(keys, word, **kwargs)]
-        return self._generate(results, *first).keys
+        return self._generate_rule(results, *first).keys
 
     def _process(self, keys:str, word:str, match_all_keys:bool=False) -> Iterator[LexerResult]:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed
@@ -232,7 +227,7 @@ class StenoLexer:
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
         lword = word.lower()
         # The queue is a list of tuples, each containing the state of the lexer at some point in time.
-        # Each tuple includes the keys not yet matched, the current position in the word, and the current rule map.
+        # Each tuple consists of: (keys not yet matched, current position in word, current rule map).
         # Initialize the queue with the start position ready and start processing.
         queue = [(all_skeys, 0, [])]
         queue_add = queue.append
@@ -242,9 +237,9 @@ class StenoLexer:
             letters_left = lword[wordptr:]
             # Get the rules that would work as the next match in order from fewest keys matched to most.
             for r, r_skeys, r_letters, r_skeys_len, r_letters_len in self._match(skeys, letters_left, all_skeys, word):
-                # Make a copy of the current map and add the new rule + its location in the word.
+                # Find the new location in the word and make a copy of the current map with the new rule added.
                 new_wordptr = wordptr + letters_left.find(r_letters)
-                new_map = rulemap + [RuleMapItem(r, new_wordptr, r_letters_len)]
+                new_map = [*rulemap, RuleMapItem(r, new_wordptr, r_letters_len)]
                 # Remove all matched keys and keep the remainder.
                 if skeys[:r_skeys_len] == r_skeys:
                     # Fast path: if the keys are a direct prefix, just cut it off.
@@ -265,7 +260,7 @@ class StenoLexer:
                 queue_add((skeys_left, new_wordptr + r_letters_len, new_map))
 
     def _match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[LexerMatch]:
-        """ Return a list of rules that match the given keys and letters in any of the dictionaries. """
+        """ Search every dictionary for the given keys and letters and return a list of matches. """
         skeys_fs = skeys.split(self._key_sep, 1)[0]
         # For special single-key end-cases, there are no better matches, so return immediately if one is found.
         special_rule = self._special_finder.match(skeys_fs, skeys, all_skeys, all_letters)
@@ -290,7 +285,7 @@ class StenoLexer:
                     matches.append(word_rule)
         return matches
 
-    def _generate(self, results:List[LexerResult], *defaults:str) -> StenoRule:
+    def _generate_rule(self, results:List[LexerResult], *defaults:str) -> StenoRule:
         """ Rank results from the lexer and keep the best one, convert unmatched keys back to RTFCRE format,
             and create a new rule with the correct caption and flags. Going in reverse is faster. """
         if not results:

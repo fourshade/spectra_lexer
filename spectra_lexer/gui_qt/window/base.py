@@ -56,7 +56,7 @@ class QtWindow(Ui_MainWindow):
                 "graph_text":       self.w_text.set_graph_text,
                 "board_caption":    self.w_desc.setText,
                 "board_xml_data":   self.w_board.set_data,
-                "link_ref":         self.w_board.set_link}
+                "show_link":        self.w_board.set_link_visible}
 
     def dialog_parent(self) -> MainWindow:
         """ Return a widget suitable for being the parent to dialogs. """
@@ -72,6 +72,7 @@ class QtWindow(Ui_MainWindow):
         self.w_regex.setEnabled(enabled)
         self.w_title.setReadOnly(not enabled)
         self.w_text.setEnabled(enabled)
+        self.w_board.set_link_visible(False)
 
     def show_exception(self, tb_text:str) -> None:
         """ Display a stack trace. Enable all widgets afterward to allow debugging. """

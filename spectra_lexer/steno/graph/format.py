@@ -1,76 +1,77 @@
-from .canvas import Canvas
-from .node import GraphNode
-from .primitive import BasePrimitive
+from typing import Dict, List, Optional, Sequence, Tuple
+
+from .render import GraphNode
 
 
 class HTMLFormatter:
     """ Formats text lines with HTML markup. Includes support for anchors, colors, and boldface. """
 
+    # ASCII character set and HTML escape substitutions.
+    _ASCII = {*map(chr, range(32, 126))}
+    _HTML_ESC = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}
     # Styles to stop anchors within the block from behaving as hyperlinks.
     _HEADER = '<style>a.gg {color: black; text-decoration: none;}</style><pre>'
     _FOOTER = '</pre>'
 
-    def __init__(self, canvas:Canvas, row_shift=0, col_shift=0) -> None:
-        self._canvas = canvas        # Root canvas of text to format.
+    def __init__(self, char_grid:List[List[str]], node_grid:List[List[GraphNode]],
+                 row_shift:int, col_shift:int, hrefs:Dict[GraphNode, str], rrefs:Dict[str, GraphNode]) -> None:
+        self._char_grid = char_grid  # Root canvas of text to format.
+        self._node_grid = node_grid  # Root canvas of nodes to format.
         self._row_shift = row_shift  # Row offset of the graph vs. the canvas.
         self._col_shift = col_shift  # Column offset of the graph vs. the canvas.
+        self._hrefs = hrefs          # Mapping of each node to its anchor href string.
+        self._rrefs = rrefs          # Mapping of each anchor href string to its node.
 
-    @classmethod
-    def from_graph(cls, graph:BasePrimitive, row=0, col=0):
-        """ Render the graph onto a grid of minimum required size. Try again with a larger one if it fails. """
-        s = row + col
-        canvas = Canvas.blanks(graph.height + s, graph.width + s)
-        try:
-            graph.write(canvas, row, col)
-            return cls(canvas, row, col)
-        except ValueError:
-            dim = s % 2
-            return cls.from_graph(graph, row + dim, col + (not dim))
+    def get_node(self, ref:str) -> Optional[GraphNode]:
+        """ Return the node found by resolving the reference without the #. """
+        return self._rrefs.get(ref[1:])
 
-    def to_html(self, target:GraphNode=None, intense:bool=False) -> str:
-        """ Highlight the ancestry line of the target node (if any), starting with itself up to the root. """
-        if target is None:
-            # If there is no target, highlight nothing.
-            def is_highlighted(node:GraphNode, col:int) -> bool:
-                return False
-        elif target.parent is None:
-            # If the root node is the target, highlight it (and only it) entirely.
-            def is_highlighted(node:GraphNode, col:int) -> bool:
-                return node is target
-        else:
-            # If the root node is not the target, only highlight columns it shares with the target.
-            # Highlight all non-root ancestors fully, including the target itself.
-            *others, second, root = target.ancestors()
-            start = self._col_shift + second.attach_start
-            col_set = {*range(start, start + second.attach_length)}
-            if others:
-                start += sum([node.attach_start for node in others])
-                col_set.intersection_update(range(start, start + target.attach_length))
-            all_ancestors = {*others, second, root}
-            def is_highlighted(node:GraphNode, col:int) -> bool:
-                return node in all_ancestors and (node is not root or col in col_set)
-        formatted = [self._HEADER]
-        row = -self._row_shift
-        for line in self._canvas:
+    def to_html(self, ancestry:Sequence[GraphNode]=(), intense:bool=False) -> str:
+        """ Format a node graph and highlight a node ancestry line, starting with the root down to some terminal node.
+            If there are no targets, highlight nothing. If there is only the root, highlight it (and only it) entirely.
+            If there is more than one node, only highlight columns the root shares with descendants."""
+        root = None
+        col_set = range(0, 10000)
+        if ancestry:
+            root, *others = ancestry
+            start = -self._col_shift
+            for node in others:
+                r = node.attach_range()
+                col_set = {(i + start) for i in r if (i + start) in col_set}
+                start += r.start
+        ancestors_set = {*ancestry}
+        depths = {node: i for i, node in enumerate(ancestry)}
+        grid = [*map(list.copy, self._char_grid)]
+        row = 0
+        for nline in self._node_grid:
             col = 0
-            text = []
-            it = iter(line)
-            for char, node in zip(it, it):
+            cline = grid[row]
+            for node in nline:
                 if node is not None:
-                    highlight = is_highlighted(node, col)
-                    char = node.format(char, highlight, row, intense)
-                text.append(char)
+                    highlighted = (node in ancestors_set and (node is not root or col in col_set))
+                    char = cline[col]
+                    # Only bother escaping and bolding ASCII characters.
+                    if char in self._ASCII:
+                        if char in self._HTML_ESC:
+                            char = self._HTML_ESC[char]
+                        # Most nodes are bold only when highlighted, but some are always bold.
+                        if highlighted or node.bold():
+                            char = f'<b>{char}</b>'
+                    # Add RGB color tags if highlighted.
+                    if highlighted:
+                        rgb = _rgb(depths[node], row, intense)
+                        char = f'<span style="color:#{bytes(rgb).hex()};">{char}</span>'
+                    # The anchor link is simply the ref string.
+                    cline[col] = f'<a class="gg" href="#{self._hrefs[node]}">{char}</a>'
                 col += 1
-            formatted.append(self.joined(text))
             row += 1
-        formatted.append(self._FOOTER)
-        return "\n".join(formatted)
+        return "\n".join([self._HEADER, *map(self.joined, grid), self._FOOTER])
 
     # Join and return a line with no modifications.
     joined = "".join
 
 
-class CompatFormatter(HTMLFormatter):
+class CompatHTMLFormatter(HTMLFormatter):
     """ Formats text lines using explicit HTML tables for browsers that have trouble lining up monospace fonts. """
 
     _HEADER = HTMLFormatter._HEADER + '<style>td.tt {padding: 0;}</style><table style="border-spacing: 0">'
@@ -81,3 +82,14 @@ class CompatFormatter(HTMLFormatter):
         """ Join and return a line as an HTML table row. """
         cells = [f'<td class="tt">{s}</td>' for s in text_sections]
         return f'<tr>{"".join(cells)}</tr>'
+
+
+def _rgb(depth:int, row:int, intense:bool) -> Tuple[int, int, int]:
+    """ Each RGB color is represented by a row of coefficients. The first is the starting value. """
+    if not depth:
+        # The root node has a bright red color, or orange if selected.
+        return (255, 120, 0) if intense else (255, 0, 0)
+    r = min(64 * (depth - intense), 192)  # Vary red with nesting depth and selection (for purple),
+    g = min(8 * row + 100 * intense, 192)  # vary green with the row index and selection,
+    b = 255  # Start from pure blue
+    return r, g, b

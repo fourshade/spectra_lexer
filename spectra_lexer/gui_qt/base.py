@@ -95,8 +95,8 @@ class QtGUIState:
     def _update(self, **state_vars) -> None:
         """ For every variable given, update our state dict and call the corresponding GUI method if one exists. """
         self._state_vars.update(state_vars)
-        for k in state_vars:
-            if k in self._methods:
+        for k in self._methods:
+            if k in state_vars:
                 self._methods[k](state_vars[k])
 
     def _action(self, state:dict, action:str) -> None:

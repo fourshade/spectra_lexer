@@ -53,6 +53,7 @@ class ViewState(ViewConfig):
     graph_text: str = ""         # HTML formatted text for the graph.
     board_caption: str = ""      # Rule caption above the board.
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
+    show_link: bool = False      # If True, there are examples in the index.
 
     # Web-specific - for browsers with poor monospace font support.
     graph_compat: bool = False   # If True, draw the graph using HTML tables with a cell for each character.
@@ -187,6 +188,7 @@ class ViewState(ViewConfig):
         self._set_board_data(selection)
 
     def _set_board_data(self, rule:StenoRule) -> None:
-        self.link_ref = self._engine.rule_to_link(rule) if self.links_enabled else ""
+        self.link_ref = self._engine.rule_to_link(rule)
+        self.show_link = bool(self.link_ref) and self.links_enabled
         self.board_caption = rule.caption()
         self.board_xml_data = self._engine.board_from_rule(rule, self.board_aspect_ratio, compound=self.compound_board)

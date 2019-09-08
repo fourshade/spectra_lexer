@@ -102,9 +102,10 @@ class StenoResources:
         defs, base = board_parser.defs_base_pair()
         bounds = board_parser.diagram_bounds()
         board = BoardGenerator(board_index, defs, base, *bounds)
-        graph = GraphGenerator(layout)
         sep = layout.SEP
         star = layout.SPECIAL
+        split = layout.SPLIT
+        graph = GraphGenerator(sep, split)
         special_finder = SpecialRuleFinder(sep, star)
         prefix_finder = PrefixRuleFinder(sep, star)
         lexer = StenoLexer(layout, special_finder, prefix_finder)

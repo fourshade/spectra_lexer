@@ -15,23 +15,23 @@ class StenoBoardWidget(QWidget):
     _w_link: QLabel              # Rule example hyperlink.
 
     def __init__(self, *args) -> None:
-        """ Create the renderer and examples link. """
+        """ Create the renderer and examples link.
+            Any currently linked rule is already known to the GUI, so the link href doesn't matter. """
         super().__init__(*args)
         self._renderer = QSvgRenderer()
-        # Any currently linked rule is already known to the GUI, so the href doesn't matter.
         self._w_link = QLabel("<a href='dummy'>More Examples</a>", self)
         self._w_link.linkActivated.connect(self._click_link)
-        self.set_link()
+        self.set_link_visible(False)
 
-    def set_link(self, link_ref:str="") -> None:
-        """ Show the link in the bottom-right corner of the diagram if examples exist (i.e. ref is not empty). """
-        self._w_link.setVisible(bool(link_ref))
+    def set_link_visible(self, visible:bool) -> None:
+        """ Show the link in the bottom-right corner of the diagram if examples exist. """
+        self._w_link.setVisible(visible)
 
     def _click_link(self, *args) -> None:
         """ Send the examples link click signal with no args (the GUI already knows what it links to). """
         self.sig_activate_link.emit()
 
-    def set_data(self, xml_data:bytes) -> None:
+    def set_data(self, xml_data:bytes=b"") -> None:
         """ Load the renderer with raw XML data containing the elements to draw, then render the new board. """
         self._renderer.load(xml_data)
         self._draw_board()
