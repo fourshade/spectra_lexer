@@ -24,8 +24,8 @@ def _test_file_path(filename:str) -> str:
 opts = StenoMain()
 IO = ResourceIO()
 RESOURCES = opts.build_resources()
-STENO = RESOURCES.build_engine()
-RULE_PARSER = STENO._rule_parser
+ENGINE = RESOURCES.build_engine()
+RULE_PARSER = ENGINE._rule_parser
 RULES_LIST = RULE_PARSER.to_list()
 IGNORED_KEYS = set("/-")
 VALID_FLAGS = {v for v in vars(StenoRule).values() if isinstance(v, str)}
@@ -83,7 +83,7 @@ def test_index_search(rule_name) -> None:
     assert all_keys == all_keys.intersection(*kresults)
 
 
-RESULTS = [STENO.lexer_query(*t, match_all_keys=True) for t in TRANSLATIONS]
+RESULTS = [ENGINE.lexer_query(*t, match_all_keys=True) for t in TRANSLATIONS]
 
 
 @pytest.mark.parametrize("result", RESULTS)
@@ -96,26 +96,21 @@ def test_lexer(result) -> None:
 @pytest.mark.parametrize("result", RESULTS)
 def test_board(result) -> None:
     """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
-    STENO.board_from_keys(result.keys)
-    STENO.board_from_rule(result)
+    ENGINE.board_from_keys(result.keys)
+    ENGINE.board_from_rule(result)
 
 
 @pytest.mark.parametrize("result", RESULTS)
 def test_graph(result) -> None:
     """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
-    graph = STENO.graph_generate(result)
-    ancestors = graph._formatter._ancestors
+    graph = ENGINE.graph_generate(result)
     # The root node uses the top-level rule and has no ancestors.
-    root = next(iter(ancestors))
-    assert not ancestors[root]
+    root = graph._root
     # Every node available for interaction descends from it and is unique.
     # (FUN FACT: if you iterate over a tree using a self-modifying list, people will hate you).
-    nodes_list = [root]
-    for node in nodes_list:
-        nodes_list += node
+    nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
-    assert nodes_set >= set(ancestors)
 
 
 def test_plover() -> None:

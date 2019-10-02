@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 from .analysis import IndexInfo, ParallelMapper
 from .board import BoardElementParser, BoardEngine
-from .graph import StenoGraph
+from .graph import GraphEngine
 from .keys import KeyLayout
 from .lexer import StenoLexer
 from .rules import RuleParser, StenoRule
@@ -17,19 +17,21 @@ class StenoEngine:
 
     INDEX_DELIM: str = ";"  # Delimiter between rule name and query for index searches.
 
-    def __init__(self, rule_parser:RuleParser, board:BoardEngine, lexer:StenoLexer) -> None:
+    def __init__(self, rule_parser:RuleParser, lexer:StenoLexer,
+                 board_engine:BoardEngine, graph_engine:GraphEngine) -> None:
         """ Delegate methods for GUI-based operations. Add caches to the most expensive and/or frequently called ones.
             Only objects with invariant state and methods with immutable output are allowed to have caches. """
         self._rule_parser = rule_parser  # Parses rules from JSON.
-        self._board = board
         self._lexer = lexer
+        self._board_engine = board_engine
+        self._graph_engine = graph_engine
         self._translations = TranslationsSearchDict()
         self._index = IndexSearchDict()
-        self.board_from_keys = board.from_keys
-        self.board_from_rule = lru_cache()(board.from_rule)
-        self.graph_generate = lru_cache()(StenoGraph.generate)
         self.lexer_query = lru_cache()(lexer.query)
         self.lexer_best_strokes = lexer.best_strokes
+        self.board_from_keys = board_engine.from_keys
+        self.board_from_rule = lru_cache()(board_engine.from_rule)
+        self.graph_generate = lru_cache()(graph_engine.generate)
 
     def set_translations(self, translations:Dict[str, str]) -> None:
         """ Load a new translations search dict. """
@@ -108,8 +110,9 @@ class StenoResources:
         rule_sep = StenoRule.separator(layout.SEP)
         rule_parser = RuleParser(self.raw_rules)
         rules = rule_parser.to_list()
+        lexer = StenoLexer.build(layout, rules, rule_sep)
         board_parser = BoardElementParser(self.board_defs)
         board_parser.parse(self.board_elems)
-        board = board_parser.build_engine(layout)
-        lexer = StenoLexer.build(layout, rules, rule_sep)
-        return StenoEngine(rule_parser, board, lexer)
+        board_engine = board_parser.build_engine(layout)
+        graph_engine = GraphEngine()
+        return StenoEngine(rule_parser, lexer, board_engine, graph_engine)
