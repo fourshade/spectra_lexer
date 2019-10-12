@@ -10,12 +10,12 @@ class EntryPoints:
     """ Formal entry point dictionary for applications.
         To avoid unnecessary imports (especially when dependencies are different), only strings are used here. """
 
-    def __init__(self, *, default:str="") -> None:
+    def __init__(self, *, default="") -> None:
         self._default = default  # Default entry point mode string (used when no mode is given at the command line).
         self._paths = {}         # Dict of all entry point module paths by mode.
         self._descriptions = []  # List of all description strings.
 
-    def add(self, module_path:str, mode:str, desc:str="Unknown function.") -> None:
+    def add(self, module_path:str, mode:str, desc="Unknown function.") -> None:
         """ At minimum, each entry point requires a module path string and a mode string.
             <module_path> is an absolute Python module path.
             <mode> refers to a callable member of that module, usually a class or function.
@@ -24,7 +24,7 @@ class EntryPoints:
         self._paths[mode] = module_path
         self._descriptions.append(f"{mode} - {desc}")
 
-    def __call__(self, mode:str=None) -> Optional[Callable]:
+    def load(self, mode="") -> Optional[Callable]:
         """ Make sure the mode matches exactly one entry point, then import and return it.
             With no mode argument (or a blank one), redirect to the default mode. """
         if not mode:
@@ -40,7 +40,8 @@ class EntryPoints:
         else:
             print(f'Operation "{mode}" has multiple matches. Use more characters.')
         print('Currently available operations:')
-        print("\n".join(self._descriptions))
+        for desc in self._descriptions:
+            print(desc)
 
     def _get_matches(self, mode:str) -> List[Callable]:
         """ Get all entry point modes that match the given string up to its last character. """
@@ -51,7 +52,7 @@ class EntryPoints:
     def _import_callable(self, mode:str) -> Callable:
         """ Import the module on the path corresponding to <mode>, then get the callable as an attribute. """
         module_path = self._paths[mode]
-        module = __import__(module_path, globals(), locals(), [mode])
+        module = __import__(module_path, fromlist=[mode])
         return getattr(module, mode)
 
 
@@ -64,10 +65,10 @@ add("spectra_lexer.gui_http", "http",    "Run the application as an HTTP web ser
 add("spectra_lexer.gui_qt",   "gui",     "Run the application as a standalone GUI (default).")
 
 
-def main(script:str="", mode:str="", *argv:str) -> int:
+def main(script="", mode="", *argv:str) -> int:
     """ Look up an entry point using the first command-line argument, call it with the rest, and return the exit code.
         If the return value isn't an integer, cast it to bool and return its inverse (so True is success). """
-    func = entry_points(mode)
+    func = entry_points.load(mode)
     if func is None:
         return -1
     result = func(script, *argv)

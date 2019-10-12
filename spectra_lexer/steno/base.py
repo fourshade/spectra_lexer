@@ -1,46 +1,56 @@
-from typing import Dict, Iterable, List, Tuple
+from collections import defaultdict
+from typing import Dict, Iterable, Tuple
 
-from .analysis import IndexInfo, ParallelMapper
 from .board import BoardElementParser, BoardEngine
-from .caption import RuleCaptioner
 from .graph import GraphEngine
 from .keys import KeyLayout
 from .lexer import LexerResult, StenoLexer
-from .rules import IndexCompiler, InverseRuleParser, RuleParser, StenoRule
-from .search import SearchEngine
+from .parallel import ParallelMapper
+from .rules import InverseRuleParser, RuleParser, StenoRule
+
+_RAW_RULES_TP = Dict[str, list]
+_TR_DICT_TP = Dict[str, str]
+
+
+class _RuleCaptioner:
+
+    def __init__(self) -> None:
+        self._captions = {}
+
+    def add_rule(self, name:str, keys:str, letters:str, desc:str, has_children:bool) -> None:
+        """ Generate and add a plaintext caption for a rule. """
+        if has_children and letters:
+            # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
+            left_side = f"{keys} → {letters}"
+        else:
+            # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
+            left_side = keys
+        self._captions[name] = f"{left_side}: {desc}"
+
+    def caption_rule(self, name:str) -> str:
+        """ Return the plaintext caption for a rule. """
+        return self._captions[name]
 
 
 class StenoEngine:
     """ Main access point for steno analysis. Generates rules from translations and creates visual representations. """
 
     def __init__(self, layout:KeyLayout, rule_parser:RuleParser, lexer:StenoLexer,
-                 board_engine:BoardEngine, graph_engine:GraphEngine, captioner:RuleCaptioner,
-                 search_engine:SearchEngine) -> None:
+                 board_engine:BoardEngine, graph_engine:GraphEngine, captioner:_RuleCaptioner) -> None:
         self._layout = layout            # Converts between user RTFCRE steno strings and s-keys.
         self._rule_parser = rule_parser  # Parses rules from JSON.
         self._lexer = lexer
         self._board_engine = board_engine
         self._graph_engine = graph_engine
         self._captioner = captioner
-        self._search_engine = search_engine
-        self._all_translations = []
-        self.set_index = search_engine.set_index  # Load a new example search index.
-        self.search_translations = search_engine.search_translations
-        self.search_examples = search_engine.search_examples
-        self.has_examples = search_engine.has_examples
-        self.find_example = search_engine.find_example
-
-    def set_translations(self, translations:Dict[str, str]) -> None:
-        """ Load a new translations search dict. Keep a copy of the items for bulk analysis. """
-        self._all_translations = list(translations.items())
-        self._search_engine.set_translations(translations)
 
     def run(self, keys:str, letters:str, *,
             select_ref:str, find_rule:bool, set_focus:bool, board_ratio:float, match_all_keys:bool,
             graph_compress:bool, graph_compat:bool, board_compound:bool):
         """ Run a lexer query and return everything necessary to update the user GUI state. """
-        names, positions, lengths, unmatched_skeys = self.lexer_query(keys, letters, match_all_keys=match_all_keys)
-        connections = list(zip(names, positions, lengths))
+        result = self.lexer_query(keys, letters, match_all_keys=match_all_keys)
+        unmatched_skeys = result.unmatched_skeys()
+        connections = list(result)
         # Convert unmatched keys back to RTFCRE format for the graph and caption.
         unmatched_keys = self._layout.to_rtfcre(unmatched_skeys)
         root = self._graph_engine.make_tree(letters, connections, unmatched_keys)
@@ -56,7 +66,8 @@ class StenoEngine:
             set_focus = False
         rule_name = node.rule_name()
         if node is root:
-            caption = self._captioner.caption_lexer(names, unmatched_skeys)
+            caption = result.caption()
+            names = result.rule_names()
         elif rule_name == 'UNMATCHED':
             caption = unmatched_keys + ": unmatched keys"
             names = []
@@ -67,21 +78,16 @@ class StenoEngine:
         xml = self._board_engine.from_rules(names, unmatched_skeys, board_ratio, compound=board_compound)
         return text, set_focus, rule_name, caption, xml
 
-    def lexer_query(self, keys:str, letters:str, *, match_all_keys=False):
+    def lexer_query(self, keys:str, letters:str, *, match_all_keys=False) -> LexerResult:
         """ Return the best rule matching <keys> to <letters>.
             If <match_all_keys> is True, do not return partial results. """
         # Thoroughly parse the key string into s-keys format first.
         skeys = self._layout.from_rtfcre(keys)
         result = self._lexer.query(skeys, letters)
-        names = result.rule_names()
-        positions = result.rule_positions()
-        lengths = result.rule_lengths()
-        unmatched_skeys = result.unmatched_skeys()
-        if unmatched_skeys and match_all_keys:
+        if match_all_keys and result.unmatched_skeys():
             # If the best result has unmatched keys, return a fully unmatched result instead.
-            names = positions = lengths = ()
-            unmatched_skeys = skeys
-        return names, positions, lengths, unmatched_skeys
+            return LexerResult([skeys])
+        return result
 
     def lexer_best_strokes(self, keys_iter:Iterable[str], letters:str) -> str:
         """ Return the best (most accurate) set of strokes from <keys_iter> that matches <letters>.
@@ -91,39 +97,37 @@ class StenoEngine:
         best_index = self._lexer.find_best_translation(tr_list)
         return keys_list[best_index]
 
-    def make_rules(self, **kwargs) -> Dict[str, list]:
-        """ Run the lexer on all translations and return a list of raw rules with all keys matched for saving. """
-        translations_in = self._all_translations
-        results = self._parallel_query(translations_in, **kwargs)
+    def make_rules(self, translations:_TR_DICT_TP, **kwargs) -> _RAW_RULES_TP:
+        """ Run the lexer on all <translations> and return a list of raw rules with all keys matched for saving. """
         inv_parser = InverseRuleParser()
-        for (keys, letters), result in zip(translations_in, results):
-            if not result.unmatched_skeys():
-                inv_parser.add(keys, letters, result.rule_names(), result.rule_positions(), result.rule_lengths())
+        for keys, result in self._parallel_query(translations, **kwargs):
+            inv_parser.add(keys, translations[keys], list(result))
         return inv_parser.to_dict()
 
-    def make_index(self, size:int, **kwargs) -> Dict[str, dict]:
-        """ Make a index from a parallel lexer query operation. Use an input filter to control size. """
-        info = IndexInfo(size)
-        translations_in = info.filter_translations(self._all_translations)
-        results = self._parallel_query(translations_in, **kwargs)
-        compiler = IndexCompiler()
-        for (keys, letters), result in zip(translations_in, results):
-            if not result.unmatched_skeys():
-                compiler.add(keys, letters, result.rule_names())
-        return compiler.to_dict()
+    def make_index(self, translations:_TR_DICT_TP, **kwargs) -> Dict[str, _TR_DICT_TP]:
+        """ Run the lexer on all <translations> and look at the top-level rule names.
+            Make a index containing a dict for each built-in rule with every translation that used it. """
+        index = defaultdict(dict)
+        for keys, result in self._parallel_query(translations, **kwargs):
+            letters = translations[keys]
+            # Add a translation to the index under the name of every rule in the result.
+            for name in result.rule_names():
+                index[name][keys] = letters
+        return index
 
-    def _parallel_query(self, translations:Iterable[Tuple[str, str]], **kwargs) -> Iterable[LexerResult]:
-        """ Return tuples of keys, letters, and results from lexer queries on all <translations>. """
-        tr_list = [(self._layout.from_rtfcre(keys), letters) for keys, letters in translations]
+    def _parallel_query(self, translations:_TR_DICT_TP, **kwargs) -> Iterable[Tuple[str, LexerResult]]:
+        """ Return tuples of keys, letters, and results from complete lexer matches on <translations>. """
+        tr_list = [(self._layout.from_rtfcre(keys), letters) for keys, letters in translations.items()]
         mapper = ParallelMapper(self._lexer.query, **kwargs)
-        return mapper.starmap(tr_list)
+        results = mapper.starmap(tr_list)
+        return [(keys, result) for keys, result in zip(translations, results) if not result.unmatched_skeys()]
 
 
 class StenoResources:
     """ Contains all static resources necessary for a steno system. The structures are all JSON dicts.
         Assets include a key layout, rules, and board graphics. """
 
-    def __init__(self, raw_layout:dict, raw_rules:Dict[str, list],
+    def __init__(self, raw_layout:dict, raw_rules:_RAW_RULES_TP,
                  board_defs:Dict[str, dict], board_elems:Dict[str, dict]) -> None:
         """ All fields are static resources loaded from package assets. """
         self.raw_layout = raw_layout
@@ -141,8 +145,7 @@ class StenoResources:
         board_engine = self._build_board_engine(layout, rules)
         graph_engine = self._build_graph_engine(rules)
         captioner = self._build_captioner(rules)
-        search_engine = self._build_search_engine()
-        return StenoEngine(layout, rule_parser, lexer, board_engine, graph_engine, captioner, search_engine)
+        return StenoEngine(layout, rule_parser, lexer, board_engine, graph_engine, captioner)
 
     @staticmethod
     def _build_lexer(layout:KeyLayout, rules:Iterable[StenoRule]) -> StenoLexer:
@@ -202,12 +205,8 @@ class StenoResources:
         return graph_engine
 
     @staticmethod
-    def _build_captioner(rules:Iterable[StenoRule]) -> RuleCaptioner:
-        captioner = RuleCaptioner()
+    def _build_captioner(rules:Iterable[StenoRule]) -> _RuleCaptioner:
+        captioner = _RuleCaptioner()
         for rule in rules:
             captioner.add_rule(rule.name, rule.keys, rule.letters, rule.desc, rule.rulemap)
         return captioner
-
-    @staticmethod
-    def _build_search_engine() -> SearchEngine:
-        return SearchEngine()

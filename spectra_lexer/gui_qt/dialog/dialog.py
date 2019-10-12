@@ -1,45 +1,75 @@
-from typing import Callable
+from typing import List, Type
+from weakref import WeakValueDictionary
 
-from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QWidget
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget
+
+
+class ModalDialogGenerator:
+    """ Opens common modal dialogs under a parent widget (usually the main window) and returns their results. """
+
+    def __init__(self, parent:QWidget=None) -> None:
+        self._parent = parent  # All GUI dialogs must be children of some widget.
+
+    def yes_or_no(self, title:str, message:str) -> bool:
+        """ Present a yes/no dialog and return the user's response as a bool. """
+        yes, no = QMessageBox.Yes, QMessageBox.No
+        button = QMessageBox.question(self._parent, title, message, yes | no)
+        return button == yes
+
+    def open_file(self, title="Open File", file_ext="") -> str:
+        """ Present a modal dialog for the user to select a file to open.
+            Return the selected filename, or an empty string on cancel. """
+        return QFileDialog.getOpenFileName(self._parent, title, ".", self._filter_str(file_ext))[0]
+
+    def open_files(self, title="Open Files", file_ext="") -> List[str]:
+        """ Present a modal dialog for the user to select multiple files to open.
+            Return a list of selected filenames, or an empty list on cancel. """
+        return QFileDialog.getOpenFileNames(self._parent, title, ".", self._filter_str(file_ext))[0]
+
+    @staticmethod
+    def _filter_str(file_ext="") -> str:
+        """ Return a file dialog filter string based on a file extension. It should not include the dot.
+            If <file_ext> is empty, return a filter string matching any file. """
+        if not file_ext:
+            return "All files (*.*)"
+        return f"{file_ext.upper()} files (*.{file_ext})"
 
 
 class ToolDialog(QDialog):
-    """ Base class for a Qt dialog window object used by a GUI tool. Restricts subclasses to one instance each. """
+    """ Abstract base class for a Qt dialog object used by a GUI tool. """
 
-    sig_accept = pyqtSignal([object])  # Signal to return config values to the parent on dialog accept.
+    title: str   # Starting dialog window title.
+    width: int   # Starting window width in pixels.
+    height: int  # Starting window height in pixels.
 
-    _LAST_INSTANCE: QDialog = None  # Most recent instance of a particular dialog subclass.
-    _DIALOG_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
-
-    @classmethod
-    def new(cls, parent:QWidget=None, *args, callback:Callable=None) -> None:
-        """ Create a new UI dialog window, perform setup, connect the callback (if given), and display it.
-            If a previous dialog instance exists, close it first and overwrite the reference (which may destroy it). """
-        if cls._LAST_INSTANCE is not None:
-            cls._LAST_INSTANCE.close()
-        self = cls._LAST_INSTANCE = cls(parent, cls._DIALOG_FLAGS)
-        self.setup(*args)
-        if callback is not None:
-            self.sig_accept.connect(callback)
-        self.show()
-
-    def setup(self, *args) -> None:
-        """ Subclasses perform basic setup after construction here. """
+    def setup(self, *args, **kwargs) -> None:
         raise NotImplementedError
 
-    def setup_window(self, title:str, width:int, height:int) -> None:
+    def __init__(self, *args) -> None:
         """ Set the most basic properties of the window: the title string and its dimensions in pixels. """
-        self.setWindowTitle(title)
-        self.resize(width, height)
-        self.setMinimumSize(width, height)
+        super().__init__(*args)
+        self.setWindowTitle(self.title)
+        self.resize(self.width, self.height)
+        self.setMinimumSize(self.width, self.height)
         self.setSizeGripEnabled(False)
 
-    def button_box(self) -> QDialogButtonBox:
-        """ Return a set of standard buttons connected to the basic dialog slots. """
-        w_buttons = QDialogButtonBox(self)
-        w_buttons.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        w_buttons.setCenterButtons(True)
-        w_buttons.accepted.connect(self.accept)
-        w_buttons.rejected.connect(self.reject)
-        return w_buttons
+
+class SingletonDialogGenerator:
+    """ Constructs dialogs with classes restricted to one open instance each. New instances will replace old ones. """
+
+    _WINDOW_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+
+    def __init__(self, parent:QWidget=None) -> None:
+        self._parent = parent                          # All GUI dialogs must be children of some widget.
+        self._dialogs_by_type = WeakValueDictionary()  # Contains the current instance of each dialog class in use.
+
+    def open_dialog(self, dialog_cls:Type[ToolDialog], *args, **kwargs) -> None:
+        """ If a previous instance of <dialog's> class is open, set focus on it. Otherwise make a new dialog. """
+        dialog = self._dialogs_by_type.get(dialog_cls)
+        if dialog is None or dialog.isHidden():
+            dialog = dialog_cls(self._parent, self._WINDOW_FLAGS)
+            dialog.setup(*args, **kwargs)
+            self._dialogs_by_type[dialog_cls] = dialog
+        dialog.show()
+        dialog.activateWindow()

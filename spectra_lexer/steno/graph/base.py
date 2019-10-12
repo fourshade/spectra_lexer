@@ -344,7 +344,8 @@ class GraphEngine:
         # The root node's attach points are arbitrary, so tstart=0 and tlen=blen.
         return BranchNode("ROOT", letters, 0, root_length, 0, 0, children)
 
-    def make_graph(self, root:GraphNode, compressed=True, compat=False) -> StenoGraph:
+    @staticmethod
+    def make_graph(root:GraphNode, compressed=True, compat=False) -> StenoGraph:
         """ Make a graph object and formatter out of a <root> graph node.
             <compressed> - If True, lay out the graph in a manner that squeezes nodes together as much as possible.
             <compat> - If True, use a formatter that implements text monospacing with explicit markup. """

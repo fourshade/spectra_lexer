@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from spectra_lexer.steno.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):

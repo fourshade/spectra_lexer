@@ -3,6 +3,7 @@ from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
 
 from .dialog import ToolDialog
+
 from spectra_lexer.console import SystemConsole
 
 
@@ -37,17 +38,17 @@ class HistoryTracker:
 class ConsoleTextWidget(QTextEdit):
     """ Formatted text widget meant to display plaintext interpreter input and output as a terminal. """
 
-    textKeyboardInput = pyqtSignal([str])  # Sent with a line of user input upon pressing Enter.
+    sig_line_out = pyqtSignal([str])  # Sent with a line of user input upon pressing Enter.
 
-    def __init__(self, parent:ToolDialog) -> None:
-        super().__init__(parent)
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
         self._history = HistoryTracker()  # Tracks previous keyboard input.
-        self._last_text_received = ""     # Last external text received; used as an unchangeable base for text input.
+        self._prev_text_state = ""        # Unchangeable base text. User input may only appear after this.
 
     def add_text(self, text:str) -> None:
         """ Add to the text content of the widget and reset the cursor to the end. """
-        self._last_text_received += text
-        self._set_content(self._last_text_received)
+        self._prev_text_state += text
+        self._set_content(self._prev_text_state)
         # To keep up with scrolling text, the vertical scroll position is fixed at the bottom.
         sy = self.horizontalScrollBar()
         sy.setValue(sy.maximum())
@@ -62,23 +63,23 @@ class ConsoleTextWidget(QTextEdit):
     def keyPressEvent(self, event:QKeyEvent) -> None:
         """ Check the input for special cases. Make sure the cursor can't erase anything we started with. """
         self._set_cursor_valid()
-        original = self._last_text_received
+        original_text = self._prev_text_state
         # Up/down arrow keys will scroll through the command history.
         if event.key() == Qt.Key_Up:
-            self._set_content(original + self._history.prev())
+            self._set_content(original_text + self._history.prev())
         elif event.key() == Qt.Key_Down:
-            self._set_content(original + self._history.next())
+            self._set_content(original_text + self._history.next())
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
             # If a newline is entered, capture only the user-provided text.
             # Add it to the history, append it to the saved text (with newline), and send it in a signal.
-            user_str = self.toPlainText()[len(original):]
-            self._history.add(user_str)
-            self.add_text(user_str + "\n")
-            self.textKeyboardInput.emit(user_str)
+            user_text = self.toPlainText()[len(original_text):]
+            self._history.add(user_text)
+            self.add_text(user_text + "\n")
+            self.sig_line_out.emit(user_text)
         else:
             # In any other case, pass the keypress as normal. Undo anything that modifies the previous text.
             super().keyPressEvent(event)
-            if not self.toPlainText().startswith(original):
+            if not self.toPlainText().startswith(original_text):
                 self.undo()
             self._set_cursor_valid()
 
@@ -92,7 +93,7 @@ class ConsoleTextWidget(QTextEdit):
 
     def _set_cursor_valid(self) -> None:
         """ If the cursor is not within the current prompt, move it there. """
-        min_position = len(self._last_text_received)
+        min_position = len(self._prev_text_state)
         c = self.textCursor()
         if c.position() < min_position:
             c.setPosition(min_position)
@@ -102,13 +103,16 @@ class ConsoleTextWidget(QTextEdit):
 class ConsoleDialog(ToolDialog):
     """ Qt console dialog window object. Routes signals between the console, a text widget, and the keyboard. """
 
+    title = "Python Console"
+    width = 680
+    height = 480
+
     def setup(self, locals_ns:dict) -> None:
         """ Create a console widget and connect it to a new interpreter console instance. """
-        self.setup_window("Python Console", 680, 480)
         w_text = ConsoleTextWidget(self)
         w_text.setFont(QFont("Courier New", 10))
         w_text.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
         console = SystemConsole(locals_ns, write_to=w_text.add_text)
-        w_text.textKeyboardInput.connect(console)
+        w_text.sig_line_out.connect(console)
         layout = QVBoxLayout(self)
         layout.addWidget(w_text)

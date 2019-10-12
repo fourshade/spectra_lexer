@@ -1,5 +1,4 @@
-from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 class RuleMapItem:
@@ -142,14 +141,14 @@ class InverseRuleParser:
         self._raw_rules = {}           # Dict of raw steno rules in list form for JSON.
         self._count = 0
 
-    def add(self, keys:str, letters:str, names:List[str], positions:List[int], lengths:List[int]) -> None:
+    def add(self, keys:str, letters:str, rulemap:List[Tuple[str, int, int]]) -> None:
         """ Parse a translation and rule map into raw list form suitable for JSON encoding by substituting each
             child rule for its letters and using serial numbers as rule names. """
         lb, rb = self._ref_delims
         # Convert the letter string into a list to allow in-place modification.
         letters = [*letters]
         # Replace each rule's letters with a parenthesized name reference. Go from right to left to preserve indexing.
-        for name, start, length in list(zip(names, positions, lengths))[::-1]:
+        for name, start, length in rulemap[::-1]:
             end = start + length
             letters[start:end] = lb, name, rb
         word = "".join(letters)
@@ -158,18 +157,3 @@ class InverseRuleParser:
 
     def to_dict(self) -> Dict[str, list]:
         return self._raw_rules
-
-
-class IndexCompiler:
-    """ Compiles a dict of translations that uses each rule directly under its name. """
-
-    def __init__(self) -> None:
-        self._index: Dict[str, dict] = defaultdict(dict)
-
-    def add(self, keys:str, letters:str, names:Iterable[str]) -> None:
-        """ Add a (keys, letters) translation to the index under the name of every rule in <rules>. """
-        for name in names:
-            self._index[name][keys] = letters
-
-    def to_dict(self) -> Dict[str, dict]:
-        return self._index

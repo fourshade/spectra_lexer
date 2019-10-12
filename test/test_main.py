@@ -11,8 +11,8 @@ import pytest
 from spectra_lexer import plover
 from spectra_lexer.app import StenoMain
 from spectra_lexer.io import ResourceIO
+from spectra_lexer.search import SearchEngine
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.search import ExampleSearchEngine, TranslationsSearchEngine
 
 
 def _test_file_path(filename:str) -> str:
@@ -58,33 +58,34 @@ def test_rules(rule) -> None:
         assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
 
 
+SEARCH_ENGINE = SearchEngine()
 TRANSLATIONS = IO.json_read(_test_file_path("translations.json"))
-TRANSLATIONS_ENGINE = TranslationsSearchEngine(TRANSLATIONS)
+SEARCH_ENGINE.set_translations(TRANSLATIONS)
 
 
 @pytest.mark.parametrize("keys, word", TRANSLATIONS.items())
 def test_translations_search(keys, word) -> None:
     """ Go through each loaded test translation and check the search method in all modes.
         Search should return a list with only the item itself (or its value) in any mode. """
-    assert TRANSLATIONS_ENGINE.search(keys, count=2, strokes=True) == [keys]
-    assert TRANSLATIONS_ENGINE.search(word, count=2, strokes=False) == [word]
-    assert TRANSLATIONS_ENGINE.search(keys, count=None, strokes=True) == [word]
-    assert TRANSLATIONS_ENGINE.search(word, count=None, strokes=False) == [keys]
-    assert TRANSLATIONS_ENGINE.search(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
-    assert TRANSLATIONS_ENGINE.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
+    assert SEARCH_ENGINE.search_translations(keys, count=2, strokes=True) == [keys]
+    assert SEARCH_ENGINE.search_translations(word, count=2, strokes=False) == [word]
+    assert SEARCH_ENGINE.search_translations(keys, count=None, strokes=True) == [word]
+    assert SEARCH_ENGINE.search_translations(word, count=None, strokes=False) == [keys]
+    assert SEARCH_ENGINE.search_translations(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
+    assert SEARCH_ENGINE.search_translations(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
 INDEX = IO.json_read(_test_file_path("index.json"))
-INDEX_ENGINE = ExampleSearchEngine(INDEX)
+SEARCH_ENGINE.set_index(INDEX)
 
 
 @pytest.mark.parametrize("rule_name", INDEX.keys())
 def test_index_search(rule_name) -> None:
     """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
     rule = RULE_PARSER.get(rule_name)
-    wresults = INDEX_ENGINE.search(rule_name, "", count=100, strokes=False)
+    wresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=False)
     assert all([rule.letters in r for r in wresults])
-    kresults = INDEX_ENGINE.search(rule_name, "", count=100, strokes=True)
+    kresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=True)
     all_keys = set(rule.keys) - IGNORED_KEYS
     assert all_keys == all_keys.intersection(*kresults)
 
@@ -96,16 +97,22 @@ def test_analysis(keys, letters) -> None:
     result = LEXER.query(skeys, letters)
     unmatched = result.unmatched_skeys()
     assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
-    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
+    # Rule names must all refer to rules that exist.
     names = result.rule_names()
+    for name in names:
+        assert RULE_PARSER.get(name)
+    # Rule positions must be non-negative and increasing monotonic.
+    positions = result.rule_positions()
+    assert positions == sorted(map(abs, positions))
+    # Rule lengths must be non-negative.
+    for length in result.rule_lengths():
+        assert length >= 0
+    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
     BOARD_ENGINE.from_keys(skeys)
     BOARD_ENGINE.from_rules(names)
     # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
-    positions = result.rule_positions()
-    lengths = result.rule_lengths()
-    connections = list(zip(names, positions, lengths))
     # The root node uses the top-level rule and has no ancestors.
-    root = GRAPH_ENGINE.make_tree(letters, connections)
+    root = GRAPH_ENGINE.make_tree(letters, list(result))
     # Every node available for interaction descends from it and is unique.
     nodes_list = [*root]
     nodes_set = set(nodes_list)

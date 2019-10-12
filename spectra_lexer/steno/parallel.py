@@ -2,7 +2,7 @@ from functools import partial
 from itertools import starmap
 import os
 import sys
-from typing import Callable, Iterable, Tuple
+from typing import Callable, Iterable
 
 
 class ParallelMapper:
@@ -57,39 +57,3 @@ class ParallelMapper:
     def _serial_starmap(self, iterable:Iterable[tuple]) -> list:
         """ Map the function over <iterable> with ordinary starmap. """
         return list(starmap(self._func, iterable))
-
-
-class IndexInfo:
-    """ Contains constants regarding index generation. """
-
-    MINIMUM_SIZE = 1   # Minimum index size. Below this size, input filters block everything.
-    DEFAULT_SIZE = 12  # Default index size. Essentially the maximum word length.
-    MAXIMUM_SIZE = 20  # Maximum index size. At this size and above, input filters are disabled.
-
-    SIZE_DESCRIPTIONS = ["size = 1: includes nothing.",
-                         "size = 10: fast index with relatively simple words.",
-                         "size = 12: average-sized index (default).",
-                         "size = 15: slower index with more advanced words.",
-                         "size = 20: includes everything."]
-
-    SIZE_WARNING = "An extremely large index is not necessarily more useful. " \
-                   "The index is created from the Plover dictionary, which is very large " \
-                   "(about 150,000 translations) with many useless and even erroneous entries. " \
-                   "As the index grows, so does the loading time, " \
-                   "and past a certain point the garbage will start to crowd out useful information. " \
-                   "Unless you are doing batch analysis, there is little benefit to a maximum-sized index."
-
-    def __init__(self, size:int=DEFAULT_SIZE) -> None:
-        self._size = size  # Relative index size (1-20).
-
-    def filter_translations(self, translations:Iterable[Tuple[str, str]]) -> Iterable[Tuple[str, str]]:
-        """ Filter input translations according to the required index size. """
-        size = self._size
-        if size < self.MINIMUM_SIZE:
-            # If the size is below minimum, it could be a dummy run. Keep nothing.
-            return []
-        if size >= self.MAXIMUM_SIZE:
-            # If the size is maximum, a filter is unnecessary. Keep everything.
-            return translations
-        # Eliminate long translations before processing depending on the size factor.
-        return [t for t in translations if max(map(len, t)) <= size]

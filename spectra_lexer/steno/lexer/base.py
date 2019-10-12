@@ -29,6 +29,23 @@ class LexerResult:
         """ Return a list of lengths (in the letters) for each rule we found. """
         return self._state[3::3]
 
+    def __iter__(self) -> zip:
+        """ Yield the rulemap in (name, start, length) tuples. """
+        it = iter(self._state[1:])
+        return zip(it, it, it)
+
+    def caption(self) -> str:
+        """ Return the caption for a lexer result. """
+        unmatched_skeys, *rulemap = self._state
+        if not unmatched_skeys:
+            caption = "Found complete match."
+        # The output is nowhere near reliable if some keys couldn't be matched.
+        elif rulemap:
+            caption = "Incomplete match. Not reliable."
+        else:
+            caption = "No matches found."
+        return caption
+
 
 class StenoLexer:
     """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno

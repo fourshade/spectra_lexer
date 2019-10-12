@@ -1,11 +1,13 @@
 """ Module for config manager. Allows editing of config values for any component. """
 
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
-from PyQt5.QtWidgets import QCheckBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, QTabWidget, QVBoxLayout,\
-    QWidget
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, \
+    QTabWidget, QVBoxLayout, QWidget
 
 from .dialog import ToolDialog
+
 from spectra_lexer.option import ConfigItem
 
 
@@ -19,7 +21,8 @@ class OptionWidgets:
         """ Make and return a new option widget based on the type of the original value. Only basic types are supported.
             Each supported option type uses a specific editing widget with basic getter and setter methods.
             Unsupported data types use a string-type widget by default, though they will likely raise upon saving. """
-        w_type = self.TYPES.get(type(value), self.OptionWidgetStr)
+        cls_name = "OptionWidget" + type(value).__name__.title()
+        w_type = getattr(self, cls_name, self.OptionWidgetStr)
         self._widgets[key] = w_option = w_type()
         w_option.set(value)
         return w_option
@@ -46,10 +49,6 @@ class OptionWidgets:
         """ String-type widget that casts output values to int. """
         def get(self) -> int:
             return int(self.text())
-
-    TYPES = {bool: OptionWidgetBool,
-             int:  OptionWidgetInt,
-             str:  OptionWidgetStr}
 
 
 class ConfigPages:
@@ -81,36 +80,50 @@ class ConfigPages:
 class ConfigDialog(ToolDialog):
     """ Outermost Qt config dialog window object. Has standard submission form buttons. """
 
+    _sig_accept = pyqtSignal([dict])  # Signal to return config values on dialog accept.
+
+    title = "Spectra Configuration"
+    width = 250
+    height = 300
+
     def __init__(self, *args) -> None:
         super().__init__(*args)
         self._widgets = OptionWidgets()  # Contains all active config option widgets.
 
-    def setup(self, info:Iterable[ConfigItem]) -> None:
+    def setup(self, options_callback:Callable[[dict], None], info:Iterable[ConfigItem]) -> None:
         """ Create a new central tab widget for the config info rows.
-            Make new widgets for config options based on these attributes:
-            key - Key for the option in the final output dict. No effect on appearance.
-            value - Initial value of the option. Determines the widget type.
-            tab - Tab page under which to put the option.
-            label - Label to display beside the option.
-            description - Short description to display in a tooltip. """
-        self.setup_window("Spectra Configuration", 250, 300)
+            Make a new widget for each config option in <info> based on these attributes:
+                key - Key for the option in the final output dict. No effect on appearance.
+                value - Initial value of the option. Determines the widget type.
+                tab - Tab page under which to put the option.
+                label - Label to display beside the option.
+                description - Short description to display in a tooltip. """
         tabs = QTabWidget()
         pages = ConfigPages(tabs)
         for item in info:
             w_option = self._widgets.generate(item.key, item.value)
             pages.add_widget(w_option, item.title, item.name, item.description)
+        button_box = QDialogButtonBox(self)
+        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.setCenterButtons(True)
+        button_box.accepted.connect(self._check_accept)
+        button_box.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(tabs)
-        layout.addWidget(self.button_box())
+        layout.addWidget(button_box)
+        self._sig_accept.connect(options_callback)
 
-    def accept(self) -> None:
+    def _check_accept(self) -> None:
         """ Compile the new config values into a dict on dialog accept and close the window.
             If there are one or more errors, show a popup without closing the window. """
         try:
             d = self._widgets.compile()
-            self.sig_accept.emit(d)
-            super().accept()
+            self._sig_accept.emit(d)
+            self.accept()
         except TypeError:
-            QMessageBox.warning(self, "Config Error", "One or more config types was invalid.")
+            self._show_error("One or more config types are invalid.")
         except ValueError:
-            QMessageBox.warning(self, "Config Error", "One or more config values was invalid.")
+            self._show_error("One or more config values are invalid.")
+
+    def _show_error(self, message:str) -> None:
+        QMessageBox.warning(self, "Config Error", message)

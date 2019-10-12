@@ -9,50 +9,52 @@ from .bench import bench
 
 class ComponentBench:
 
-    def __init__(self, engine):
-        self.engine = engine
-        self.translations = engine._translations
-        self.n = 5000
+    def __init__(self, steno_engine, search_engine, translations):
+        self.steno_engine = steno_engine
+        self.search_engine = search_engine
+        self.translations = translations
 
-    def _run(self, *args, **kwargs):
-        bench(*args, count=self.n, **kwargs)
-
-    def _spaced_translations(self):
+    def _spaced_translations(self, n):
         items = [*self.translations.items()]
-        step = len(items) // self.n
-        return items[::step]
+        step = len(items) // n
+        return items[:step*n:step]
 
-    def _spaced_rules(self):
-        translations = self._spaced_translations()
-        query = self.engine.lexer_query
-        return zip([query(k, w) for k, w in translations])
+    def _spaced_results(self, n):
+        translations = self._spaced_translations(n)
+        query = self.steno_engine.lexer_query
+        return [(k, w, query(k, w)) for k, w in translations]
 
     def run_lexer(self):
-        self._run(self.engine.lexer_query, self._spaced_translations())
+        bench(self.steno_engine.lexer_query, self._spaced_translations(5000))
 
     def make_board(self):
-        self._run(self.engine.board_from_rule, self._spaced_rules())
+        bench(self._make_board, self._spaced_results(5000))
+
+    def _make_board(self, keys, letters, result):
+        self.steno_engine._board_engine.from_rules(result.rule_names(), result.unmatched_skeys())
 
     def make_graph(self):
-        self._run(self._make_graph, self._spaced_rules())
+        bench(self._make_graph, self._spaced_results(5000))
 
-    def _make_graph(self, rule):
-        graph = self.engine.graph_generate(rule)
+    def _make_graph(self, keys, letters, result):
+        root = self.steno_engine._graph_engine.make_tree(letters, list(result), result.unmatched_skeys())
+        graph = self.steno_engine._graph_engine.make_graph(root)
         node = graph.find_node_from_ref('#1')
         graph.render(node)
 
     def run_search(self):
         import random
-        self.n = 50000
         random.seed(123)
-        translations = self.translations
-        prefixes_and_counts = [(letters[:random.randint(1, len(letters))], 100) for letters in translations.values()]
-        self._run(translations.search, prefixes_and_counts)
+        prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(50000)]
+        bench(self._run_search, zip(prefixes))
+
+    def _run_search(self, letters):
+        self.search_engine.search_translations(letters, count=100)
 
     def init_plover(self):
         from spectra_lexer import plover
-        self.n = 10
-        self._run(lambda: plover.test_convert(self.translations, split_count=1))
+        steno_dc = plover.dict_to_dc(self.translations, split_count=1)
+        bench(plover.dc_to_dict, [(steno_dc,)] * 10)
 
 
 def app_start():
@@ -75,11 +77,14 @@ def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:
         Only one run at a time is allowed, since imports are cached after that. """
     if operation.startswith("app"):
         func = globals()[operation]
-        bench(func, count=1, max_lines=100)
+        bench(func, max_lines=100)
     else:
-        # Other benchmarks require an already-started app's engine.
-        engine = app_start()._engine
-        b = ComponentBench(engine)
+        # Other benchmarks require an already-started app's engine components.
+        app = app_start()
+        steno_engine = app._steno_engine
+        search_engine = app._search_engine
+        translations = search_engine.get_translations()
+        b = ComponentBench(steno_engine, search_engine, translations)
         getattr(b, operation)()
     return 0
 

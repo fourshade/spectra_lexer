@@ -123,9 +123,10 @@ class QtGUI:
 
     def start(self, app_builder:Callable[[], StenoApplication]) -> None:
         """ Connect all dialog menu items through the exception trap. """
-        self.exc_trap.connect(self._handle_exception)
+        exc_trap = self.exc_trap
+        exc_trap.connect(self._handle_exception)
         def menu_add(menu_callback:Callable, *args, **kwargs) -> None:
-            self.window.menu_add(self.exc_trap.wrap(menu_callback), *args, **kwargs)
+            self.window.menu_add(exc_trap.wrap(menu_callback), *args, **kwargs)
         menu_add(self._open_translations, "File", "Load Translations...")
         menu_add(self._open_index, "File", "Load Index...")
         menu_add(self.window.close, "File", "Close", after_sep=True)
@@ -134,7 +135,8 @@ class QtGUI:
         menu_add(self._debug_console, "Debug", "Open Console...")
         menu_add(self._debug_tree, "Debug", "View Object Tree...")
         # Build the app object asynchronously on a new thread to avoid blocking the GUI.
-        self._run_async(app_builder, callback=self._connect, msg_in="Loading...", msg_out="Loading complete.")
+        self.window.set_status("Loading...")
+        self._run_async(app_builder, callback=self._connect, msg_done="Loading complete.")
         self.window.show()
 
     def _connect(self, app:StenoApplication) -> None:
@@ -145,7 +147,7 @@ class QtGUI:
         window.connect(self.exc_trap.wrap(state.update_action))
         self._subcls_tasks()
         # If there is no index file on first start, send up a dialog.
-        if app.index_missing:
+        if app.is_first_run:
             self._default_index()
 
     def _subcls_tasks(self) -> None:
@@ -154,36 +156,36 @@ class QtGUI:
 
     def _open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
-        filenames = self.dialogs.open_translations()
+        filenames = self.dialogs.open_translations_files()
         if filenames:
-            self._run_async(self.app.load_translations, *filenames, msg_out="Loaded translations from file dialog.")
+            self._run_async(self.app.load_translations, *filenames, msg_done="Loaded translations from file dialog.")
 
     def _open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
-        filename = self.dialogs.open_index()
+        filename = self.dialogs.open_index_file()
         if filename:
-            self._run_async(self.app.load_index, filename, msg_out="Loaded index from file dialog.")
+            self._run_async(self.app.load_index, filename, msg_done="Loaded index from file dialog.")
 
     def _config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         self.dialogs.config(self._update_config, self.app.get_config_info())
 
     def _update_config(self, options:dict) -> None:
-        self._run_async(self.app.set_config, options, msg_out="Configuration saved.")
+        self._run_async(self.app.set_config, options, msg_done="Configuration saved.")
 
     def _default_index(self) -> None:
-        """ If there is no index file on first start, present a dialog for the user to make a default-sized index.
-            Make the index on accept; otherwise save an empty one so the message doesn't appear again. """
-        self.dialogs.default_index(self._make_index)
+        """ On first start, present a dialog for the user to make a default-sized index on accept. """
+        if self.dialogs.confirm_startup_index():
+            self._make_index()
 
     def _custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        self.dialogs.custom_index(self._make_index)
+        self.dialogs.custom_index(self._make_index, self.app.get_index_info())
 
-    def _make_index(self, size:int) -> None:
+    def _make_index(self, size:int=None) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        msg_out = "Successfully created index!" if size else "Skipped index creation."
-        self._run_async(self.app.make_index, size, msg_in="Making new index...", msg_out=msg_out)
+        self.window.set_status("Making new index...")
+        self._run_async(self.app.make_index, size, msg_done="Successfully created index!")
 
     def _debug_console(self) -> None:
         """ Create and show the debug console dialog. """

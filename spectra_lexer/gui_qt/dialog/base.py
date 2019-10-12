@@ -1,10 +1,11 @@
-from typing import Callable, List
+from typing import List
 
-from PyQt5.QtWidgets import QFileDialog, QWidget
+from PyQt5.QtWidgets import QWidget
 
 from .config import ConfigDialog
 from .console import ConsoleDialog
-from .index import default_index_dialog, SliderIndexDialog
+from .dialog import ModalDialogGenerator, SingletonDialogGenerator
+from .index import IndexSizeDialog, INDEX_STARTUP_MESSAGE
 from .objtree import ObjectTreeDialog
 
 
@@ -12,32 +13,33 @@ class QtDialogFactory:
     """ Factory for GUI menu dialog tools. """
 
     def __init__(self, parent:QWidget) -> None:
-        self._parent = parent  # All GUI dialogs must be children of some widget.
+        self._modals = ModalDialogGenerator(parent)
+        self._singles = SingletonDialogGenerator(parent)
 
-    def open_translations(self) -> List[str]:
-        """ Present a dialog for the user to select translation files. """
-        return QFileDialog.getOpenFileNames(self._parent, "Load Translations", ".", "JSON Files (*.json)")[0]
+    def open_translations_files(self) -> List[str]:
+        """ Present a modal dialog for the user to select translation files. """
+        return self._modals.open_files("Load Translations", "json")
 
-    def open_index(self) -> str:
-        """ Present a dialog for the user to select an index file. """
-        return QFileDialog.getOpenFileName(self._parent, "Load Index", ".", "JSON Files (*.json)")[0]
+    def open_index_file(self) -> str:
+        """ Present a modal dialog for the user to select an index file. """
+        return self._modals.open_file("Load Index", "json")
 
-    def default_index(self, callback:Callable[[int], None]) -> None:
-        """ Present a dialog for the user to make a default-sized index and call the callback with the result. """
-        callback(default_index_dialog(self._parent))
+    def confirm_startup_index(self) -> bool:
+        """ Present a modal dialog for the user to approve making a default-sized index on first start. """
+        return self._modals.yes_or_no("Make Index", INDEX_STARTUP_MESSAGE)
 
-    def custom_index(self, callback:Callable[[int], None]) -> None:
+    def custom_index(self, *args) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        SliderIndexDialog.new(self._parent, callback=callback)
+        self._singles.open_dialog(IndexSizeDialog, *args)
 
-    def config(self, callback:Callable[[dict], None], *args) -> None:
+    def config(self, *args) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
-        ConfigDialog.new(self._parent, *args, callback=callback)
+        self._singles.open_dialog(ConfigDialog, *args)
 
     def console(self, *args) -> None:
         """ Create and show the debug console dialog. """
-        ConsoleDialog.new(self._parent, *args)
+        self._singles.open_dialog(ConsoleDialog, *args)
 
     def objtree(self, *args) -> None:
         """ Create and show the debug tree dialog. """
-        ObjectTreeDialog.new(self._parent, *args)
+        self._singles.open_dialog(ObjectTreeDialog, *args)

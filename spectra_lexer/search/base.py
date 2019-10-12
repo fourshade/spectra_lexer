@@ -3,6 +3,7 @@ import re
 from typing import Dict, List, Tuple
 
 from .dict import ReverseDict, StringSearchDict
+from .index import ExampleIndexInfo
 
 
 class TranslationsSearchEngine:
@@ -34,6 +35,10 @@ class TranslationsSearchEngine:
         if prefix:
             return d.prefix_match_keys(pattern, count)
         return d.get_nearby_keys(pattern, count)
+
+    def to_dict(self) -> Dict[str, str]:
+        """ Return all of the original translations in a normal dict. """
+        return dict(self._forward)
 
 
 class ExampleSearchEngine:
@@ -83,6 +88,8 @@ class ExampleSearchEngine:
 class SearchEngine:
     """ Uses specially created search dictionaries to find translations using a variety of methods. """
 
+    _index_info = ExampleIndexInfo()
+
     def __init__(self) -> None:
         self._translations = TranslationsSearchEngine()
         self._index = ExampleSearchEngine()
@@ -110,3 +117,18 @@ class SearchEngine:
     def find_example(self, rule_name:str) -> Tuple[str, str]:
         """ Given a rule by name, return one translation using it at random. """
         return self._index.random_example(rule_name)
+
+    @classmethod
+    def get_index_info(cls) -> ExampleIndexInfo:
+        """ Return information about creating a new example index. """
+        return cls._index_info
+
+    def get_translations(self) -> Dict[str, str]:
+        """ Return all of the original translations. """
+        return self._translations.to_dict()
+
+    def get_filtered_translations(self, size:int=None) -> Dict[str, str]:
+        """ Return all translations that pass a size-based filter. """
+        translations = self.get_translations()
+        translations = self._index_info.filter_translations(translations, size)
+        return translations

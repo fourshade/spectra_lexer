@@ -3,6 +3,7 @@
 from typing import Any, List
 
 from spectra_lexer.option import ConfigOption
+from spectra_lexer.search import SearchEngine
 from spectra_lexer.steno import StenoEngine
 
 
@@ -33,15 +34,17 @@ class ViewState(ViewConfig):
     _MORE_TEXT = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
     _INDEX_DELIM = ";"        # Delimiter between rule name and query for example index searches.
 
-    # The user may manipulate the GUI to change these values.
-    input_text: str = ""               # Last pattern from user textbox input.
-    match_selected: str = ""           # Last selected match from the upper list.
-    mapping_selected: str = ""         # Last selected match from the lower list.
+    # Pure input values.
     mode_strokes: bool = False         # If True, search for strokes instead of translations.
     mode_regex: bool = False           # If True, perform search using regex characters.
-    translation: list = ["", ""]       # Currently diagrammed translation on graph.
-    graph_node_ref: str = ""           # Last node identifier on the graph ("" for empty space).
     board_aspect_ratio: float = 100.0  # Last aspect ratio for board viewing area.
+
+    # Either the program or user may manipulate the GUI to change these values.
+    input_text: str = ""          # Last pattern from user textbox input.
+    match_selected: str = ""      # Last selected match from the upper list.
+    mapping_selected: str = ""    # Last selected match from the lower list.
+    translation: list = ["", ""]  # Currently diagrammed translation on graph.
+    graph_node_ref: str = ""      # Last node identifier on the graph ("" for empty space).
 
     # The user typically can't change these values directly. They are held for future reference.
     link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
@@ -56,9 +59,10 @@ class ViewState(ViewConfig):
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
     show_link: bool = False      # If True, there are examples in the index.
 
-    def __init__(self, engine:StenoEngine) -> None:
-        self._engine = engine  # Has access to outside components.
-        self._modified = {}    # Tracks attributes that are changed by action methods.
+    def __init__(self, steno_engine:StenoEngine, search_engine:SearchEngine) -> None:
+        self._steno_engine = steno_engine    # Has access to lexer and graphical components.
+        self._search_engine = search_engine  # Has access to translations and example indices.
+        self._modified = {}                  # Tracks attributes that are changed by action methods.
 
     def __setattr__(self, name:str, value:Any) -> None:
         """ Add public attributes that are modified to the tracking dict. """
@@ -84,7 +88,7 @@ class ViewState(ViewConfig):
     def RUNSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
         link = self.link_ref
-        selection = self._engine.find_example(link)[not self.mode_strokes]
+        selection = self._search_engine.find_example(link)[not self.mode_strokes]
         self.input_text = self._INDEX_DELIM.join([link, selection])
         self.page_count = 1
         self._search()
@@ -136,7 +140,7 @@ class ViewState(ViewConfig):
             selection, *others = mappings
             if others:
                 # If there is more than one mapping, make a query to select the best combination.
-                selection = self._engine.lexer_best_strokes(mappings, match)
+                selection = self._steno_engine.lexer_best_strokes(mappings, match)
             self.mapping_selected = selection
             self._query_from_selection()
 
@@ -145,9 +149,9 @@ class ViewState(ViewConfig):
         *prefix, pattern = self.input_text.split(self._INDEX_DELIM, 1)
         text = match or pattern
         if prefix:
-            return self._engine.search_examples(*prefix, text, **kwargs)
+            return self._search_engine.search_examples(*prefix, text, **kwargs)
         else:
-            return self._engine.search_translations(text, **kwargs)
+            return self._search_engine.search_translations(text, **kwargs)
 
     def RUNSelect(self) -> None:
         """ Do a lexer query based on the current search selections. """
@@ -161,7 +165,7 @@ class ViewState(ViewConfig):
         self._new_graph()
 
     def RUNQuery(self) -> None:
-        """ Execute and display a graph of a lexer query. """
+        """ Execute and display a graph of a lexer query from user strokes. """
         self._new_graph()
 
     def _new_graph(self) -> None:
@@ -187,15 +191,15 @@ class ViewState(ViewConfig):
         if not (keys and letters):
             return
         select_ref = self.link_ref if find_rule else self.graph_node_ref
-        data = self._engine.run(keys, letters,
-                                select_ref=select_ref,
-                                find_rule=find_rule,
-                                set_focus=set_focus,
-                                board_ratio=self.board_aspect_ratio,
-                                match_all_keys=self.match_all_keys,
-                                graph_compress=self.graph_compress,
-                                graph_compat=self.graph_compat,
-                                board_compound=self.board_compound)
+        data = self._steno_engine.run(keys, letters,
+                                      select_ref=select_ref,
+                                      find_rule=find_rule,
+                                      set_focus=set_focus,
+                                      board_ratio=self.board_aspect_ratio,
+                                      match_all_keys=self.match_all_keys,
+                                      graph_compress=self.graph_compress,
+                                      graph_compat=self.graph_compat,
+                                      board_compound=self.board_compound)
         self.graph_text, self.graph_has_focus, rule_name, self.board_caption, self.board_xml_data = data
-        self.link_ref = rule_name if self._engine.has_examples(rule_name) else ""
+        self.link_ref = rule_name if self._search_engine.has_examples(rule_name) else ""
         self.show_link = bool(self.link_ref) and self.links_enabled

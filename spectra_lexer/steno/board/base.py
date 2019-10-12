@@ -2,10 +2,10 @@
 
 from collections import defaultdict
 from math import ceil
-from typing import Dict, List, Iterable, Iterator, Tuple, Sequence
+from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
 
 from .path import ArrowPathGenerator, ChainPathGenerator
-from .svg import SVGElement, SVGDefs, SVGDocument, SVGPath
+from .svg import SVGDefs, SVGDocument, SVGElement, SVGPath
 
 
 class BoardElements:

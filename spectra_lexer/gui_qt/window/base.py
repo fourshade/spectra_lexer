@@ -25,7 +25,7 @@ class QtWindow(Ui_MainWindow):
         """ Qt may provide (useless) args to menu action callbacks. Throw them away in a lambda. """
         self.w_menu.add(lambda *_: menu_callback(), *args, **kwargs)
 
-    def connect(self, update_action) -> None:
+    def connect(self, update_action:Callable) -> None:
         """ Make a list of all GUI input events that can result in a call to a steno engine action.
             Connect all input signals to the function with their corresponding action and/or state attribute. """
         events = [(self.w_strokes.toggled, "Search", "mode_strokes"),
@@ -79,17 +79,15 @@ class QtWindow(Ui_MainWindow):
         self.w_text.add_plaintext(tb_text)
         self.set_enabled(True)
 
-    def start_blocking_task(self, callback:Callable=None, msg_in:str=None, msg_out:str=None) -> Callable[..., None]:
-        """ Disable the window controls in order to start a blocking task and show <msg_in>.
-            Return a callback that will re-enable the controls and show <msg_out>, to call when the task is done.
+    def start_blocking_task(self, callback:Callable=None, msg_done:str=None) -> Callable[..., None]:
+        """ Disable the window controls in order to start a blocking task.
+            Return a callback that will re-enable the controls and optionally show <msg_done> when the task is done.
             This may wrap another <callback> that will be called with the original arguments. """
         self.set_enabled(False)
-        if msg_in is not None:
-            self.set_status(msg_in)
         def on_task_finish(*args, **kwargs) -> None:
             self.set_enabled(True)
-            if msg_out is not None:
-                self.set_status(msg_out)
+            if msg_done is not None:
+                self.set_status(msg_done)
             if callback is not None:
                 callback(*args, **kwargs)
         return on_task_finish

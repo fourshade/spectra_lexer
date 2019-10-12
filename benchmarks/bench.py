@@ -7,12 +7,12 @@ import pstats
 from time import time
 
 
-def bench(func, args_iter=((),), setup=lambda: None, *, count=1, best_of=1, max_lines=50, strip_to_level=1):
+def bench(func, args_iter=((),), setup=lambda: None, *, count=None, best_of=1, max_lines=50, strip_to_level=1):
     """
     Measure and print the execution time for each method composing a given function with given test arguments.
     :param func:             function to profile.
     :param args_iter:        iterable of tuples containing positional test arguments, one tuple per test.
-    :param count:            total number of tests in a single timed simulation. Cycles over contents of args_iter.
+    :param count:            total number of tests in a single timed simulation. Cycles over args_iter if longer.
     :param best_of:          number of simulations to run (over all argument sets), returning stats for the quickest.
     :param setup:            optional function to call before each simulation.
     :param max_lines:        maximum number of methods to print profiles on.
@@ -21,13 +21,15 @@ def bench(func, args_iter=((),), setup=lambda: None, *, count=1, best_of=1, max_
                              0: test.py
                              1: lib\\test.py
     """
+    if count is not None:
+        args_iter = islice(cycle(args_iter), count)
     test_data = list(args_iter)
     print("")
     raw_runner = RawTestRunner(func, test_data, setup)
-    raw_runner.run(count, best_of)
+    raw_runner.run(best_of)
     raw_runner.print_best()
     pr_runner = ProfileTestRunner(func, test_data, setup)
-    pr_runner.run(count, best_of)
+    pr_runner.run(best_of)
     pr_runner.print_best(max_lines, strip_to_level)
 
 
@@ -39,14 +41,13 @@ class BaseTestRunner:
         self.setup = setup
         self.stats = []
 
-    def run(self, count, best_of=1):
+    def run(self, best_of=1):
         """ Evaluates a test function. """
         for _ in range(best_of):
             self.setup()
             func = self.func
-            arg_tuples = islice(cycle(self.test_data), count)
             timer = self.on()
-            for t in arg_tuples:
+            for t in self.test_data:
                 func(*t)
             self.off(timer)
 

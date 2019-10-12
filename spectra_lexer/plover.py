@@ -59,7 +59,7 @@ class PloverEngineWrapper:
             The callback must be wrapped in a partial for signals to reach it...no idea why. """
         self._engine.signal_connect(key, partial(callback))
 
-    def get_raw_dict(self, steno_dc:IPloverStenoDictCollection=None) -> Dict[tuple, str]:
+    def compile_raw_dict(self, steno_dc:IPloverStenoDictCollection=None) -> Dict[tuple, str]:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
             They only have a subset of the normal dict methods. The fastest of these is .items().
             As a plugin, we lock the Plover engine just long enough to copy these with dict().
@@ -144,7 +144,7 @@ class PloverGUI(QtGUI):
 
     def _on_new_dictionaries(self, steno_dc:IPloverStenoDictCollection=None) -> None:
         """ Convert any translations dictionaries and send them to the main engine. """
-        d_raw = self.engine.get_raw_dict(steno_dc)
+        d_raw = self.engine.compile_raw_dict(steno_dc)
         d_converted = self.parser.convert_dict(d_raw)
         self.app.set_translations(d_converted)
         self.window.set_status("Loaded new dictionaries from Plover engine.")
@@ -191,10 +191,12 @@ class plover:
             return dummy()
 
 
-def test_convert(translations:Dict[str, str]=None, *, split_count=3) -> None:
+def test_convert(translations:Dict[str, str], **kwargs) -> None:
     """ Do a conversion test between tuple-based keys and string-based keys. """
-    if translations is None:
-        translations = {"TEFT": "test", "TE*S": "test", "TEFT/G": "testing"}
+    assert dc_to_dict(dict_to_dc(translations, **kwargs)) == translations
+
+
+def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPloverStenoDictCollection:
     steno_dc = IPloverStenoDictCollection()
     dicts = steno_dc.dicts = []
     tuples = [(*k.split("/"),) for k in translations]
@@ -205,7 +207,11 @@ def test_convert(translations:Dict[str, str]=None, *, split_count=3) -> None:
         sd.items = tuple_d.items
         sd.enabled = True
         dicts.append(sd)
+    return steno_dc
+
+
+def dc_to_dict(steno_dc:IPloverStenoDictCollection) -> Dict[str, str]:
     wrapper = PloverEngineWrapper()
     parser = PloverTranslationParser()
-    d = wrapper.get_raw_dict(steno_dc)
-    assert parser.convert_dict(d) == translations
+    d = wrapper.compile_raw_dict(steno_dc)
+    return parser.convert_dict(d)
