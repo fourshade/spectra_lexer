@@ -40,15 +40,12 @@ class KeyLayout:
         self.__dict__ = kwargs
         self._c_keys_set = frozenset(self.center)
         self._r_keys_set = frozenset(self.right.lower())
-        self._unordered_set = frozenset(self.unordered)
         self._valid_rtfcre = {self.sep, self.split, *self.left, *self.center, *self.right}
         # Create optimized partial map functions to apply string operations to every stroke in a key string.
         # Transform a string from RTFCRE to a sequence of case-distinct 's-keys'.
         self.from_rtfcre = partial(self._stroke_map, self._stroke_rtfcre_to_s_keys)
         # Transform an s-keys string back to RTFCRE.
         self.to_rtfcre = partial(self._stroke_map, self._stroke_s_keys_to_rtfcre)
-        # Filter out unordered keys that may used anywhere and return them in a set.
-        self.filter_unordered = self._unordered_set.intersection
 
     def _stroke_map(self, fn:Callable[[str], str], s:str) -> str:
         """ Split a set of keys, apply a string function to every stroke, and join them back together.
@@ -103,10 +100,6 @@ class KeyLayout:
                     s = s[:i] + self.split + s[i:]
                 return s.upper()
         return s
-
-    def first_stroke(self, keys:str) -> str:
-        """ Return the first stroke in a steno key string. """
-        return keys.split(self.sep, 1)[0]
 
     def verify(self) -> None:
         """ Test various properties of the layout for correctness. """

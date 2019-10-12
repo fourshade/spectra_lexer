@@ -12,7 +12,7 @@ from spectra_lexer import plover
 from spectra_lexer.app import StenoMain
 from spectra_lexer.io import ResourceIO
 from spectra_lexer.steno.rules import StenoRule
-from spectra_lexer.steno.search import IndexSearchDict, TranslationsSearchDict
+from spectra_lexer.steno.search import ExampleSearchEngine, TranslationsSearchEngine
 
 
 def _test_file_path(filename:str) -> str:
@@ -25,8 +25,13 @@ opts = StenoMain()
 IO = ResourceIO()
 RESOURCES = opts.build_resources()
 ENGINE = RESOURCES.build_engine()
+KEY_LAYOUT = ENGINE._layout
 RULE_PARSER = ENGINE._rule_parser
+LEXER = ENGINE._lexer
+BOARD_ENGINE = ENGINE._board_engine
+GRAPH_ENGINE = ENGINE._graph_engine
 RULES_LIST = RULE_PARSER.to_list()
+RULES_DICT = {rule.name: rule for rule in RULES_LIST}
 IGNORED_KEYS = set("/-")
 VALID_FLAGS = {v for v in vars(StenoRule).values() if isinstance(v, str)}
 
@@ -44,70 +49,64 @@ def test_rules(rule) -> None:
         parent_len = len(rule.letters)
         key_count = Counter(rule.keys)
         for item in rulemap:
+            child_rule = RULES_DICT[item.name]
             assert item.start >= 0
             assert item.length >= 0
             assert item.start + item.length <= parent_len
-            key_count.subtract(item.rule.keys)
+            key_count.subtract(child_rule.keys)
         mismatched = [k for k in key_count if key_count[k] and k not in IGNORED_KEYS]
         assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
 
 
-TRANSLATIONS = [*IO.json_read(_test_file_path("translations.json")).items()]
-TRANSLATIONS_DICT = TranslationsSearchDict(TRANSLATIONS)
+TRANSLATIONS = IO.json_read(_test_file_path("translations.json"))
+TRANSLATIONS_ENGINE = TranslationsSearchEngine(TRANSLATIONS)
 
 
-@pytest.mark.parametrize("keys, word", TRANSLATIONS)
+@pytest.mark.parametrize("keys, word", TRANSLATIONS.items())
 def test_translations_search(keys, word) -> None:
     """ Go through each loaded test translation and check the search method in all modes.
         Search should return a list with only the item itself (or its value) in any mode. """
-    assert TRANSLATIONS_DICT.search(keys, count=2, strokes=True) == [keys]
-    assert TRANSLATIONS_DICT.search(word, count=2, strokes=False) == [word]
-    assert TRANSLATIONS_DICT.search(keys, count=None, strokes=True) == [word]
-    assert TRANSLATIONS_DICT.search(word, count=None, strokes=False) == [keys]
-    assert TRANSLATIONS_DICT.search(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
-    assert TRANSLATIONS_DICT.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
+    assert TRANSLATIONS_ENGINE.search(keys, count=2, strokes=True) == [keys]
+    assert TRANSLATIONS_ENGINE.search(word, count=2, strokes=False) == [word]
+    assert TRANSLATIONS_ENGINE.search(keys, count=None, strokes=True) == [word]
+    assert TRANSLATIONS_ENGINE.search(word, count=None, strokes=False) == [keys]
+    assert TRANSLATIONS_ENGINE.search(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
+    assert TRANSLATIONS_ENGINE.search(re.escape(word), count=2, strokes=False, regex=True) == [word]
 
 
-INDEX = [*IO.json_read(_test_file_path("index.json")).items()]
-INDEX_DICT = IndexSearchDict(INDEX)
+INDEX = IO.json_read(_test_file_path("index.json"))
+INDEX_ENGINE = ExampleSearchEngine(INDEX)
 
 
-@pytest.mark.parametrize("rule_name", INDEX_DICT.keys())
+@pytest.mark.parametrize("rule_name", INDEX.keys())
 def test_index_search(rule_name) -> None:
     """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
     rule = RULE_PARSER.get(rule_name)
-    wresults = INDEX_DICT.search(rule_name, "", count=100, strokes=False)
+    wresults = INDEX_ENGINE.search(rule_name, "", count=100, strokes=False)
     assert all([rule.letters in r for r in wresults])
-    kresults = INDEX_DICT.search(rule_name, "", count=100, strokes=True)
+    kresults = INDEX_ENGINE.search(rule_name, "", count=100, strokes=True)
     all_keys = set(rule.keys) - IGNORED_KEYS
     assert all_keys == all_keys.intersection(*kresults)
 
 
-RESULTS = [ENGINE.lexer_query(*t, match_all_keys=True) for t in TRANSLATIONS]
-
-
-@pytest.mark.parametrize("result", RESULTS)
-def test_lexer(result) -> None:
-    """ The parsing tests fail if the parser can't match all the keys. """
-    rulemap = result.rulemap
-    assert rulemap, f"Lexer failed to match all keys on {result.keys} -> {result.letters}."
-
-
-@pytest.mark.parametrize("result", RESULTS)
-def test_board(result) -> None:
-    """ Perform all tests for board diagram output. Currently only checks that the output doesn't raise. """
-    ENGINE.board_from_keys(result.keys)
-    ENGINE.board_from_rule(result)
-
-
-@pytest.mark.parametrize("result", RESULTS)
-def test_graph(result) -> None:
-    """ Perform all tests for text graph output. Mainly limited to examining the node tree for consistency. """
-    graph = ENGINE.graph_generate(result)
+@pytest.mark.parametrize("keys, letters", TRANSLATIONS.items())
+def test_analysis(keys, letters) -> None:
+    """ The parsing tests fail if the lexer can't match all the keys. """
+    skeys = KEY_LAYOUT.from_rtfcre(keys)
+    result = LEXER.query(skeys, letters)
+    unmatched = result.unmatched_skeys()
+    assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
+    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
+    names = result.rule_names()
+    BOARD_ENGINE.from_keys(skeys)
+    BOARD_ENGINE.from_rules(names)
+    # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
+    positions = result.rule_positions()
+    lengths = result.rule_lengths()
+    connections = list(zip(names, positions, lengths))
     # The root node uses the top-level rule and has no ancestors.
-    root = graph._root
+    root = GRAPH_ENGINE.make_tree(letters, connections)
     # Every node available for interaction descends from it and is unique.
-    # (FUN FACT: if you iterate over a tree using a self-modifying list, people will hate you).
     nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
@@ -115,4 +114,4 @@ def test_graph(result) -> None:
 
 def test_plover() -> None:
     """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
-    plover.test_convert(TRANSLATIONS_DICT)
+    plover.test_convert(TRANSLATIONS)

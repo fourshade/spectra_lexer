@@ -1,8 +1,11 @@
-# Special "key" rules that don't map to letters but are still displayed in rule breakdowns.
-# These always go at the end of rule patterns regardless of steno order.
+# Special rules that don't map to letters but are still displayed in rule breakdowns.
 
 {
-  # star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk
+  # Stroke separator - this is critical for analyzing multi-stroke translations.
+  "~/~":  ["/", "", ["SEP"],  "stroke separator"],
+
+  # Star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk.
+  # These always go at the end of rule patterns regardless of steno order.
   "*:CF": ["*", "", ["SPEC"], "resolves a conflict between words"],
   "*:FS": ["*", "", ["SPEC"], "indicates fingerspelling"],
   "*:AB": ["*", "", ["SPEC"], "indicates an abbreviation"],

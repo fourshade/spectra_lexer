@@ -1,17 +1,17 @@
-from collections import defaultdict, namedtuple
-from typing import Dict, Iterable, Optional, Tuple, List
+from collections import defaultdict
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
-class RuleMapItem(namedtuple("RuleMapItem", "rule start length")):
+class RuleMapItem:
     """ Immutable data structure specifying a child rule with the positions where it attaches to its parent. """
 
-    # def __init__(self, rule:StenoRule, start:int, length:int) -> None:
-    #     self.rule = rule      # Child rule object.
-    #     self.start = start    # Index of the first character on the parent (letterwise) that the rule describes.
-    #     self.length = length  # Length of the span of characters on the parent that the rule describes.
+    def __init__(self, name:str, start:int, length:int) -> None:
+        self.name = name      # Child rule name.
+        self.start = start    # Index of the first character on the parent (letterwise) that the rule describes.
+        self.length = length  # Length of the span of characters on the parent that the rule describes.
 
 
-class StenoRule(namedtuple("StenoRule", "name keys letters flags desc rulemap")):
+class StenoRule:
     """ A general rule mapping a set of steno keys to a set of letters. All contents are recursively immutable. """
 
     class Flag(str):
@@ -21,88 +21,31 @@ class StenoRule(namedtuple("StenoRule", "name keys letters flags desc rulemap"))
             return self in instance.flags
 
     # These are the acceptable string values for flags, as read from JSON.
+    # For parsing:
     is_special = Flag("SPEC")   # Special rule used internally (in other rules). Only referenced by name.
     is_stroke = Flag("STRK")    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
     is_word = Flag("WORD")      # Exact match for a single word. These rules do not adversely affect lexer performance.
     is_rare = Flag("RARE")      # Rule applies to very few words and could specifically cause false positives.
+    # For graphics:
     is_inversion = Flag("INV")  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
     is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     is_separator = Flag("SEP")  # Rule that delimits two strokes. Should not contain any children.
-    is_unmatched = Flag("BAD")  # Incomplete lexer result. This rule contains all the unmatched keys and no letters.
-    is_generated = Flag("GEN")  # Lexer generated rule. This is always the root of any graph.
 
-    # def __init__(self, keys:str, letters:str, flags=frozenset(), desc="", rulemap=()) -> None:
-    #     self.keys = keys        # Raw string of steno keys that make up the rule.
-    #     self.letters = letters  # Raw English text of the word.
-    #     self.flags = flags      # Immutable set of strings describing flags that apply to the rule.
-    #     self.desc = desc        # Textual description of the rule.
-    #     self.rulemap = rulemap  # Immutable sequence of tuples mapping child rules to letter positions *in order*.
-    #     self._hash = id(self)   # Pre-computed hash based on original identity (needed for consistency in pickling).
-    #
-    # def __hash__(self) -> int:
-    #     return self._hash
-    #
-    # def __eq__(self, other) -> bool:
-    #     return self._hash == hash(other)
+    def __init__(self, name:str, keys:str, letters:str, flags=frozenset(), desc="", rulemap=()) -> None:
+        self.name = name
+        self.keys = keys        # Raw string of steno keys that make up the rule.
+        self.letters = letters  # Raw English text of the word.
+        self.flags = flags      # Immutable set of strings describing flags that apply to the rule.
+        self.desc = desc        # Textual description of the rule.
+        self.rulemap = rulemap  # Immutable sequence of tuples mapping child rules to letter positions *in order*.
 
     def __str__(self) -> str:
         """ The standard string representation of a rule is just its mapping of keys to letters. """
         return f"{self.keys} → {self.letters or '<special>'}"
 
-    def caption(self) -> str:
-        """ Generate a plaintext caption for a rule based on its child rules and flags. """
-        description = self.desc
-        # Lexer-generated rules display only the description by itself.
-        if self.is_generated:
-            return description
-        # Base rules (i.e. leaf nodes) display their keys to the left of their descriptions.
-        if not self.rulemap:
-            return f"{self.keys}: {description}"
-        # Derived rules (i.e. non-leaf nodes) show the complete mapping of keys to letters in their description.
-        return f"{self}: {description}"
-
-    @classmethod
-    def generated(cls, keys:str, letters:str, rulemap:Tuple[RuleMapItem], unmatched_keys=""):
-        """ Make a new rule using a list of child rules generated by the lexer. """
-        if not unmatched_keys:
-            return cls._generated(keys, letters, "Found complete match.", rulemap)
-        # The output is nowhere near reliable if some keys couldn't be matched.
-        # If some keys couldn't be matched, add a rule with these to the end of the rulemap.
-        if rulemap:
-            last_item = rulemap[-1]
-            last_match_end = last_item.start + last_item.length
-            desc = "Incomplete match. Not reliable."
-        else:
-            last_match_end = 0
-            desc = "No matches found."
-        child_rule = cls._unmatched(unmatched_keys)
-        unmatched_span = len(letters) - last_match_end
-        item = RuleMapItem(child_rule, last_match_end, unmatched_span)
-        return cls._generated(keys, letters, desc, (*rulemap, item))
-
-    @classmethod
-    def from_raw(cls, keys:str, letters:str, flags:Iterable[str], desc:str, rulemap:Iterable[RuleMapItem], k):
-        """ Make a rule from raw data types. The flags and rulemap must be frozen for immutability. """
-        return cls(k, keys, letters, frozenset(flags), desc, (*rulemap,))
-
-    @classmethod
-    def separator(cls, keys:str, _flags=frozenset([is_separator])):
-        """ Make a stroke separator rule. """
-        return cls("~SEP~", keys, "", _flags, "stroke separator", ())
-
-    @classmethod
-    def _unmatched(cls, keys:str, _flags=frozenset([is_unmatched])):
-        """ Make a new rule with a set of keys that cannot be matched to letters. """
-        return cls(f"BAD{id(keys)}", keys, "", _flags, "unmatched keys", ())
-
-    @classmethod
-    def _generated(cls, keys:str, letters:str, desc:str, rulemap:Tuple[RuleMapItem], _flags=frozenset([is_generated])):
-        """ Make a new rule flagged as lexer-generated from a rulemap tuple. """
-        return cls(f"LEX{id(rulemap)}", keys, letters, _flags, desc, rulemap)
-
 
 class RuleParser:
-    """ Converts steno rules between JSON arrays and StenoRule objects. """
+    """ Converts steno rules from JSON arrays to StenoRule objects. """
 
     def __init__(self, raw_rules:Dict[str, list], ref_delims="()", alias_delim="|") -> None:
         self._raw_rules = raw_rules      # Dict of raw steno rules in list form from JSON.
@@ -140,7 +83,10 @@ class RuleParser:
             raise ValueError(f"Unmatched brackets in rule {k}") from e
         except RecursionError as e:
             raise RecursionError(f"Circular reference descended from rule {k}") from e
-        rule = self._rules[k] = StenoRule.from_raw(keys, letters, flags, desc, rulemap, k)
+        # The flags and rulemap must be frozen for immutability.
+        flags = frozenset(flags)
+        rulemap = tuple(rulemap)
+        rule = self._rules[k] = StenoRule(k, keys, letters, flags, desc, rulemap)
         return rule
 
     def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
@@ -179,7 +125,7 @@ class RuleParser:
                 raise KeyError(f"Illegal rule reference {k} in pattern {pattern}")
             letters = alias[0] if alias else rule.letters
             # Add the rule to the map and substitute the letters into the pattern.
-            rulemap.append(RuleMapItem(rule, start, len(letters)))
+            rulemap.append(RuleMapItem(k, start, len(letters)))
             p_list[start:end] = letters
         return "".join(p_list), rulemap
 
@@ -187,34 +133,43 @@ class RuleParser:
         """ Return all finished rules in a list, parsing missing ones as necessary. """
         return [*map(self.get, self._raw_rules)]
 
-    def compile_to_raw(self, results:Iterable[StenoRule]) -> Dict[str, list]:
-        """ Parse steno rules into raw list form suitable for JSON encoding by substituting each
-            child rule in its rulemap for its letters and auto-generating rule names. """
-        raw_rules = {}
-        for r in results:
-            # Convert the letter string into a list to allow in-place modification.
-            letters = [*r.letters]
-            # Replace each mapped rule with a name reference. Go from right to left to preserve indexing.
-            for item in r.rulemap[::-1]:
-                name = item.rule.name
-                if name in self._rules:
-                    # Replace the letters this rule takes up with its parenthesized reference name.
-                    start = item.start
-                    end = start + item.length
-                    letters[start:end] = "(", name, ")"
-            # Rejoin the letters and put the flags into a list. The keys and description are copied verbatim.
-            word = "".join(letters)
-            flags = [*r.flags]
-            raw_rules[r.name] = [r.keys, word, flags, r.desc]
-        return raw_rules
 
-    def compile_tr_index(self, results:Iterable[StenoRule]) -> Dict[str, dict]:
-        """ For each built-in rule, construct a dict of every translation that used it directly. """
-        tr_dicts = defaultdict(dict)
-        for rs in results:
-            keys = rs.keys
-            letters = rs.letters
-            for item in rs.rulemap:
-                tr_dicts[item.rule.name][keys] = letters
-        # Return a master dict with the rule names as keys.
-        return {name: d for name, d in tr_dicts.items() if name in self._rules}
+class InverseRuleParser:
+    """ Converts lexer rule maps into rule-compatible JSON arrays. """
+
+    def __init__(self, ref_delims="()") -> None:
+        self._ref_delims = ref_delims  # Delimiters marking the start and end of a rule reference.
+        self._raw_rules = {}           # Dict of raw steno rules in list form for JSON.
+        self._count = 0
+
+    def add(self, keys:str, letters:str, names:List[str], positions:List[int], lengths:List[int]) -> None:
+        """ Parse a translation and rule map into raw list form suitable for JSON encoding by substituting each
+            child rule for its letters and using serial numbers as rule names. """
+        lb, rb = self._ref_delims
+        # Convert the letter string into a list to allow in-place modification.
+        letters = [*letters]
+        # Replace each rule's letters with a parenthesized name reference. Go from right to left to preserve indexing.
+        for name, start, length in list(zip(names, positions, lengths))[::-1]:
+            end = start + length
+            letters[start:end] = lb, name, rb
+        word = "".join(letters)
+        self._raw_rules[str(self._count)] = [keys, word]
+        self._count += 1
+
+    def to_dict(self) -> Dict[str, list]:
+        return self._raw_rules
+
+
+class IndexCompiler:
+    """ Compiles a dict of translations that uses each rule directly under its name. """
+
+    def __init__(self) -> None:
+        self._index: Dict[str, dict] = defaultdict(dict)
+
+    def add(self, keys:str, letters:str, names:Iterable[str]) -> None:
+        """ Add a (keys, letters) translation to the index under the name of every rule in <rules>. """
+        for name in names:
+            self._index[name][keys] = letters
+
+    def to_dict(self) -> Dict[str, dict]:
+        return self._index

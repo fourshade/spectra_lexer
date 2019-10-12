@@ -120,7 +120,7 @@
     # Rarely encountered rules
     "z.*":   "bg=rare;pos=S;shape=3x2;text=z",
     ".v.":   "bg=rare;pos=W;shape=round;text=v",
-    ".m~":   "bg=rare;pos=f;shape=tall;text=m",
+    ".m.":   "bg=rare;pos=f;shape=tall;text=m",
     ".nch+": "bg=rare;pos=f;shape=3x2;text=nch",
     ".gion": "bg=rare;pos=g;shape=wide;text=GEN",
     # Rules using the asterisk, including fingerspelling

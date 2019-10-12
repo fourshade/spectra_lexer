@@ -1,5 +1,6 @@
 """ Base module for text graphing. Defines top-level graph structures. """
 
+from collections import defaultdict
 from functools import lru_cache
 from typing import Iterator, List, Optional, Sequence, Tuple, Type
 
@@ -7,7 +8,6 @@ from .layout import BaseGraphLayout, CascadedGraphLayout, CompressedGraphLayout
 from .render import BaseHTMLFormatter, Canvas, CompatHTMLFormatter, StandardHTMLFormatter
 from .style import IConnectors, InversionConnectors, LinkedConnectors,\
     SimpleConnectors, ThickConnectors, UnmatchedConnectors
-from ..rules import StenoRule
 
 
 class GraphNode:
@@ -265,54 +265,6 @@ class LinkedNode(BranchNode):
     _connector_cls = LinkedConnectors
 
 
-class NodeTreeFactory:
-    """ Creates text graph nodes from steno rules and map positions. """
-
-    def __init__(self) -> None:
-        self._node_count = 0
-
-    def build(self, rule:StenoRule) -> GraphNode:
-        """ The root node's attach points are arbitrary, so tstart=0 and tlen=blen. """
-        return self._build_recursive(rule, 0, len(rule.letters), 0)
-
-    def _build_recursive(self, rule:StenoRule, start:int, length:int, depth:int) -> GraphNode:
-        """ Make a child node from a rulemap item. """
-        rulemap = rule.rulemap
-        children = []
-        idx = self._node_count
-        self._node_count += 1
-        for item in rulemap:
-            child = self._build_recursive(item.rule, item.start, item.length, depth + 1)
-            children.append(child)
-        return self._make_node(rule, start, length, idx, depth, children)
-
-    @staticmethod
-    def _make_node(rule:StenoRule, tstart:int, tlen:int,
-                   index:int, depth:int, children:Sequence[GraphNode]) -> GraphNode:
-        """ Make a new graph node based on a rule's properties and/or child count. """
-        if not tlen:
-            tlen = 1
-        if children or not depth:
-            # Derived rules (i.e. branch nodes) show their letters, as does the root node at depth 0.
-            text = rule.letters
-            if rule.is_inversion:
-                node_cls = InversionNode
-            elif rule.is_linked:
-                node_cls = LinkedNode
-            else:
-                node_cls = BranchNode
-        else:
-            # Base rules (i.e. leaf nodes) show their keys.
-            text = rule.keys
-            if rule.is_separator:
-                node_cls = SeparatorNode
-            elif rule.is_unmatched:
-                node_cls = UnmatchedNode
-            else:
-                node_cls = LeafNode
-        return node_cls(rule.name, text, tstart, tlen, index, depth, children)
-
-
 class StenoGraph:
     """ Formats and renders a monospaced text graph of a rule. """
 
@@ -325,10 +277,6 @@ class StenoGraph:
         """ Return a reference node selected by anchor href. """
         ref = self._formatter.href_to_ref(ref)
         return self._root.find_from_ref(ref)
-
-    def find_node_from_rule_name(self, rule_name:str) -> Optional[GraphNode]:
-        """ Return a reference node selected by rule name. """
-        return self._root.find_from_rule_name(rule_name)
 
     def render(self, target:Optional[GraphNode], *, intense=False) -> str:
         """ Format a node graph and highlight a node ancestry line, starting with the root down to some terminal node.
@@ -355,13 +303,68 @@ class StenoGraph:
 class GraphEngine:
     """ Creates text graphs and fills indices matching these rules to their nodes. """
 
-    @staticmethod
-    def generate(rule:StenoRule, compressed=True, compat=False):
-        """ Make a root graph node and formatter out of <rule> and construct a graph object.
+    def __init__(self) -> None:
+        self._rules = {}
+        self._connections = defaultdict(list)
+        self._node_count = 0
+
+    def _add_rule(self, name:str, text:str, node_cls:Type[GraphNode]) -> None:
+        self._rules[name] = text, node_cls
+        self._connections[name] = []
+
+    def add_inversion_node(self, name:str, text:str) -> None:
+        self._add_rule(name, text, InversionNode)
+
+    def add_linked_node(self, name:str, text:str) -> None:
+        self._add_rule(name, text, LinkedNode)
+
+    def add_branch_node(self, name:str, text:str) -> None:
+        self._add_rule(name, text, BranchNode)
+
+    def add_separator_node(self, name:str, text:str) -> None:
+        self._add_rule(name, text, SeparatorNode)
+
+    def add_leaf_node(self, name:str, text:str) -> None:
+        self._add_rule(name, text, LeafNode)
+
+    def add_connection(self, parent:str, child:str, start:int, length:int) -> None:
+        connections = self._connections[parent]
+        connections.append((child, start, length))
+
+    def make_tree(self, letters:str, connections:Sequence[Tuple[str, int, int]], unmatched_keys="") -> GraphNode:
+        """ Make a graph tree from a lexer result and return the root node. """
+        counter = iter(range(1, 10000))
+        children = self._build_recursive(connections, 1, counter)
+        root_length = len(letters)
+        if unmatched_keys:
+            last_match_end = 0 if not connections else sum(connections[-1][1:2])
+            leftover_length = root_length - last_match_end
+            node = UnmatchedNode("UNMATCHED", unmatched_keys, last_match_end, leftover_length, next(counter), 1, ())
+            children.append(node)
+        # The root node's attach points are arbitrary, so tstart=0 and tlen=blen.
+        return BranchNode("ROOT", letters, 0, root_length, 0, 0, children)
+
+    def make_graph(self, root:GraphNode, compressed=True, compat=False) -> StenoGraph:
+        """ Make a graph object and formatter out of a <root> graph node.
             <compressed> - If True, lay out the graph in a manner that squeezes nodes together as much as possible.
             <compat> - If True, use a formatter that implements text monospacing with explicit markup. """
-        builder = NodeTreeFactory()
-        root = builder.build(rule)
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
         formatter = CompatHTMLFormatter() if compat else StandardHTMLFormatter()
         return StenoGraph(root, layout, formatter)
+
+    def _build_recursive(self, connections:Sequence[Tuple[str, int, int]],
+                         depth:int, counter:Iterator[int]) -> List[GraphNode]:
+        """ Make a new graph node based on a rule's properties and/or child count. """
+        nodes = []
+        for name, start, length in connections:
+            text, node_cls = self._rules[name]
+            if not length:
+                length = 1
+            idx = next(counter)
+            if name in self._connections:
+                children = self._build_recursive(self._connections[name], depth + 1, counter)
+            else:
+                children = ()
+            node = node_cls(name, text, start, length, idx, depth, children)
+            nodes.append(node)
+        return nodes

@@ -217,14 +217,14 @@ class StringSearchDict(SimilarKeyDict):
         return list(islice(filter(match_op, keys), count))
 
     @classmethod
-    def strip_case_fns(cls, _strip:str=" ") -> dict:
-        """ Return similarity function kwargs that remove case and strip a user-defined set of symbols. """
+    def strip_case(cls, *args, _strip=" ", **kwargs):
+        """ Return a dict with similarity functions that remove case and strip a user-defined set of symbols. """
         def simfn(s:str) -> str:
             return s.strip(_strip).lower()
         # Mapping the built-in string methods separately provides a good speed boost for large dictionaries.
         def mapfn(s_iter:Iterable[str]) -> map:
             return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
-        return dict(simfn=simfn, mapfn=mapfn)
+        return cls(*args, simfn=simfn, mapfn=mapfn, **kwargs)
 
 
 class ReverseDict(dict):
@@ -253,55 +253,3 @@ class ReverseDict(dict):
         rdict = defaultdict(list)
         list(map(list.append, [rdict[v] for v in fdict.values()], fdict))
         return cls(rdict, **kwargs)
-
-
-class TranslationsSearchDict(StringSearchDict):
-    """ A hybrid forward+reverse steno translation dict. Must also behave as a normal dict. """
-
-    def __init__(self, *args, _strip=" -", **kwargs) -> None:
-        """ For translation-based searches, spaces and hyphens should be stripped off each end by default. """
-        fns = self.strip_case_fns(_strip)
-        super().__init__(*args, **fns, **kwargs)  # Forward translations dict (strokes -> English words).
-        rev_dict = ReverseDict.from_forward(self)
-        self._reverse = StringSearchDict(rev_dict, **fns)  # Reverse dict (English words -> strokes).
-
-    def search(self, pattern:str, count:int=None, strokes:bool=False, prefix:bool=True, regex:bool=False) -> List[str]:
-        """ Perform a special search for <pattern> with the given flags. Return up to <count> matches.
-            If <count> is None, perform a normal lookup instead. The dict only depends on the strokes mode. """
-        d = self if strokes else self._reverse
-        if count is None:
-            # Make sure to wrap the result in a list. Reverse dict values are always lists.
-            v = d.get(pattern)
-            if v:
-                return [v] if strokes else v
-            return []
-        if regex:
-            try:
-                return d.regex_match_keys(pattern, count)
-            except re.error:
-                return ["REGEX ERROR"]
-        if prefix:
-            return d.prefix_match_keys(pattern, count)
-        return d.get_nearby_keys(pattern, count)
-
-
-class IndexSearchDict(dict):
-    """ A resource-heavy index dict-of-dicts for finding translations that contain a particular steno rule.
-        Index search is a two-part search. The first part goes by rule name; only exact matches will work. """
-
-    def search(self, index_key:str, pattern:str, **kwargs) -> List[str]:
-        """ Translation search dicts are memory hogs, and users tend to look at many results under the same rule.
-            Convert native dicts (from JSON) to full-featured search dicts only on demand. """
-        d = self.get(index_key)
-        if not d:
-            return []
-        if not isinstance(d, TranslationsSearchDict):
-            d = self[index_key] = TranslationsSearchDict(d)
-        # Manually set the search flags.
-        kwargs.update(prefix=False, regex=False)
-        return d.search(pattern, **kwargs)
-
-    def __repr__(self) -> str:
-        """ Recursive reprs on index objects are deadly. Only show the first level with item counts. """
-        item_counts = {k: f"{len(self[k])} items" for k in self}
-        return f"<{type(self).__name__}: {item_counts!r}>"

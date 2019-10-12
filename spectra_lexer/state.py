@@ -30,7 +30,8 @@ class ViewState(ViewConfig):
         Various steps of the process may be done automatically; for example, if there is only one
         possible mapping of a certain word, it will be chosen automatically and a lexer query sent. """
 
-    _MORE_TEXT: str = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
+    _MORE_TEXT = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
+    _INDEX_DELIM = ";"        # Delimiter between rule name and query for example index searches.
 
     # The user may manipulate the GUI to change these values.
     input_text: str = ""               # Last pattern from user textbox input.
@@ -82,7 +83,9 @@ class ViewState(ViewConfig):
 
     def RUNSearchExamples(self) -> None:
         """ When a link is clicked, search for examples of the named rule and select one. """
-        selection, self.input_text = self._engine.find_example(self.link_ref, strokes=self.mode_strokes)
+        link = self.link_ref
+        selection = self._engine.find_example(link)[not self.mode_strokes]
+        self.input_text = self._INDEX_DELIM.join([link, selection])
         self.page_count = 1
         self._search()
         if selection in self.matches:
@@ -112,7 +115,7 @@ class ViewState(ViewConfig):
     def _search(self) -> None:
         """ Look up a pattern in the dictionary and populate the upper matches list. """
         count = self.page_count * self.matches_per_page
-        matches = self._call_search(count=count)
+        matches = self._call_search(count=count, regex=self.mode_regex)
         # If we met the count, add a final item to allow search expansion.
         if len(matches) == count:
             matches.append(self._MORE_TEXT)
@@ -126,6 +129,7 @@ class ViewState(ViewConfig):
     def _lookup(self) -> None:
         """ Look up mappings and display them in the lower list. """
         match = self.match_selected
+        # If count is None or unset, the search will find mappings instead of matches.
         mappings = self.mappings = self._call_search(match)
         if mappings:
             # A lone mapping should be highlighted automatically and displayed on its own.
@@ -136,9 +140,14 @@ class ViewState(ViewConfig):
             self.mapping_selected = selection
             self._query_from_selection()
 
-    def _call_search(self, *args, **kwargs) -> List[str]:
-        kwargs.update(strokes=self.mode_strokes, regex=self.mode_regex)
-        return self._engine.search(self.input_text, *args, **kwargs)
+    def _call_search(self, match=None, **kwargs) -> List[str]:
+        kwargs["strokes"] = self.mode_strokes
+        *prefix, pattern = self.input_text.split(self._INDEX_DELIM, 1)
+        text = match or pattern
+        if prefix:
+            return self._engine.search_examples(*prefix, text, **kwargs)
+        else:
+            return self._engine.search_translations(text, **kwargs)
 
     def RUNSelect(self) -> None:
         """ Do a lexer query based on the current search selections. """
@@ -187,5 +196,6 @@ class ViewState(ViewConfig):
                                 graph_compress=self.graph_compress,
                                 graph_compat=self.graph_compat,
                                 board_compound=self.board_compound)
-        self.graph_text, self.graph_has_focus, self.link_ref, self.board_caption, self.board_xml_data = data
+        self.graph_text, self.graph_has_focus, rule_name, self.board_caption, self.board_xml_data = data
+        self.link_ref = rule_name if self._engine.has_examples(rule_name) else ""
         self.show_link = bool(self.link_ref) and self.links_enabled

@@ -4,10 +4,8 @@ from collections import defaultdict
 from math import ceil
 from typing import Dict, List, Iterable, Iterator, Tuple, Sequence
 
-from .path import ArrowPathList, ChainPathList
+from .path import ArrowPathGenerator, ChainPathGenerator
 from .svg import SVGElement, SVGDefs, SVGDocument, SVGPath
-from ..keys import KeyLayout
-from ..rules import StenoRule
 
 
 class BoardElements:
@@ -21,6 +19,14 @@ class BoardElements:
     def __iter__(self) -> Iterator[SVGElement]:
         return iter(())
 
+    @staticmethod
+    def _new_path(path_data:str, dx=0.0, dy=0.0, **attrib:str) -> SVGElement:
+        """ A path element may not have children, but it must have a path data string. """
+        el = SVGPath(d=path_data, **attrib)
+        if dx or dy:
+            el.translate(dx, dy)
+        return el
+
 
 class SeparatorBoardElements(BoardElements):
     """ Sentinel class for a gap between strokes. """
@@ -29,17 +35,24 @@ class SeparatorBoardElements(BoardElements):
 
 
 class InversionBoardElements(BoardElements):
-    """ A set of curved arrows pointing between two other board element groups. """
+    """ A set of bidirectional curved arrows pointing between two other board element groups. """
 
     def __init__(self, first:BoardElements, second:BoardElements) -> None:
-        self._first = first
-        self._second = second
+        self._path_gen = ArrowPathGenerator()        # Generator to connect points with path data.
+        self._centers = first.offset, second.offset  # Centers of the element groups of interest.
 
     def __iter__(self) -> Iterator[SVGElement]:
-        """ Yield a set of arrow paths connecting our element groups. """
-        paths = ArrowPathList()
-        paths.connect(self._first.offset, self._second.offset)
-        return iter(paths)
+        """ Yield a set of arrow paths connecting our element groups in both directions. """
+        p1, p2 = self._centers
+        yield from self._iter_layers(p1, p2)
+        yield from self._iter_layers(p2, p1)
+
+    def _iter_layers(self, start:complex, end:complex) -> Iterator[SVGElement]:
+        """ Yield SVG path elements that compose an arrow pointing between <start> and <end>.
+            Layers are shifted by an incremental offset to create a drop shadow appearance. """
+        path_data = self._path_gen.connect(start, end)
+        yield self._new_path(path_data, style="fill:none;stroke:#800000;stroke-width:1.5px;")
+        yield self._new_path(path_data, style="fill:none;stroke:#FF0000;stroke-width:1.5px;", dy=-1)
 
 
 class LinkedBoardElements(BoardElements):
@@ -48,26 +61,33 @@ class LinkedBoardElements(BoardElements):
     ends_stroke = True
 
     def __init__(self, s_stroke:Sequence[BoardElements], e_stroke:Sequence[BoardElements]) -> None:
-        self._strokes = s_stroke, e_stroke
+        self._path_gen = ChainPathGenerator()  # Generator to connect points with path data.
+        self._strokes = s_stroke, e_stroke     # Element groups with the ending of one stroke and the start of another.
 
     def iter_overlays(self, sx:float, sy:float, ex:float, ey:float) -> Iterator[SVGElement]:
-        """ Wrap elements involved in a chain so the originals aren't mutated.
-            <sx, sy> is the offset of the beginning stroke, and <ex, ey> is the offset of the ending stroke. """
+        """ <sx, sy> is the offset of the beginning stroke, and <ex, ey> is the offset of the ending stroke.
+            For multi-element rules, connect the last element in the first stroke to the first element in the next. """
         s_stroke, e_stroke = self._strokes
-        paths = ChainPathList()
-        # For multi-element rules, connect the last element in the first stroke to the first element in the next.
-        paths.connect(s_stroke[-1].offset + complex(sx, sy), e_stroke[0].offset + complex(ex, ey))
-        yield from paths
+        start_offset = s_stroke[-1].offset + sx + sy * 1j
+        end_offset = e_stroke[0].offset + ex + ey * 1j
+        yield from self._iter_layers(start_offset, end_offset)
+        yield self._stroke_group(s_stroke, sx, sy)
+        yield self._stroke_group(e_stroke, ex, ey)
+
+    def _iter_layers(self, p1:complex, p2:complex) -> Iterator[Dict[str, str]]:
+        """ Yield SVG attribute dicts that compose a chain between the endpoints. """
+        for path in self._path_gen.iter_halves(p1, p2):
+            yield self._new_path(path, style="fill:none;stroke:#000000;stroke-width:5.0px;")
+            yield self._new_path(path, style="fill:none;stroke:#B0B0B0;stroke-width:2.0px;")
+
+    @staticmethod
+    def _stroke_group(stroke:Iterable[BoardElements], dx:float, dy:float) -> SVGElement:
+        """ Create a new SVG group with every element in <stroke> and translate it by <dx, dy>. """
         elem = SVGElement()
-        for g in s_stroke:
+        for g in stroke:
             elem.extend(g)
-        elem.translate(sx, sy)
-        yield elem
-        elem = SVGElement()
-        for g in e_stroke:
-            elem.extend(g)
-        elem.translate(ex, ey)
-        yield elem
+        elem.translate(dx, dy)
+        return elem
 
 
 class ProcessedBoardElements(BoardElements):
@@ -103,14 +123,14 @@ class ProcessedBoardElements(BoardElements):
     def proc_shape(self, e_id:str, d:dict) -> None:
         """ Add an SVG path shape, then advance the offset to center any following text. """
         attrs = d[e_id]
-        elem = SVGPath(d=attrs["d"], stroke="#000000", fill=self._bg)
+        elem = self._new_path(attrs["d"], stroke="#000000", fill=self._bg)
         self._append_at_offset(elem)
         self.offset += complex(*attrs["txtcenter"])
         self._txtmaxarea = attrs["txtarea"]
 
     def proc_path(self, e_id:str, d:dict) -> None:
         """ Add an SVG path at the current offset. """
-        elem = SVGPath(d=d[e_id], stroke="#000000")
+        elem = self._new_path(d[e_id], stroke="#000000")
         self._append_at_offset(elem)
 
     def proc_text(self, text:str, glyphs:dict, _FONT_SIZE=24, _EM_SIZE=1000, _TXTSPACING=14.4) -> None:
@@ -132,77 +152,47 @@ class ProcessedBoardElements(BoardElements):
         x = - n * spacing / 2
         y = (10 * scale) - 3
         for k in text:
-            char = SVGPath(d=glyphs[k])
+            char = self._new_path(glyphs[k])
             char.transform(font_scale, 0, 0, -font_scale, x, y)
             elem.append(char)
             x += spacing
 
 
-class BoardElementIndex:
-    """ Index for finding board elements corresponding to key strings and/or steno rules. """
-
-    def __init__(self, layout:KeyLayout, rule_elems:Dict[str, BoardElements],
-                 key_elems:Dict[str, BoardElements], unmatched_elems:Dict[str, BoardElements]) -> None:
-        self._rule_elems = rule_elems                # Dict with elements for certain rules.
-        self._key_elems = key_elems                  # Dict with normal steno key elements.
-        self._unmatched_elems = unmatched_elems      # Dict with steno key elements in unmatched rules.
-        self._convert_to_skeys = layout.from_rtfcre  # Conversion function from RTFCRE to s-keys.
-
-    def match_keys(self, keys:str, unmatched=False) -> List[BoardElements]:
-        """ Return board diagram elements from an ordinary steno key string. No special elements will be used. """
-        d = self._unmatched_elems if unmatched else self._key_elems
-        return [d[k] for k in self._convert_to_skeys(keys) if k in d]
-
-    def match_rule(self, rule:StenoRule) -> List[BoardElements]:
-        """ Return a list of board diagram elements from a steno rule. """
-        # If the rule itself has an entry in the dict, just return that element.
-        rule_elem = self._rule_elems.get(rule.name)
-        if rule_elem is not None:
-            return [rule_elem]
-        rulemap = rule.rulemap
-        # If the rule has no children and no dict entry, return elements for each raw key.
-        if not rulemap:
-            return self.match_keys(rule.keys, rule.is_unmatched)
-        # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
-        if rule.is_linked:
-            end_rules = rulemap[0].rule, rulemap[-1].rule
-            x = [*map(self.match_rule, end_rules)]
-            return [LinkedBoardElements(*x)]
-        # Add elements recursively from all child rules.
-        elems = []
-        for item in rulemap:
-            elems += self.match_rule(item.rule)
-        # A rule using inversion connects the first two elements with arrows.
-        if rule.is_inversion:
-            elems.append(InversionBoardElements(elems[0], elems[1]))
-        return elems
-
-
 class BoardEngine:
-    """ Top-level factory for SVG steno board documents corresponding to user input. """
+    """ Top-level factory for SVG steno board documents corresponding to user input.
+        Has index for finding board elements corresponding to key strings and/or steno rules. """
 
     _DEFAULT_RATIO = 100.0  # If no aspect ratio is given, this ensures that all boards end up in one row.
 
-    def __init__(self, index:BoardElementIndex, defs:SVGDefs, base:SVGElement, x:int, y:int, w:int, h:int) -> None:
+    def __init__(self, rule_elems:Dict[str, List[BoardElements]], compound_elems:Dict[str, List[BoardElements]],
+                 key_elems:Dict[str, BoardElements], unmatched_elems:Dict[str, BoardElements],
+                 defs:SVGDefs, base:SVGElement, x:int, y:int, w:int, h:int) -> None:
         """ Groups and transforms SVG elements into a final series of SVG steno board graphics. """
-        self._index = index  # Index for matching keys/rules to board elements.
+        self._rule_elems = rule_elems            # Dict with steno key elements for every rule.
+        self._compound_elems = compound_elems    # Dict with compound board elements for every rule.
+        self._key_elems = key_elems              # Dict with normal steno key elements.
+        self._unmatched_elems = unmatched_elems  # Dict with steno key elements in unmatched rules.
         self._defs = defs    # SVG defs element to include at the beginning of every document.
         self._base = base    # Base SVG element that is shown under every stroke diagram.
         self._offset = x, y  # X/Y offset for the viewbox of one stroke diagram.
         self._size = w, h    # Width/height for the viewbox of one stroke diagram.
         self._ratio = w / h  # Aspect ratio of one stroke diagram.
 
-    def from_keys(self, keys:str, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:
-        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno keys. """
-        elems = self._index.match_keys(keys)
+    def from_keys(self, skeys:str, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno s-keys. """
+        elems = [self._key_elems[k] for k in skeys]
         return self._build_document(elems, aspect_ratio)
 
-    def from_rule(self, rule:StenoRule, aspect_ratio:float=_DEFAULT_RATIO, compound=True) -> bytes:
+    def from_rules(self, names:Iterable[str], unmatched_skeys="",
+                   aspect_ratio:float=_DEFAULT_RATIO, compound=True) -> bytes:
         """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a steno rule.
-            If <compound> is False, do not use compound keys. The rule will be shown only as single keys. """
-        if not compound:
-            return self.from_keys(rule.keys, aspect_ratio)
-        elems = self._index.match_rule(rule)
+            If <compound> is False, do not use compound keys. The rules will be shown only as single keys. """
+        elems = []
+        d = self._compound_elems if compound else self._rule_elems
+        for name in names:
+            elems += d[name]
+        for k in unmatched_skeys:
+            elems.append(self._unmatched_elems[k])
         return self._build_document(elems, aspect_ratio)
 
     def _build_document(self, elems:List[BoardElements], device_ratio:float) -> bytes:
@@ -263,6 +253,24 @@ class BoardElementParser:
     def __init__(self, defs:Dict[str, dict]) -> None:
         self._proc_defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
         self._parsed_elems: dict = defaultdict(dict)     # Parsed board elements indexed by tag, then by ID.
+        self._key_elems = self._parsed_elems["key"]      # Elements corresponding to single steno keys.
+        self._ukey_elems = self._parsed_elems["qkey"]    # Elements corresponding to unmatched steno keys.
+        self._rule_elems = self._parsed_elems["rule"]
+        self._base_elems = self._parsed_elems["base"]
+        self._rules = {}
+        self._rule_children = {}
+        self._linked_rules = set()
+        self._inversion_rules = set()
+
+    def add_rule(self, name:str, skeys:str, child_names:Sequence[str]) -> None:
+        self._rules[name] = skeys
+        self._rule_children[name] = child_names
+
+    def set_rule_inversion(self, name:str) -> None:
+        self._inversion_rules.add(name)
+
+    def set_rule_linked(self, name:str,) -> None:
+        self._linked_rules.add(name)
 
     def parse(self, board_elems:Dict[str, dict]) -> None:
         """ Parse all elements from a JSON document into full SVG board element structures. """
@@ -279,21 +287,40 @@ class BoardElementParser:
                 meth(v, self._proc_defs[k])
         return board_elems
 
-    def build_engine(self, layout:KeyLayout) -> BoardEngine:
+    def build_engine(self) -> BoardEngine:
         """ Build an element index and board-generating engine from our current resources. """
-        # Elements corresponding to single steno keys.
-        key_elems = self._parsed_elems["key"]
-        # Elements corresponding to unmatched steno keys.
-        ukey_elems = self._parsed_elems["qkey"]
-        # Elements corresponding to known rule identifiers.
-        rule_elems = self._parsed_elems["rule"]
-        index = BoardElementIndex(layout, rule_elems, key_elems, ukey_elems)
+        rule_elems = {name: [self._key_elems[k] for k in skeys] for name, skeys in self._rules.items()}
+        compound_elems = {}
+        for name in self._rules:
+            compound_elems[name] = self._process_compound_rule(name, rule_elems)
         defs = SVGDefs()
-        base = self._make_base(defs)
-        bounds = self._proc_defs["document"]["bounds"]
-        return BoardEngine(index, defs, base, *bounds)
+        base = self._base_from_defs(defs)
+        positions = self._proc_defs["pos"]
+        return BoardEngine(rule_elems, compound_elems, self._key_elems, self._ukey_elems,
+                           defs, base, *positions["min"], *positions["max"])
 
-    def _make_base(self, defs:SVGDefs) -> SVGElement:
+    def _process_compound_rule(self, name:str, basic_elems) -> List[BoardElements]:
+        known_elems = self._parsed_elems["rule"]
+        if name in known_elems:
+            return [known_elems[name]]
+        # There may not be compound elements for everything; in that case, use elements for each raw key.
+        child_names = self._rule_children[name]
+        if not child_names:
+            return basic_elems[name]
+        # Add elements recursively from all child rules.
+        groups = [self._process_compound_rule(name, basic_elems) for name in child_names]
+        if name in self._linked_rules:
+            # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
+            return [LinkedBoardElements(groups[0], groups[-1])]
+        elems = []
+        for g in groups:
+            elems += g
+        if name in self._inversion_rules:
+            # A rule using inversion connects the first two elements with arrows.
+            elems.append(InversionBoardElements(elems[0], elems[1]))
+        return elems
+
+    def _base_from_defs(self, defs:SVGDefs) -> SVGElement:
         """ Return a <use> element for the base present in every stroke matching a <defs> element. """
         base_elems = self._parsed_elems["base"]
         base = SVGElement()

@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from spectra_lexer.steno.search import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.steno.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -25,7 +25,7 @@ class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDic
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_basic(cls):
+def test_skdict_basic(cls) -> None:
     """ Basic unit tests for init, getitem, setitem, delitem, len, contains, and eq on SimilarKeyDict. """
     d = cls({1: "a", 2: "b", 3: "c"})
     assert 1 in d
@@ -47,7 +47,7 @@ def test_skdict_basic(cls):
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_aux(cls):
+def test_skdict_aux(cls) -> None:
     """ Unit tests for get, setdefault, pop, popitem, copy, and fromkeys on SimilarKeyDict. """
     d = cls({1: "a", 2: "b", 3: "c", 4: "d", 5: "e"}, simfn=abs)
     assert d.get(1) == "a"
@@ -81,7 +81,7 @@ def test_skdict_aux(cls):
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_iter(cls):
+def test_skdict_iter(cls) -> None:
     """ Unit tests for iter, keys, values, and items in SimilarKeyDict. """
     # Iterators should behave like an ordinary dictionary, independent of the key tracking capabilities.
     d = cls({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
@@ -91,7 +91,7 @@ def test_skdict_iter(cls):
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_update(cls):
+def test_skdict_update(cls) -> None:
     """ Unit tests for bool, clear, and update in SimilarKeyDict. Handles args and kwargs from init. """
     # Make a blank dict, add new stuff from (k, v) tuples and keywords, and test it.
     d = cls(simfn=bool)
@@ -110,7 +110,7 @@ def test_skdict_update(cls):
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_values(cls):
+def test_skdict_values(cls) -> None:
     """ Exotic values (functions, nested sequences, self-references) shouldn't break anything. """
     d = cls({"x" * i: i for i in range(10)}, simfn=str.upper)
     d["func"] = len
@@ -122,13 +122,13 @@ def test_skdict_values(cls):
 
 
 @class_test(SimilarKeyDict)
-def test_skdict_similar(cls):
+def test_skdict_similar(cls) -> None:
     """
     For these tests, the similarity function will remove everything but a's in the string.
     This means strings with equal numbers of a's will compare as "similar".
     In the key lists, they are sorted by this measure, then standard string sort order applies second.
     """
-    def just_a(key):
+    def just_a(key:str) -> int:
         return key.count("a")
 
     # Keys are restricted to whatever type the similarity function takes, so just use strings for now.
@@ -164,7 +164,7 @@ def test_skdict_similar(cls):
 
 
 @class_test(StringSearchDict)
-def test_string_dict(cls):
+def test_string_dict(cls) -> None:
     """ Unit tests for the added functionality of the string-based search dict class. """
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
     keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
@@ -218,7 +218,7 @@ def test_string_dict(cls):
 
 
 @class_test(ReverseDict)
-def test_reverse_dict(cls):
+def test_reverse_dict(cls) -> None:
     """ Unit tests for the added functionality of the multidict/reverse dict class. """
     # A multidict must add items to a list rather than overwrite them.
     d = cls()

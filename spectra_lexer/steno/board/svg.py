@@ -7,7 +7,7 @@ class SVGElement(dict):
 
     _tag = "g"  # Tag name enclosed in <> at element start (and end, if children are included).
 
-    def __init__(self, *elems, **attrib) -> None:
+    def __init__(self, *elems, **attrib:str) -> None:
         """ Positional args are children, keyword args are attributes. """
         super().__init__(attrib)
         self._children = [*elems]  # List of all child nodes in order.
