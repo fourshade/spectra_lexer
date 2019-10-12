@@ -2,9 +2,7 @@ from functools import partial
 from itertools import starmap
 import os
 import sys
-from typing import Callable, Iterable, List, Tuple
-
-from .rules import StenoRule
+from typing import Callable, Iterable, Tuple
 
 
 class ParallelMapper:
@@ -84,7 +82,7 @@ class IndexInfo:
     def __init__(self, size:int=DEFAULT_SIZE) -> None:
         self._size = size  # Relative index size (1-20).
 
-    def filter_in(self, translations:Iterable[Tuple[str, str]]) -> Iterable[Tuple[str, str]]:
+    def filter_translations(self, translations:Iterable[Tuple[str, str]]) -> Iterable[Tuple[str, str]]:
         """ Filter input translations according to the required index size. """
         size = self._size
         if size < self.MINIMUM_SIZE:
@@ -95,8 +93,3 @@ class IndexInfo:
             return translations
         # Eliminate long translations before processing depending on the size factor.
         return [t for t in translations if max(map(len, t)) <= size]
-
-    @staticmethod
-    def filter_out(results:Iterable[StenoRule]) -> List[StenoRule]:
-        """ Eliminate lexer results that are unmatched or basic rules themselves. """
-        return [rule for rule in results if len(rule.rulemap) > 1]

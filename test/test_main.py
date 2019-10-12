@@ -11,7 +11,7 @@ import pytest
 from spectra_lexer import plover
 from spectra_lexer.app import StenoMain
 from spectra_lexer.io import ResourceIO
-from spectra_lexer.steno import StenoRule
+from spectra_lexer.steno.rules import StenoRule
 from spectra_lexer.steno.search import IndexSearchDict, TranslationsSearchDict
 
 

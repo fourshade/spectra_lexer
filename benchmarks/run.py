@@ -34,7 +34,12 @@ class ComponentBench:
         self._run(self.engine.board_from_rule, self._spaced_rules())
 
     def make_graph(self):
-        self._run(lambda r: self.engine.graph_generate(r).render(ref='#1'), self._spaced_rules())
+        self._run(self._make_graph, self._spaced_rules())
+
+    def _make_graph(self, rule):
+        graph = self.engine.graph_generate(rule)
+        node = graph.find_node_from_ref('#1')
+        graph.render(node)
 
     def run_search(self):
         import random

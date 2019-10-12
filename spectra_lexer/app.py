@@ -49,7 +49,7 @@ class StenoApplication:
         """ Send a new index dict to the steno engine. """
         self._engine.set_index(index)
 
-    def save_index(self, index:Dict[str,dict]) -> None:
+    def save_index(self, index:Dict[str, dict]) -> None:
         """ Save an index structure directly into JSON. """
         self._io.json_write(index, self._index_file)
 

@@ -8,12 +8,12 @@ from spectra_lexer.steno import StenoEngine
 
 class ViewConfig:
     """ State attributes that can be user-configured (desktop), or sent in query strings (HTTP). """
-    compound_board: bool = ConfigOption("board", "compound_keys", True,
+    board_compound: bool = ConfigOption("board", "compound_keys", True,
                                         "Show special labels for compound keys (i.e. `f` instead of TP).")
-    recursive_graph: bool = ConfigOption("graph", "recursive", True,
-                                         "Include rules that make up other rules.")
-    compressed_graph: bool = ConfigOption("graph", "compressed", True,
-                                          "Compress the graph vertically to save space.")
+    graph_compress: bool = ConfigOption("graph", "compressed_layout", True,
+                                        "Compress the graph layout vertically to save space.")
+    graph_compat: bool = ConfigOption("graph", "compatibility_mode", False,
+                                      "Force correct spacing in the graph using HTML tables.")
     match_all_keys: bool = ConfigOption("lexer", "need_all_keys", False,
                                         "Only return lexer results that match every key in the stroke.")
     matches_per_page: int = ConfigOption("search", "match_limit", 100,
@@ -54,9 +54,6 @@ class ViewState(ViewConfig):
     board_caption: str = ""      # Rule caption above the board.
     board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
     show_link: bool = False      # If True, there are examples in the index.
-
-    # Web-specific - for browsers with poor monospace font support.
-    graph_compat: bool = False   # If True, draw the graph using HTML tables with a cell for each character.
 
     def __init__(self, engine:StenoEngine) -> None:
         self._engine = engine  # Has access to outside components.
@@ -187,9 +184,8 @@ class ViewState(ViewConfig):
                                 set_focus=set_focus,
                                 board_ratio=self.board_aspect_ratio,
                                 match_all_keys=self.match_all_keys,
-                                recursive_graph=self.recursive_graph,
-                                compressed_graph=self.compressed_graph,
+                                graph_compress=self.graph_compress,
                                 graph_compat=self.graph_compat,
-                                compound_board=self.compound_board)
+                                board_compound=self.board_compound)
         self.graph_text, self.graph_has_focus, self.link_ref, self.board_caption, self.board_xml_data = data
         self.show_link = bool(self.link_ref) and self.links_enabled

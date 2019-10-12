@@ -70,11 +70,9 @@ Add the switch ``-h`` in front of any console command from the above section to 
 
 Anything that isn't a command-line switch is usually configured from the menu bar in the desktop app. The following options may be manually activated by users of the HTTP service by adding them in the URL query string:
 
-``compound_board=0`` - Generate board diagrams with plain keys only.
+``board_compound=0`` - Generate board diagrams with plain keys only.
 
-``recursive_graph=0`` - Change graph appearance.
-
-``compressed_graph=0`` - Change graph appearance.
+``graph_compress=0`` - Generate graphs with items laid out in a longer, cascaded manner.
 
 
 More Details

@@ -15,8 +15,9 @@ class GraphNode:
 
     _connector_cls: type  # Pattern constructor for connectors.
 
-    def __init__(self, rule:StenoRule, text:str, tstart:int, tlen:int, index:int, depth:int, children:Sequence) -> None:
-        self._rule = rule
+    def __init__(self, rule_name:str, text:str, tstart:int, tlen:int,
+                 index:int, depth:int, children:Sequence) -> None:
+        self._rule_name = rule_name  # Name of the rule from which this node was built.
         self._text = text            # Text characters drawn on the last row as the node's "body".
         self._attach_start = tstart  # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen   # Length in characters of the attachment to the parent node.
@@ -28,9 +29,9 @@ class GraphNode:
         """ The reference string is the index; it is guaranteed to be unique in the tree. """
         return str(self._index)
 
-    def rule(self) -> str:
-        """ Return the rule from which this node was built. """
-        return self._rule
+    def rule_name(self) -> str:
+        """ Return the name of the rule from which this node was built. """
+        return self._rule_name
 
     def __iter__(self) -> Iterator:
         """ Yield all descendants of this node recursively depth-first. """
@@ -46,9 +47,12 @@ class GraphNode:
             return None
 
     def find_from_rule_name(self, rule_name:str) -> Optional:
-        """ Return the first child node that matches <rule_name>, if any. """
-        for node in self:
-            if node.rule().name == rule_name:
+        """ Return the first descendant node that matches <rule_name>, if any. """
+        if self._rule_name == rule_name:
+            return self
+        for child in self._children:
+            node = child.find_from_rule_name(rule_name)
+            if node is not None:
                 return node
         return None
 
@@ -82,7 +86,7 @@ class GraphNode:
             right_bounds = [width]
             bounds_iter = layout.arrange_rows(child_params)
             for child, c_items, (top, left, bottom, right) in zip(children, child_items, bounds_iter):
-                if bottom > top and right > left:
+                if bottom > top or right > left:
                     items.append((child, top, left, c_items))
                     bottom_bounds.append(bottom)
                     right_bounds.append(right)
@@ -264,8 +268,7 @@ class LinkedNode(BranchNode):
 class NodeTreeFactory:
     """ Creates text graph nodes from steno rules and map positions. """
 
-    def __init__(self, max_depth:int) -> None:
-        self._max_depth = max_depth   # Maximum recursion depth (should be at least 1).
+    def __init__(self) -> None:
         self._node_count = 0
 
     def build(self, rule:StenoRule) -> GraphNode:
@@ -273,15 +276,14 @@ class NodeTreeFactory:
         return self._build_recursive(rule, 0, len(rule.letters), 0)
 
     def _build_recursive(self, rule:StenoRule, start:int, length:int, depth:int) -> GraphNode:
-        """ Make a child node from a rulemap item. Only create one level of children if recursion is not allowed. """
+        """ Make a child node from a rulemap item. """
         rulemap = rule.rulemap
         children = []
         idx = self._node_count
         self._node_count += 1
-        if depth <= self._max_depth:
-            for item in rulemap:
-                child = self._build_recursive(item.rule, item.start, item.length, depth + 1)
-                children.append(child)
+        for item in rulemap:
+            child = self._build_recursive(item.rule, item.start, item.length, depth + 1)
+            children.append(child)
         return self._make_node(rule, start, length, idx, depth, children)
 
     @staticmethod
@@ -308,7 +310,7 @@ class NodeTreeFactory:
                 node_cls = UnmatchedNode
             else:
                 node_cls = LeafNode
-        return node_cls(rule, text, tstart, tlen, index, depth, children)
+        return node_cls(rule.name, text, tstart, tlen, index, depth, children)
 
 
 class StenoGraph:
@@ -319,20 +321,16 @@ class StenoGraph:
         self._layout = layout
         self._formatter = formatter  # Formats the output text based on which node is selected (if any).
 
-    def render(self, ref="", *, find_rule=False, **kwargs) -> Tuple[str, Optional[StenoRule]]:
-        """ Render a graph as HTML text with an optional reference node selected.
-            <ref> is a rule name if <find_rule> is True; otherwise it is an anchor href.
-            Return the finished text and any valid rule selection. """
-        if find_rule:
-            node = self._root.find_from_rule_name(ref)
-        else:
-            ref = self._formatter.href_to_ref(ref)
-            node = self._root.find_from_ref(ref)
-        text = self._render(node, **kwargs)
-        rule = node.rule() if node is not None else None
-        return text, rule
+    def find_node_from_ref(self, ref:str) -> Optional[GraphNode]:
+        """ Return a reference node selected by anchor href. """
+        ref = self._formatter.href_to_ref(ref)
+        return self._root.find_from_ref(ref)
 
-    def _render(self, target:GraphNode, *, intense=False) -> str:
+    def find_node_from_rule_name(self, rule_name:str) -> Optional[GraphNode]:
+        """ Return a reference node selected by rule name. """
+        return self._root.find_from_rule_name(rule_name)
+
+    def render(self, target:Optional[GraphNode], *, intense=False) -> str:
         """ Format a node graph and highlight a node ancestry line, starting with the root down to some terminal node.
             If <ancestry> is empty, highlight nothing. If <ancestry> is the root, highlight it (and only it) entirely.
             Otherwise, only highlight columns the root shares with the terminal node. """
@@ -344,7 +342,7 @@ class StenoGraph:
         return str(canvas)
 
     def _render_recursive(self, canvas:Canvas, parent_row:int, parent_col:int,
-                          items:List[tuple], target:GraphNode, intense:bool) -> None:
+                          items:List[tuple], target:Optional[GraphNode], intense:bool) -> None:
         """ Render each item on the canvas with respect to its parent. """
         for child, row, col, c_items in items:
             this_row = parent_row + row
@@ -358,13 +356,11 @@ class GraphEngine:
     """ Creates text graphs and fills indices matching these rules to their nodes. """
 
     @staticmethod
-    def generate(rule:StenoRule, recursive=True, compressed=True, compat=False):
+    def generate(rule:StenoRule, compressed=True, compat=False):
         """ Make a root graph node and formatter out of <rule> and construct a graph object.
-            <recursive> - If True, add sub-graphs for rules that are composed of other rules.
             <compressed> - If True, lay out the graph in a manner that squeezes nodes together as much as possible.
             <compat> - If True, use a formatter that implements text monospacing with explicit markup. """
-        max_depth = 10 if recursive else 1
-        builder = NodeTreeFactory(max_depth)
+        builder = NodeTreeFactory()
         root = builder.build(rule)
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
         formatter = CompatHTMLFormatter() if compat else StandardHTMLFormatter()
