@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 
 class RuleMapItem:
@@ -13,34 +13,17 @@ class RuleMapItem:
 class StenoRule:
     """ A general rule mapping a set of steno keys to a set of letters. All contents are recursively immutable. """
 
-    class Flag(str):
-        """ A flag string constant with shortcuts on attribute access. """
-        def __get__(self, instance, owner:type=None):
-            """ If a flag constant is accessed on an instance, test for membership. """
-            return self in instance.flags
-
-    # These are the acceptable string values for flags, as read from JSON.
-    # For parsing:
-    is_special = Flag("SPEC")   # Special rule used internally (in other rules). Only referenced by name.
-    is_stroke = Flag("STRK")    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
-    is_word = Flag("WORD")      # Exact match for a single word. These rules do not adversely affect lexer performance.
-    is_rare = Flag("RARE")      # Rule applies to very few words and could specifically cause false positives.
-    # For graphics:
-    is_inversion = Flag("INV")  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
-    is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
-    is_separator = Flag("SEP")  # Rule that delimits two strokes. Should not contain any children.
-
-    def __init__(self, name:str, keys:str, letters:str, flags=frozenset(), desc="", rulemap=()) -> None:
-        self.name = name
+    def __init__(self, name:str, keys:str, letters:str, flags=frozenset(), caption="", rulemap=()) -> None:
+        self.name = name        # Rule name string. Used as a unique identifier.
         self.keys = keys        # Raw string of steno keys that make up the rule.
         self.letters = letters  # Raw English text of the word.
-        self.flags = flags      # Immutable set of strings describing flags that apply to the rule.
-        self.desc = desc        # Textual description of the rule.
+        self.flags = flags      # Immutable set of string flags that apply to the rule.
+        self.caption = caption  # Textual description of the rule.
         self.rulemap = rulemap  # Immutable sequence of tuples mapping child rules to letter positions *in order*.
 
     def __str__(self) -> str:
-        """ The standard string representation of a rule is just its mapping of keys to letters. """
-        return f"{self.keys} → {self.letters or '<special>'}"
+        """ The standard string representation of a rule is its caption. """
+        return self.caption
 
 
 class RuleParser:
@@ -52,27 +35,28 @@ class RuleParser:
         self._alias_delim = alias_delim  # Delimiter between letters and their rule alias when different.
         self._rules = {}                 # Dict of finished steno rules indexed by an internal reference name.
 
-    def get(self, k:str) -> Optional[StenoRule]:
-        """ Look up a rule. If it is missing but we have a raw version, parse it, otherwise return None. """
-        if k in self._rules:
-            return self._rules[k]
-        if k not in self._raw_rules:
-            return None
-        return self._parse(k)
+    def __iter__(self) -> Iterator[StenoRule]:
+        """ Yield all finished rules, parsing missing ones as necessary. """
+        return map(self._parse, self._raw_rules)
 
-    def _parse(self, k:str) -> StenoRule:
+    def _parse(self, k:str) -> Optional[StenoRule]:
         """ Recursively parse a rule from raw list form into a StenoRule object. The fields (in order) are:
             keys:    RTFCRE formatted string of steno strokes.
             pattern: English text pattern string, consisting of raw letters as well as references to other rules.
             flags:   Optional sequence of flag strings.
             desc:    Optional description for when the rule is displayed in the GUI. """
+        # Look up a rule. If it is missing but we have a raw version, parse it, otherwise return None.
+        if k in self._rules:
+            return self._rules[k]
+        if k not in self._raw_rules:
+            return None
         raw_rule = self._raw_rules[k]
         try:
             keys, pattern, *optional = raw_rule
         except ValueError:
             raise ValueError(f"Not enough fields for rule {k}")
         flags = optional.pop(0) if optional else ()
-        desc = optional.pop(0) if optional else ""
+        desc = optional.pop(0) if optional else "No description"
         if optional:
             raise ValueError(f"Too many fields for rule {k}: extra = {optional}")
         # The pattern must be always parsed into letters and a rulemap.
@@ -85,7 +69,14 @@ class RuleParser:
         # The flags and rulemap must be frozen for immutability.
         flags = frozenset(flags)
         rulemap = tuple(rulemap)
-        rule = self._rules[k] = StenoRule(k, keys, letters, flags, desc, rulemap)
+        # Generate a plaintext caption to finish.
+        if rulemap and letters:
+            # Derived rules show the complete mapping of keys to letters in their caption.
+            caption = f"{keys} → {letters}: {desc}"
+        else:
+            # Base rules display only their keys to the left of their descriptions.
+            caption = f"{keys}: {desc}"
+        rule = self._rules[k] = StenoRule(k, keys, letters, flags, caption, rulemap)
         return rule
 
     def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
@@ -119,7 +110,7 @@ class RuleParser:
             reference = "".join(p_list[start+1:end-1])
             *alias, k = reference.split(self._alias_delim, 1)
             # Look up the child rule reference (and parse it if it hasn't been yet).
-            rule = self.get(k)
+            rule = self._parse(k)
             if rule is None:
                 raise KeyError(f"Illegal rule reference {k} in pattern {pattern}")
             letters = alias[0] if alias else rule.letters
@@ -127,10 +118,6 @@ class RuleParser:
             rulemap.append(RuleMapItem(k, start, len(letters)))
             p_list[start:end] = letters
         return "".join(p_list), rulemap
-
-    def to_list(self) -> List[StenoRule]:
-        """ Return all finished rules in a list, parsing missing ones as necessary. """
-        return [*map(self.get, self._raw_rules)]
 
 
 class InverseRuleParser:

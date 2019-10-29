@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QFormLayout, QFrame, QL
 
 from .dialog import ToolDialog
 
-from spectra_lexer.option import ConfigItem
+from spectra_lexer.config import ConfigItem
 
 
 class OptionWidgets:

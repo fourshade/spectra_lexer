@@ -50,13 +50,12 @@ class CommandNamespace:
     class clean(Command):
         description = "Remove all build and test-generated files."
         def run(self):
-            patterns = ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py')
-            matches = [m for p in patterns for m in glob(p, recursive=True)]
-            for f in filter(os.path.exists, matches):
-                if os.path.isdir(f):
-                    shutil.rmtree(f)
-                else:
-                    os.remove(f)
+            for pattern in ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py'):
+                for path in glob(pattern, recursive=True):
+                    if os.path.isdir(path):
+                        shutil.rmtree(path)
+                    elif os.path.exists(path):
+                        os.remove(path)
 
     class develop(BaseCommand, develop.develop):
         requires = "build_ui"

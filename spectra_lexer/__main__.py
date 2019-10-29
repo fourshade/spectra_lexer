@@ -58,9 +58,9 @@ class EntryPoints:
 
 entry_points = EntryPoints(default="gui")
 add = entry_points.add
-add("spectra_lexer.app",      "console", "Run commands interactively from console.")
-add("spectra_lexer.app",      "analyze", "Run the lexer on every item in a JSON steno translations dictionary.")
-add("spectra_lexer.app",      "index",   "Analyze a translations file and index each one by the rules it uses.")
+add("spectra_lexer.gui_none", "console", "Run commands interactively from console.")
+add("spectra_lexer.gui_none", "analyze", "Run the lexer on every item in a JSON steno translations dictionary.")
+add("spectra_lexer.gui_none", "index",   "Analyze a translations file and index each one by the rules it uses.")
 add("spectra_lexer.gui_http", "http",    "Run the application as an HTTP web server.")
 add("spectra_lexer.gui_qt",   "gui",     "Run the application as a standalone GUI (default).")
 

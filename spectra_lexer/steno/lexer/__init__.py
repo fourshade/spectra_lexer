@@ -1,1 +1,1 @@
-from .base import LexerResult, StenoLexer
+from .lexer import LexerResult, StenoLexer, StenoLexerFactory

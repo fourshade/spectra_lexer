@@ -41,11 +41,6 @@ class BaseHTMLFormatter(ICharFormatter):
             char = f'<a class="gg" href="#{ref}">{char}</a>'
         return char
 
-    @staticmethod
-    def href_to_ref(href:str) -> str:
-        """ Convert an href string to one without the #. """
-        return href[1:]
-
 
 class StandardHTMLFormatter(BaseHTMLFormatter):
     """ Formats text using preformatted tags with normal line breaks. """

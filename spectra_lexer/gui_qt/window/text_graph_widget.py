@@ -41,7 +41,7 @@ class TextGraphWidget(QTextBrowser):
             However, mouseovers are error-prone; there are unavoidable breaks between characters in a column.
             To avoid twitchy selection/deselection, we only send mouseover signals when the reference isn't empty. """
         if self._graph_enabled:
-            ref = self._last_ref = url.toString()
+            ref = self._last_ref = url.fragment()
             if ref:
                 self.sig_over_ref.emit(ref)
 

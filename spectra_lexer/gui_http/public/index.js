@@ -98,7 +98,7 @@ $(document).ready(function(){
 
     const displayText = document.getElementById("w_text");
     $("#w_text").on("mouseenter", "a.gg", function(){
-        var ref = "#" + this.href.split("#").pop();
+        var ref = this.href.split("#").pop();
         if(state.graph_node_ref!=ref){
             state.graph_node_ref = ref;
             processAction("GraphOver");
@@ -124,7 +124,7 @@ $(document).ready(function(){
         mapping_selected(value) {mappingSelector.selectText(value); return true;},
         input_text(value) {searchInput.value = value; return true;},
         translation(value) {displayTitle.value = value.join(titleDelim); return true;},
-        show_link(value) {displayLink.style.display = (value ? "" : "none"); return true;},
+        link_ref(value) {displayLink.style.display = (value ? "" : "none"); return true;},
     };
     function updateState(stateChanges){
         // Keep state variables that either return true on GUI update or don't update the GUI at all.
@@ -150,5 +150,5 @@ $(document).ready(function(){
 
     // Before starting, save the initial board size and hide the link.
     onBoardResize();
-    updateTable.show_link(false);
+    updateTable.link_ref("");
 });

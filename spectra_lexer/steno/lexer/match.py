@@ -1,12 +1,21 @@
+""" Contains all usable rule matchers for the lexer. """
+
 from typing import Iterable, List, Sequence, Tuple, TypeVar
 
-# Generic marker for the rule reference data type.
-_RULE = TypeVar("_RULE")
+# Generic marker for the rule reference data type (may be anything).
+_RULE_TP = TypeVar("_RULE_TP")
 # Marker for the match data type: (rule, unmatched keys, rule start, rule length).
-MATCH_TP = Tuple[_RULE, str, int, int]
+MATCH_TP = Tuple[_RULE_TP, str, int, int]
 
 
-class PrefixTree:
+class IRuleMatcher:
+    """ Interface for a class that matches steno rules using a rule's s-keys and/or letters. """
+
+    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> Iterable[MATCH_TP]:
+        raise NotImplementedError
+
+
+class _PrefixTree:
     """ A trie-based structure with sequence-based keys that has the distinct advantage of
         quickly returning all values that match a given key or any of its prefixes, in order.
         It also allows duplicate keys, returning a list of all values that match it. """
@@ -39,19 +48,19 @@ class PrefixTree:
         return values
 
 
-class PrefixMatcher:
+class PrefixMatcher(IRuleMatcher):
     """ Matches rules that start with certain keys in order, and others in any order (but only within one stroke).
         The performance is heavily dependent on the number of possible unordered keys.
         This is only really required for the asterisk; adding more tends to slow it down more than is worth it. """
 
     def __init__(self, key_sep:str, unordered_keys:Iterable[str]) -> None:
-        unordered_set = frozenset(unordered_keys)
-        self._tree = PrefixTree()          # Prefix tree for all rules.
-        self._ordered_tree = PrefixTree()  # Prefix tree for rules with only ordered keys.
-        self._key_sep = key_sep  # Steno stroke delimiter.
-        self._filter_unordered = unordered_set.intersection  # Filter for unordered keys.
+        filter_unordered = frozenset(unordered_keys).intersection
+        self._key_sep = key_sep                    # Steno stroke delimiter.
+        self._filter_unordered = filter_unordered  # Filter for unordered keys.
+        self._tree = _PrefixTree()                 # Prefix tree for all rules.
+        self._ordered_tree = _PrefixTree()         # Prefix tree for rules with only ordered keys.
 
-    def add(self, rule:_RULE, skeys:str, letters:str) -> None:
+    def add(self, rule:_RULE_TP, skeys:str, letters:str) -> None:
         """ Index a rule, its skeys string, its letters, and its unordered keys under only the ordered keys.
             The ordered keys may be derived by removing the unordered keys from the full string one-at-a-time. """
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
@@ -100,7 +109,7 @@ class PrefixMatcher:
         return matches
 
 
-class SpecialMatcher:
+class SpecialMatcher(IRuleMatcher):
     """ Handles special steno rules individually in code. """
 
     # Names for special steno rules. These are prefixed with their associated keys when defined in JSON.
@@ -112,11 +121,12 @@ class SpecialMatcher:
     UNKNOWN = "??"
 
     def __init__(self, key_sep:str, unordered_keys:Iterable[str]) -> None:
-        self._key_sep = key_sep  # Steno stroke delimiter.
-        self._is_unordered = set(unordered_keys).issuperset
-        self._name_dict = {}  # Contains special rules indexed by reference name.
+        all_unordered = set(unordered_keys).issuperset
+        self._key_sep = key_sep              # Steno stroke delimiter.
+        self._all_unordered = all_unordered  # Filter for strokes with only unordered keys left.
+        self._name_dict = {}                 # Contains special rules indexed by reference name.
 
-    def add(self, rule:_RULE, name:str) -> None:
+    def add(self, rule:_RULE_TP, name:str) -> None:
         """ Add a special rule to be matched. Its letters are ignored. """
         self._name_dict[name] = rule
 
@@ -126,44 +136,45 @@ class SpecialMatcher:
             <skeys_fs>        - contents of the current leading stroke; should just be the asterisk/special key.
             <word>            - contains all letters in the translation.
             <is_first_stroke> - are we currently parsing the first stroke of the translation? """
-        # If there are no other matches, look for a special meaning.
+        # If there are only unordered keys, look for a special meaning.
         strokes = skeys.split(self._key_sep)
         skeys_fs = strokes[0]
-        if self._is_unordered(skeys_fs):
-            is_first_stroke = (len(strokes) == all_skeys.count(self._key_sep))
-            is_last_stroke = (skeys_fs == skeys)
-            # If the word contains a period, it's probably an abbreviation.
-            if "." in all_letters:
-                rule_type = self.ABBREVIATION
-            # If the word has uppercase letters in it, it's probably a proper noun.
-            elif all_letters != all_letters.lower():
-                rule_type = self.PROPER
-            # If we are on either the first or last stroke (and there is more than one), it's probably a prefix or suffix.
-            elif is_first_stroke ^ is_last_stroke:
-                rule_type = self.AFFIX
-            # If execution reaches the end without a valid guess, use the "ambiguous" rule name.
-            else:
-                rule_type = self.UNKNOWN
-            # Look up the rule by name and return it (it *should* exist if the rule files are intact, but also allow None).
-            rule_name = skeys_fs + ":" + rule_type
-            if rule_name in self._name_dict:
-                rule = self._name_dict[rule_name]
-                return [(rule, skeys[len(skeys_fs):], 0, 0)]
-        return []
+        if not self._all_unordered(skeys_fs):
+            return []
+        is_first_stroke = (len(strokes) - 1 == all_skeys.count(self._key_sep))
+        is_last_stroke = (skeys_fs == skeys)
+        # If the word contains a period, it's probably an abbreviation.
+        if "." in all_letters:
+            rule_type = self.ABBREVIATION
+        # If the word has uppercase letters in it, it's probably a proper noun.
+        elif all_letters != all_letters.lower():
+            rule_type = self.PROPER
+        # If we are on either the first or last stroke (and there is more than one), it's probably a prefix or suffix.
+        elif is_first_stroke ^ is_last_stroke:
+            rule_type = self.AFFIX
+        # If execution reaches the end without a valid guess, use the "ambiguous" rule name.
+        else:
+            rule_type = self.UNKNOWN
+        # Look up the rule by name and return it (it *should* exist if the rule files are intact, but also allow None).
+        rule_name = skeys_fs + ":" + rule_type
+        if rule_name not in self._name_dict:
+            return []
+        rule = self._name_dict[rule_name]
+        return [(rule, skeys[len(skeys_fs):], 0, 0)]
 
 
-class StrokeMatcher:
+class StrokeMatcher(IRuleMatcher):
     """ For stroke matches, a rule must match the next full stroke and a subset of the current letters. """
 
     def __init__(self, key_sep:str) -> None:
         self._key_sep = key_sep  # Steno stroke delimiter.
         self._stroke_dict = {}   # Contains rules that match a full stroke only.
 
-    def add(self, rule:_RULE, skeys:str, letters:str) -> None:
+    def add(self, rule:_RULE_TP, skeys:str, letters:str) -> None:
         self._stroke_dict[skeys] = letters, rule
 
     def match(self, skeys:str, letters:str, all_skeys:str, *_) -> List[MATCH_TP]:
-        """  We have a complete stroke next if we just started or a stroke separator was just matched. """
+        """ We have a complete stroke next if we just started or a stroke separator was just matched. """
         if skeys == all_skeys or all_skeys[-len(skeys)-1] == self._key_sep:
             skeys_fs = skeys.split(self._key_sep, 1)[0]
             if skeys_fs in self._stroke_dict:
@@ -174,13 +185,13 @@ class StrokeMatcher:
         return []
 
 
-class WordMatcher:
+class WordMatcher(IRuleMatcher):
     """ For word matches, a rule must match a prefix of the current keys and the next whitespace-separated word. """
 
     def __init__(self) -> None:
         self._word_dict = {}  # Contains rules that match a full word only.
 
-    def add(self, rule:_RULE, skeys:str, letters:str) -> None:
+    def add(self, rule:_RULE_TP, skeys:str, letters:str) -> None:
         self._word_dict[letters] = skeys, rule
 
     def match(self, skeys:str, letters:str, all_skeys:str, *_) -> List[MATCH_TP]:

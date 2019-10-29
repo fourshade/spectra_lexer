@@ -4,7 +4,8 @@ from functools import partial
 import pkg_resources
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from spectra_lexer.gui_qt import QtGUI, QtMain, QtWindow
+from .main import QtGUI, QtMain
+from .window import QtWindow
 
 
 class dummy:
@@ -155,7 +156,7 @@ class PloverGUI(QtGUI):
         strokes = self.engine.get_last_strokes()
         translation = self.parser.parse_translation(strokes, new_actions)
         if translation is not None:
-            self.state.query(*translation)
+            self._query(*translation)
 
 
 class PloverMain(QtMain):
@@ -163,7 +164,7 @@ class PloverMain(QtMain):
     translations_files = []
 
 
-class plover:
+class PloverProxy:
     """ Entry point wrapper and dialog proxy to Plover. Translates some attributes into app calls and fakes others.
         In order to be recognized as a valid plugin, this proxy class must face outwards as the entry point itself.
         We must not create our own QApplication object or run our own event loop if Plover is running. """
@@ -189,29 +190,3 @@ class plover:
             return getattr(self.original, name)
         except AttributeError:
             return dummy()
-
-
-def test_convert(translations:Dict[str, str], **kwargs) -> None:
-    """ Do a conversion test between tuple-based keys and string-based keys. """
-    assert dc_to_dict(dict_to_dc(translations, **kwargs)) == translations
-
-
-def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPloverStenoDictCollection:
-    steno_dc = IPloverStenoDictCollection()
-    dicts = steno_dc.dicts = []
-    tuples = [(*k.split("/"),) for k in translations]
-    items = list(zip(tuples, translations.values()))
-    for i in range(split_count):
-        tuple_d = dict(items[i::split_count])
-        sd = IPloverStenoDict()
-        sd.items = tuple_d.items
-        sd.enabled = True
-        dicts.append(sd)
-    return steno_dc
-
-
-def dc_to_dict(steno_dc:IPloverStenoDictCollection) -> Dict[str, str]:
-    wrapper = PloverEngineWrapper()
-    parser = PloverTranslationParser()
-    d = wrapper.compile_raw_dict(steno_dc)
-    return parser.convert_dict(d)

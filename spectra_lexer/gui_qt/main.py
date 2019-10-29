@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import QApplication
 
 from .dialog import QtDialogFactory
 from .window import QtWindow
-from spectra_lexer.app import StenoApplication, StenoMain
+from spectra_lexer.app import StenoApplication
+from spectra_lexer.base import StenoMain
 from spectra_lexer.log import StreamLogger
 
 
@@ -71,41 +72,6 @@ class QtAsyncDispatcher(QObject):
             callback(value)
 
 
-class QtGUIState:
-    """ Handles communication between the app's state machine and the Qt GUI's main widgets. """
-
-    def __init__(self, app:StenoApplication, window:QtWindow) -> None:
-        self._process = app.process_action  # Main state processor.
-        self._methods = window.methods()    # Dict of GUI methods to call with process output.
-        self._state_vars = {}               # Contains a complete representation of the current state of the GUI.
-
-    def query(self, strokes:str, word:str) -> None:
-        """ Run a lexer query on actual user strokes from a steno machine. """
-        self._update(translation=[strokes, word])
-        state = {"match_all_keys": False, **self._state_vars}
-        self._action(state, "Query")
-
-    def update_action(self, action:str, attr:str=None, value:Any=None) -> None:
-        """ Update the state with a value from a GUI event, then run the action. """
-        state = self._state_vars
-        if attr is not None:
-            state[attr] = value
-        self._action(state, action)
-
-    def _update(self, **state_vars) -> None:
-        """ For every variable given, update our state dict and call the corresponding GUI method if one exists. """
-        self._state_vars.update(state_vars)
-        for k in self._methods:
-            if k in state_vars:
-                self._methods[k](state_vars[k])
-
-    def _action(self, state:dict, action:str) -> None:
-        """ Send an action command with the given state. """
-        changed = self._process(state, action)
-        # After any action, run through the changes and update the state and widgets with any relevant ones.
-        self._update(**changed)
-
-
 class QtGUI:
     """ Top-level object for Qt GUI operations. Contains all components for the application as a whole. """
 
@@ -119,7 +85,7 @@ class QtGUI:
         self.window = window
         self.dialogs = dialogs
         self.app = None
-        self.state = None
+        self.state_vars = {}  # Contains a complete representation of the current state of the GUI.
 
     def start(self, app_builder:Callable[[], StenoApplication]) -> None:
         """ Connect all dialog menu items through the exception trap. """
@@ -142,9 +108,7 @@ class QtGUI:
     def _connect(self, app:StenoApplication) -> None:
         """ Once the app object is loaded, it is safe to connect GUI extensions. """
         self.app = app
-        window = self.window
-        state = self.state = QtGUIState(app, window)
-        window.connect(self.exc_trap.wrap(state.update_action))
+        self.window.connect(self.exc_trap.wrap(self._update_action))
         self._subcls_tasks()
         # If there is no index file on first start, send up a dialog.
         if app.is_first_run:
@@ -153,6 +117,30 @@ class QtGUI:
     def _subcls_tasks(self) -> None:
         """ Perform subclass-specific setup. """
         pass
+
+    def _query(self, strokes:str, word:str) -> None:
+        """ Run a lexer query on actual user strokes from a steno machine. """
+        self._update(translation=[strokes, word])
+        state = {"match_all_keys": False, **self.state_vars}
+        self._action(state, "Query")
+
+    def _update_action(self, action:str, attr:str=None, value:Any=None) -> None:
+        """ Update the state with a value from a GUI event, then run the action. """
+        state = self.state_vars
+        if attr is not None:
+            state[attr] = value
+        self._action(state, action)
+
+    def _update(self, **state_vars) -> None:
+        """ For every variable given, update our state dict and call the corresponding GUI method if one exists. """
+        self.state_vars.update(state_vars)
+        self.window.update(state_vars)
+
+    def _action(self, state:dict, action:str) -> None:
+        """ Send an action command with the given state. """
+        changed = self.app.process_action(state, action)
+        # After any action, run through the changes and update the state and widgets with any relevant ones.
+        self._update(**changed)
 
     def _open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
@@ -228,7 +216,3 @@ class QtMain(StenoMain):
         _ = self.build_gui(QtGUI)
         # After everything is loaded, start a GUI event loop and run it indefinitely.
         return qt_app.exec_()
-
-
-# Standalone GUI Qt application entry point.
-gui = QtMain()

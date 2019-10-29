@@ -1,42 +1,25 @@
 #!/usr/bin/env python3
 
-""" Main test module for the Spectra steno lexer. Currently handles all major components except the GUI. """
+""" Unit tests for lexical analysis and graphical rendering. """
 
 from collections import Counter
-import os
-import re
 
 import pytest
 
-from spectra_lexer import plover
-from spectra_lexer.app import StenoMain
-from spectra_lexer.io import ResourceIO
-from spectra_lexer.search import SearchEngine
-from spectra_lexer.steno.rules import StenoRule
+from .base import FACTORY, KEY_LAYOUT, RULES, RULES_DICT, TEST_TRANSLATIONS
+from spectra_lexer.steno.board import BoardElementParser
+from spectra_lexer.steno.graph import GraphEngine
+from spectra_lexer.steno.lexer import StenoLexerFactory
+
+IGNORED_KEYS = {KEY_LAYOUT.sep, KEY_LAYOUT.split}
+VALID_FLAGS = set()
+for cls in (BoardElementParser, GraphEngine, StenoLexerFactory):
+    for v in vars(cls).values():
+        if isinstance(v, str) and v.isupper():
+            VALID_FLAGS.add(v)
 
 
-def _test_file_path(filename:str) -> str:
-    """ Get the full file path for program test data by type (e.g. translations that should all pass with matches). """
-    return os.path.join(__file__, "..", "data", filename)
-
-
-# Load resources using default command-line arguments and create components as we need them.
-opts = StenoMain()
-IO = ResourceIO()
-RESOURCES = opts.build_resources()
-ENGINE = RESOURCES.build_engine()
-KEY_LAYOUT = ENGINE._layout
-RULE_PARSER = ENGINE._rule_parser
-LEXER = ENGINE._lexer
-BOARD_ENGINE = ENGINE._board_engine
-GRAPH_ENGINE = ENGINE._graph_engine
-RULES_LIST = RULE_PARSER.to_list()
-RULES_DICT = {rule.name: rule for rule in RULES_LIST}
-IGNORED_KEYS = set("/-")
-VALID_FLAGS = {v for v in vars(StenoRule).values() if isinstance(v, str)}
-
-
-@pytest.mark.parametrize("rule", RULES_LIST)
+@pytest.mark.parametrize("rule", RULES)
 def test_rules(rule) -> None:
     """ Go through each rule and perform integrity checks. First verify that all flags are valid. """
     flags = rule.flags
@@ -49,48 +32,21 @@ def test_rules(rule) -> None:
         parent_len = len(rule.letters)
         key_count = Counter(rule.keys)
         for item in rulemap:
-            child_rule = RULES_DICT[item.name]
             assert item.start >= 0
             assert item.length >= 0
             assert item.start + item.length <= parent_len
-            key_count.subtract(child_rule.keys)
+            keys, letters = RULES_DICT[item.name]
+            key_count.subtract(keys)
         mismatched = [k for k in key_count if key_count[k] and k not in IGNORED_KEYS]
         assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
 
 
-SEARCH_ENGINE = SearchEngine()
-TRANSLATIONS = IO.json_read(_test_file_path("translations.json"))
-SEARCH_ENGINE.set_translations(TRANSLATIONS)
+LEXER = FACTORY.build_lexer()
+BOARD_ENGINE = FACTORY.build_board_engine()
+GRAPH_ENGINE = FACTORY.build_graph_engine()
 
 
-@pytest.mark.parametrize("keys, word", TRANSLATIONS.items())
-def test_translations_search(keys, word) -> None:
-    """ Go through each loaded test translation and check the search method in all modes.
-        Search should return a list with only the item itself (or its value) in any mode. """
-    assert SEARCH_ENGINE.search_translations(keys, count=2, strokes=True) == [keys]
-    assert SEARCH_ENGINE.search_translations(word, count=2, strokes=False) == [word]
-    assert SEARCH_ENGINE.search_translations(keys, count=None, strokes=True) == [word]
-    assert SEARCH_ENGINE.search_translations(word, count=None, strokes=False) == [keys]
-    assert SEARCH_ENGINE.search_translations(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
-    assert SEARCH_ENGINE.search_translations(re.escape(word), count=2, strokes=False, regex=True) == [word]
-
-
-INDEX = IO.json_read(_test_file_path("index.json"))
-SEARCH_ENGINE.set_index(INDEX)
-
-
-@pytest.mark.parametrize("rule_name", INDEX.keys())
-def test_index_search(rule_name) -> None:
-    """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
-    rule = RULE_PARSER.get(rule_name)
-    wresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=False)
-    assert all([rule.letters in r for r in wresults])
-    kresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=True)
-    all_keys = set(rule.keys) - IGNORED_KEYS
-    assert all_keys == all_keys.intersection(*kresults)
-
-
-@pytest.mark.parametrize("keys, letters", TRANSLATIONS.items())
+@pytest.mark.parametrize("keys, letters", TEST_TRANSLATIONS.items())
 def test_analysis(keys, letters) -> None:
     """ The parsing tests fail if the lexer can't match all the keys. """
     skeys = KEY_LAYOUT.from_rtfcre(keys)
@@ -100,7 +56,7 @@ def test_analysis(keys, letters) -> None:
     # Rule names must all refer to rules that exist.
     names = result.rule_names()
     for name in names:
-        assert RULE_PARSER.get(name)
+        assert name in RULES_DICT
     # Rule positions must be non-negative and increasing monotonic.
     positions = result.rule_positions()
     assert positions == sorted(map(abs, positions))
@@ -117,8 +73,3 @@ def test_analysis(keys, letters) -> None:
     nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
-
-
-def test_plover() -> None:
-    """ Make sure the Plover plugin can convert dicts between tuple-based keys and string-based keys. """
-    plover.test_convert(TRANSLATIONS)

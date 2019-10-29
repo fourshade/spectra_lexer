@@ -2,7 +2,8 @@ import os
 from threading import Lock
 
 from .http import HTTPFileGetter, HTTPJSONProcessor, HTTPMethodTable, HTTPServer
-from spectra_lexer.app import StenoApplication, StenoMain
+from spectra_lexer.app import StenoApplication
+from spectra_lexer.base import StenoMain
 from spectra_lexer.option import CmdlineOption
 
 
@@ -46,6 +47,3 @@ class HttpMain(StenoMain):
             server.shutdown()
         log("Server stopped.")
         return 0
-
-
-http = HttpMain()

@@ -14,13 +14,12 @@ class BaseGraphLayout:
 
 
 class CascadedGraphLayout(BaseGraphLayout):
-    """ Graph layout engine that places nodes in descending order like a waterfall from the top down.
-        Recursive construction with one line per node means everything fits naturally with no overlap.
-        Window space economy is poor (the triangle shape means half the space is wasted off the top).
-        Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
 
     def arrange_rows(self, node_params:Iterable[Sequence[int]]) -> Iterator[Sequence[int]]:
-        """ Every time a new node is placed, we simply move down by a number of rows equal to its height. """
+        """ Graph layout engine that places nodes in descending order like a waterfall from the top down.
+            Recursive construction with one line per node means everything fits naturally with no overlap.
+            Window space economy is poor (the triangle shape means half the space is wasted off the top).
+            Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
         bottom_bound = 0
         right_bound = 0
         for top_bound, left_bound, height, width in node_params:
@@ -32,21 +31,22 @@ class CascadedGraphLayout(BaseGraphLayout):
                 top_bound = bottom_bound
             if right_bound > left_bound:
                 top_bound += 1
+            # Place the node and move down by a number of rows equal to its height.
             bottom_bound = top_bound + height
             right_bound = left_bound + width
             yield top_bound, left_bound, bottom_bound, right_bound
 
 
 class CompressedGraphLayout(BaseGraphLayout):
-    """ Graph layout engine that attempts to arrange nodes and connections in the minimum number of rows.
-        Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
 
     _max_width = 50   # Graphs should never be wider than this many columns.
     _max_height = 50  # Graphs should never be taller than this many rows.
 
     def arrange_rows(self, node_params:Iterable[Sequence[int]]) -> Iterator[Sequence[int]]:
-        """ Place nodes into rows using a slot-based system. Each node records which row slot it occupies starting from
-            the top down, and the rightmost column it needs. After that column passes, the slot becomes free again. """
+        """ Graph layout engine that attempts to arrange nodes and connections in the minimum number of rows
+            using a slot-based system. Each node records which row slot it occupies starting from the top down,
+            and the rightmost column it needs. After that column passes, the slot becomes free again.
+            Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
         last_row = 0
         right_bound = 0
         slots = [-1] * self._max_height

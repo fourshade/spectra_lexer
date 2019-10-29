@@ -1,33 +1,30 @@
 """ Base module for text graphing. Defines top-level graph structures. """
 
-from collections import defaultdict
 from functools import lru_cache
-from typing import Iterator, List, Optional, Sequence, Tuple, Type
+from typing import Container, Iterator, List, Optional, Sequence, Tuple, Type
 
 from .layout import BaseGraphLayout, CascadedGraphLayout, CompressedGraphLayout
-from .render import BaseHTMLFormatter, Canvas, CompatHTMLFormatter, StandardHTMLFormatter
-from .style import IConnectors, InversionConnectors, LinkedConnectors,\
+from .render import Canvas, CompatHTMLFormatter, StandardHTMLFormatter
+from .style import IConnectors, InversionConnectors, LinkedConnectors, \
     SimpleConnectors, ThickConnectors, UnmatchedConnectors
 
 
 class GraphNode:
     """ A visible node in a tree structure of steno rules. Each node may have zero or more children. """
 
-    _connector_cls: type  # Pattern constructor for connectors.
-
     def __init__(self, rule_name:str, text:str, tstart:int, tlen:int,
-                 index:int, depth:int, children:Sequence) -> None:
+                 ref:str, depth:int, children:Sequence) -> None:
         self._rule_name = rule_name  # Name of the rule from which this node was built.
         self._text = text            # Text characters drawn on the last row as the node's "body".
         self._attach_start = tstart  # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen   # Length in characters of the attachment to the parent node.
-        self._index = index          # Unique tree index for this node.
+        self._ref = ref              # Unique reference string for this node.
         self._depth = depth          # Nesting depth of this node.
         self._children = children    # Direct children of this node.
 
     def ref(self) -> str:
-        """ The reference string is the index; it is guaranteed to be unique in the tree. """
-        return str(self._index)
+        """ The reference string is guaranteed to be unique in the tree. """
+        return self._ref
 
     def rule_name(self) -> str:
         """ Return the name of the rule from which this node was built. """
@@ -41,20 +38,15 @@ class GraphNode:
 
     def find_from_ref(self, ref:str) -> Optional:
         """ Return the child node with <ref> as its integer index. """
-        try:
-            return list(self)[int(ref)]
-        except (IndexError, ValueError):
-            return None
+        for node in self:
+            if node.ref() == ref:
+                return node
 
     def find_from_rule_name(self, rule_name:str) -> Optional:
         """ Return the first descendant node that matches <rule_name>, if any. """
-        if self._rule_name == rule_name:
-            return self
-        for child in self._children:
-            node = child.find_from_rule_name(rule_name)
-            if node is not None:
+        for node in self:
+            if node.rule_name() == rule_name:
                 return node
-        return None
 
     def lineage(self, node) -> Sequence:
         """ Return <node>'s ancestors in order, starting with self at index 0 and ending with <node>. """
@@ -96,6 +88,29 @@ class GraphNode:
             height = max(bottom_bounds)
             width = max(right_bounds)
         return height, width, items
+
+    def render(self, target=None, *, compressed=True, compat=False, intense=False) -> str:
+        """ Format a graph with this node as root and highlight a node ancestry line down to some <target> node.
+            If <target> is None, highlight nothing, otherwise highlight columns this node shares with <target>. """
+        # If <compressed> is True, lay out the graph in a manner that squeezes nodes together as much as possible.
+        layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
+        height, width, items = self.layout(layout)
+        # If <compat> is True, use a formatter that implements text monospacing with explicit markup.
+        formatter = CompatHTMLFormatter() if compat else StandardHTMLFormatter()
+        canvas = Canvas(height, width, formatter)
+        items = [(self, 0, 0, items)]
+        self._render_recursive(canvas, 0, 0, items, target, intense)
+        return str(canvas)
+
+    def _render_recursive(self, canvas:Canvas, parent_row:int, parent_col:int,
+                          items:List[tuple], target:Optional, intense:bool) -> None:
+        """ Render each item on the canvas with respect to its parent. """
+        for child, row, col, c_items in items:
+            this_row = parent_row + row
+            this_col = parent_col + col
+            if c_items:
+                self._render_recursive(canvas, this_row, this_col, c_items, target, intense)
+            child.write(canvas, parent_row, this_row, this_col, intense, target)
 
     def write(self, canvas:Canvas, top_row:int, bottom_row:int, col:int, intense:bool, target:Optional) -> None:
         is_colored = self._write_body(canvas, bottom_row, col, intense, target)
@@ -156,7 +171,7 @@ class SeparatorNode(GraphNode):
 
 class ConnectedNode(GraphNode):
 
-    _connector_cls: Type[IConnectors]
+    _connector_cls: Type[IConnectors]  # Pattern constructor for connectors.
 
     def min_row(self) -> int:
         """ Default minimum spacing is 3 characters, or 2 if the body is one unit wide. """
@@ -164,8 +179,9 @@ class ConnectedNode(GraphNode):
 
     def _write_connectors(self, canvas:Canvas, row:int, col:int, height:int, intense:bool, is_colored:bool) -> None:
         """ Draw the connectors. Do *not* shift them. """
-        ref = self.ref()
-        connectors = self._connector_cls(self._attach_length, self._body_width()).strlist(height)
+        ref = self._ref
+        bottom_length = self._body_width()
+        connectors = self._connector_cls(self._attach_length, bottom_length).strlist(height)
         for s in connectors:
             if is_colored:
                 color = self._color(row, self._depth, intense)
@@ -206,7 +222,7 @@ class LeafNode(ConnectedNode):
 
     def _write_body(self, canvas:Canvas, row:int, col:int, intense:bool, target:Optional) -> bool:
         """ Draw the text in a row after shifting to account for hyphens. """
-        ref = self.ref()
+        ref = self._ref
         text = self._text
         col -= self._is_shifted()
         if target is self:
@@ -236,7 +252,7 @@ class BranchNode(ConnectedNode):
 
     def _write_body(self, canvas:Canvas, row:int, col:int, intense:bool, target:Optional) -> bool:
         # Write the non-formatted body first, then color only those columns shared with the terminal node.
-        ref = self.ref()
+        ref = self._ref
         text = self._text
         canvas.write_row(text, row, col, ref=ref, bold=True)
         lineage = self.lineage(target) if target is not None else ()
@@ -256,79 +272,49 @@ class BranchNode(ConnectedNode):
 
 
 class InversionNode(BranchNode):
+    """ Node for an inversion of steno order. Connectors should indicate some kind of "reversal". """
 
     _connector_cls = InversionConnectors
 
 
 class LinkedNode(BranchNode):
+    """ Node for a child rule that uses keys from two strokes. This complicates stroke delimiting. """
 
     _connector_cls = LinkedConnectors
 
 
-class StenoGraph:
-    """ Formats and renders a monospaced text graph of a rule. """
-
-    def __init__(self, root:GraphNode, layout:BaseGraphLayout, formatter:BaseHTMLFormatter):
-        self._root = root
-        self._layout = layout
-        self._formatter = formatter  # Formats the output text based on which node is selected (if any).
-
-    def find_node_from_ref(self, ref:str) -> Optional[GraphNode]:
-        """ Return a reference node selected by anchor href. """
-        ref = self._formatter.href_to_ref(ref)
-        return self._root.find_from_ref(ref)
-
-    def render(self, target:Optional[GraphNode], *, intense=False) -> str:
-        """ Format a node graph and highlight a node ancestry line, starting with the root down to some terminal node.
-            If <ancestry> is empty, highlight nothing. If <ancestry> is the root, highlight it (and only it) entirely.
-            Otherwise, only highlight columns the root shares with the terminal node. """
-        root = self._root
-        height, width, items = root.layout(self._layout)
-        canvas = Canvas(height, width, self._formatter)
-        items = [(root, 0, 0, items)]
-        self._render_recursive(canvas, 0, 0, items, target, intense)
-        return str(canvas)
-
-    def _render_recursive(self, canvas:Canvas, parent_row:int, parent_col:int,
-                          items:List[tuple], target:Optional[GraphNode], intense:bool) -> None:
-        """ Render each item on the canvas with respect to its parent. """
-        for child, row, col, c_items in items:
-            this_row = parent_row + row
-            this_col = parent_col + col
-            if c_items:
-                self._render_recursive(canvas, this_row, this_col, c_items, target, intense)
-            child.write(canvas, parent_row, this_row, this_col, intense, target)
-
-
 class GraphEngine:
-    """ Creates text graphs and fills indices matching these rules to their nodes. """
+    """ Formats and renders monospaced text graphs of rules. """
 
-    def __init__(self) -> None:
-        self._rules = {}
-        self._connections = defaultdict(list)
-        self._node_count = 0
+    # These are the acceptable string values for graph flags, as read from JSON.
+    _INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
 
-    def _add_rule(self, name:str, text:str, node_cls:Type[GraphNode]) -> None:
-        self._rules[name] = text, node_cls
-        self._connections[name] = []
+    NAME_ROOT = "ROOT"
+    NAME_UNMATCHED = "UNMATCHED"
 
-    def add_inversion_node(self, name:str, text:str) -> None:
-        self._add_rule(name, text, InversionNode)
+    def __init__(self, key_sep:str) -> None:
+        self._key_sep = key_sep  # Key that delimits two strokes. Its rule should not contain any children.
+        self._rule_data = {}
 
-    def add_linked_node(self, name:str, text:str) -> None:
-        self._add_rule(name, text, LinkedNode)
-
-    def add_branch_node(self, name:str, text:str) -> None:
-        self._add_rule(name, text, BranchNode)
-
-    def add_separator_node(self, name:str, text:str) -> None:
-        self._add_rule(name, text, SeparatorNode)
-
-    def add_leaf_node(self, name:str, text:str) -> None:
-        self._add_rule(name, text, LeafNode)
+    def add_rule(self, name:str, keys:str, letters:str, flags:Container[str]=(), has_children=False) -> None:
+        text = letters
+        if self._key_sep in keys:
+            if keys == self._key_sep:
+                text = keys
+                node_cls = SeparatorNode
+            else:
+                node_cls = LinkedNode
+        elif self._INVERSION in flags:
+            node_cls = InversionNode
+        elif has_children:
+            node_cls = BranchNode
+        else:
+            text = keys
+            node_cls = LeafNode
+        self._rule_data[name] = text, node_cls, []
 
     def add_connection(self, parent:str, child:str, start:int, length:int) -> None:
-        connections = self._connections[parent]
+        connections = self._rule_data[parent][2]
         connections.append((child, start, length))
 
     def make_tree(self, letters:str, connections:Sequence[Tuple[str, int, int]], unmatched_keys="") -> GraphNode:
@@ -339,33 +325,21 @@ class GraphEngine:
         if unmatched_keys:
             last_match_end = 0 if not connections else sum(connections[-1][1:2])
             leftover_length = root_length - last_match_end
-            node = UnmatchedNode("UNMATCHED", unmatched_keys, last_match_end, leftover_length, next(counter), 1, ())
+            node = UnmatchedNode(self.NAME_UNMATCHED, unmatched_keys, last_match_end, leftover_length, "U", 1, ())
             children.append(node)
         # The root node's attach points are arbitrary, so tstart=0 and tlen=blen.
-        return BranchNode("ROOT", letters, 0, root_length, 0, 0, children)
-
-    @staticmethod
-    def make_graph(root:GraphNode, compressed=True, compat=False) -> StenoGraph:
-        """ Make a graph object and formatter out of a <root> graph node.
-            <compressed> - If True, lay out the graph in a manner that squeezes nodes together as much as possible.
-            <compat> - If True, use a formatter that implements text monospacing with explicit markup. """
-        layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
-        formatter = CompatHTMLFormatter() if compat else StandardHTMLFormatter()
-        return StenoGraph(root, layout, formatter)
+        return BranchNode(self.NAME_ROOT, letters, 0, root_length, "R", 0, children)
 
     def _build_recursive(self, connections:Sequence[Tuple[str, int, int]],
                          depth:int, counter:Iterator[int]) -> List[GraphNode]:
         """ Make a new graph node based on a rule's properties and/or child count. """
         nodes = []
         for name, start, length in connections:
-            text, node_cls = self._rules[name]
+            text, node_cls, child_connections = self._rule_data[name]
             if not length:
                 length = 1
-            idx = next(counter)
-            if name in self._connections:
-                children = self._build_recursive(self._connections[name], depth + 1, counter)
-            else:
-                children = ()
-            node = node_cls(name, text, start, length, idx, depth, children)
+            ref = str(next(counter))
+            children = self._build_recursive(child_connections, depth + 1, counter)
+            node = node_cls(name, text, start, length, ref, depth, children)
             nodes.append(node)
         return nodes

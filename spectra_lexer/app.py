@@ -1,27 +1,222 @@
-import os
-import sys
-from time import time
 from typing import Any, Dict, List
 
-from .base import Main
-from .console import SystemConsole
+from .config import ConfigDictionary, ConfigItem, ConfigOption
 from .io import ResourceIO
-from .log import StreamLogger
-from .option import CmdlineOption, ConfigDictionary, ConfigItem
 from .search import ExampleIndexInfo, SearchEngine
-from .state import ViewConfig, ViewState
-from .steno import StenoEngine, StenoResources
+from .steno import StenoEngine
+
+
+class SearchConfig:
+    """ State attributes that can be user-configured (desktop), or sent in query strings (HTTP). """
+    matches_per_page: int = ConfigOption("search", "match_limit", 100,
+                                         "Maximum number of matches returned on one page of a search.")
+
+
+class StenoConfig:
+    """ State attributes that can be user-configured (desktop), or sent in query strings (HTTP). """
+    board_compound: bool = ConfigOption("board", "compound_keys", True,
+                                        "Show special labels for compound keys (i.e. `f` instead of TP).")
+    graph_compress: bool = ConfigOption("graph", "compressed_layout", True,
+                                        "Compress the graph layout vertically to save space.")
+    graph_compat: bool = ConfigOption("graph", "compatibility_mode", False,
+                                      "Force correct spacing in the graph using HTML tables.")
+    match_all_keys: bool = ConfigOption("lexer", "need_all_keys", False,
+                                        "Only return lexer results that match every key in the stroke.")
+
+
+class ViewState(SearchConfig, StenoConfig):
+    """ The primary GUI state machine. Contains a complete representation of the state of the main GUI operations.
+        The general flow of information goes from the search box, to a list of words matching the search, to a list
+        of mappings (strokes <-> translations) that correspond to the chosen word, and finally to the lexer.
+        After the lexer is finished with a translation, a graph and board diagram are generated.
+        Various steps of the process may be done automatically; for example, if there is only one
+        possible mapping of a certain word, it will be chosen automatically and a lexer query sent. """
+
+    _MORE_TEXT = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
+    _INDEX_DELIM = ";"        # Delimiter between rule name and query for example index searches.
+
+    # Pure input values.
+    mode_strokes: bool = False         # If True, search for strokes instead of translations.
+    mode_regex: bool = False           # If True, perform search using regex characters.
+    board_aspect_ratio: float = 100.0  # Last aspect ratio for board viewing area.
+
+    # Either the program or user may manipulate the GUI to change these values.
+    input_text: str = ""          # Last pattern from user textbox input.
+    match_selected: str = ""      # Last selected match from the upper list.
+    mapping_selected: str = ""    # Last selected match from the lower list.
+    translation: list = ["", ""]  # Currently diagrammed translation on graph.
+    graph_node_ref: str = ""      # Last node identifier on the graph ("" for empty space).
+
+    # The user typically can't change these values directly. They are held for future reference.
+    link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
+    page_count: int = 1            # Number of pages in the upper list.
+    graph_has_focus: bool = False  # Is a node under focus on the graph?
+
+    # Pure output values.
+    matches: list = []           # New items in the upper list.
+    mappings: list = []          # New items in the lower list.
+    graph_text: str = ""         # HTML formatted text for the graph.
+    board_caption: str = ""      # Rule caption above the board.
+    board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
+
+    def __init__(self, steno_engine:StenoEngine, search_engine:SearchEngine) -> None:
+        self._steno_engine = steno_engine    # Has access to lexer and graphical components.
+        self._search_engine = search_engine  # Has access to translations and example indices.
+        self._modified = {}                  # Tracks attributes that are changed by action methods.
+
+    def __setattr__(self, name:str, value:Any) -> None:
+        """ Add public attributes that are modified to the tracking dict. """
+        super().__setattr__(name, value)
+        if not name.startswith("_"):
+            self._modified[name] = value
+
+    def update(self, *args, **kwargs) -> None:
+        """ Update state attributes without affecting the modified tracker. """
+        self.__dict__.update(*args, **kwargs)
+
+    def get_modified(self) -> dict:
+        """ Return all state attributes that have been modified, then reset the tracker. """
+        last_modified = self._modified
+        self._modified = {}
+        return last_modified
+
+    def run(self, action:str) -> None:
+        """ Run an action method (if valid). """
+        method = getattr(self, f"RUN{action}")
+        method()
+
+    def RUNSearchExamples(self) -> None:
+        """ When a link is clicked, search for examples of the named rule and select one. """
+        link = self.link_ref
+        selection = self._search_engine.find_example(link)[not self.mode_strokes]
+        self.input_text = self._INDEX_DELIM.join([link, selection])
+        self.page_count = 1
+        self._search()
+        if selection in self.matches:
+            self.match_selected = selection
+            self._lookup()
+
+    def RUNSearch(self) -> None:
+        """ Do a new search unless the input is blank. """
+        self.page_count = 1
+        self._search()
+        # Automatically select the match if there was only one.
+        if len(self.matches) == 1:
+            self.match_selected = self.matches[0]
+            self._lookup()
+
+    def RUNLookup(self) -> None:
+        """ If the user clicked "more", search again with another page. """
+        if self.match_selected == self._MORE_TEXT:
+            self.page_count += 1
+            self._search()
+        else:
+            self._lookup()
+
+    def _search(self) -> None:
+        """ Look up a pattern in the dictionary and populate the upper matches list unless the input is blank. """
+        if not self.input_text:
+            matches = []
+        else:
+            count = self.page_count * self.matches_per_page
+            matches = self._call_search(count=count, regex=self.mode_regex)
+            # If we met the count, add a final item to allow search expansion.
+            if len(matches) == count:
+                matches.append(self._MORE_TEXT)
+        # Set a new match list. This invalidates the previous mappings.
+        self.matches = matches
+        self.mappings = []
+
+    def _lookup(self) -> None:
+        """ Look up mappings and display them in the lower list. """
+        match = self.match_selected
+        # If count is None or unset, the search will find mappings instead of matches.
+        mappings = self.mappings = self._call_search(match)
+        if mappings:
+            # A lone mapping should be highlighted automatically and displayed on its own.
+            selection, *others = mappings
+            if others:
+                # If there is more than one mapping, make a query to select the best combination.
+                selection = self._steno_engine.lexer_best_strokes(mappings, match)
+            self.mapping_selected = selection
+            self._query_from_selection()
+
+    def _call_search(self, match=None, **kwargs) -> List[str]:
+        kwargs["strokes"] = self.mode_strokes
+        *prefix, pattern = self.input_text.split(self._INDEX_DELIM, 1)
+        text = match or pattern
+        if prefix:
+            return self._search_engine.search_examples(*prefix, text, **kwargs)
+        else:
+            return self._search_engine.search_translations(text, **kwargs)
+
+    def RUNSelect(self) -> None:
+        """ Do a lexer query based on the current search selections. """
+        self._query_from_selection()
+
+    def _query_from_selection(self) -> None:
+        """ The order of lexer parameters must be reversed for strokes mode. """
+        self.translation = translation = [self.match_selected, self.mapping_selected]
+        if not self.mode_strokes:
+            translation.reverse()
+        self._new_graph()
+
+    def RUNQuery(self) -> None:
+        """ Execute and display a graph of a lexer query from user strokes. """
+        self._new_graph()
+
+    def _new_graph(self) -> None:
+        """ A new graph should clear the last node ref and look for a new one that uses the same rule. """
+        self.graph_node_ref = ""
+        self._exec_query(self.graph_has_focus, True)
+
+    def RUNGraphOver(self) -> None:
+        """ On mouseover, highlight the current graph node temporarily if nothing is focused.
+            Mouseovers should do nothing as long as focus is active. """
+        if not self.graph_has_focus:
+            self._exec_query(False, False)
+
+    def RUNGraphClick(self) -> None:
+        """ On click, find the current graph node and set focus on it (or clear focus if None). """
+        self._exec_query(False, True)
+
+    def _exec_query(self, find_rule:bool, set_focus:bool) -> None:
+        """ Execute a new lexer query and load the state with the output to draw the graph and board.
+            If <set_focus> is True, lock onto any valid selection with a bright color.
+            If <find_rule> is True, attempt to move focus to a node with the same rule as the previous one. """
+        keys, letters = self.translation
+        if not (keys and letters):
+            return
+        select_ref = self.link_ref if find_rule else self.graph_node_ref
+        data = self._steno_engine.run(keys, letters,
+                                      select_ref=select_ref,
+                                      find_rule=find_rule,
+                                      set_focus=set_focus,
+                                      board_ratio=self.board_aspect_ratio,
+                                      match_all_keys=self.match_all_keys,
+                                      graph_compress=self.graph_compress,
+                                      graph_compat=self.graph_compat,
+                                      board_compound=self.board_compound)
+        graph_text, has_focus, rule_name, caption, xml_data = data
+        self.graph_text = graph_text
+        self.graph_has_focus = has_focus
+        self.link_ref = rule_name if self._search_engine.has_examples(rule_name) else ""
+        self.board_caption = caption
+        self.board_xml_data = xml_data
 
 
 class StenoApplication:
     """ Common layer for user operations (resource I/O, GUI actions, batch analysis...it all goes through here). """
 
-    def __init__(self, io:ResourceIO, steno_engine:StenoEngine,
-                 search_engine:SearchEngine, config:ConfigDictionary) -> None:
+    def __init__(self, io:ResourceIO, steno_engine:StenoEngine, search_engine:SearchEngine) -> None:
         self._io = io                        # Handles all resource loading, saving, and transcoding.
         self._steno_engine = steno_engine    # Runtime engine for steno operations such as parsing and graphics.
         self._search_engine = search_engine  # Runtime engine for translation search operations.
-        self._config = config                # Keeps track of configuration options in a master dict.
+        self._config = ConfigDictionary()    # Keeps track of configuration options in a master dict.
+        cvars = {**vars(StenoConfig), **vars(SearchConfig)}
+        for key, opt in cvars.items():
+            if isinstance(opt, ConfigOption):
+                self._config.add_option(key, opt)
         self._index_file = ""                # Holds filename for index; set on first load.
         self._config_file = ""               # Holds filename for config; set on first load.
         self.is_first_run = False            # Set to True if we fail to load the config file.
@@ -105,124 +300,3 @@ class StenoApplication:
         view_state.update(state)
         view_state.run(action)
         return view_state.get_modified()
-
-
-class StenoMain(Main):
-    """ Abstract factory class; contains all command-line options necessary to build a functioning app object. """
-
-    log_files: str = CmdlineOption("--log", ["~/status.log"],
-                                   "Text file(s) to log status and exceptions.")
-    resource_dir: str = CmdlineOption("--resources", ":/assets/",
-                                      "Directory with static steno resources.")
-    translations_files: list = CmdlineOption("--translations", [ResourceIO.PLOVER_TRANSLATIONS],
-                                             "JSON translation files to load on start.")
-    index_file: str = CmdlineOption("--index", "~/index.json",
-                                    "JSON index file to load on start and/or write to.")
-    config_file: str = CmdlineOption("--config", "~/config.cfg",
-                                     "Config CFG/INI file to load at start and/or write to.")
-
-    def __init__(self) -> None:
-        self._io = ResourceIO()
-
-    def build_logger(self) -> StreamLogger:
-        """ Create a logger, which will print non-error messages to stdout by default.
-            Open optional files for logging as well (text mode, append to current contents.) """
-        logger = StreamLogger()
-        logger.add_stream(sys.stdout)
-        for filename in self.log_files:
-            fstream = self._io.open(filename, 'a')
-            logger.add_stream(fstream)
-        return logger
-
-    def build_app(self, *, with_translations=True, with_index=True, with_config=True) -> StenoApplication:
-        """ Load an app with all required resources from this command-line options structure. """
-        resources = self.build_resources()
-        steno_engine = resources.build_engine()
-        search_engine = SearchEngine()
-        config = self.build_config()
-        app = StenoApplication(self._io, steno_engine, search_engine, config)
-        if with_translations:
-            app.load_translations(*self.translations_files)
-        if with_index:
-            app.load_index(self.index_file)
-        if with_config:
-            app.load_config(self.config_file)
-        return app
-
-    def build_resources(self) -> StenoResources:
-        """ From the base directory, load each steno resource component by a standard name or pattern. """
-        io = self._io
-        layout = io.json_read(self._res_path("layout.json"))                       # Steno key constants.
-        rules = io.cson_read_merge(self._res_path("[01]*.cson"), check_keys=True)  # CSON rules glob pattern.
-        board_defs = io.json_read(self._res_path("board_defs.json"))               # Board shape definitions.
-        board_elems = io.cson_read(self._res_path("board_elems.cson"))             # Board elements definitions.
-        return StenoResources(layout, rules, board_defs, board_elems)
-
-    @staticmethod
-    def build_config() -> ConfigDictionary:
-        """ Create the config dict from the GUI state options. """
-        config = ConfigDictionary()
-        config.add_options(ViewConfig())
-        return config
-
-    def _res_path(self, filename:str) -> str:
-        """ Return a full path to a built-in asset resource from a relative filename. """
-        return os.path.join(self.resource_dir, filename)
-
-
-class ConsoleMain(StenoMain):
-    """ Run an interactive read-eval-print loop in a new console with the app vars as the namespace. """
-
-    def main(self) -> int:
-        logger = self.build_logger()
-        logger.log("Loading...")
-        app = self.build_app()
-        logger.log("Loading complete.")
-        SystemConsole(vars(app)).repl()
-        return 0
-
-
-class _BatchMain(StenoMain):
-    """ Abstract class; adds batch timing capabilities. """
-
-    processes: int = CmdlineOption("--processes", 0, "Number of processes used for parallel execution.")
-
-    def main(self) -> int:
-        """ Run a batch operation and time its execution. """
-        start_time = time()
-        logger = self.build_logger()
-        logger.log("Operation started...")
-        app = self.build_app()
-        self.run(app)
-        total_time = time() - start_time
-        logger.log(f"Operation done in {total_time:.1f} seconds.")
-        return 0
-
-    def run(self, app:StenoApplication) -> None:
-        raise NotImplementedError
-
-
-class AnalyzeMain(_BatchMain):
-    """ Run the lexer on every item in a JSON steno translations dictionary. """
-
-    # As part of the built-in resource block, rules have no default save location, so add one.
-    rules_out: str = CmdlineOption("--out", "./rules.json", "JSON output file name for lexer-generated rules.")
-
-    def run(self, app:StenoApplication) -> None:
-        app.make_rules(self.rules_out, processes=self.processes)
-
-
-class IndexMain(_BatchMain):
-    """ Analyze translations files and create an index from them. """
-
-    _INFO = SearchEngine.get_index_info()
-    index_size: int = CmdlineOption("--size", _INFO.default_size(),
-                                    "\n".join(["Relative size of generated index.", *_INFO.size_descriptions()]))
-
-    def run(self, app:StenoApplication) -> None:
-        app.make_index(self.index_size, processes=self.processes)
-
-
-console = ConsoleMain()
-analyze = AnalyzeMain()
-index = IndexMain()

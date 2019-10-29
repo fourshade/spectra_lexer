@@ -6,6 +6,8 @@ import re
 
 import pytest
 
+from .base import IGNORED_KEYS, RULES_DICT, TEST_INDEX, TEST_TRANSLATIONS
+from spectra_lexer.search import SearchEngine
 from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
 
 
@@ -253,3 +255,31 @@ def test_reverse_dict(cls) -> None:
                          "b": [2, 6],
                          "c": [4],
                          "d": [8]}
+
+
+SEARCH_ENGINE = SearchEngine()
+SEARCH_ENGINE.set_translations(TEST_TRANSLATIONS)
+SEARCH_ENGINE.set_index(TEST_INDEX)
+
+
+@pytest.mark.parametrize("keys, word", TEST_TRANSLATIONS.items())
+def test_translations_search(keys, word) -> None:
+    """ Go through each loaded test translation and check the search method in all modes.
+        Search should return a list with only the item itself (or its value) in any mode. """
+    assert SEARCH_ENGINE.search_translations(keys, count=2, strokes=True) == [keys]
+    assert SEARCH_ENGINE.search_translations(word, count=2, strokes=False) == [word]
+    assert SEARCH_ENGINE.search_translations(keys, count=None, strokes=True) == [word]
+    assert SEARCH_ENGINE.search_translations(word, count=None, strokes=False) == [keys]
+    assert SEARCH_ENGINE.search_translations(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
+    assert SEARCH_ENGINE.search_translations(re.escape(word), count=2, strokes=False, regex=True) == [word]
+
+
+@pytest.mark.parametrize("rule_name", TEST_INDEX.keys())
+def test_index_search(rule_name) -> None:
+    """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
+    keys, letters = RULES_DICT[rule_name]
+    wresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=False)
+    assert all([letters in r for r in wresults])
+    kresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=True)
+    all_keys = set(keys) - IGNORED_KEYS
+    assert all_keys == all_keys.intersection(*kresults)

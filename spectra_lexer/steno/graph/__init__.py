@@ -1,1 +1,1 @@
-from .base import GraphEngine, StenoGraph
+from .base import GraphEngine

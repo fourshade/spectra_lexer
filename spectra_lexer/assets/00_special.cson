@@ -2,7 +2,7 @@
 
 {
   # Stroke separator - this is critical for analyzing multi-stroke translations.
-  "~/~":  ["/", "", ["SEP"],  "stroke separator"],
+  "~/~":  ["/", "", [],  "stroke separator"],
 
   # Star modifiers - these have hard-coded behavior in the lexer to match special case uses of the asterisk.
   # These always go at the end of rule patterns regardless of steno order.

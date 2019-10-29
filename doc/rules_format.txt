@@ -81,7 +81,6 @@ flag        ::=  string
 ; "RARE" = rarely found in practice and/or may cause false positives. Matches are less reliable.
 ; "INV"  = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
 ; "LINK" = rule that uses keys from two strokes. Anything that parses strokes individually must handle these carefully.
-; "SEP"  = rule that delimits two strokes. Should not contain any references.
 
 desc        ::=  string
 ; Contains an English description of the rule and its application.
