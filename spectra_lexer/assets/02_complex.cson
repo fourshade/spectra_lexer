@@ -15,7 +15,7 @@
   ".sh":    ["-RB",    "sh",         [], "right side `sh`"],
   ".th":    ["*T",     "th",         [], "right side `th`"],
 
-  ".v+":    ["*F",     "(.v)(*:CF)", [], "used to disambiguate `f` vs. `v`"],
+  ".v+":    ["*F",     "v",          [], "asterisk disambiguates `v` vs. `f` when necessary"],
   ".s.":    ["-F",     "s",          [], "used as `s` when necessary to preserve steno order"],
   ".C.":    ["-F",     "c",          [], "used as soft `c` when necessary to preserve steno order"],
   ".z.":    ["-F",     "z",          [], "used as `z` when necessary to preserve steno order"],
@@ -38,6 +38,7 @@
 
   "~shun":  ["-GS",    "SHUN", ["SPEC"], "the 'SHUN' sound"],
   "~kshun": ["-BGS",   "KSHUN",["SPEC"], "the 'KSHUN' sound; overlap of `k` and `shun`"],
+  "~kshun+":["*BGS",   "KSHUN",["SPEC"], "asterisk disambiguates 'KSHUN' vs. `x` when necessary"],
   "~gen" :  ["-GS",    "GEN",  ["SPEC"], "the 'GEN' sound"],
 
   # vowels

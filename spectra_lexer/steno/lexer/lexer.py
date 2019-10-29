@@ -1,18 +1,18 @@
 """ Contains the primary steno analysis component - the lexer. Much of the code is inlined for performance reasons. """
 
 from functools import reduce
-from typing import Container, List, Iterable, Sequence, Tuple, Union
+from typing import List, Iterable, Sequence, Tuple, Union
 
-from .match import IRuleMatcher, PrefixMatcher, SpecialMatcher, StrokeMatcher, WordMatcher
+from .base import IRuleMatcher, RULE_TP
 
 
 class LexerResult:
     """ Contains names of rules in a translation, their positions in the word, and leftover keys we couldn't match. """
 
     def __init__(self, unmatched_skeys:str,
-                 rule_names:List[str]=(), rule_positions:List[int]=(), rule_lengths:List[int]=()) -> None:
+                 rules:List[RULE_TP]=(), rule_positions:List[int]=(), rule_lengths:List[int]=()) -> None:
         self._unmatched_skeys = unmatched_skeys
-        self._rule_names = rule_names
+        self._rules = rules
         self._rule_positions = rule_positions
         self._rule_lengths = rule_lengths
 
@@ -20,9 +20,9 @@ class LexerResult:
         """ Return any leftover keys we couldn't match. """
         return self._unmatched_skeys
 
-    def rule_names(self) -> List[str]:
-        """ Return a list of reference names to the rules found in the translation. """
-        return self._rule_names
+    def rules(self) -> List[str]:
+        """ Return a list of references to the rules found in the translation. """
+        return self._rules
 
     def rule_positions(self) -> List[int]:
         """ Return a list of start positions (in the letters) for each rule we found. """
@@ -34,14 +34,14 @@ class LexerResult:
 
     def __iter__(self) -> zip:
         """ Yield the rulemap in (name, start, length) tuples. """
-        return zip(self._rule_names, self._rule_positions, self._rule_lengths)
+        return zip(self._rules, self._rule_positions, self._rule_lengths)
 
     def caption(self) -> str:
         """ Return the caption for a lexer result. """
         if not self._unmatched_skeys:
             caption = "Found complete match."
         # The output is nowhere near reliable if some keys couldn't be matched.
-        elif self._rule_names:
+        elif self._rules:
             caption = "Incomplete match. Not reliable."
         else:
             caption = "No matches found."
@@ -58,12 +58,12 @@ class StenoLexer:
         - The keys within each stroke must be sorted according to some total ordering (i.e. steno order). """
 
     # Data type containing the state of the lexer at some point in time. Must be very lightweight.
-    # Implemented as a list: [keys_not_yet_matched, rule1_name, rule1_start, rule1_length, rule2_name, ...]
-    _STATE_TP = List[Union[str, int]]
+    # Implemented as a list: [keys_not_yet_matched, rule1, rule1_start, rule1_length, rule2, ...]
+    _STATE_TP = List[Union[str, RULE_TP, int]]
 
-    def __init__(self, rule_matchers:Iterable[IRuleMatcher], rare_rules:Iterable[str]=()) -> None:
-        self._rule_matchers = rule_matchers
-        self._rare_set = set(rare_rules)  # Set of all rules that are considered "rare"
+    def __init__(self, rule_matcher:IRuleMatcher, rare_rules:Iterable[RULE_TP]=()) -> None:
+        self._match = rule_matcher.match   # Method of main rule matcher (may be compound).
+        self._rare_set = set(rare_rules)   # Set of all rules that are considered "rare"
 
     def query(self, skeys:str, letters:str, *, match_all_keys=False) -> LexerResult:
         """ Return a list of the best rules that map <skeys> to <letters>.
@@ -100,12 +100,10 @@ class StenoLexer:
             if skeys_left:
                 wordptr = 0 if not rmap else rmap[-2] + rmap[-1]
                 letters_left = letters[wordptr:]
-                for matcher in self._rule_matchers:
-                    matches = matcher.match(skeys_left, letters_left, skeys, letters)
-                    if matches:
-                        for rule, unmatched_keys, rule_start, rule_length in matches:
-                            # Add a queue item with the remaining keys and the rulemap with the new item added.
-                            q_put([unmatched_keys, *rmap, rule, rule_start + wordptr, rule_length])
+                match_iter = self._match(skeys_left, letters_left, skeys, letters)
+                for rule, unmatched_keys, rule_start, rule_length in match_iter:
+                    # Add a queue item with the remaining keys and the rulemap with the new item added.
+                    q_put([unmatched_keys, *rmap, rule, rule_start + wordptr, rule_length])
         return self._find_best(q)
 
     def _find_best(self, states:Sequence[_STATE_TP]) -> _STATE_TP:
@@ -126,46 +124,6 @@ class StenoLexer:
             return current
         return other
 
-    def _rare_diff(self, c:str, o:str) -> int:
+    def _rare_diff(self, c:RULE_TP, o:RULE_TP) -> int:
         rare_set = self._rare_set
         return (c in rare_set) - (o in rare_set)
-
-
-class StenoLexerFactory:
-
-    # These are the acceptable string values for lexer flags, as read from JSON.
-    _SPECIAL = "SPEC"  # Special rule used internally (in other rules). Only referenced by name.
-    _STROKE = "STRK"   # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
-    _WORD = "WORD"     # Exact match for a single word. These rules do not adversely affect lexer performance.
-    _RARE = "RARE"     # Rule applies to very few words and could specifically cause false positives.
-
-    def __init__(self, key_sep:str, unordered_keys="") -> None:
-        self._prefix_matcher = PrefixMatcher(key_sep, unordered_keys)    # Matches rules that start with certain keys.
-        self._stroke_matcher = StrokeMatcher(key_sep)                    # Matches rules by full strokes exactly.
-        self._word_matcher = WordMatcher()                               # Matches rules by full words exactly.
-        self._special_matcher = SpecialMatcher(key_sep, unordered_keys)  # Matches special rules by reference name.
-        self._rare_rules = []                                            # List of rules that are considered "rare"
-
-    def add_rule(self, name:str, skeys:str, letters:str, flags:Container[str]=()) -> None:
-        """ Add a steno rule mapping <skeys> to <letters> to one of the rule matchers based on its <flags>. """
-        if self._SPECIAL in flags:
-            # Special rules are only used in certain end cases, by name (which also serves as the identifier).
-            self._special_matcher.add(name, name)
-        elif self._STROKE in flags:
-            # Stroke rules are matched only by complete strokes.
-            self._stroke_matcher.add(name, skeys, letters)
-        elif self._WORD in flags:
-            # Word rules are matched only by whole words as delimited by whitespace (but still case-insensitive).
-            self._word_matcher.add(name, skeys, letters)
-        else:
-            # Rules are added to the tree-based prefix dictionary by default.
-            if self._RARE in flags:
-                # Rare rules are prefix rules that are uncommon in usage and/or prone to causing false positives.
-                # They are worth less when deciding the most accurate rule map.
-                self._rare_rules.append(name)
-            self._prefix_matcher.add(name, skeys, letters)
-
-    def build(self) -> StenoLexer:
-        """ Build a lexer object from rule matchers. """
-        matchers = [self._prefix_matcher, self._stroke_matcher, self._word_matcher, self._special_matcher]
-        return StenoLexer(matchers, self._rare_rules)

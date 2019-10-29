@@ -47,7 +47,7 @@
   ".tian":  ["-GS",  "(tian|~shun)",   [],       "phonetic"],
   ".tion":  ["-GS",  "(tion|~shun)",   [],       "phonetic"],
   ".ction": ["-BGS", "(ction|~kshun)", [],       "phonetic"],
-  ".ction+":["*BGS", "(.ction)(*:CF)", [],       "used to disambiguate 'KSHUN' sound vs. `x` (A*BGS → action)"],
+  ".ction+":["*BGS", "(ction|~kshun+)",[],       "phonetic"],
   ".cation":["-BGS", "(cation|~kshun)",[],       "phonetic"],
   ".xion":  ["-BGS", "(xion|~kshun)",  [],       "phonetic"],
   ".gion":  ["-GS",  "(gion|~gen)",    [],       "phonetic"],

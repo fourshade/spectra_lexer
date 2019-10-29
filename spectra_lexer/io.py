@@ -93,7 +93,7 @@ class PathIO:
         return self._convert(pattern).expand()
 
 
-class _ResourceIO(PathIO):
+class ResourceIO(PathIO):
     """ Performs filesystem I/O and transcoding between several formats. """
 
     def __init__(self, *args, encoding='utf-8', comment_prefixes=b"#/", **kwargs) -> None:
@@ -160,7 +160,7 @@ class _ResourceIO(PathIO):
             parser.write(fp)
 
 
-class ResourceIO(_ResourceIO):
+class StenoResourceIO(ResourceIO):
     """ Adds a specific identifier to search the user's Plover installation for dictionaries. """
 
     PLOVER_TRANSLATIONS = "$PLOVER_TRANSLATIONS"  # Sentinel pattern to load the user's Plover dictionaries.

@@ -1,20 +1,23 @@
 """ Base module for text graphing. Defines top-level graph structures. """
 
 from functools import lru_cache
-from typing import Container, Iterator, List, Optional, Sequence, Tuple, Type
+from typing import Hashable, Iterator, List, Optional, Sequence, Tuple, Type
 
 from .layout import BaseGraphLayout, CascadedGraphLayout, CompressedGraphLayout
 from .render import Canvas, CompatHTMLFormatter, StandardHTMLFormatter
 from .style import IConnectors, InversionConnectors, LinkedConnectors, \
     SimpleConnectors, ThickConnectors, UnmatchedConnectors
 
+# Generic marker for the rule reference data type (may be anything hashable).
+RULE_TP = Hashable
+
 
 class GraphNode:
     """ A visible node in a tree structure of steno rules. Each node may have zero or more children. """
 
-    def __init__(self, rule_name:str, text:str, tstart:int, tlen:int,
+    def __init__(self, rule:RULE_TP, text:str, tstart:int, tlen:int,
                  ref:str, depth:int, children:Sequence) -> None:
-        self._rule_name = rule_name  # Name of the rule from which this node was built.
+        self._rule = rule            # Reference to the rule from which this node was built.
         self._text = text            # Text characters drawn on the last row as the node's "body".
         self._attach_start = tstart  # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen   # Length in characters of the attachment to the parent node.
@@ -26,9 +29,9 @@ class GraphNode:
         """ The reference string is guaranteed to be unique in the tree. """
         return self._ref
 
-    def rule_name(self) -> str:
-        """ Return the name of the rule from which this node was built. """
-        return self._rule_name
+    def rule(self) -> RULE_TP:
+        """ Return the reference to the rule from which this node was built. """
+        return self._rule
 
     def __iter__(self) -> Iterator:
         """ Yield all descendants of this node recursively depth-first. """
@@ -45,7 +48,7 @@ class GraphNode:
     def find_from_rule_name(self, rule_name:str) -> Optional:
         """ Return the first descendant node that matches <rule_name>, if any. """
         for node in self:
-            if node.rule_name() == rule_name:
+            if node.rule() == rule_name:
                 return node
 
     def lineage(self, node) -> Sequence:
@@ -286,17 +289,17 @@ class LinkedNode(BranchNode):
 class GraphEngine:
     """ Formats and renders monospaced text graphs of rules. """
 
-    # These are the acceptable string values for graph flags, as read from JSON.
-    _INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
-
     NAME_ROOT = "ROOT"
     NAME_UNMATCHED = "UNMATCHED"
 
+    _CONNECTIONS_TP = Sequence[Tuple[RULE_TP, int, int]]
+
     def __init__(self, key_sep:str) -> None:
         self._key_sep = key_sep  # Key that delimits two strokes. Its rule should not contain any children.
-        self._rule_data = {}
+        self._rule_data = {}     # Contains the display text, node class, and children of each rule.
 
-    def add_rule(self, name:str, keys:str, letters:str, flags:Container[str]=(), has_children=False) -> None:
+    def add_rule(self, rule:RULE_TP, keys:str, letters="", is_inversion=False, has_children=False) -> None:
+        """ Add a new <rule> reference, which may be a string or any other hashable type. """
         text = letters
         if self._key_sep in keys:
             if keys == self._key_sep:
@@ -304,20 +307,23 @@ class GraphEngine:
                 node_cls = SeparatorNode
             else:
                 node_cls = LinkedNode
-        elif self._INVERSION in flags:
+        elif is_inversion:
             node_cls = InversionNode
         elif has_children:
             node_cls = BranchNode
         else:
             text = keys
             node_cls = LeafNode
-        self._rule_data[name] = text, node_cls, []
+        self._rule_data[rule] = text, node_cls, []
 
-    def add_connection(self, parent:str, child:str, start:int, length:int) -> None:
+    def add_connection(self, parent:RULE_TP, child:RULE_TP, start:int, length:int) -> None:
+        """ Add a connection between a <parent> and <child> rule.
+            <start> - index of the character on the parent where the child starts its attachment.
+            <length> - length of this attachment in characters. """
         connections = self._rule_data[parent][2]
         connections.append((child, start, length))
 
-    def make_tree(self, letters:str, connections:Sequence[Tuple[str, int, int]], unmatched_keys="") -> GraphNode:
+    def make_tree(self, letters:str, connections:_CONNECTIONS_TP, unmatched_keys="") -> GraphNode:
         """ Make a graph tree from a lexer result and return the root node. """
         counter = iter(range(1, 10000))
         children = self._build_recursive(connections, 1, counter)
@@ -330,8 +336,7 @@ class GraphEngine:
         # The root node's attach points are arbitrary, so tstart=0 and tlen=blen.
         return BranchNode(self.NAME_ROOT, letters, 0, root_length, "R", 0, children)
 
-    def _build_recursive(self, connections:Sequence[Tuple[str, int, int]],
-                         depth:int, counter:Iterator[int]) -> List[GraphNode]:
+    def _build_recursive(self, connections:_CONNECTIONS_TP, depth:int, counter:Iterator[int]) -> List[GraphNode]:
         """ Make a new graph node based on a rule's properties and/or child count. """
         nodes = []
         for name, start, length in connections:

@@ -1,6 +1,7 @@
 # Rules for letters that are split or slurred between multiple strokes
 
 {
+  "~/~":    ["/",          "",                 ["SPEC"], "split stroke separator"],
   "b/b":    ["-B/PW",      "(.b)(~/~)(|b.)",   ["LINK"], "consonant `b` split between strokes"],
   "c/c":    ["-BG/K",      "(.c)(~/~)(|c.)",   ["LINK"], "hard `c` split between strokes"],
   "C/C":    ["-S/S",       "(.C)(~/~)(|C.)",   ["LINK"], "soft `c` split between strokes"],

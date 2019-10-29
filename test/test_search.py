@@ -7,8 +7,8 @@ import re
 import pytest
 
 from .base import IGNORED_KEYS, RULES_DICT, TEST_INDEX, TEST_TRANSLATIONS
-from spectra_lexer.search import SearchEngine
-from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.steno.search import SearchEngine
+from spectra_lexer.steno.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):

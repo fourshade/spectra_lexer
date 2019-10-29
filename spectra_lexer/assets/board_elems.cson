@@ -156,6 +156,8 @@
     ".k~":  "bg=star;pos=*;shape=tall;text=*;pos=g;shape=round;text=k",
     ".th":  "bg=star;pos=*;shape=tall;text=*;pos=t;shape=square;text=th",
     ".st+": "bg=star;pos=*;shape=tall;text=*;pos=s;shape=round;text=st",
+    ".v+":  "bg=star;pos=*;shape=tall;text=*;pos=f;shape=square;text=v",
+    "~kshun+": "bg=star;pos=*;shape=tall;text=*;pos=b;shape=3wide;text=KSHUN",
     # Number keys and specific number-based modifiers
     "~#":  "bg=number;pos=#;shape=number;text=   #   #   #   #   #   ",
     "~1":  "bg=number;pos=S;shape=tall;text=1",

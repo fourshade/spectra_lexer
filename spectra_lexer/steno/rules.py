@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 
 class RuleMapItem:
@@ -26,6 +26,24 @@ class StenoRule:
         return self.caption
 
 
+class RuleCollection:
+    """ Converts steno rules from JSON arrays to StenoRule objects. """
+
+    def __init__(self, rules:Iterable[StenoRule]=()) -> None:
+        self._rules = list(rules)  # List of finished steno rules.
+
+    def __iter__(self) -> Iterator[StenoRule]:
+        return iter(self._rules)
+
+    def make_special(self, keys:str, desc:str) -> StenoRule:
+        """ Make a special rule, add it to the list, and return it. """
+        name = f"~{len(self._rules)}~"
+        caption = f"{keys}: {desc}"
+        rule = StenoRule(name, keys, "", frozenset(), caption, ())
+        self._rules.append(rule)
+        return rule
+
+
 class RuleParser:
     """ Converts steno rules from JSON arrays to StenoRule objects. """
 
@@ -35,7 +53,7 @@ class RuleParser:
         self._alias_delim = alias_delim  # Delimiter between letters and their rule alias when different.
         self._rules = {}                 # Dict of finished steno rules indexed by an internal reference name.
 
-    def __iter__(self) -> Iterator[StenoRule]:
+    def parse(self) -> Iterator[StenoRule]:
         """ Yield all finished rules, parsing missing ones as necessary. """
         return map(self._parse, self._raw_rules)
 
@@ -143,4 +161,4 @@ class InverseRuleParser:
         self._count += 1
 
     def to_dict(self) -> Dict[str, list]:
-        return self._raw_rules
+        return self._raw_rules.copy()

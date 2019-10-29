@@ -6,25 +6,12 @@ from collections import Counter
 
 import pytest
 
-from .base import FACTORY, KEY_LAYOUT, RULES, RULES_DICT, TEST_TRANSLATIONS
-from spectra_lexer.steno.board import BoardElementParser
-from spectra_lexer.steno.graph import GraphEngine
-from spectra_lexer.steno.lexer import StenoLexerFactory
-
-IGNORED_KEYS = {KEY_LAYOUT.sep, KEY_LAYOUT.split}
-VALID_FLAGS = set()
-for cls in (BoardElementParser, GraphEngine, StenoLexerFactory):
-    for v in vars(cls).values():
-        if isinstance(v, str) and v.isupper():
-            VALID_FLAGS.add(v)
+from .base import FACTORY, IGNORED_KEYS, KEY_LAYOUT, RULES, RULES_DICT, TEST_TRANSLATIONS
 
 
 @pytest.mark.parametrize("rule", RULES)
 def test_rules(rule) -> None:
-    """ Go through each rule and perform integrity checks. First verify that all flags are valid. """
-    flags = rule.flags
-    for f in flags:
-        assert f in VALID_FLAGS, f"Entry {rule} has illegal flag: {f}"
+    """ Go through each rule and perform integrity checks. """
     rulemap = rule.rulemap
     if rulemap:
         # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
@@ -54,7 +41,7 @@ def test_analysis(keys, letters) -> None:
     unmatched = result.unmatched_skeys()
     assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
     # Rule names must all refer to rules that exist.
-    names = result.rule_names()
+    names = result.rules()
     for name in names:
         assert name in RULES_DICT
     # Rule positions must be non-negative and increasing monotonic.

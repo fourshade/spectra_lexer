@@ -14,11 +14,12 @@ def _test_json_read(io:ResourceIO, filename:str) -> dict:
 
 
 # Create all test resources using default command-line arguments.
-TEST_IO = ResourceIO()
+MAIN = StenoMain()
+TEST_IO = MAIN.build_io()
 TEST_TRANSLATIONS = _test_json_read(TEST_IO, "translations.json")
 TEST_INDEX = _test_json_read(TEST_IO, "index.json")
-FACTORY = StenoMain().build_factory(TEST_IO)
-KEY_LAYOUT = FACTORY.layout
-RULES = list(FACTORY.rule_parser)
+KEY_LAYOUT = MAIN.load_layout(TEST_IO)
+RULES = list(MAIN.load_rules(TEST_IO))
 RULES_DICT = {rule.name: (rule.keys, rule.letters) for rule in RULES}
 IGNORED_KEYS = {KEY_LAYOUT.sep, KEY_LAYOUT.split}
+FACTORY = MAIN.build_factory(TEST_IO)

@@ -24,7 +24,9 @@ class KeyLayout:
     left = "#STKPWHR"
     center = "AO*EU"
     right = "FRPBLGTSDZ"
-    # Some keys may ignore steno order to modify entire strokes. This has a large performance and accuracy cost.
+    # The special key is used in hardcoded disambiguation rules.
+    special = "*"
+    # Some keys may ignore steno order. This has a large performance and accuracy cost.
     # Only the asterisk is typically used in such a way that this treatment is worth it.
     unordered = "*"
     # Some keys can be designated as shift keys. They will end up at the beginning of steno order when it matters.
@@ -112,8 +114,8 @@ class KeyLayout:
         # The left and right sides must not share characters after casing.
         assert left.isdisjoint(map(str.lower, right))
         # The divider keys must not duplicate normal keys.
-        all_keys = left | center | right
-        assert self.sep not in all_keys
-        assert self.split not in all_keys
-        # Unordered keys and alias mappings must be valid keys previously defined.
-        assert set().union(self.unordered, *self.aliases.values()) <= all_keys
+        normal_key_set = left | center | right
+        assert self.sep not in normal_key_set
+        assert self.split not in normal_key_set
+        # The special key, unordered keys, and alias values must be normal keys previously defined.
+        assert {self.special}.union(self.unordered, *self.aliases.values()) <= normal_key_set
