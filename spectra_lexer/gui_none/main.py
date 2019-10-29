@@ -4,7 +4,6 @@ from spectra_lexer.app import StenoApplication
 from spectra_lexer.base import StenoMain
 from spectra_lexer.console import SystemConsole
 from spectra_lexer.option import CmdlineOption
-from spectra_lexer.search import SearchEngine
 
 
 class ConsoleMain(StenoMain):
@@ -52,9 +51,9 @@ class AnalyzeMain(_BatchMain):
 class IndexMain(_BatchMain):
     """ Analyze translations files and create an index from them. """
 
-    _INFO = SearchEngine.get_index_info()
-    index_size: int = CmdlineOption("--size", _INFO.default_size(),
-                                    "\n".join(["Relative size of generated index.", *_INFO.size_descriptions()]))
+    # None does not work as a default value, so represent it with the sentinel value -1.
+    index_size: int = CmdlineOption("--size", -1, "Relative size of generated index.")
 
     def run(self, app:StenoApplication) -> None:
-        app.make_index(self.index_size, processes=self.processes)
+        size = None if self.index_size < 0 else self.index_size
+        app.make_index(size, processes=self.processes)

@@ -2,7 +2,10 @@ from functools import partial
 from itertools import starmap
 import os
 import sys
-from typing import Callable, Iterable
+from typing import Callable, ItemsView, Iterable, Union
+
+# Union of all types that work with starmap.
+_STARMAP_ITERABLE = Union[Iterable[tuple], ItemsView]
 
 
 class ParallelMapper:
@@ -30,7 +33,11 @@ class ParallelMapper:
         self._processes = processes  # Number of parallel processes (0 = one process for each logical CPU core).
         self._retry = retry          # If True, retry with a single process on failure.
 
-    def starmap(self, iterable:Iterable[tuple]) -> list:
+    def map(self, *iterables:Iterable) -> list:
+        """ Using the saved function, perform the equivalent of builtins.map on <iterables> in parallel. """
+        return self.starmap(zip(*iterables))
+
+    def starmap(self, iterable:_STARMAP_ITERABLE) -> list:
         """ Using the saved function, perform the equivalent of itertools.starmap on <iterable> in parallel.
             This will return a list instead of an iterator. No order is guaranteed in the results. """
         # Don't add the overhead of multiprocessing if there's only one process.
@@ -47,13 +54,13 @@ class ParallelMapper:
             print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
             return self._serial_starmap(iterable)
 
-    def _parallel_starmap(self, iterable:Iterable[tuple]) -> list:
+    def _parallel_starmap(self, iterable:_STARMAP_ITERABLE) -> list:
         """ Map the function over <iterable> in parallel with Pool.starmap. """
         # multiprocessing is fairly large, so don't import until we have to.
         from multiprocessing import Pool
         with Pool(processes=self._processes) as pool:
             return pool.starmap(self._func, iterable)
 
-    def _serial_starmap(self, iterable:Iterable[tuple]) -> list:
+    def _serial_starmap(self, iterable:_STARMAP_ITERABLE) -> list:
         """ Map the function over <iterable> with ordinary starmap. """
         return list(starmap(self._func, iterable))

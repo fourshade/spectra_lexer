@@ -1,0 +1,39 @@
+from typing import Callable
+
+from PyQt5.QtWidgets import QMenuBar, QAction, QMenu
+
+
+class MenuController:
+    """ Wrapper class with methods for populating a menu bar in order. """
+
+    def __init__(self, w_menubar:QMenuBar) -> None:
+        self._w_menubar = w_menubar  # Main menu bar widget at the top of the window.
+        self._menus = {}             # Contains all menus by heading.
+
+    def add(self, func:Callable[[],None], heading:str, text:str, *, pos:int=None, after_sep:bool=False) -> None:
+        """ Create a menu item with label <text> that calls <func> with no args when selected.
+            Add it to the menu under <heading> at index <pos>, or at the end if <pos> is None. """
+        menu = self._get_menu(heading)
+        if after_sep:
+            # Add a separator before the next item if <after_sep> is True.
+            menu.addSeparator()
+        action = QAction(text, menu)
+        # Qt signals may provide (useless) args to menu action callbacks. Throw them away in a lambda.
+        action.triggered.connect(lambda *ignored: func())
+        if pos is not None:
+            item_before = menu.actions()[pos]
+            menu.insertAction(item_before, action)
+        else:
+            menu.addAction(action)
+
+    def _get_menu(self, heading:str) -> QMenu:
+        """ Get the existing menu with the given heading, or create one if it doesn't exist. """
+        menu = self._menus.get(heading)
+        if menu is None:
+            menu = self._w_menubar.addMenu(heading)
+            self._menus[heading] = menu
+        return menu
+
+    def set_enabled(self, enabled:bool) -> None:
+        """ Enable/disable the menu bar. """
+        self._w_menubar.setEnabled(enabled)

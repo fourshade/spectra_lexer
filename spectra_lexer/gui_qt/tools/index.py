@@ -1,23 +1,13 @@
 from typing import Callable
 
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtWidgets import QDialogButtonBox, QLabel, QMessageBox, QSlider, QToolTip, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QDialogButtonBox, QLabel, QSlider, QToolTip, QVBoxLayout
 
 from .dialog import ToolDialog
 
-from spectra_lexer.search import ExampleIndexInfo
+from spectra_lexer.steno import TranslationSizeFilter as _INFO
 
-INDEX_STARTUP_MESSAGE = """<p>
-In order to cross-reference examples of specific steno rules, this program must create an index
-using your Plover dictionary. The default file size is around 10 MB, and can take anywhere
-between 5 seconds and 5 minutes depending on the speed of your machine and hard disk.
-Would you like to create one now? You will not be asked again.
-</p><p>
-(If you cancel, all other features will still work. You can always create the index later from
-the Tools menu, and can expand it from the default size as well if it is not sufficient).
-</p>"""
-
-INDEX_SIZE_WARNING = """<p align='justify'>
+SIZE_WARNING = """<p align='justify'>
 An extremely large index is not necessarily more useful.
 The index is created from the Plover dictionary, which is very large
 (about 150,000 translations) with many useless and even erroneous entries.
@@ -25,6 +15,14 @@ As the index grows, so does the loading time,
 and past a certain point the garbage will start to crowd out useful information.
 Unless you are doing batch analysis, there is little benefit to a maximum-sized index.
 </p>"""
+
+SIZE_DESCRIPTIONS = f"""
+Please choose a size for the new index.<br><br>
+size = {_INFO.MINIMUM_SIZE}: includes nothing.<br><br>
+size = {_INFO.SMALL_SIZE  }: fast index with relatively simple words.<br><br>
+size = {_INFO.MEDIUM_SIZE }: average-sized index (default).<br><br>
+size = {_INFO.LARGE_SIZE  }: slower index with more advanced words.<br><br>
+size = {_INFO.MAXIMUM_SIZE}: includes everything."""
 
 
 class IndexSizeSlider(QSlider):
@@ -51,21 +49,19 @@ class IndexSizeDialog(ToolDialog):
         super().__init__(*args)
         self._slider = IndexSizeSlider(self)  # Horizontal slider widget.
 
-    def setup(self, size_callback:Callable[[int], None], info:ExampleIndexInfo) -> None:
+    def setup(self, size_callback:Callable[[int], None]) -> None:
         heading_label = QLabel(self)
         heading_label.setWordWrap(True)
-        heading_lines = ['Please choose a size for the new index.', *info.size_descriptions()]
-        heading_text = '<br><br>'.join(heading_lines)
-        heading_label.setText(heading_text)
-        self._slider.setMinimum(info.minimum_size())
-        self._slider.setMaximum(info.maximum_size())
-        self._slider.setValue(info.default_size())
+        heading_label.setText(SIZE_DESCRIPTIONS)
+        self._slider.setMinimum(_INFO.MINIMUM_SIZE)
+        self._slider.setMaximum(_INFO.MAXIMUM_SIZE)
+        self._slider.setValue(_INFO.MEDIUM_SIZE)
         self._slider.setOrientation(Qt.Horizontal)
         self._slider.setTickPosition(QSlider.TicksBelow)
         self._slider.setTickInterval(1)
         desc_label = QLabel(self)
         desc_label.setWordWrap(True)
-        desc_label.setText(INDEX_SIZE_WARNING)
+        desc_label.setText(SIZE_WARNING)
         button_box = QDialogButtonBox(self)
         button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.setCenterButtons(True)

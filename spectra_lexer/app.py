@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from .config import ConfigDictionary, ConfigItem, ConfigOption
 from .io import ResourceIO
-from .search import ExampleIndexInfo, SearchEngine
+from .search import SearchEngine
 from .steno import StenoEngine
 
 
@@ -258,17 +258,13 @@ class StenoApplication:
         raw_rules = self._steno_engine.make_rules(translations, **kwargs)
         self._io.json_write(raw_rules, filename)
 
-    def make_index(self, size:int, **kwargs) -> None:
+    def make_index(self, *args, **kwargs) -> None:
         """ Make a index for each built-in rule containing a dict of every translation that used it.
-            Use an input filter to control size. Finish by setting them active and saving them to disk. """
-        translations = self._search_engine.get_filtered_translations(size)
-        index = self._steno_engine.make_index(translations, **kwargs)
+            Finish by setting them active and saving them to disk. """
+        translations = self._search_engine.get_translations()
+        index = self._steno_engine.make_index(translations, *args, **kwargs)
         self.set_index(index)
         self.save_index(index)
-
-    def get_index_info(self) -> ExampleIndexInfo:
-        """ Return information about creating a new example index. """
-        return self._search_engine.get_index_info()
 
     def load_config(self, filename:str) -> None:
         """ Load config settings from disk. If the file is missing, set a 'first run' flag and start a new one. """

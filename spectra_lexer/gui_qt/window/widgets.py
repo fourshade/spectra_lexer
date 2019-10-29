@@ -104,12 +104,18 @@ class StringListView(QListView):
             self.clearSelection()
         self.blockSignals(False)
 
+    def selectedValue(self) -> str:
+        """ Return the value of the first selected item (if any). """
+        idxs = self.selectedIndexes()
+        if not idxs:
+            return ""
+        return self.model().data(idxs[0], Qt.DisplayRole)
+
     def selectionChanged(self, selected:QItemSelection, deselected:QItemSelection) -> None:
         """ Send a signal on selection change with the first selected item (if any). """
         super().selectionChanged(selected, deselected)
-        idxs = selected.indexes()
-        if idxs:
-            item_str = self.model().data(idxs[0], Qt.DisplayRole)
+        item_str = self.selectedValue()
+        if item_str:
             self.itemSelected.emit(item_str)
 
     def wheelEvent(self, event:QWheelEvent) -> None:

@@ -3,6 +3,7 @@ from operator import methodcaller
 from typing import Dict, Iterable, Tuple
 
 from .board import BoardElementParser, BoardEngine
+from .filter import TranslationSizeFilter
 from .graph import GraphEngine
 from .keys import KeyLayout
 from .lexer import LexerResult, StenoLexer, StenoLexerFactory
@@ -75,27 +76,33 @@ class StenoEngine:
     def make_rules(self, translations:_TR_DICT_TP, **kwargs) -> _RAW_RULES_TP:
         """ Run the lexer on all <translations> and return a list of raw rules with all keys matched for saving. """
         inv_parser = InverseRuleParser()
-        for keys, result in self._parallel_query(translations, **kwargs):
-            inv_parser.add(keys, translations[keys], list(result))
+        for keys, letters, result in self._parallel_query(translations, **kwargs):
+            inv_parser.add(keys, letters, list(result))
         return inv_parser.to_dict()
 
-    def make_index(self, translations:_TR_DICT_TP, **kwargs) -> Dict[str, _TR_DICT_TP]:
-        """ Run the lexer on all <translations> and look at the top-level rule names.
+    def make_index(self, translations:_TR_DICT_TP, *args, **kwargs) -> Dict[str, _TR_DICT_TP]:
+        """ Run the lexer on all <translations> with an input filter and look at the top-level rule names.
             Make a index containing a dict for each built-in rule with every translation that used it. """
+        tr_filter = TranslationSizeFilter(*args)
+        translations = tr_filter.filter(translations)
         index = defaultdict(dict)
-        for keys, result in self._parallel_query(translations, **kwargs):
-            letters = translations[keys]
+        for keys, letters, result in self._parallel_query(translations, **kwargs):
             # Add a translation to the index under the name of every rule in the result.
             for name in result.rule_names():
                 index[name][keys] = letters
         return index
 
-    def _parallel_query(self, translations:_TR_DICT_TP, **kwargs) -> Iterable[Tuple[str, LexerResult]]:
-        """ Return tuples of keys, letters, and results from complete lexer matches on <translations>. """
-        tr_list = [(self._layout.from_rtfcre(keys), letters) for keys, letters in translations.items()]
-        mapper = ParallelMapper(self._lexer.query, **kwargs)
-        results = mapper.starmap(tr_list)
-        return [(keys, result) for keys, result in zip(translations, results) if not result.unmatched_skeys()]
+    def _parallel_query(self, translations:_TR_DICT_TP, **kwargs) -> Tuple[str, str, LexerResult]:
+        mapper = ParallelMapper(self._p_query, **kwargs)
+        for keys, letters, result in mapper.starmap(translations.items()):
+            if not result.unmatched_skeys():
+                yield keys, letters, result
+
+    def _p_query(self, keys:str, letters:str) -> Tuple[str, str, LexerResult]:
+        """ Make a lexer query and return the result in a tuple with its matching keys and letters.
+            This is required for parallel operations where results may be returned out of order. """
+        result = self.lexer_query(keys, letters)
+        return keys, letters, result
 
 
 class StenoEngineFactory:

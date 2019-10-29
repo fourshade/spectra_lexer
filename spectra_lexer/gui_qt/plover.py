@@ -4,7 +4,7 @@ from functools import partial
 import pkg_resources
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from .main import QtGUI, QtMain
+from .main import QtGUI, QtGUIExt, QtMain
 
 
 class dummy:
@@ -120,7 +120,7 @@ class PloverTranslationParser:
         self._text = ""
 
 
-class PloverGUI(QtGUI):
+class PloverGUI(QtGUIExt):
     """ Top-level application object for the Plover plugin app configuration. """
 
     VERSION_REQUIRED = "4.0.0.dev8"  # Minimum version of Plover required for plugin compatibility.
@@ -139,7 +139,7 @@ class PloverGUI(QtGUI):
             self._on_new_dictionaries()
         except pkg_resources.ResolutionError:
             # If the compatibility check fails, send an error message.
-            self._window.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
+            self._gui.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
         super()._subcls_tasks()
 
     def _on_new_dictionaries(self, steno_dc:IPloverStenoDictCollection=None) -> None:
@@ -147,7 +147,7 @@ class PloverGUI(QtGUI):
         d_raw = self._engine.compile_raw_dict(steno_dc)
         d_converted = self._parser.convert_dict(d_raw)
         self._app.set_translations(d_converted)
-        self._window.set_status("Loaded new dictionaries from Plover engine.")
+        self._gui.set_status("Loaded new dictionaries from Plover engine.")
 
     def _on_new_translation(self, _, new_actions:Sequence[IPloverAction]) -> None:
         """ Parse user translations into custom queries to be handled by the GUI.
@@ -155,7 +155,11 @@ class PloverGUI(QtGUI):
         strokes = self._engine.get_last_strokes()
         translation = self._parser.parse_translation(strokes, new_actions)
         if translation is not None:
-            self._query(*translation)
+            self.query(*translation)
+
+    def __getattr__(self, name:str) -> Any:
+        """ The most likely target for unknown method calls is the main window. """
+        return getattr(self._gui, name)
 
 
 class PloverMain(QtMain):
@@ -171,7 +175,7 @@ class PloverProxy:
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *QtMain.ICON_PATH])
+    ICON = ':'.join(['asset', *QtGUI.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 

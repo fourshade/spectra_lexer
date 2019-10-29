@@ -1,5 +1,5 @@
 from itertools import cycle
-from typing import Sequence, Tuple
+from typing import Callable, List, Sequence, Tuple
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRectF, QTimer, QUrl
 from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
@@ -13,13 +13,14 @@ class _TitleWrapper(QObject):
     """ Wrapper for title bar widget that displays translations as well as loading/status with simple text animations.
         Also allows manual lexer queries by editing translations directly. """
 
-    sig_edit_translation = pyqtSignal([list])  # Sent with a [keys, letters] translation on a valid edit.
+    sig_edit_translation = pyqtSignal()  # Sent on a valid translation edit.
 
     _anim_iter = cycle([""])  # Animation string iterator. Should repeat indefinitely.
 
     def __init__(self, w_title:QLineEdit, tr_delim:str=" -> ") -> None:
         super().__init__()
         self._w_title = w_title
+        self._last_translation = ["", ""]
         self._tr_delim = tr_delim      # Delimiter between keys and letters of translations shown in title bar.
         self._timer = QTimer(self)     # Animation timer for loading messages.
         self._timer.timeout.connect(self._animate)
@@ -29,11 +30,15 @@ class _TitleWrapper(QObject):
         """ Parse the title bar text as a translation and send the signal if it is valid. """
         parts = text.split(self._tr_delim)
         if len(parts) == 2:
-            translation = [p.strip() for p in parts]
-            self.sig_edit_translation.emit(translation)
+            self._last_translation = [p.strip() for p in parts]
+            self.sig_edit_translation.emit()
+
+    def get_translation(self) -> List[str]:
+        return self._last_translation
 
     def set_translation(self, translation:list) -> None:
         """ Format a translation and show it in the title bar. """
+        self._last_translation = translation
         text = self._tr_delim.join(translation)
         self.set_static_text(text)
 
@@ -71,6 +76,7 @@ class _GraphWrapper(QObject):
         super().__init__()
         self._w_graph = w_graph
         self._graph_enabled = False  # Does moving the mouse over the text do anything?
+        self._last_ref = ""
         w_graph.linkOver.connect(self._on_hover_link)
         w_graph.linkClicked.connect(self._on_click_link)
 
@@ -87,6 +93,9 @@ class _GraphWrapper(QObject):
         self._graph_enabled = True
         self._w_graph.setHtml(text, no_scroll=True)
 
+    def get_ref(self) -> str:
+        return self._last_ref
+
     def set_enabled(self, enabled:bool) -> None:
         """ Blank out the graph on disable. """
         self._graph_enabled = enabled
@@ -101,27 +110,23 @@ class _GraphWrapper(QObject):
 
     def _on_link_signal(self, sig, url:QUrl) -> None:
         if self._graph_enabled:
-            sig.emit(url.fragment())
+            self._last_ref = url.fragment()
+            sig.emit(self._last_ref)
 
 
 class _BoardWrapper(QObject):
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
-
-    sig_activate_link = pyqtSignal()  # Sent when examples link is clicked.
-    sig_new_ratio = pyqtSignal([float])  # Sent on board resize with the new aspect ratio.
 
     def __init__(self, w_board:PictureWidget) -> None:
         """ Create the renderer and examples link. """
         super().__init__()
         self._w_board = w_board
         self._w_link = QLabel(w_board)  # Rule example hyperlink.
-        self._w_link.linkActivated.connect(self._on_link_click)
         self._renderer = QSvgRenderer()  # XML SVG renderer.
-        w_board.resized.connect(self._on_resize)
-
-    def _on_link_click(self, *args) -> None:
-        """ Send the examples link click signal with no args (the GUI already knows what it links to). """
-        self.sig_activate_link.emit()
+        self.sig_activate_link = self._w_link.linkActivated  # Sent when examples link is clicked.
+        sig_new_size = w_board.resized
+        self.sig_new_size = sig_new_size                     # Sent on board resize.
+        sig_new_size.connect(self._on_resize)
 
     def set_link(self, ref="") -> None:
         """ Show the link in the bottom-right corner of the diagram if examples exist.
@@ -129,18 +134,20 @@ class _BoardWrapper(QObject):
         self._w_link.setText("<a href='dummy'>More Examples</a>")
         self._w_link.setVisible(bool(ref))
 
+    def _get_size(self) -> Tuple[float, float]:
+        """ Return the size of the board widget. """
+        return self._w_board.width(), self._w_board.height()
+
     def _on_resize(self) -> None:
-        """ Reposition the link and send the new widget aspect ratio on any size change. """
-        width, height = self.get_size()
+        """ Reposition the link and redraw the board on any size change. """
+        width, height = self._get_size()
         self._w_link.move(width - 75, height - 18)
         self._draw_board()
-        self.sig_new_ratio.emit(width / height)
 
-    def get_size(self) -> Tuple[int, int]:
-        """ Return the current width and height of the board widget in pixels. """
-        width = self._w_board.width()
-        height = self._w_board.height()
-        return width, height
+    def get_ratio(self) -> float:
+        """ Return the width / height aspect ratio of the board widget. """
+        width, height = self._get_size()
+        return width / height
 
     def set_data(self, xml_data:bytes=b"") -> None:
         """ Load the renderer with raw XML data containing the elements to draw, then render the new board. """
@@ -159,9 +166,9 @@ class _BoardWrapper(QObject):
 
     def _get_draw_bounds(self) -> QRectF:
         """ Return the bounding box needed to center everything in the widget at maximum scale. """
+        width, height = self._get_size()
         _, _, vw, vh = self._renderer.viewBoxF().getRect()
         if vw and vh:
-            width, height = self.get_size()
             scale = min(width / vw, height / vh)
             fw, fh = vw * scale, vh * scale
             ox = (width - fw) / 2
@@ -169,7 +176,7 @@ class _BoardWrapper(QObject):
             return QRectF(ox, oy, fw, fh)
         else:
             # If no valid viewbox is defined, use the widget's natural size.
-            return QRectF(0, 0, *self.get_size())
+            return QRectF(0, 0, width, height)
 
     def set_enabled(self, enabled:bool) -> None:
         """ Blank out the link on disable. """
@@ -196,17 +203,35 @@ class DisplayController(QObject):
         self._graph = _GraphWrapper(w_graph)
         self._board = _BoardWrapper(w_board)
         self._caption = _CaptionWrapper(w_caption)
-        self.sig_edit_translation = self._title.sig_edit_translation
-        self.sig_over_graph = self._graph.sig_ref_over
-        self.sig_click_graph = self._graph.sig_ref_click
-        self.sig_activate_link = self._board.sig_activate_link
-        self.sig_board_ratio = self._board.sig_new_ratio
-        self.set_graph_text = self._graph.set_graph_text
-        self.set_translation = self._title.set_translation
-        self.get_board_size = self._board.get_size
-        self.set_board_xml = self._board.set_data
-        self.set_link = self._board.set_link
-        self.set_caption = self._caption.set_caption
+        # List of all GUI input events that can result in a call to a steno engine action.
+        self._events = [(self._title.sig_edit_translation, "Query"),
+                        (self._graph.sig_ref_over, "GraphOver"),
+                        (self._graph.sig_ref_click, "GraphClick"),
+                        (self._board.sig_activate_link, "SearchExamples"),
+                        (self._board.sig_new_size, "GraphOver")]
+        # Dict of all possible GUI methods to call when a particular part of the state changes.
+        self._methods = {"translation":    self._title.set_translation,
+                         "graph_text":     self._graph.set_graph_text,
+                         "board_caption":  self._caption.set_caption,
+                         "board_xml_data": self._board.set_data,
+                         "link_ref":       self._board.set_link}
+
+    def connect(self, action_fn:Callable[[str], None]) -> None:
+        """ Connect all input signals to the function with their corresponding action. """
+        for signal, action_str in self._events:
+            signal.connect(lambda *args, action=action_str: action_fn(action))
+
+    def get_state(self) -> dict:
+        """ Return all GUI state values that may be needed by the steno engine. """
+        return {"translation": self._title.get_translation(),
+                "graph_node_ref": self._graph.get_ref(),
+                "board_aspect_ratio": self._board.get_ratio()}
+
+    def update(self, state:dict) -> None:
+        """ For every state variable, call the corresponding GUI update method if one exists. """
+        for k in self._methods:
+            if k in state:
+                self._methods[k](state[k])
 
     def set_enabled(self, enabled:bool) -> None:
         self._title.set_enabled(enabled)
