@@ -5,7 +5,6 @@ import pkg_resources
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
 from .main import QtGUI, QtMain
-from .window import QtWindow
 
 
 class dummy:
@@ -128,33 +127,33 @@ class PloverGUI(QtGUI):
 
     def __init__(self, *args, engine:PloverEngineWrapper, parser:PloverTranslationParser) -> None:
         super().__init__(*args)
-        self.engine = engine  # Wrapped Plover engine object.
-        self.parser = parser  # Converts Plover dictionaries and translates user strokes.
+        self._engine = engine  # Wrapped Plover engine object.
+        self._parser = parser  # Converts Plover dictionaries and translates user strokes.
 
     def _subcls_tasks(self) -> None:
         """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """
         try:
             pkg_resources.working_set.require(f"plover>={self.VERSION_REQUIRED}")
-            self.engine.signal_connect("dictionaries_loaded", self._on_new_dictionaries)
-            self.engine.signal_connect("translated", self._on_new_translation)
+            self._engine.signal_connect("dictionaries_loaded", self._on_new_dictionaries)
+            self._engine.signal_connect("translated", self._on_new_translation)
             self._on_new_dictionaries()
         except pkg_resources.ResolutionError:
             # If the compatibility check fails, send an error message.
-            self.window.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
+            self._window.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
         super()._subcls_tasks()
 
     def _on_new_dictionaries(self, steno_dc:IPloverStenoDictCollection=None) -> None:
         """ Convert any translations dictionaries and send them to the main engine. """
-        d_raw = self.engine.compile_raw_dict(steno_dc)
-        d_converted = self.parser.convert_dict(d_raw)
-        self.app.set_translations(d_converted)
-        self.window.set_status("Loaded new dictionaries from Plover engine.")
+        d_raw = self._engine.compile_raw_dict(steno_dc)
+        d_converted = self._parser.convert_dict(d_raw)
+        self._app.set_translations(d_converted)
+        self._window.set_status("Loaded new dictionaries from Plover engine.")
 
     def _on_new_translation(self, _, new_actions:Sequence[IPloverAction]) -> None:
         """ Parse user translations into custom queries to be handled by the GUI.
             User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
-        strokes = self.engine.get_last_strokes()
-        translation = self.parser.parse_translation(strokes, new_actions)
+        strokes = self._engine.get_last_strokes()
+        translation = self._parser.parse_translation(strokes, new_actions)
         if translation is not None:
             self._query(*translation)
 
@@ -172,7 +171,7 @@ class PloverProxy:
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *QtWindow.ICON_PATH])
+    ICON = ':'.join(['asset', *QtMain.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
@@ -180,13 +179,13 @@ class PloverProxy:
         """ Main entry point for Spectra's Plover plugin.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        self.original = PloverMain().build_gui(PloverGUI,
-                                               engine=PloverEngineWrapper(engine),
-                                               parser=PloverTranslationParser())
+        self.gui = PloverMain().build_gui(PloverGUI,
+                                          engine=PloverEngineWrapper(engine),
+                                          parser=PloverTranslationParser())
 
     def __getattr__(self, name:str) -> Any:
         """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """
         try:
-            return getattr(self.original, name)
+            return getattr(self.gui, name)
         except AttributeError:
             return dummy()

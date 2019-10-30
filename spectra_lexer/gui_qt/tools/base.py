@@ -9,7 +9,7 @@ from .index import IndexSizeDialog, INDEX_STARTUP_MESSAGE
 from .objtree import ObjectTreeDialog
 
 
-class QtDialogFactory:
+class QtDialogTools:
     """ Factory for GUI menu dialog tools. """
 
     def __init__(self, parent:QWidget) -> None:
