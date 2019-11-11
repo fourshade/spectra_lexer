@@ -39,24 +39,25 @@ def test_analysis(keys, letters) -> None:
     skeys = KEY_LAYOUT.from_rtfcre(keys)
     result = LEXER.query(skeys, letters)
     unmatched = result.unmatched_skeys()
+    names = result.rules()
+    positions = result.rule_positions()
+    lengths = result.rule_lengths()
     assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
     # Rule names must all refer to rules that exist.
-    names = result.rules()
-    for name in names:
-        assert name in RULES_DICT
+    # for name in names:
+    #     assert name in RULES_DICT
     # Rule positions must be non-negative and increasing monotonic.
-    positions = result.rule_positions()
     assert positions == sorted(map(abs, positions))
     # Rule lengths must be non-negative.
-    for length in result.rule_lengths():
+    for length in lengths:
         assert length >= 0
-    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
-    BOARD_ENGINE.from_keys(skeys)
-    BOARD_ENGINE.from_rules(names)
     # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
-    # The root node uses the top-level rule and has no ancestors.
-    root = GRAPH_ENGINE.make_tree(letters, list(result))
-    # Every node available for interaction descends from it and is unique.
+    # The root node uses the top-level rule. Every node available for interaction descends from it and is unique.
+    root = GRAPH_ENGINE.make_tree(letters, list(zip(names, positions, lengths)))
     nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
+    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
+    BOARD_ENGINE.from_keys(skeys)
+    BOARD_ENGINE.from_rules(names)
+

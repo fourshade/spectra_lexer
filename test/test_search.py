@@ -7,8 +7,9 @@ import re
 import pytest
 
 from .base import IGNORED_KEYS, RULES_DICT, TEST_INDEX, TEST_TRANSLATIONS
-from spectra_lexer.steno.search import SearchEngine
+from spectra_lexer.steno.search import ExampleSearchEngine, TranslationSearchEngine
 from spectra_lexer.steno.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.steno.search.search import StenoSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -23,7 +24,7 @@ def class_hierarchy_tester(*test_classes:type):
 
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict)
+class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StenoSearchDict, StringSearchDict)
 
 
 @class_test(SimilarKeyDict)
@@ -257,29 +258,29 @@ def test_reverse_dict(cls) -> None:
                          "d": [8]}
 
 
-SEARCH_ENGINE = SearchEngine()
-SEARCH_ENGINE.set_translations(TEST_TRANSLATIONS)
-SEARCH_ENGINE.set_index(TEST_INDEX)
+def test_translations_search() -> None:
+    """ Go through each loaded test translation and check all search methods. """
+    engine = TranslationSearchEngine(TEST_TRANSLATIONS)
+    for keys, word in TEST_TRANSLATIONS.items():
+        results = engine.search(keys, count=2, strokes=True)
+        assert results.matches == [keys]
+        assert results.mappings == [[word]]
+        results = engine.search(word, count=2, strokes=False)
+        assert results.matches == [word]
+        assert results.mappings == [[keys]]
+        results = engine.search(re.escape(keys), count=2, strokes=True, regex=True)
+        assert results.matches == [keys]
+        results = engine.search(re.escape(word), count=2, strokes=False, regex=True)
+        assert results.matches == [word]
 
 
-@pytest.mark.parametrize("keys, word", TEST_TRANSLATIONS.items())
-def test_translations_search(keys, word) -> None:
-    """ Go through each loaded test translation and check the search method in all modes.
-        Search should return a list with only the item itself (or its value) in any mode. """
-    assert SEARCH_ENGINE.search_translations(keys, count=2, strokes=True) == [keys]
-    assert SEARCH_ENGINE.search_translations(word, count=2, strokes=False) == [word]
-    assert SEARCH_ENGINE.search_translations(keys, count=None, strokes=True) == [word]
-    assert SEARCH_ENGINE.search_translations(word, count=None, strokes=False) == [keys]
-    assert SEARCH_ENGINE.search_translations(re.escape(keys), count=2, strokes=True, regex=True) == [keys]
-    assert SEARCH_ENGINE.search_translations(re.escape(word), count=2, strokes=False, regex=True) == [word]
-
-
-@pytest.mark.parametrize("rule_name", TEST_INDEX.keys())
-def test_index_search(rule_name) -> None:
-    """ Any rule with translations in the index should have its keys and letters somewhere in every entry. """
-    keys, letters = RULES_DICT[rule_name]
-    wresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=False)
-    assert all([letters in r for r in wresults])
-    kresults = SEARCH_ENGINE.search_examples(rule_name, "", count=100, strokes=True)
-    all_keys = set(keys) - IGNORED_KEYS
-    assert all_keys == all_keys.intersection(*kresults)
+def test_example_search() -> None:
+    """ Any rule with translations in the example index should have its keys and letters somewhere in every entry. """
+    engine = ExampleSearchEngine(TEST_INDEX)
+    for rule_name in TEST_INDEX:
+        keys, letters = RULES_DICT[rule_name]
+        wmatches = engine.search(rule_name, count=100, strokes=False).matches
+        assert all([letters in r for r in wmatches])
+        kmatches = engine.search(rule_name, count=100, strokes=True).matches
+        all_keys = set(keys) - IGNORED_KEYS
+        assert all_keys == all_keys.intersection(*kmatches)

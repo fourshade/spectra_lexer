@@ -32,10 +32,6 @@ class LexerResult:
         """ Return a list of lengths (in the letters) for each rule we found. """
         return self._rule_lengths
 
-    def __iter__(self) -> zip:
-        """ Yield the rulemap in (name, start, length) tuples. """
-        return zip(self._rules, self._rule_positions, self._rule_lengths)
-
     def caption(self) -> str:
         """ Return the caption for a lexer result. """
         if not self._unmatched_skeys:

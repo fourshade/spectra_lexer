@@ -6,7 +6,6 @@ from .graph import GraphEngine
 from .keys import KeyLayout
 from .lexer import CompoundRuleMatcher, SpecialMatcher, StenoLexer, PrefixMatcher, StrokeMatcher, WordMatcher
 from .rules import RuleCollection
-from .search import SearchEngine
 
 
 class StenoEngineFactory:
@@ -96,9 +95,8 @@ class StenoEngineFactory:
         return {rule.name: rule.caption for rule in self.rules}
 
     def build_engine(self) -> StenoEngine:
-        search_engine = SearchEngine()
         lexer = self.build_lexer()
         board_engine = self.build_board_engine()
         graph_engine = self.build_graph_engine()
         captions = self.build_captions()
-        return StenoEngine(self.layout, search_engine, lexer, board_engine, graph_engine, captions)
+        return StenoEngine(self.layout, lexer, board_engine, graph_engine, captions)

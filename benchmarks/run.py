@@ -13,7 +13,7 @@ class ComponentBench:
         self._engine = engine
 
     def _translations(self) -> dict:
-        return self._engine._search_engine.get_translations()
+        return self._engine._translations.to_dict()
 
     def _spaced_translations(self, n:int) -> list:
         items = [*self._translations().items()]
@@ -50,7 +50,7 @@ class ComponentBench:
         bench(self._run_search, zip(prefixes))
 
     def _run_search(self, letters) -> None:
-        self._engine._search_engine.search_translations(letters, count=100)
+        self._engine._translations.search(letters, count=100)
 
     def init_plover(self) -> None:
         from test import test_plover
