@@ -1,8 +1,23 @@
+from itertools import repeat
 import random
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from .dict import ReverseDict, StringSearchDict
+
+
+class StripCaseFunctions:
+    """ Contains similarity functions for search dicts that remove case and strip a user-defined set of symbols. """
+
+    def __init__(self, strip_chars=" ") -> None:
+        self._strip_chars = strip_chars  # Characters to strip off each end.
+
+    def simfn(self, s:str) -> str:
+        return s.strip(self._strip_chars).lower()
+
+    def mapfn(self, s_iter:Iterable[str]) -> map:
+        """ Mapping the built-in string methods separately provides a good speed boost for large dictionaries. """
+        return map(str.lower, map(str.strip, s_iter, repeat(self._strip_chars)))
 
 
 class TranslationsSearchEngine:
@@ -10,11 +25,12 @@ class TranslationsSearchEngine:
 
     def __init__(self, d:Dict[str, str]=None, strip_chars=" -") -> None:
         """ For translation-based searches, spaces and hyphens should be stripped off each end by default. """
-        forward = StringSearchDict.strip_case(d or {}, _strip=strip_chars)
-        rev_dict = ReverseDict.from_forward(forward)
-        reverse = StringSearchDict.strip_case(rev_dict, _strip=strip_chars)
-        self._forward = forward  # Forward translations dict (strokes -> English words).
-        self._reverse = reverse  # Reverse dict (English words -> strokes).
+        fd = d or {}
+        rd = ReverseDict.from_forward(fd)
+        fns = StripCaseFunctions(strip_chars)
+        kwargs = dict(simfn=fns.simfn, mapfn=fns.mapfn)
+        self._forward = StringSearchDict(fd, **kwargs)  # Forward translations dict (strokes -> English words).
+        self._reverse = StringSearchDict(rd, **kwargs)  # Reverse dict (English words -> strokes).
 
     def search(self, pattern:str, count:int=None, strokes=False, prefix=True, regex=False) -> List[str]:
         """ Perform a special search for <pattern> with the given flags. Return up to <count> matches.

@@ -2,7 +2,7 @@
 
 from bisect import bisect_left
 from collections import defaultdict
-from itertools import islice, repeat
+from itertools import islice
 from operator import methodcaller
 import re
 from typing import Callable, Dict, Iterable, List, Tuple, TypeVar, Union
@@ -49,19 +49,38 @@ class SimilarKeyDict(Dict[KT, VT]):
     +-------------------+-------------------+------+
     """
 
-    _list: List[Tuple[SKT, KT]]  # Sorted list of tuples: the similarity function output paired with the original key.
-    _simfn: Callable[[KT], SKT]  # Similarity function, mapping raw keys that share some property to the same "simkey".
-    _mapfn: Callable[[Iterable[KT]], map]  # Optional implementation of the similarity function mapped across many keys.
-
-    def __init__(self, *args, simfn:Callable[[KT],SKT]=lambda x: x, mapfn:Callable[[Iterable[KT]],map]=None, **kwargs):
-        """ Initialize the dict and list to empty and set up the similarity function (identity if not provided).
+    def __init__(self, *args, simfn:Callable[[KT], SKT]=None, mapfn:Callable[[Iterable[KT]], map]=None, **kwargs):
+        """ Initialize the dict and list to empty and set up the similarity and map functions.
             If other arguments were given, treat them as containing initial items to add as with dict.update(). """
         super().__init__()
-        self._list = []
-        self._simfn = simfn
-        self._mapfn = mapfn or (lambda keys: map(simfn, keys))
+        if simfn is None:
+            simfn = self._default_simfn
+        if mapfn is None:
+            mapfn = self._default_mapfn
+        self._list = []      # Sorted list of tuples: the similarity function output paired with the original key.
+        self._simfn = simfn  # Similarity function, mapping raw keys that share some property to the same "simkey".
+        self._mapfn = mapfn  # Optional implementation of the similarity function mapped across many keys.
         if args or kwargs:
             self._update_empty(*args, **kwargs)
+
+    @staticmethod
+    def _default_simfn(k:KT) -> SKT:
+        """ The default similarity function returns keys unchanged. """
+        return k
+
+    def _default_mapfn(self, keys:Iterable[KT]) -> map:
+        """ The default similarity map function is a straight call to map(). This is usually good enough. """
+        return map(self._simfn, keys)
+
+    def __reduce__(self) -> tuple:
+        """ Dict subclasses call __setitem__ to unpickle, which will happen before the key list exists in our case.
+            We must sidestep this and unpickle everything using __setstate__.  """
+        return self.__class__, (), (dict(self), self._simfn, self._mapfn)
+
+    def __setstate__(self, state:tuple) -> None:
+        """ Unpickle everything with a call to __init__. This makes the key list redundant. """
+        d, simfn, mapfn = state
+        self.__init__(d, simfn=simfn, mapfn=mapfn)
 
     def clear(self) -> None:
         super().clear()
@@ -179,7 +198,7 @@ class StringSearchDict(SimilarKeyDict):
     # Will always return at least the empty string (which is a prefix of everything).
     _LITERAL_PREFIX_RX = re.compile(r'[\w \"#%\',\-:;<=>@`~]*').match
 
-    def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[Union[SKT,KT]]:
+    def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[Union[SKT, KT]]:
         """ Return a list of keys (of either type) where the simkey starts with <prefix>, up to <count>. """
         sk_start = self._simfn(prefix)
         if not sk_start:
@@ -197,7 +216,7 @@ class StringSearchDict(SimilarKeyDict):
         # For the (simkey, rawkey) tuples, we can use the boolean as an index for the key type we want.
         return [i[raw] for i in matches]
 
-    def regex_match_keys(self, pattern:str, count:int=None, raw=True) -> List[Union[SKT,KT]]:
+    def regex_match_keys(self, pattern:str, count:int=None, raw=True) -> List[Union[SKT, KT]]:
         """ Return a list of at most <count> keys that match the regex <pattern> from the start.
             Can search and return either the raw keys (default) or sim keys (required if raw keys aren't strings). """
         # First, figure out how much of the pattern string from the start is literal (no regex special characters).
@@ -215,16 +234,6 @@ class StringSearchDict(SimilarKeyDict):
             match_op = re.compile(pattern).match
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))
-
-    @classmethod
-    def strip_case(cls, *args, _strip=" ", **kwargs):
-        """ Return a dict with similarity functions that remove case and strip a user-defined set of symbols. """
-        def simfn(s:str) -> str:
-            return s.strip(_strip).lower()
-        # Mapping the built-in string methods separately provides a good speed boost for large dictionaries.
-        def mapfn(s_iter:Iterable[str]) -> map:
-            return map(str.lower, map(str.strip, s_iter, repeat(_strip)))
-        return cls(*args, simfn=simfn, mapfn=mapfn, **kwargs)
 
 
 class ReverseDict(dict):

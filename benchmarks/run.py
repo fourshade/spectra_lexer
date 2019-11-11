@@ -63,11 +63,6 @@ def app_start():
     return StenoMain().build_app()
 
 
-def app_analyze() -> None:
-    from spectra_lexer.gui_none import analyze
-    analyze("--index=NUL", "--out=NUL", "--processes=1")
-
-
 def app_index() -> None:
     from spectra_lexer.gui_none import index
     index("--index=NUL", "--processes=1")

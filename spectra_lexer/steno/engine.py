@@ -7,7 +7,6 @@ from .graph import GraphEngine
 from .keys import KeyLayout
 from .lexer import LexerResult, StenoLexer
 from .parallel import ParallelMapper
-from .rules import InverseRuleParser
 from .search import SearchEngine
 
 _RAW_RULES_TP = Dict[str, list]
@@ -89,37 +88,26 @@ class StenoEngine:
         best_index = self._lexer.find_best_translation(tr_list)
         return keys_list[best_index]
 
-    def make_rules(self, **kwargs) -> _RAW_RULES_TP:
-        """ Run the lexer on all <translations> and return a list of raw rules with all keys matched for saving. """
-        translations = self._search_engine.get_translations()
-        inv_parser = InverseRuleParser()
-        for keys, letters, result in self._parallel_query(translations, **kwargs):
-            inv_parser.add(keys, letters, list(result))
-        return inv_parser.to_dict()
-
     def make_index(self, *args, **kwargs) -> Dict[str, _TR_DICT_TP]:
         """ Run the lexer on all <translations> with an input filter and look at the top-level rule names.
             Make a index containing a dict for each built-in rule with every translation that used it. """
-        translations = self._search_engine.get_translations()
         tr_filter = TranslationSizeFilter(*args)
+        mapper = ParallelMapper(self._p_query, **kwargs)
+        translations = self._search_engine.get_translations()
         translations = tr_filter.filter(translations)
         index = defaultdict(dict)
-        for keys, letters, result in self._parallel_query(translations, **kwargs):
-            # Add a translation to the index under the name of every rule in the result.
-            for name in result.rules():
-                index[name][keys] = letters
-        return index
-
-    def _parallel_query(self, translations:_TR_DICT_TP, **kwargs) -> Tuple[str, str, LexerResult]:
-        mapper = ParallelMapper(self._p_query, **kwargs)
         for keys, letters, result in mapper.starmap(translations.items()):
             if not result.unmatched_skeys():
-                yield keys, letters, result
+                # Add a translation to the index under the name of every rule in the result.
+                for name in result.rules():
+                    index[name][keys] = letters
+        return index
 
     def _p_query(self, keys:str, letters:str) -> Tuple[str, str, LexerResult]:
         """ Make a lexer query and return the result in a tuple with its matching keys and letters.
             This is required for parallel operations where results may be returned out of order. """
-        result = self.lexer_query(keys, letters)
+        skeys = self._layout.from_rtfcre(keys)
+        result = self._lexer.query(skeys, letters)
         return keys, letters, result
 
 

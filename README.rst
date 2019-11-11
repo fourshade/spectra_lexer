@@ -44,10 +44,6 @@ Runs the program as a standalone PyQt GUI desktop application. This operates ide
 
 Runs the program as an HTTP AJAX web service, bound to IP_ADDRESS:PORT (default is localhost:80). While the service is running, you may access the web app from the root path (most likely ``http://127.0.0.1/`` in your web browser will work). It does require elevated privileges to bind to network sockets, but as the service is composed of custom Python code, most port scanners and spambots won't even know what to do with it. No security guarantees are made (but this is Python, so what did you expect?).
 
-``spectra_lexer analyze [--translations=FILE_IN1 [FILE_IN2 ...]] [--out=FILE_OUT]``
-
-Performs batch translations analysis. Each FILE_IN is a path to a JSON file containing a dictionary of steno translations, and FILE_OUT is a path to a (new) JSON file that will store the output. The lexer will run on each translation and store the output in the same format as the rules dictionary files.
-
 ``spectra_lexer index [--translations=FILE_IN1 [FILE_IN2 ...]] [--index=FILE_OUT] [--size=SIZE]``
 
 Creates a JSON rule examples index from JSON steno translations. This is used to generate the lists of translations found when you click the "More Examples" link. SIZE is a number between 1-20, with 20 including every possible translation that the program could find for any given rule.

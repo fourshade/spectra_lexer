@@ -74,15 +74,6 @@ class StenoApplication:
         assert self._index_file
         self._io.json_write(index, self._index_file)
 
-    def make_rules(self, filename:str, **kwargs) -> None:
-        """ Run the lexer on every item in the steno translations dictionary and save the rules to <filename>. """
-        raw_rules = self._engine.make_rules(**kwargs)
-        self.save_rules(raw_rules, filename)
-
-    def save_rules(self, raw_rules:Dict[str, list], filename:str) -> None:
-        """ Save a raw rules dict into JSON. """
-        self._io.json_write(raw_rules, filename)
-
     def load_config(self, filename:str) -> None:
         """ Load config settings from disk. If the file is missing, set a 'first run' flag and start a new one. """
         self._config_file = filename

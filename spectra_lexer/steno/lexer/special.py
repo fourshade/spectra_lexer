@@ -14,32 +14,43 @@ class SpecialMatcher(IRuleMatcher):
         # If the special key is at the end of a stroke, these are the possibilities for the next two characters.
         self._valid_next_two_chars = {key_special, key_special + key_sep}
 
+    @staticmethod
+    def _test_rule_abbreviation(skeys:str, all_skeys:str, all_letters:str) -> bool:
+        """ If the letters contain a period, it's probably an abbreviation. """
+        return "." in all_letters
+
     def add_rule_abbreviation(self, rule:RULE_TP) -> None:
-        def test(skeys:str, all_skeys:str, all_letters:str) -> bool:
-            """ If the letters contain a period, it's probably an abbreviation. """
-            return "." in all_letters
-        self._add_test(rule, test)
+        self._add_test(rule, self._test_rule_abbreviation)
+
+    @staticmethod
+    def _test_rule_proper(skeys:str, all_skeys:str, all_letters:str) -> bool:
+        """ If some of the letters are uppercase, it's probably a proper noun. """
+        return all_letters != all_letters.lower()
 
     def add_rule_proper(self, rule:RULE_TP) -> None:
-        def test(skeys:str, all_skeys:str, all_letters:str) -> bool:
-            """ If some of the letters are uppercase, it's probably a proper noun. """
-            return all_letters != all_letters.lower()
-        self._add_test(rule, test)
+        self._add_test(rule, self._test_rule_proper)
+
+    def _test_rule_affix(self, skeys:str, all_skeys:str, all_letters:str) -> bool:
+        """ If we are on either the first or last stroke (and there is more than one),
+            it's probably a prefix or suffix. """
+        sep = self._key_sep
+        is_first_stroke = (skeys.count(sep) == all_skeys.count(sep))
+        is_last_stroke = (sep not in skeys)
+        return is_first_stroke ^ is_last_stroke
 
     def add_rule_affix(self, rule:RULE_TP) -> None:
-        def test(skeys:str, all_skeys:str, all_letters:str, _sep=self._key_sep) -> bool:
-            """ If we are on either the first or last stroke (and there is more than one),
-                it's probably a prefix or suffix. """
-            is_first_stroke = (skeys.count(_sep) == all_skeys.count(_sep))
-            is_last_stroke = (_sep not in skeys)
-            return is_first_stroke ^ is_last_stroke
-        self._add_test(rule, test)
+        self._add_test(rule, self._test_rule_affix)
+
+    @staticmethod
+    def _test_rule_fallback(skeys:str, all_skeys:str, all_letters:str) -> bool:
+        """ If execution reaches this point without a valid guess, use a guaranteed fallback rule. """
+        return True
 
     def add_rule_fallback(self, rule:RULE_TP) -> None:
-        """ If execution reaches this point without a valid guess, use an "ambiguous" rule as a fallback. """
-        self._add_test(rule, lambda *args: True)
+        self._add_test(rule, self._test_rule_fallback)
 
     def _add_test(self, rule:RULE_TP, test:Callable[[str, str, str], bool]) -> None:
+        """ Add a special rule test. For pickleability, the callable *cannot* be an inner function or lambda. """
         self._rule_tests.append((rule, test))
 
     def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[MATCH_TP]:
