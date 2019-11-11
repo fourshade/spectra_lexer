@@ -111,14 +111,16 @@ class HTTPDataProcessor(HTTPRequestHandler):
 class HTTPJSONProcessor(HTTPDataProcessor):
     """ Abstract class; decodes a JSON object from HTTP content, processes it, and returns a JSON-encoded result. """
 
-    ctype = "application/json"
-    encoding = 'utf-8'
+    _JSON_OBJ = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
 
-    def __init__(self, *, size_limit=100000, char_limits=((b"{", 20), (b"[", 20))):
+    ctype = "application/json"
+    encoding = "utf-8"
+
+    def __init__(self, *, size_limit=100000, char_limits=((b"{", 20), (b"[", 20))) -> None:
         self._size_limit = size_limit    # Limit on total size of JSON data in bytes.
         self._char_limits = char_limits  # Limits on special JSON characters.
 
-    def decode(self, data:bytes) -> object:
+    def decode(self, data:bytes) -> _JSON_OBJ:
         """ Validate and decode incoming JSON data from a client. """
         if len(data) > self._size_limit:
             raise ValueError("JSON rejected - data payload too large.")
@@ -129,15 +131,20 @@ class HTTPJSONProcessor(HTTPDataProcessor):
                 raise ValueError("JSON rejected - too many containers.")
         return json.loads(data)
 
-    def encode(self, obj:object) -> bytes:
+    def encode(self, obj:Any) -> bytes:
         """ Encode an object into JSON bytes data, handling contents with non-standard data types in self.default.
             An explicit encoder flag is required to keep non-ASCII Unicode characters intact. """
         return json.dumps(obj, ensure_ascii=False, default=self.default).encode(self.encoding)
 
-    def default(self, obj:Any) -> Union[str, list]:
-        """ Convert bytes objects into strings and other arbitrary iterables into lists. """
-        if isinstance(obj, (bytes, bytearray)):
-            return obj.decode(self.encoding)
-        elif hasattr(obj, "__iter__"):
-            return list(obj)
-        raise TypeError(f"Could not encode object of type {type(obj)} into JSON.")
+    def default(self, obj:Any) -> _JSON_OBJ:
+        """ Convert arbitrary Python objects into JSON-compatible types using specially-named conversion methods. """
+        type_name = type(obj).__name__
+        try:
+            meth = getattr(self, f"convert_{type_name}")
+            return meth(obj)
+        except Exception as e:
+            raise TypeError(f"Could not encode object of type {type_name} into JSON.") from e
+
+    # Convert sets and frozensets into lists, which become JSON arrays.
+    convert_set = list
+    convert_frozenset = list

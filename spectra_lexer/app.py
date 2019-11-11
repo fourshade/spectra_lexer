@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from .config import ConfigDictionary, ConfigItem, ConfigOption
 from .io import ResourceIO
-from .steno import SearchResults, StenoEngine
+from .steno import SearchResults, StenoAnalysisPage, StenoEngine
 
 
 class StenoConfigDictionary(ConfigDictionary):
@@ -127,11 +127,11 @@ class ViewState:
     matches_per_page: int = 100        # Maximum number of matches returned on one page of a search.
 
     # Pure input values (display).
+    match_all_keys: bool = False       # Only return lexer results that match every key in the stroke.
     board_aspect_ratio: float = 100.0  # Aspect ratio for board viewing area.
     board_compound: bool = True        # Show special labels for compound keys (i.e. `f` instead of TP).
     graph_compress: bool = True        # Compress the graph layout vertically to save space.
     graph_compat: bool = False         # Force correct spacing in the graph using HTML tables.
-    match_all_keys: bool = False       # Only return lexer results that match every key in the stroke.
 
     # Either the program or user may manipulate the GUI to change these values.
     input_text: str = ""          # Last pattern from user textbox input.
@@ -141,16 +141,14 @@ class ViewState:
     graph_node_ref: str = ""      # Last node identifier on the graph ("" for empty space).
 
     # The user typically can't change these values directly. They are held for future reference.
-    link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
     page_count: int = 1            # Number of pages in the upper list.
     graph_has_focus: bool = False  # Is a node under focus on the graph?
+    link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
 
-    # Pure output values.
-    matches: list = []           # New items in the upper list.
-    mappings: list = []          # New items in the lower list.
-    graph_text: str = ""         # HTML formatted text for the graph.
-    board_caption: str = ""      # Rule caption above the board.
-    board_xml_data: bytes = b""  # Raw XML data string for an SVG board.
+    # Pure output values. These may be data classes that cannot be converted back from JSON.
+    matches: list            # New items in the upper list.
+    mappings: list           # New items in the lower list.
+    page: StenoAnalysisPage  # Contains an HTML formatted graph, a caption, and an SVG board.
 
     def __init__(self, steno_engine:StenoEngine) -> None:
         self._steno_engine = steno_engine    # Has access to lexer and graphical components.
@@ -281,22 +279,19 @@ class ViewState:
 
     def _exec_query(self, find_rule:bool, intense:bool) -> None:
         """ Execute a new lexer query and load the state with the output to draw the graph and board.
-            If <intense> is True, draw any valid selection with a bright color.
-            If <find_rule> is True, attempt to select a node with the same rule as the previous one. """
+            If <find_rule> is True, attempt to select a node with the same rule as the previous one.
+            If <intense> is True, draw any valid selection with a bright color. """
         keys, letters = self.translation
         if not (keys and letters):
             return
         select_ref = self.link_ref if find_rule else self.graph_node_ref
-        page = self._steno_engine.analyze(keys, letters,
-                                          match_all_keys=self.match_all_keys,
-                                          select_ref=select_ref,
-                                          find_rule=find_rule,
-                                          graph_compress=self.graph_compress,
-                                          graph_compat=self.graph_compat,
-                                          graph_intense=intense,
-                                          board_ratio=self.board_aspect_ratio,
-                                          board_compound=self.board_compound)
-        self.graph_text = page.graph
-        self.board_caption = page.caption
-        self.board_xml_data = page.board
-        self.link_ref = page.rule_id
+        self.page = self._steno_engine.analyze(keys, letters,
+                                               match_all_keys=self.match_all_keys,
+                                               select_ref=select_ref,
+                                               find_rule=find_rule,
+                                               graph_compress=self.graph_compress,
+                                               graph_compat=self.graph_compat,
+                                               graph_intense=intense,
+                                               board_ratio=self.board_aspect_ratio,
+                                               board_compound=self.board_compound)
+        self.link_ref = self.page.rule_id

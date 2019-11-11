@@ -1,5 +1,3 @@
 """ Package for the HTTP web application. """
 
-from .main import HttpMain
-
-http = HttpMain()
+from .main import http

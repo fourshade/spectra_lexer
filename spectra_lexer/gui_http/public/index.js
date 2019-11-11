@@ -116,15 +116,15 @@ $(document).ready(function(){
         // These output variables do not need to be tracked. Since they can be large, they shouldn't be.
         matches(value) {matchSelector.update(value);},
         mappings(value) {mappingSelector.update(value);},
-        board_caption(value) {displayDesc.textContent = value;},
-        board_xml_data(value) {displayBoard.innerHTML = value;},
-        graph_text(value) {displayText.innerHTML = value;},
+        page(value) {displayText.innerHTML = value.graph;
+                     displayDesc.textContent = value.caption;
+                     displayBoard.innerHTML = value.board;
+                     displayLink.style.display = (value.rule_id ? "" : "none");},
         // These output variables must be stored in the state for reference.
+        input_text(value) {searchInput.value = value; return true;},
         match_selected(value) {matchSelector.selectText(value); return true;},
         mapping_selected(value) {mappingSelector.selectText(value); return true;},
-        input_text(value) {searchInput.value = value; return true;},
         translation(value) {displayTitle.value = value.join(titleDelim); return true;},
-        link_ref(value) {displayLink.style.display = (value ? "" : "none"); return true;},
     };
     function updateState(stateChanges){
         // Keep state variables that either return true on GUI update or don't update the GUI at all.
@@ -150,5 +150,5 @@ $(document).ready(function(){
 
     // Before starting, save the initial board size and hide the link.
     onBoardResize();
-    updateTable.link_ref("");
+    displayLink.style.display = "none"
 });

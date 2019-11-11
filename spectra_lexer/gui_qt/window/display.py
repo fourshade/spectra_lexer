@@ -6,6 +6,8 @@ from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QLabel, QLineEdit
 
+from spectra_lexer.steno import StenoAnalysisPage
+
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 
@@ -211,10 +213,7 @@ class DisplayController(QObject):
                         (self._board.sig_new_size, "GraphOver")]
         # Dict of all possible GUI methods to call when a particular part of the state changes.
         self._methods = {"translation":    self._title.set_translation,
-                         "graph_text":     self._graph.set_graph_text,
-                         "board_caption":  self._caption.set_caption,
-                         "board_xml_data": self._board.set_data,
-                         "link_ref":       self._board.set_link}
+                         "page":           self._set_page}
 
     def connect(self, action_fn:Callable[[str], None]) -> None:
         """ Connect all input signals to the function with their corresponding action. """
@@ -226,6 +225,12 @@ class DisplayController(QObject):
         return {"translation": self._title.get_translation(),
                 "graph_node_ref": self._graph.get_ref(),
                 "board_aspect_ratio": self._board.get_ratio()}
+
+    def _set_page(self, page:StenoAnalysisPage) -> None:
+        self._graph.set_graph_text(page.graph)
+        self._caption.set_caption(page.caption)
+        self._board.set_data(page.board)
+        self._board.set_link(page.rule_id)
 
     def update(self, state:dict) -> None:
         """ For every state variable, call the corresponding GUI update method if one exists. """

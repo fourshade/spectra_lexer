@@ -5,6 +5,7 @@ from .http import HTTPFileGetter, HTTPJSONProcessor, HTTPMethodTable, HTTPServer
 from spectra_lexer.app import StenoApplication
 from spectra_lexer.base import StenoMain
 from spectra_lexer.option import CmdlineOption
+from spectra_lexer.steno import StenoAnalysis, StenoAnalysisPage, SearchResults
 
 
 class StenoAppProcessor(HTTPJSONProcessor):
@@ -21,10 +22,22 @@ class StenoAppProcessor(HTTPJSONProcessor):
         with self._lock:
             return self._process(state, action)
 
+    def convert_bytes(self, obj:bytes) -> str:
+        """ Encode XML steno board bytes data as a string with the current encoding. """
+        return obj.decode(self.encoding)
+
+    def add_data_class(self, data_cls:type) -> None:
+        """ Add a conversion method for a data class, whose instance attributes may be encoded
+            directly into a JSON object. This uses vars(), so classes that use __slots__ are not allowed.
+            For this to work, each attribute must contain either a JSON-compatible type or another data class.
+            Since type information is not encoded, this conversion is strictly one-way. """
+        setattr(self, f"convert_{data_cls.__name__}", vars)
+
 
 class HttpMain(StenoMain):
     """ Main entry point for Spectra's HTTP application. """
 
+    JSON_DATA_CLASSES = [SearchResults, StenoAnalysis, StenoAnalysisPage]
     HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
 
     address: str = CmdlineOption("--http-addr", "", "IP address or hostname for server.")
@@ -37,6 +50,8 @@ class HttpMain(StenoMain):
         log("Loading...")
         app = self.build_app()
         processor = StenoAppProcessor(app)
+        for cls in self.JSON_DATA_CLASSES:
+            processor.add_data_class(cls)
         fgetter = HTTPFileGetter(self.directory)
         method_handler = HTTPMethodTable(GET=fgetter, HEAD=fgetter, POST=processor)
         server = HTTPServer(method_handler, log, threaded=True)
@@ -47,3 +62,6 @@ class HttpMain(StenoMain):
             server.shutdown()
         log("Server stopped.")
         return 0
+
+
+http = HttpMain()
