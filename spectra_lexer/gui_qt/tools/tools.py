@@ -19,7 +19,7 @@ the Tools menu, and can expand it from the default size as well if it is not suf
 </p>"""
 
 
-class QtDialogTools:
+class ToolsController:
     """ Factory for GUI menu dialog tools. """
 
     def __init__(self, parent:QWidget) -> None:

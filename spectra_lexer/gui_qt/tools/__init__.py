@@ -1,3 +1,3 @@
 """ Base module for Qt dialog tools. """
 
-from .base import QtDialogTools
+from .tools import ToolsController

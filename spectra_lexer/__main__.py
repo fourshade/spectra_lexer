@@ -65,15 +65,12 @@ add("spectra_lexer.gui_qt",   "gui",     "Run the application as a standalone GU
 
 
 def main(script="", mode="", *argv:str) -> int:
-    """ Look up an entry point using the first command-line argument, call it with the rest, and return the exit code.
-        If the return value isn't an integer, cast it to bool and return its inverse (so True is success). """
+    """ Look up an entry point using the first command-line argument, call it without it, and return the exit code. """
     func = entry_points.load(mode)
     if func is None:
         return -1
-    result = func(script, *argv)
-    if isinstance(result, int):
-        return result
-    return not result
+    sys.argv = [script, *argv]
+    return func()
 
 
 if __name__ == '__main__':

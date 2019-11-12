@@ -59,18 +59,20 @@ class ComponentBench:
 
 
 def app_start():
-    from spectra_lexer.base import StenoMain
-    return StenoMain().build_app()
+    from spectra_lexer.base import StenoAppFactory
+    return StenoAppFactory().build_app()
 
 
 def app_index() -> None:
     from spectra_lexer.gui_none import index
-    index("--index=NUL", "--processes=1")
+    sys.argv += ["--index=NUL", "--processes=1"]
+    index()
 
 
-def main(_script:str="", operation:str="run_lexer", *argv:str) -> int:
+def main(script="", operation="run_lexer", *argv:str) -> int:
     """ Application startup benchmarks also include import time.
         Only one run at a time is allowed, since imports are cached after that. """
+    sys.argv = [script, *argv]
     if operation.startswith("app"):
         func = globals()[operation]
         bench(func, max_lines=100)

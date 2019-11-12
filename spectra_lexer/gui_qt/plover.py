@@ -4,7 +4,10 @@ from functools import partial
 import pkg_resources
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from .main import QtGUI, QtGUIExt, QtMain
+from spectra_lexer.app import StenoApplication
+
+from .gui import QtGUI, QtGUIFactory
+from .main import QtAppFactory
 
 
 class dummy:
@@ -120,27 +123,26 @@ class PloverTranslationParser:
         self._text = ""
 
 
-class PloverGUI(QtGUIExt):
-    """ Top-level application object for the Plover plugin app configuration. """
+class PloverExtension:
+    """ Main application object for the Plover plugin app configuration. """
 
-    VERSION_REQUIRED = "4.0.0.dev8"  # Minimum version of Plover required for plugin compatibility.
-
-    def __init__(self, *args, engine:PloverEngineWrapper, parser:PloverTranslationParser) -> None:
-        super().__init__(*args)
+    def __init__(self, app:StenoApplication, gui:QtGUI,
+                 engine:PloverEngineWrapper, parser:PloverTranslationParser) -> None:
+        self._app = app        # Main application object.
+        self._gui = gui        # Qt GUI controller.
         self._engine = engine  # Wrapped Plover engine object.
         self._parser = parser  # Converts Plover dictionaries and translates user strokes.
 
-    def _subcls_tasks(self) -> None:
-        """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """
+    def connect(self, min_version:str=None) -> None:
+        """ Connect the Plover engine if compatible. If the compatibility check fails, send an error message. """
         try:
-            pkg_resources.working_set.require(f"plover>={self.VERSION_REQUIRED}")
+            if min_version is not None:
+                pkg_resources.working_set.require(f"plover>={min_version}")
             self._engine.signal_connect("dictionaries_loaded", self._on_new_dictionaries)
             self._engine.signal_connect("translated", self._on_new_translation)
             self._on_new_dictionaries()
         except pkg_resources.ResolutionError:
-            # If the compatibility check fails, send an error message.
-            self._gui.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
-        super()._subcls_tasks()
+            self._gui.set_status(f"ERROR: Plover v{min_version} or greater required.")
 
     def _on_new_dictionaries(self, steno_dc:IPloverStenoDictCollection=None) -> None:
         """ Convert any translations dictionaries and send them to the main engine. """
@@ -150,32 +152,27 @@ class PloverGUI(QtGUIExt):
         self._gui.set_status("Loaded new dictionaries from Plover engine.")
 
     def _on_new_translation(self, _, new_actions:Sequence[IPloverAction]) -> None:
-        """ Parse user translations into custom queries to be handled by the GUI.
+        """ Parse user translations into custom queries.
             User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
         strokes = self._engine.get_last_strokes()
         translation = self._parser.parse_translation(strokes, new_actions)
         if translation is not None:
-            self.query(*translation)
-
-    def __getattr__(self, name:str) -> Any:
-        """ The most likely target for unknown method calls is the main window. """
-        return getattr(self._gui, name)
+            state = dict(translation=translation, match_all_keys=False)
+            changed = self._app.process_action(state, "Query")
+            self._gui.set_state(translation=translation, **changed)
 
 
-class PloverMain(QtMain):
-    """ We get translations from the Plover engine, so auto-loading from disk must be suppressed. """
-    translations_files = []
-
-
-class PloverProxy:
-    """ Entry point wrapper and dialog proxy to Plover. Translates some attributes into app calls and fakes others.
+class PloverPlugin(QtAppFactory):
+    """ Entry point wrapper and dialog proxy to Plover. Translates some attributes into GUI calls and fakes others.
         In order to be recognized as a valid plugin, this proxy class must face outwards as the entry point itself.
         We must not create our own QApplication object or run our own event loop if Plover is running. """
+
+    VERSION_REQUIRED = "4.0.0.dev8"  # Minimum version of Plover required for plugin compatibility.
 
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *QtGUI.ICON_PATH])
+    ICON = ':'.join(['asset', *QtGUIFactory.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
@@ -183,13 +180,25 @@ class PloverProxy:
         """ Main entry point for Spectra's Plover plugin.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        self.gui = PloverMain().build_gui(PloverGUI,
-                                          engine=PloverEngineWrapper(engine),
-                                          parser=PloverTranslationParser())
+        super().__init__()
+        self._engine = engine
+        self.build()
+
+    def build_app(self, with_translations=..., **kwargs) -> StenoApplication:
+        """ We get translations from the Plover engine, so auto-loading from disk must be suppressed. """
+        return super().build_app(with_translations=False, **kwargs)
+
+    def connect(self, app:StenoApplication) -> None:
+        """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """
+        engine_wrapper = PloverEngineWrapper(self._engine)
+        parser = PloverTranslationParser()
+        ext = PloverExtension(app, self._gui, engine_wrapper, parser)
+        ext.connect(self.VERSION_REQUIRED)
+        super().connect(app)
 
     def __getattr__(self, name:str) -> Any:
         """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """
         try:
-            return getattr(self.gui, name)
+            return getattr(self._gui, name)
         except AttributeError:
             return dummy()

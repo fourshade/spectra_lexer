@@ -1,10 +1,11 @@
 import os
+import sys
 from threading import Lock
 
 from .http import HTTPFileGetter, HTTPJSONProcessor, HTTPMethodTable, HTTPServer
 from spectra_lexer.app import StenoApplication
-from spectra_lexer.base import StenoMain
-from spectra_lexer.option import CmdlineOption
+from spectra_lexer.base import StenoAppFactory, StenoAppOptions
+from spectra_lexer.cmdline import CmdlineOption
 from spectra_lexer.steno import StenoAnalysis, StenoAnalysisPage, SearchResults
 
 
@@ -34,34 +35,38 @@ class StenoAppProcessor(HTTPJSONProcessor):
         setattr(self, f"convert_{data_cls.__name__}", vars)
 
 
-class HttpMain(StenoMain):
-    """ Main entry point for Spectra's HTTP application. """
+class HttpAppOptions(StenoAppOptions):
 
-    JSON_DATA_CLASSES = [SearchResults, StenoAnalysis, StenoAnalysisPage]
-    HTTP_PUBLIC = os.path.join(os.path.split(__file__)[0], "public")
+    HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "public")
 
     address: str = CmdlineOption("--http-addr", "", "IP address or hostname for server.")
     port: int = CmdlineOption("--http-port", 80, "TCP port to listen for connections.")
-    directory: str = CmdlineOption("--http-dir", HTTP_PUBLIC, "Root directory for public HTTP file service.")
-
-    def main(self) -> int:
-        """ Start the server and poll for connections indefinitely. """
-        log = self.build_logger().log
-        log("Loading...")
-        app = self.build_app()
-        processor = StenoAppProcessor(app)
-        for cls in self.JSON_DATA_CLASSES:
-            processor.add_data_class(cls)
-        fgetter = HTTPFileGetter(self.directory)
-        method_handler = HTTPMethodTable(GET=fgetter, HEAD=fgetter, POST=processor)
-        server = HTTPServer(method_handler, log, threaded=True)
-        log("Server started.")
-        try:
-            server.start(self.address, self.port)
-        finally:
-            server.shutdown()
-        log("Server stopped.")
-        return 0
+    directory: str = CmdlineOption("--http-dir", HTTP_PUBLIC_DEFAULT, "Root directory for public HTTP file service.")
 
 
-http = HttpMain()
+def http() -> int:
+    """ Run the Spectra HTTP web application. """
+    options = HttpAppOptions(__doc__)
+    options.parse()
+    factory = StenoAppFactory(options)
+    log = factory.build_logger().log
+    log("Loading...")
+    app = factory.build_app()
+    processor = StenoAppProcessor(app)
+    for cls in [SearchResults, StenoAnalysis, StenoAnalysisPage]:
+        processor.add_data_class(cls)
+    fgetter = HTTPFileGetter(options.directory)
+    method_handler = HTTPMethodTable(GET=fgetter, HEAD=fgetter, POST=processor)
+    server = HTTPServer(method_handler, log, threaded=True)
+    # Start the server and poll for connections indefinitely.
+    log("Server started.")
+    try:
+        server.start(options.address, options.port)
+    finally:
+        server.shutdown()
+    log("Server stopped.")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(http())
