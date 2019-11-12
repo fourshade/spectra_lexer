@@ -27,7 +27,7 @@ class StenoRule:
 
 
 class RuleCollection:
-    """ Converts steno rules from JSON arrays to StenoRule objects. """
+    """ Collection of StenoRule objects rules from JSON arrays. """
 
     def __init__(self, rules:Iterable[StenoRule]=()) -> None:
         self._rules = list(rules)  # List of finished steno rules.
@@ -45,17 +45,24 @@ class RuleCollection:
 
 
 class RuleParser:
-    """ Converts steno rules from JSON arrays to StenoRule objects. """
+    """ Converts steno rules from JSON arrays to StenoRule objects.
+        In order to recursively resolve references, all rule data should be added before any parsing is done. """
 
-    def __init__(self, raw_rules:Dict[str, list], ref_delims="()", alias_delim="|") -> None:
-        self._raw_rules = raw_rules      # Dict of raw steno rules in list form from JSON.
+    def __init__(self, ref_delims="()", alias_delim="|") -> None:
         self._ref_delims = ref_delims    # Delimiters marking the start and end of a rule reference.
         self._alias_delim = alias_delim  # Delimiter between letters and their rule alias when different.
-        self._rules = {}                 # Dict of finished steno rules indexed by an internal reference name.
+        self._rule_data = {}             # Dict of steno rule data in list form from JSON.
+        self._rules = {}                 # Dict of finished steno rules indexed by reference name.
 
-    def parse(self) -> Iterator[StenoRule]:
-        """ Yield all finished rules, parsing missing ones as necessary. """
-        return map(self._parse, self._raw_rules)
+    def add_rule_data(self, name:str, data:list) -> None:
+        """ Add JSON data for a single rule. Raise if we find rules with duplicate names. """
+        if name in self._rule_data:
+            raise ValueError("Found duplicate rule name: " + name)
+        self._rule_data[name] = data
+
+    def parse(self) -> RuleCollection:
+        """ Return all finished rules in a collection, parsing missing ones as necessary. """
+        return RuleCollection(map(self._parse, self._rule_data))
 
     def _parse(self, k:str) -> Optional[StenoRule]:
         """ Recursively parse a rule from raw list form into a StenoRule object. The fields (in order) are:
@@ -63,20 +70,18 @@ class RuleParser:
             pattern: English text pattern string, consisting of raw letters as well as references to other rules.
             flags:   Optional sequence of flag strings.
             desc:    Optional description for when the rule is displayed in the GUI. """
-        # Look up a rule. If it is missing but we have a raw version, parse it, otherwise return None.
+        # Look up a rule. If it is missing, parse its raw data instead.
         if k in self._rules:
             return self._rules[k]
-        if k not in self._raw_rules:
-            return None
-        raw_rule = self._raw_rules[k]
+        fields = self._rule_data[k]
         try:
-            keys, pattern, *optional = raw_rule
-        except ValueError:
-            raise ValueError(f"Not enough fields for rule {k}")
+            keys, pattern, *optional = fields
+        except ValueError as e:
+            raise ValueError(f"Not enough data fields for rule {k}") from e
         flags = optional.pop(0) if optional else ()
         desc = optional.pop(0) if optional else "No description"
         if optional:
-            raise ValueError(f"Too many fields for rule {k}: extra = {optional}")
+            raise ValueError(f"Too many data fields for rule {k}: extra = {optional}")
         # The pattern must be always parsed into letters and a rulemap.
         try:
             letters, rulemap = self._substitute(pattern)
@@ -128,8 +133,9 @@ class RuleParser:
             reference = "".join(p_list[start+1:end-1])
             *alias, k = reference.split(self._alias_delim, 1)
             # Look up the child rule reference (and parse it if it hasn't been yet).
-            rule = self._parse(k)
-            if rule is None:
+            try:
+                rule = self._parse(k)
+            except KeyError:
                 raise KeyError(f"Illegal rule reference {k} in pattern {pattern}")
             letters = alias[0] if alias else rule.letters
             # Add the rule to the map and substitute the letters into the pattern.

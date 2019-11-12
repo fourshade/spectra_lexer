@@ -13,7 +13,10 @@ def main() -> int:
     log("Loading...")
     app = factory.build_app()
     log("Loading complete.")
-    SystemConsole(vars(app)).repl()
+    console = SystemConsole(vars(app))
+    console.print_opening()
+    for line in iter(input, "exit"):
+        console.send(line)
     return 0
 
 

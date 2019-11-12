@@ -70,7 +70,7 @@ class QtGUIController:
         self._gui.open_config_editor(self._update_config, info)
 
     def _update_config(self, options:dict) -> None:
-        self._run_async(self._app.set_config, options, msg_done="Configuration saved.")
+        self._run_async(self._app.set_config, options, disable=False, msg_done="Configuration saved.")
 
     def custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
@@ -92,10 +92,11 @@ class QtGUIController:
     def _debug_vars(self) -> dict:
         return vars(self).copy()
 
-    def _run_async(self, func:Callable, *args, msg_done:str=None) -> None:
-        """ Disable the window controls in order to start a blocking async task.
+    def _run_async(self, func:Callable, *args, disable=True, msg_done:str=None) -> None:
+        """ Start a blocking async task. Most require disabling the window controls.
             Make a callback that will re-enable the controls and optionally show <msg_done> when the task is done. """
-        self._gui.disable()
+        if disable:
+            self._gui.disable()
         def on_task_finish(ret_val) -> None:
             self._gui.enable(msg_done)
         self._async_dsp.dispatch(func, *args, callback=on_task_finish)

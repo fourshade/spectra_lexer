@@ -182,11 +182,9 @@ class PloverPlugin(QtAppFactory):
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
         super().__init__()
         self._engine = engine
+        # We get translations from the Plover engine, so auto-loading from disk must be suppressed.
+        self._options.translations_files = []
         self.build()
-
-    def build_app(self, with_translations=..., **kwargs) -> StenoApplication:
-        """ We get translations from the Plover engine, so auto-loading from disk must be suppressed. """
-        return super().build_app(with_translations=False, **kwargs)
 
     def connect(self, app:StenoApplication) -> None:
         """ Connect the Plover engine if it is compatible. This must happen *before* the index check. """

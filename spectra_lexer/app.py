@@ -38,16 +38,15 @@ class StenoApplication:
 
     def load_translations(self, *filenames:str) -> None:
         """ Load and merge translations from disk. """
-        translations = self._io.json_read_merge(*filenames)
+        translations = {}
+        for filename in filenames:
+            d = self._io.json_read(filename)
+            translations.update(d)
         self.set_translations(translations)
 
     def set_translations(self, translations:Dict[str, str]) -> None:
         """ Send a new translations dict to the engine. """
         self._engine.set_translations(translations)
-
-    def save_translations(self, translations:Dict[str, str], filename:str) -> None:
-        """ Save a translations dict directly into JSON. """
-        self._io.json_write(translations, filename)
 
     def load_index(self, filename:str) -> None:
         """ Load an examples index from disk. Ignore missing files. """

@@ -3,7 +3,6 @@
 from code import InteractiveConsole
 import inspect
 import sys
-from typing import Callable
 
 
 class xhelp:
@@ -12,27 +11,29 @@ class xhelp:
 
     _HELP_SECTIONS = [lambda x: [f"OBJECT - {x!r}"],
                       lambda x: [f"  TYPE - {type(x).__name__}"],
-                      lambda x: ["----------SIGNATURE----------",
-                                 inspect.signature(x)],
-                      lambda x: ["----------ATTRIBUTES----------",
+                      lambda x: ["-----------SIGNATURE------------",
+                                 str(inspect.signature(x))],
+                      lambda x: ["-------PUBLIC ATTRIBUTES--------",
                                  ', '.join([k for k in dir(x) if not k.startswith('_')]) or "None"],
-                      lambda x: ["-------------INFO-------------",
+                      lambda x: ["--------------INFO--------------",
                                  *map(str.lstrip, str(x.__doc__).splitlines())]]
 
-    def __call__(self, *args:object, write:Callable=print) -> None:
-        """ Write each help section that doesn't raise an exception, in order. """
-        if not args:
-            write(self)
+    def __init__(self, file=sys.stdout) -> None:
+        self._file = file
+
+    def __call__(self, *args:object) -> None:
+        """ Write lines from each help section that doesn't raise an exception, in order. """
+        lines = [] if args else [repr(self)]
         for obj in args:
-            write("")
+            lines.append("")
             for fn in self._HELP_SECTIONS:
                 try:
-                    for line in fn(obj):
-                        write(line)
+                    lines += fn(obj)
                 except Exception:
                     # Arbitrary objects may raise arbitrary exceptions. Just skip sections that don't behave.
                     continue
-            write("")
+            lines.append("")
+        self._file.write("\n".join(lines))
 
     def __repr__(self) -> str:
         return "Type help(object) for auto-generated help on any Python object."
@@ -58,37 +59,34 @@ class AttrRedirector:
 class SystemConsole:
     """ Component for interactive system interpreter operations. """
 
-    ps1: str = ">>> "                # Standard input prompt.
-    ps2: str = "... "                # Input prompt when more lines are needed.
-    interpreter: InteractiveConsole  # Interactive interpreter. Evaluates text input.
+    def __init__(self, locals_ns:dict=None, file=sys.stdout, *, ps1=">>> ", ps2="... ") -> None:
+        """ Override the interactive help() and write an opening message before input begins. """
+        locals_ns = locals_ns or {}
+        locals_ns["help"] = xhelp(file)
+        self._interpreter = InteractiveConsole(locals_ns)                 # Interpreter to evaluate text input.
+        self._redirector = AttrRedirector(sys, stdout=file, stderr=file)  # Writes output text (to stdout by default).
+        self._ps1 = ps1  # Standard input prompt.
+        self._ps2 = ps2  # Input prompt when more lines are needed.
 
-    def __init__(self, locals_ns:dict=None, *, write_to:Callable=None, **kwargs) -> None:
-        """ Add the help function, set the write callback and write an opening message before input begins. """
-        if locals_ns is None:
-            locals_ns = {}
-        locals_ns.update(kwargs, help=xhelp())
-        self.interpreter = InteractiveConsole(locals_ns)
-        if write_to is not None:
-            self.write = write_to
-        self.write(f"Spectra Console - Python {sys.version}\n"
-                   f"Type 'dir()' to see a list of application components and other globals.\n{self.ps1}")
-
-    def __call__(self, text_in:str) -> None:
+    def send(self, text_in:str) -> None:
         """ When a new line is sent, push it to the interpreter and run it if it makes a complete statement.
-            Redirect the standard output streams to our write method during execution. """
-        with AttrRedirector(sys, stdout=self, stderr=self):
+            Redirect the standard output streams to our file during execution. """
+        with self._redirector:
             try:
-                more = self.interpreter.push(text_in)
+                is_more = self._interpreter.push(text_in)
             except KeyboardInterrupt:
-                self.write("KeyboardInterrupt\n")
-            self.write(self.ps2 if more else self.ps1)
+                print("KeyboardInterrupt\n")
+                is_more = False
+            self._write_prompt(is_more)
 
-    def write(self, text_out:str) -> None:
-        """ Forward all output text to stdout by default. """
-        sys.__stdout__.write(text_out)
-        sys.__stdout__.flush()
+    def _write_prompt(self, is_more=False) -> None:
+        """ The prompt is not a full line, so the buffer must be flushed manually. """
+        prompt = self._ps2 if is_more else self._ps1
+        print(prompt, end="", flush=True)
 
-    def repl(self, input_fn:Callable[[],str]=input) -> None:
-        """ Run an interactive read-eval-print loop. Only a SystemExit can break out of this. """
-        while True:
-            self(input_fn())
+    def print_opening(self) -> None:
+        """ Print an opening message using the redirector. """
+        with self._redirector:
+            print("Spectra Console - Python " + sys.version)
+            print("Type 'dir()' to see a list of application components and other globals.")
+            self._write_prompt()

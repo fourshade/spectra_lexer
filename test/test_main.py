@@ -60,4 +60,3 @@ def test_analysis(keys, letters) -> None:
     # Perform test for board diagram output. Currently only checks that the output doesn't raise.
     BOARD_ENGINE.from_keys(skeys)
     BOARD_ENGINE.from_rules(names)
-
