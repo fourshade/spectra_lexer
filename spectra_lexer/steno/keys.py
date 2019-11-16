@@ -49,6 +49,13 @@ class KeyLayout:
         # Transform an s-keys string back to RTFCRE.
         self.to_rtfcre = partial(self._stroke_map, self._stroke_s_keys_to_rtfcre)
 
+    @classmethod
+    def from_dict(cls, d:dict):
+        """ Verify and return a layout parsed from a standard dict. """
+        self = cls(**d)
+        self.verify()
+        return self
+
     def _stroke_map(self, fn:Callable[[str], str], s:str) -> str:
         """ Split a set of keys, apply a string function to every stroke, and join them back together.
             If there is only one stroke, skip the string carving and apply the function directly. """

@@ -18,8 +18,9 @@ class StenoEngineFactory:
     _WORD = "WORD"     # Exact match for a single word. These rules do not adversely affect lexer performance.
     _RARE = "RARE"     # Rule applies to very few words and could specifically cause false positives.
 
-    # These are the acceptable string values for graph flags, as read from JSON.
-    _INVERSION = "INV"  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
+    # These are the acceptable string values for graph and board element flags, as read from JSON.
+    _INVERSION = "INV"  # Inversion of steno order. A transposition symbol will be added.
+    _LINKED = "LINK"    # Rule that uses keys from two strokes. A linking symbol will be added.
 
     # Some rules have hard-coded behavior in the lexer to match special case uses of the asterisk.
     _SPECIALS = [(SpecialMatcher.add_rule_abbreviation, "may indicate an abbreviation"),
@@ -27,18 +28,16 @@ class StenoEngineFactory:
                  (SpecialMatcher.add_rule_affix,        "may indicate a prefix or suffix stroke"),
                  (SpecialMatcher.add_rule_fallback,     "purpose unknown\nPossibly resolves a conflict")]
 
-    def __init__(self, layout:KeyLayout, rules:RuleCollection,
-                 board_defs:Dict[str, dict], board_elems:Dict[str, dict]) -> None:
-        self.layout = layout  # Converts between user RTFCRE steno strings and s-keys.
-        self.rules = rules
-        self.board_defs = board_defs
-        self.board_elems = board_elems
+    def __init__(self, layout:KeyLayout, rules:RuleCollection, board_defs:Dict[str, dict]) -> None:
+        self._layout = layout          # Converts between user RTFCRE steno strings and s-keys.
+        self._rules = rules            # Collection of steno rules with data for all components.
+        self._board_defs = board_defs  # Dict with various parameters for stneo board rendering.
 
     def build_lexer(self) -> StenoLexer:
-        rules = self.rules
-        key_sep = self.layout.sep
-        key_special = self.layout.special
-        prefix_matcher = PrefixMatcher(key_sep, self.layout.unordered)
+        rules = self._rules
+        key_sep = self._layout.sep
+        key_special = self._layout.special
+        prefix_matcher = PrefixMatcher(key_sep, self._layout.unordered)
         stroke_matcher = StrokeMatcher(key_sep)
         word_matcher = WordMatcher()
         rare_rules = []
@@ -56,7 +55,7 @@ class StenoEngineFactory:
                     # Word rules are matched only by whole words (but still case-insensitive).
                     matcher = word_matcher
                 name = rule.name
-                skeys = self.layout.from_rtfcre(rule.keys)
+                skeys = self._layout.from_rtfcre(rule.keys)
                 matcher.add(name, skeys, rule.letters)
                 if self._RARE in flags:
                     # Rare rules are uncommon in usage and/or prone to causing false positives.
@@ -70,19 +69,21 @@ class StenoEngineFactory:
         return StenoLexer(matcher, rare_rules)
 
     def build_board_engine(self) -> BoardEngine:
-        board_parser = BoardElementParser(self.board_defs)
-        board_parser.parse(self.board_elems)
-        for rule in self.rules:
+        board_parser = BoardElementParser(self._board_defs)
+        for rule in self._rules:
             name = rule.name
-            skeys = self.layout.from_rtfcre(rule.keys)
-            board_parser.add_rule(name, skeys, rule.flags)
+            skeys = self._layout.from_rtfcre(rule.keys)
+            flags = rule.flags
+            is_inversion = self._INVERSION in flags
+            is_linked = self._LINKED in flags
+            board_parser.add_rule(name, skeys, is_inversion, is_linked)
             for item in rule.rulemap:
                 board_parser.add_connection(name, item.name)
         return board_parser.build_engine()
 
     def build_graph_engine(self) -> GraphEngine:
-        graph_engine = GraphEngine(self.layout.sep)
-        for rule in self.rules:
+        graph_engine = GraphEngine(self._layout.sep)
+        for rule in self._rules:
             name = rule.name
             rulemap = rule.rulemap
             is_inversion = self._INVERSION in rule.flags
@@ -92,11 +93,11 @@ class StenoEngineFactory:
         return graph_engine
 
     def build_captions(self) -> Dict[str, str]:
-        return {rule.name: rule.caption for rule in self.rules}
+        return {rule.name: rule.caption for rule in self._rules}
 
     def build_engine(self) -> StenoEngine:
         lexer = self.build_lexer()
         board_engine = self.build_board_engine()
         graph_engine = self.build_graph_engine()
         captions = self.build_captions()
-        return StenoEngine(self.layout, lexer, board_engine, graph_engine, captions)
+        return StenoEngine(self._layout, lexer, board_engine, graph_engine, captions)

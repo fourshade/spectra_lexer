@@ -5,11 +5,9 @@ from typing import Any, Callable, Iterable, Iterator
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
-from PyQt5.QtWidgets import QTreeView, QVBoxLayout
+from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
-from .dialog import ToolDialog
-
-from spectra_lexer.debug import DebugDataFactory, DebugData, package
+from spectra_lexer.debug import DebugData
 
 
 class BaseItem:
@@ -231,36 +229,31 @@ class ObjectTreeItemModel(QAbstractItemModel):
         self.endInsertRows()
 
 
-class ObjectTreeDialog(ToolDialog):
-    """ Qt tree dialog window object. """
+class ObjectTreeTool:
+    """ Qt tree dialog window tool. """
 
-    title = "Python Object Tree View"
-    width = 600
-    height = 450
+    def __init__(self, dialog:QDialog) -> None:
+        self._dialog = dialog             # Base dialog object.
+        self._w_view = QTreeView(dialog)  # Central tree view widget.
 
-    def setup(self, debug_vars:dict) -> None:
-        """ Create the item model by putting together debug data structures and a row model.
-            Create the tree widget with the item model, connect the expansion signal, and format the header. """
-        debug_vars["modules"] = package.modules()
-        factory = DebugDataFactory()
-        factory.load_icons()
-        root_data = factory.generate(debug_vars)
+    def set_data(self, root_data:DebugData) -> None:
+        """ Create the item model by putting together debug data structures.
+            Connect the expansion signal to the tree widget and format the header. """
         root_item = KeyItem()
         root_item.update(root_data)
         qicons = IconRenderer()
         item_model = ObjectTreeItemModel(qicons, root_item)
         item_model.expand()
-        view = self._make_tree_view()
-        view.setModel(item_model)
-        view.expanded.connect(item_model.expand)
-        layout = QVBoxLayout(self)
-        layout.addWidget(view)
-
-    def _make_tree_view(self) -> QTreeView:
-        view = QTreeView(self)
-        view.setFont(QFont("Segoe UI", 9))
-        view.setUniformRowHeights(True)
-        header = view.header()
+        self._w_view.setModel(item_model)
+        self._w_view.expanded.connect(item_model.expand)
+        header = self._w_view.header()
         header.setDefaultSectionSize(120)
         header.resizeSection(0, 200)
-        return view
+
+    def display(self) -> None:
+        """ Fill out the dialog with widgets and show it. """
+        self._w_view.setFont(QFont("Segoe UI", 9))
+        self._w_view.setUniformRowHeights(True)
+        layout = QVBoxLayout(self._dialog)
+        layout.addWidget(self._w_view)
+        self._dialog.show()

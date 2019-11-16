@@ -75,11 +75,11 @@ $(document).ready(function(){
     const searchModeStrokes = document.getElementById("w_strokes");
     const searchModeRegex = document.getElementById("w_regex");
     searchModeStrokes.addEventListener("change", function(){
-        state.mode_strokes = this.checked;
+        state.search_mode_strokes = this.checked;
         processAction("Search");
     });
     searchModeRegex.addEventListener("change", function(){
-        state.mode_regex = this.checked;
+        state.search_mode_regex = this.checked;
         processAction("Search");
     });
 

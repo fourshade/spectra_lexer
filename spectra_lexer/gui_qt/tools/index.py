@@ -1,9 +1,5 @@
-from typing import Callable
-
-from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtWidgets import QDialogButtonBox, QLabel, QSlider, QToolTip, QVBoxLayout
-
-from .dialog import ToolDialog
+from PyQt5.QtCore import pyqtSignal, QObject, Qt
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QLabel, QSlider, QToolTip, QVBoxLayout
 
 from spectra_lexer.steno import TranslationSizeFilter as _INFO
 
@@ -36,46 +32,48 @@ class IndexSizeSlider(QSlider):
         super().sliderChange(change)
 
 
-class IndexSizeDialog(ToolDialog):
-    """ Qt dialog window with an interactive slider that submits a positive number on accept, or 0 on cancel. """
+class IndexSizeTool(QObject):
+    """ Qt index dialog tool. Adds an interactive slider that submits a positive number on accept, or 0 on cancel. """
 
     _sig_accept = pyqtSignal([int])  # Signal to return the index size on dialog accept.
 
-    title = "Choose Index Size"
-    width = 360
-    height = 320
+    def __init__(self, dialog:QDialog) -> None:
+        super().__init__()
+        self._dialog = dialog                   # Base dialog object.
+        self._slider = IndexSizeSlider(dialog)  # Horizontal slider widget.
+        self.call_on_size_accept = self._sig_accept.connect
+        dialog.tool_ref = self
 
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
-        self._slider = IndexSizeSlider(self)  # Horizontal slider widget.
-
-    def setup(self, size_callback:Callable[[int], None]) -> None:
-        heading_label = QLabel(self)
+    def display(self) -> None:
+        """ Fill out the dialog with widgets and show it. """
+        dialog = self._dialog
+        heading_label = QLabel(dialog)
         heading_label.setWordWrap(True)
         heading_label.setText(SIZE_DESCRIPTIONS)
-        self._slider.setMinimum(_INFO.MINIMUM_SIZE)
-        self._slider.setMaximum(_INFO.MAXIMUM_SIZE)
-        self._slider.setValue(_INFO.MEDIUM_SIZE)
-        self._slider.setOrientation(Qt.Horizontal)
-        self._slider.setTickPosition(QSlider.TicksBelow)
-        self._slider.setTickInterval(1)
-        desc_label = QLabel(self)
+        slider = self._slider
+        slider.setMinimum(_INFO.MINIMUM_SIZE)
+        slider.setMaximum(_INFO.MAXIMUM_SIZE)
+        slider.setValue(_INFO.MEDIUM_SIZE)
+        slider.setOrientation(Qt.Horizontal)
+        slider.setTickPosition(QSlider.TicksBelow)
+        slider.setTickInterval(1)
+        desc_label = QLabel(dialog)
         desc_label.setWordWrap(True)
         desc_label.setText(SIZE_WARNING)
-        button_box = QDialogButtonBox(self)
+        button_box = QDialogButtonBox(dialog)
         button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.setCenterButtons(True)
-        button_box.accepted.connect(self.check_accept)
-        button_box.rejected.connect(self.reject)
-        layout = QVBoxLayout(self)
+        button_box.accepted.connect(self._check_accept)
+        button_box.rejected.connect(dialog.reject)
+        layout = QVBoxLayout(dialog)
         layout.addWidget(heading_label)
-        layout.addWidget(self._slider)
+        layout.addWidget(slider)
         layout.addWidget(desc_label)
         layout.addWidget(button_box)
-        self._sig_accept.connect(size_callback)
+        dialog.show()
 
-    def check_accept(self) -> None:
+    def _check_accept(self) -> None:
         """ Emit the slider position on accept and close the window. """
         value = self._slider.value()
         self._sig_accept.emit(value)
-        self.accept()
+        self._dialog.accept()

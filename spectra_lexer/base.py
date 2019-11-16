@@ -1,3 +1,4 @@
+from configparser import ConfigParser
 import json
 import os
 import sys
@@ -5,7 +6,8 @@ from typing import List
 
 from spectra_lexer.app import StenoApplication
 from spectra_lexer.cmdline import CmdlineOption, CmdlineOptionNamespace
-from spectra_lexer.io import AssetPathConverter, PrefixPathConverter, ResourceIO, UserPathConverter
+from spectra_lexer.config import ConfigDictionary
+from spectra_lexer.io import AssetPathConverter, CSONLoader, PrefixPathConverter, ResourceIO, UserPathConverter
 from spectra_lexer.log import StreamLogger
 from spectra_lexer.steno import KeyLayout, RuleCollection, RuleParser, StenoEngineFactory
 
@@ -16,13 +18,11 @@ CONVERTER.add(":/", AssetPathConverter(ROOT_PACKAGE))
 CONVERTER.add("~/", UserPathConverter(ROOT_PACKAGE))
 MAIN_IO = ResourceIO(CONVERTER)
 
-CSON_COMMENT_PREFIX = "#"  # Starting character for comments in CSON (commented JSON) files.
-
 
 class StenoAppOptions(CmdlineOptionNamespace):
-    """ Contains all command-line options necessary to build a functioning app object. """
+    """ Contains all command-line and config options necessary to build a functioning app object. """
 
-    ASSETS_DIR = ":/assets/"
+    ASSETS_DIR = ":/assets/"               # Location of built-in assets relative to this package.
     PLOVER_TRANSLATIONS = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
 
     log_files: str = CmdlineOption("--log", ["~/status.log"], "Text file(s) to log status and exceptions.")
@@ -38,9 +38,18 @@ class StenoAppOptions(CmdlineOptionNamespace):
 class StenoAppFactory:
     """ Factory class for an app object. """
 
+    # State attributes that can be user-configured (desktop), or sent in query strings (HTTP).
+    CONFIG = [("search_match_limit", 100, "Maximum number of matches returned on one page of a search."),
+              ("lexer_strict_mode", False, "Only return lexer results that match every key in a translation."),
+              ("graph_compressed_layout", True, "Compress the graph layout vertically to save space."),
+              ("graph_compatibility_mode", False, "Force correct spacing in the graph using HTML tables."),
+              ("board_compound_key_labels", True, "Show special labels for compound keys (i.e. `f` instead of TP).")]
+
     def __init__(self, options=StenoAppOptions(), io:ResourceIO=MAIN_IO) -> None:
         self._options = options
         self._io = io
+        self._json_load = json.load
+        self._cson_load = CSONLoader().load
 
     def build_logger(self) -> StreamLogger:
         """ Create a logger, which will print non-error messages to stdout by default.
@@ -56,7 +65,8 @@ class StenoAppFactory:
         """ Load an app with all required resources from this command-line options structure. """
         engine_factory = self.build_factory()
         steno_engine = engine_factory.build_engine()
-        app = StenoApplication(self._io, steno_engine)
+        config = self.build_config()
+        app = StenoApplication(self._io, steno_engine, config)
         translations_files = self._options.translations_files
         if self._options.PLOVER_TRANSLATIONS in translations_files:
             translations_files = self._plover_files()
@@ -76,55 +86,59 @@ class StenoAppFactory:
         rules = self.load_rules()
         rules.make_special(layout.sep, "stroke separator")
         board_defs = self.load_board_defs()
-        board_elems = self.load_board_elems()
-        return StenoEngineFactory(layout, rules, board_defs, board_elems)
+        return StenoEngineFactory(layout, rules, board_defs)
+
+    def build_config(self) -> ConfigDictionary:
+        """ Make a blank config dictionary with all option specifications loaded. """
+        config = ConfigDictionary()
+        for params in self.CONFIG:
+            config.add_option(*params)
+        return config
 
     def load_layout(self) -> KeyLayout:
         """ Load a steno key constants structure. """
-        layout_path = self._res_path("layout.json")
-        raw_layout = self._json_read(layout_path)
-        layout = KeyLayout(**raw_layout)
-        layout.verify()
-        return layout
+        with self._open_text_resource("key_layout.json") as fp:
+            d = self._json_load(fp)
+        return KeyLayout.from_dict(d)
 
     def load_rules(self) -> RuleCollection:
-        """ Load steno rules from a CSON glob pattern. """
+        """ Load steno rules from every CSON file matching a glob pattern. """
         rules_pattern = self._res_path("[01]*.cson")
         parser = RuleParser()
-        for f in self._io.expand(rules_pattern):
-            d = self._cson_read(f)
+        for fp in self._io.open_all(rules_pattern, 'r'):
+            with fp:
+                d = self._cson_load(fp)
             for name, data in d.items():
                 parser.add_rule_data(name, data)
         return parser.parse()
 
-    def load_board_elems(self) -> dict:
-        return self._cson_read(self._res_path("board_elems.cson"))
-
     def load_board_defs(self) -> dict:
-        return self._json_read(self._res_path("board_defs.json"))
+        """ Load steno board graphics definitions. """
+        with self._open_text_resource("board_defs.cson") as fp:
+            return self._cson_load(fp)
 
-    def _json_read(self, filename:str) -> dict:
-        """ Read a dict from a standard JSON file. """
-        return self._io.json_read(filename)
-
-    def _cson_read(self, filename:str) -> dict:
-        """ Read a dict from a non-standard JSON file with full-line comments. """
-        return self._io.json_read(filename, comment_prefix=CSON_COMMENT_PREFIX)
+    def _open_text_resource(self, filename:str):
+        """ Open a stream to read a text resource from a relative <filename>. """
+        path = self._res_path(filename)
+        return self._io.open(path, 'r')
 
     def _res_path(self, filename:str) -> str:
-        """ Return a full path to an asset resource from a relative filename. """
+        """ Return a full path to an asset resource from a relative <filename>. """
         return os.path.join(self._options.resource_dir, filename)
 
-    def _plover_files(self) -> List[str]:
+    @staticmethod
+    def _plover_files() -> List[str]:
         """ If the sentinel is encountered, search the user's local app data for the Plover config file.
             Parse the dictionaries section and return all dictionary filenames in the correct order. """
         try:
             conv = UserPathConverter("plover")
             path = conv.convert("plover.cfg")
-            cfg = self._io.cfg_read(path)
+            parser = ConfigParser()
+            with open(path, 'r') as fp:
+                parser.read_file(fp)
             # Dictionaries are located in the same directory as the config file.
             # The config value we need is read as a string, but it must be decoded as a JSON array.
-            value = cfg['System: English Stenotype']['dictionaries']
+            value = parser['System: English Stenotype']['dictionaries']
             dict_files = json.loads(value)
             plover_dir = os.path.split(path)[0]
             # Since earlier keys override later ones in Plover, but dict.update does the opposite,

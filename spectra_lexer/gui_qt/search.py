@@ -31,8 +31,8 @@ class SearchController(QObject):
 
     def get_state(self) -> dict:
         """ Return all GUI state values that may be needed by the steno engine. """
-        return {"mode_strokes": self._w_strokes.isChecked(),
-                "mode_regex": self._w_regex.isChecked(),
+        return {"search_mode_strokes": self._w_strokes.isChecked(),
+                "search_mode_regex": self._w_regex.isChecked(),
                 "input_text": self._w_input.text(),
                 "match_selected": self._w_matches.selectedValue(),
                 "mapping_selected": self._w_mappings.selectedValue()}

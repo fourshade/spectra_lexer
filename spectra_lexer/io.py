@@ -1,11 +1,10 @@
 """ Module for raw I/O operations as well as parsing file and resource paths. """
 
-from configparser import ConfigParser
 import glob
-import json
+from json import JSONDecoder
 import os
 import sys
-from typing import Dict, IO, List, TextIO, Union
+from typing import Any, IO, Iterator, TextIO, Union
 
 
 class BasePathConverter:
@@ -72,63 +71,46 @@ class PrefixPathConverter(BasePathConverter):
 
 
 class ResourceIO:
-    """ Performs filesystem I/O and transcoding for common formats. """
+    """ Performs filesystem I/O using specially formatted file paths. """
 
-    _JSON_OBJ = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
+    _IOSTREAM = Union[IO, TextIO]
 
     def __init__(self, converter:BasePathConverter=None, *, encoding='utf-8') -> None:
         self._converter = converter or PrefixPathConverter()  # Converts relative or special file paths for open()ing.
         self._encoding = encoding                             # Encoding for all text-based files.
 
-    def open(self, filename:str, mode='r', *args) -> Union[IO, TextIO]:
-        """ Get a converted path corresponding to the <filename> and open it. Return the I/O stream.
-            If writing or appending, create directories to the path as needed. """
+    def open(self, filename:str, *args) -> _IOSTREAM:
+        """ Get a converted path corresponding to the <filename> and open it. Return the I/O stream. """
         path = self._converter.convert(filename)
+        return self._open(path, *args)
+
+    def open_all(self, pattern:str, *args) -> Iterator[_IOSTREAM]:
+        """ Open all valid files that resolve to a glob <pattern> after path conversion and yield each I/O stream. """
+        path = self._converter.convert(pattern)
+        for p in glob.glob(path):
+            yield self._open(p, *args)
+
+    def _open(self, path:str, mode='r', *args) -> _IOSTREAM:
+        """ Open the file at <path> using <mode> and return the I/O stream.
+            If writing or appending, create directories to the path as needed. """
         if 'w' in mode or 'a' in mode:
             directory = os.path.dirname(path) or "."
             os.makedirs(directory, exist_ok=True)
         return open(path, mode, *args, encoding=self._encoding)
 
-    def expand(self, pattern:str) -> List[str]:
-        """ Return a list of valid filenames that resolve to a glob <pattern> after path conversion. """
-        path = self._converter.convert(pattern)
-        return glob.glob(path)
 
-    def json_read(self, filename:str, *, comment_prefix:str=None) -> _JSON_OBJ:
-        """ JSON standard library functions are among the fastest ways to load structured data in Python.
-            Lines beginning with <comment_prefix> may be optionally located and removed before decoding. """
-        with self.open(filename, 'r') as fp:
-            data = fp.read()
-        if comment_prefix is not None:
-            # JSON doesn't care about leading or trailing whitespace anyway, so strip every line.
-            stripped_line_iter = map(str.strip, data.splitlines())
-            # Remove empty lines and comments before rejoining.
-            stripped_lines = [line for line in stripped_line_iter if line and not line.startswith(comment_prefix)]
-            data = "\n".join(stripped_lines)
-        return json.loads(data)
+class CSONLoader:
+    """ Reads from non-standard JSON files with full-line comments (CSON = commented JSON). """
 
-    def json_write(self, obj:_JSON_OBJ, filename:str) -> None:
-        """ Write an object to a JSON file. Dict key sorting helps some parsing and search algorithms run faster.
-            An explicit flag is required to preserve Unicode symbols. """
-        data = json.dumps(obj, sort_keys=True, ensure_ascii=False)
-        with self.open(filename, 'w') as fp:
-            fp.write(data)
+    def __init__(self, comment_prefix="#", **kwargs) -> None:
+        self._comment_prefix = comment_prefix  # Starting character(s) for comments in CSON files.
+        self._decoder = JSONDecoder(**kwargs)
 
-    def cfg_read(self, filename:str, *, ignore_default=True) -> Dict[str, dict]:
-        """ Read config settings from disk into a two-level nested dict. """
-        parser = ConfigParser()
-        with self.open(filename, 'r') as fp:
-            parser.read_file(fp)
-        sections = iter(parser)
-        # The first section is the default section; ignore it unless specified otherwise.
-        if ignore_default:
-            next(sections)
-        # Convert proxies from all other sections into dicts.
-        return {sect: dict(parser[sect]) for sect in sections}
-
-    def cfg_write(self, cfg:Dict[str, dict], filename:str) -> None:
-        """ Write a two-level nested config dict into .cfg format. """
-        parser = ConfigParser()
-        parser.read_dict(cfg)
-        with self.open(filename, 'w') as fp:
-            parser.write(fp)
+    def load(self, fp:TextIO) -> Any:
+        """ Read an object from a non-standard JSON file with full-line comments.
+            JSON doesn't care about leading or trailing whitespace anyway, so strip every line first. """
+        stripped_line_iter = map(str.strip, fp)
+        data_lines = [line for line in stripped_line_iter
+                      if line and not line.startswith(self._comment_prefix)]
+        data = "\n".join(data_lines)
+        return self._decoder.decode(data)

@@ -6,20 +6,14 @@ from typing import Callable
 
 from PyQt5.QtWidgets import QApplication
 
-from .gui import QtGUI, QtGUIFactory
-from .system import QtAsyncDispatcher, QtExceptionTrap
 from spectra_lexer.app import StenoApplication
 from spectra_lexer.base import StenoAppFactory, StenoAppOptions
+from spectra_lexer.console import SystemConsole
+from spectra_lexer.debug import DebugDataFactory, package
 from spectra_lexer.log import StreamLogger
 
-
-class QtGUIExtension:
-
-    def __init__(self, logger:StreamLogger, exc_trap:QtExceptionTrap, gui:QtGUI) -> None:
-        self._logger = logger
-        self._gui = gui
-        self._exc_trap = exc_trap
-        self._async_dsp = QtAsyncDispatcher(exc_trap)
+from .gui import QtGUI, QtGUIFactory
+from .system import QtAsyncDispatcher, QtExceptionTrap
 
 
 class QtGUIController:
@@ -66,15 +60,22 @@ class QtGUIController:
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
-        info = self._app.get_config_info()
-        self._gui.open_config_editor(self._update_config, info)
+        config_tool = self._gui.open_config_tool()
+        if config_tool is not None:
+            for item in self._app.get_config_info():
+                config_tool.add_option(item.key, item.value,item.title, item.name, item.description)
+            config_tool.call_on_options_accept(self._update_config)
+            config_tool.display()
 
     def _update_config(self, options:dict) -> None:
         self._run_async(self._app.set_config, options, disable=False, msg_done="Configuration saved.")
 
     def custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        self._gui.open_index_creator(self._make_index)
+        index_tool = self._gui.open_index_tool()
+        if index_tool is not None:
+            index_tool.call_on_size_accept(self._make_index)
+            index_tool.display()
 
     def _make_index(self, size:int=None) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
@@ -82,12 +83,27 @@ class QtGUIController:
         self._run_async(self._app.make_index, size, msg_done="Successfully created index!")
 
     def debug_console(self) -> None:
-        """ Create and show the debug console dialog. """
-        self._gui.open_debug_console(self._debug_vars())
+        """ Create an interpreter console instance and show the debug console dialog.
+            Save the console reference on an attribute to avoid garbage collection. """
+        console_tool = self._gui.open_debug_console()
+        if console_tool is not None:
+            stream = console_tool.to_stream()
+            console = SystemConsole(self._debug_vars(), file=stream)
+            console.print_opening()
+            console_tool.console_ref = console
+            console_tool.call_on_new_line(console.send)
+            console_tool.display()
 
     def debug_tree(self) -> None:
         """ Create and show the debug tree dialog. """
-        self._gui.open_debug_tree(self._debug_vars())
+        objtree_tool = self._gui.open_debug_tree()
+        if objtree_tool is not None:
+            debug_vars = {**self._debug_vars(), "modules": package.modules()}
+            factory = DebugDataFactory()
+            factory.load_icons()
+            root_data = factory.generate(debug_vars)
+            objtree_tool.set_data(root_data)
+            objtree_tool.display()
 
     def _debug_vars(self) -> dict:
         return vars(self).copy()

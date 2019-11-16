@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from math import ceil
-from typing import Container, Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
 
 from .path import ArrowPathGenerator, ChainPathGenerator
 from .svg import SVGDefs, SVGDocument, SVGElement, SVGGroup, SVGPath, SVGUse
@@ -249,25 +249,24 @@ class BoardEngine:
 class BoardElementParser:
     """ Processes steno board elements using a definitions dictionary. """
 
-    # These are the acceptable string values for board element flags, as read from JSON.
-    _INVERSION = "INV"  # Inversion of steno order. A transposition symbol will be added.
-    _LINKED = "LINK"    # Rule that uses keys from two strokes. A linking symbol will be added.
-
     def __init__(self, defs:Dict[str, dict]) -> None:
-        self._proc_defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
-        self._parsed_elems: dict = defaultdict(dict)     # Parsed board elements indexed by tag, then by ID.
-        self._key_elems = self._parsed_elems["key"]      # Elements corresponding to single steno keys.
-        self._ukey_elems = self._parsed_elems["qkey"]    # Elements corresponding to unmatched steno keys.
-        self._rule_elems = self._parsed_elems["rule"]
-        self._base_elems = self._parsed_elems["base"]
-        self._rule_key_elems = {}
-        self._rule_flags = {}
-        self._rule_child_names = {}
-
-    def parse(self, board_elems:Dict[str, dict]) -> None:
         """ Parse all elements from a JSON document into full SVG board element structures. """
-        for tag, d in board_elems.items():
-            self._parsed_elems[tag].update({e_id: self._process_element(p) for e_id, p in d.items()})
+        self._defs: dict = defaultdict(dict, defs)  # Dict of definitions for constructing SVG board elements.
+        self._key_elems = {}   # Elements corresponding to single steno keys.
+        self._ukey_elems = {}  # Elements corresponding to unmatched steno keys.
+        self._rule_elems = {}  # Elements corresponding to specific steno rules.
+        self._base_elems = {}  # Elements corresponding to the board diagram base.
+        self._rule_key_elems = {}
+        self._rule_child_names = {}
+        self._inversion_rules = set()
+        self._linked_rules = set()
+        elem_dicts = [("elem_key", self._key_elems),
+                      ("elem_qkey", self._ukey_elems),
+                      ("elem_rule", self._rule_elems),
+                      ("elem_base", self._base_elems)]
+        for e_tag, d in elem_dicts:
+            for e_id, p in defs[e_tag].items():
+                d[e_id] = self._process_element(p)
 
     def _process_element(self, p:str) -> ProcessedBoardElements:
         """ Match p-string elements to proc_ methods and call each method using the corresponding defs dict. """
@@ -276,13 +275,16 @@ class BoardElementParser:
             k, v = s.split("=", 1)
             meth = getattr(board_elems, "proc_" + k, None)
             if meth is not None:
-                meth(v, self._proc_defs[k])
+                meth(v, self._defs[k])
         return board_elems
 
-    def add_rule(self, name:str, skeys:str, flags:Container[str]=()) -> None:
+    def add_rule(self, name:str, skeys:str, is_inversion=False, is_linked=False) -> None:
         self._rule_key_elems[name] = [self._key_elems[k] for k in skeys]
-        self._rule_flags[name] = flags
         self._rule_child_names[name] = []
+        if is_inversion:
+            self._inversion_rules.add(name)
+        if is_linked:
+            self._linked_rules.add(name)
 
     def add_connection(self, parent:str, child:str) -> None:
         child_names = self._rule_child_names[parent]
@@ -305,14 +307,13 @@ class BoardElementParser:
             return self._rule_key_elems[name]
         # Add elements recursively from all child rules.
         groups = [self._process_compound_rule(name) for name in child_names]
-        flags = self._rule_flags[name]
-        if self._LINKED in flags:
+        if name in self._linked_rules:
             # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
             return [LinkedBoardElements(groups[0], groups[-1])]
         elems = []
         for g in groups:
             elems += g
-        if self._INVERSION in flags:
+        if name in self._inversion_rules:
             # A rule using inversion connects the first two elements with arrows.
             elems.append(InversionBoardElements(elems[0], elems[1]))
         return elems
@@ -325,5 +326,5 @@ class BoardElementParser:
             g.extend(grp)
         defs = SVGDefs(g)
         base = SVGUse(base_id)
-        positions = self._proc_defs["pos"]
+        positions = self._defs["pos"]
         return BoardDocumentFactory(defs, base, *positions["min"], *positions["max"])

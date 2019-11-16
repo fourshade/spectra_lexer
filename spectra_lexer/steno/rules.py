@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Iterable, Iterator, List, Optional, Tuple
 
 
 class RuleMapItem:
@@ -22,8 +22,8 @@ class StenoRule:
         self.rulemap = rulemap  # Immutable sequence of tuples mapping child rules to letter positions *in order*.
 
     def __str__(self) -> str:
-        """ The standard string representation of a rule is its caption. """
-        return self.caption
+        """ The standard string representation of a rule is its keys -> letters mapping. """
+        return f"{self.keys} → {self.letters}"
 
 
 class RuleCollection:
@@ -143,28 +143,16 @@ class RuleParser:
             p_list[start:end] = letters
         return "".join(p_list), rulemap
 
-
-class InverseRuleParser:
-    """ Converts lexer rule maps into rule-compatible JSON arrays. """
-
-    def __init__(self, ref_delims="()") -> None:
-        self._ref_delims = ref_delims  # Delimiters marking the start and end of a rule reference.
-        self._raw_rules = {}           # Dict of raw steno rules in list form for JSON.
-        self._count = 0
-
-    def add(self, keys:str, letters:str, rulemap:List[Tuple[str, int, int]]) -> None:
-        """ Parse a translation and rule map into raw list form suitable for JSON encoding by substituting each
-            child rule for its letters and using serial numbers as rule names. """
+    def inv_parse(self, letters:str, rule_names:List[str], rule_positions:List[int]) -> str:
+        """ Parse a lexer result into raw pattern form by substituting each child rule for its letters. """
         lb, rb = self._ref_delims
         # Convert the letter string into a list to allow in-place modification.
         letters = [*letters]
         # Replace each rule's letters with a parenthesized name reference. Go from right to left to preserve indexing.
-        for name, start, length in rulemap[::-1]:
-            end = start + length
-            letters[start:end] = lb, name, rb
-        word = "".join(letters)
-        self._raw_rules[str(self._count)] = [keys, word]
-        self._count += 1
-
-    def to_dict(self) -> Dict[str, list]:
-        return self._raw_rules.copy()
+        for name, start in zip(rule_names[::-1], rule_positions[::-1]):
+            if name in self._rules:
+                rule = self._rules[name]
+                length = len(rule.letters)
+                end = start + length
+                letters[start:end] = lb, name, rb
+        return "".join(letters)

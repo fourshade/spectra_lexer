@@ -1,13 +1,9 @@
 from io import TextIOBase
 from typing import Callable
 
-from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
+from PyQt5.QtCore import pyqtSignal, QMimeData, QObject, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
-from PyQt5.QtWidgets import QTextEdit, QVBoxLayout
-
-from .dialog import ToolDialog
-
-from spectra_lexer.console import SystemConsole
+from PyQt5.QtWidgets import QDialog, QTextEdit, QVBoxLayout
 
 
 class HistoryTracker:
@@ -38,20 +34,6 @@ class HistoryTracker:
         return self._lines[self._pointer]
 
 
-class StreamWriteAdapter(TextIOBase):
-    """ Wraps a string callable in a text stream interface as write(). """
-
-    def __init__(self, write:Callable[[str], None]) -> None:
-        self._write = write
-
-    def write(self, s:str) -> int:
-        self._write(s)
-        return len(s)
-
-    def writable(self) -> bool:
-        return True
-
-
 class ConsoleTextWidget(QTextEdit):
     """ Formatted text widget meant to display plaintext interpreter input and output as a terminal.
         The text content is composed of two parts. The "base text" includes everything before the prompt.
@@ -59,25 +41,15 @@ class ConsoleTextWidget(QTextEdit):
         The "user text" comes after the prompt; it is freely modifiable by the user.
         When the user presses Enter, the user text is sent to the console, then frozen into the base text. """
 
-    _FLAGS = Qt.TextSelectableByMouse | Qt.TextEditorInteraction
-
     _sig_text_out = pyqtSignal([str])  # Sent with a line of user input upon pressing Enter.
-    _sig_text_in = pyqtSignal([str])   # Receives lines of console output.
 
-    def __init__(self, *args, font=QFont("Courier New", 10)) -> None:
+    def __init__(self, *args) -> None:
         super().__init__(*args)
         self._history = HistoryTracker()  # Tracks previous keyboard input.
         self._base_text = ""              # Unchangeable base text. User input may only appear after this.
         self.call_on_new_line = self._sig_text_out.connect
-        self._sig_text_in.connect(self._add_text)
-        self.setFont(font)
-        self.setTextInteractionFlags(self._FLAGS)
 
-    def to_stream(self) -> StreamWriteAdapter:
-        """ Wrap this widget's input signal as a text stream. """
-        return StreamWriteAdapter(self._sig_text_in.emit)
-
-    def _add_text(self, text:str) -> None:
+    def add_text(self, text:str) -> None:
         """ Add to the base text of the widget. """
         self._base_text += text
         self._set_content(self._base_text)
@@ -114,7 +86,7 @@ class ConsoleTextWidget(QTextEdit):
             # Add it to the history, append it to the base text (with newline), and send it in a signal.
             user_text = self.toPlainText()[len(base_text):]
             self._history.add(user_text)
-            self._add_text(user_text + "\n")
+            self.add_text(user_text + "\n")
             self._sig_text_out.emit(user_text)
         else:
             # In any other case, pass the keypress as normal. Undo anything that modifies the base text.
@@ -132,21 +104,41 @@ class ConsoleTextWidget(QTextEdit):
             super().insertFromMimeData(plaintext)
 
 
-class ConsoleDialog(ToolDialog):
-    """ Qt console dialog window object. Routes signals between the console, a text widget, and the keyboard. """
+class StreamWriteAdapter(TextIOBase):
+    """ Wraps a string callable in a text stream interface as write(). """
 
-    title = "Python Console"
-    width = 680
-    height = 480
+    def __init__(self, write:Callable[[str], None]) -> None:
+        self._write = write
 
-    _console = None  # Saved console reference (to avoid garbage collection).
+    def write(self, s:str) -> int:
+        self._write(s)
+        return len(s)
 
-    def setup(self, locals_ns:dict) -> None:
-        """ Create a new text widget and interpreter console instance. """
-        w_text = ConsoleTextWidget(self)
-        # Wrap the widget to appear as a text output stream to the console.
-        self._console = SystemConsole(locals_ns, file=w_text.to_stream())
-        self._console.print_opening()
-        w_text.call_on_new_line(self._console.send)
-        layout = QVBoxLayout(self)
-        layout.addWidget(w_text)
+    def writable(self) -> bool:
+        return True
+
+
+class ConsoleTool(QObject):
+    """ Qt console dialog tool. Connects signals between the console, a text widget, and the keyboard. """
+
+    _sig_text_in = pyqtSignal([str])  # Receives lines of console output.
+
+    def __init__(self, dialog:QDialog) -> None:
+        super().__init__()
+        self._dialog = dialog                     # Base dialog object.
+        self._w_text = ConsoleTextWidget(dialog)  # Text widget to receive user input and display console output.
+        self.call_on_new_line = self._w_text.call_on_new_line
+        self._sig_text_in.connect(self._w_text.add_text)
+        dialog.tool_ref = self
+
+    def to_stream(self) -> StreamWriteAdapter:
+        """ Wrap this widget's input signal as a writable text stream. """
+        return StreamWriteAdapter(self._sig_text_in.emit)
+
+    def display(self) -> None:
+        """ Fill out the dialog with widgets and show it. """
+        self._w_text.setFont(QFont("Courier New", 10))
+        self._w_text.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
+        layout = QVBoxLayout(self._dialog)
+        layout.addWidget(self._w_text)
+        self._dialog.show()
