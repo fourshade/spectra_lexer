@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, List
 
 from .board import BoardEngine
+from .caption import BoardCaptioner
 from .filter import TranslationSizeFilter
 from .graph import GraphEngine
 from .keys import KeyLayout
@@ -35,12 +36,12 @@ class StenoEngine:
     """ Main access point for steno analysis. Generates rules from translations and creates visual representations. """
 
     def __init__(self, layout:KeyLayout, lexer:StenoLexer,
-                 board_engine:BoardEngine, graph_engine:GraphEngine, captions:Dict[str, str]) -> None:
+                 board_engine:BoardEngine, graph_engine:GraphEngine, captioner:BoardCaptioner) -> None:
         self._layout = layout  # Converts between user RTFCRE steno strings and s-keys.
         self._lexer = lexer
         self._board_engine = board_engine
         self._graph_engine = graph_engine
-        self._captions = captions
+        self._captioner = captioner
         self._translations = TranslationSearchEngine()
         self._examples = ExampleSearchEngine()
 
@@ -83,17 +84,15 @@ class StenoEngine:
                 board_ratio:float, board_compound:bool) -> StenoAnalysisPage:
         """ Run a lexer query and return an analysis page to update the user GUI state. """
         result = self.lexer_query(keys, letters, match_all_keys=match_all_keys)
-        unmatched_skeys = result.unmatched_skeys()
-        names = result.rules()
+        names = result.rule_ids()
         positions = result.rule_positions()
-        lengths = result.rule_lengths()
-        connections = list(zip(names, positions, lengths))
+        unmatched_skeys = result.unmatched_skeys()
         # Convert unmatched keys back to RTFCRE format for the graph and caption.
         unmatched_keys = self._layout.to_rtfcre(unmatched_skeys)
-        root = self._graph_engine.make_tree(letters, connections, unmatched_keys)
+        root = self._graph_engine.make_tree(letters, names, positions, unmatched_keys)
         target = None
         for node in root:
-            ref = node.rule() if find_rule else node.ref()
+            ref = node.rule_id() if find_rule else node.ref()
             if ref == select_ref:
                 target = node
                 break
@@ -101,19 +100,23 @@ class StenoEngine:
         # If nothing is selected, generate the board and caption for the root node.
         if target is None:
             target = root
-        rule_name: str = target.rule()
+        link_ref = ""
         if target is root:
-            caption = result.caption()
-            names = result.rules()
-        elif rule_name == self._graph_engine.NAME_UNMATCHED:
-            caption = unmatched_keys + ": unmatched keys"
-            names = []
+            caption = self._captioner.result_caption(result)
+            board_names = names
+            board_unmatched = unmatched_skeys
+        elif target.ref() == self._graph_engine.REF_UNMATCHED:
+            caption = self._captioner.unmatched_caption(unmatched_keys)
+            board_names = []
+            board_unmatched = unmatched_skeys
         else:
-            caption = self._captions[rule_name]
-            names = [rule_name]
-            unmatched_skeys = ""
-        xml = self._board_engine.from_rules(names, unmatched_skeys, board_ratio, compound=board_compound)
-        link_ref = rule_name if rule_name in self._examples else ""
+            rule_name: str = target.rule_id()
+            caption = self._captioner.rule_caption(rule_name)
+            board_names = [rule_name]
+            board_unmatched = ""
+            if rule_name in self._examples:
+                link_ref = rule_name
+        xml = self._board_engine.from_rules(board_names, board_unmatched, board_ratio, compound=board_compound)
         return StenoAnalysisPage(text, caption, xml, link_ref)
 
     def make_index(self, *args, **kwargs) -> Dict[str, _TR_DICT_TP]:
@@ -150,5 +153,5 @@ class _IndexFactory:
         data = [keys, letters]
         # Only fully matched translations should have rules recorded in the index.
         if not result.unmatched_skeys():
-            data += result.rules()
+            data += result.rule_ids()
         return data

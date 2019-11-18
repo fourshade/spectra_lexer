@@ -39,21 +39,17 @@ def test_analysis(keys, letters) -> None:
     skeys = KEY_LAYOUT.from_rtfcre(keys)
     result = LEXER.query(skeys, letters)
     unmatched = result.unmatched_skeys()
-    names = result.rules()
+    names = result.rule_ids()
     positions = result.rule_positions()
-    lengths = result.rule_lengths()
     assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
     # Rule names must all refer to rules that exist.
     # for name in names:
     #     assert name in RULES_DICT
     # Rule positions must be non-negative and increasing monotonic.
     assert positions == sorted(map(abs, positions))
-    # Rule lengths must be non-negative.
-    for length in lengths:
-        assert length >= 0
     # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
     # The root node uses the top-level rule. Every node available for interaction descends from it and is unique.
-    root = GRAPH_ENGINE.make_tree(letters, list(zip(names, positions, lengths)))
+    root = GRAPH_ENGINE.make_tree(letters, names, positions)
     nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)

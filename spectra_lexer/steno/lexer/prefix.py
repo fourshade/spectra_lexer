@@ -2,7 +2,7 @@
 
 from typing import Iterable, List, Sequence, TypeVar
 
-from .base import IRuleMatcher, MATCH_TP, RULE_TP
+from .base import IRuleMatcher, MATCH_TP, RULE_ID
 
 
 class _PrefixTree:
@@ -50,7 +50,7 @@ class PrefixMatcher(IRuleMatcher):
         self._tree = _PrefixTree()                 # Prefix tree for all rules.
         self._ordered_tree = _PrefixTree()         # Prefix tree for rules with only ordered keys.
 
-    def add(self, rule: RULE_TP, skeys:str, letters:str) -> None:
+    def add(self, rule_id:RULE_ID, skeys:str, letters:str) -> None:
         """ Index a rule, its skeys string, its letters, and its unordered keys under only the ordered keys.
             The ordered keys may be derived by removing the unordered keys from the full string one-at-a-time. """
         # To match sentence beginnings and proper names, the word must be converted to lowercase.
@@ -60,11 +60,11 @@ class PrefixMatcher(IRuleMatcher):
         unordered_set = self._filter_unordered(skeys_fs)
         if not unordered_set:
             # Add rules with only ordered keys to a separate tree for faster matching.
-            self._ordered_tree.add(skeys, (rule, len(skeys), letters))
+            self._ordered_tree.add(skeys, (rule_id, len(skeys), letters))
         ordered_keys = skeys
         for c in unordered_set:
             ordered_keys = ordered_keys.replace(c, "", 1)
-        self._tree.add(ordered_keys, (rule, skeys, letters, unordered_set))
+        self._tree.add(ordered_keys, (rule_id, skeys, letters, unordered_set))
 
     def match(self, skeys:str, letters:str, *_) -> List[MATCH_TP]:
         """ Make a list of all rules that match a prefix of the ordered keys in <skeys>, a subset of <letters>,
@@ -79,21 +79,21 @@ class PrefixMatcher(IRuleMatcher):
         ordered_keys = skeys
         for c in unordered_set:
             ordered_keys = ordered_keys.replace(c, "", 1)
-        for rule, rsk, rl, ru in self._tree.match(ordered_keys):
-            if rl in letters and ru <= unordered_set:
+        for r_id, r_skeys, r_letters, r_unordered in self._tree.match(ordered_keys):
+            if r_letters in letters and r_unordered <= unordered_set:
                 # Remove matched keys starting from the left and save the remainder.
                 # With no guaranteed order, each key must be removed individually.
                 skeys_left = skeys
-                for c in rsk:
+                for c in r_skeys:
                     skeys_left = skeys_left.replace(c, "", 1)
-                matches.append((rule, skeys_left, letters.find(rl), len(rl)))
+                matches.append((r_id, skeys_left, letters.find(r_letters), len(r_letters)))
         return matches
 
     def _match_ordered(self, skeys:str, letters:str) -> List[MATCH_TP]:
         """ Faster match method for key strings with only ordered keys in the first stroke.
             They cannot match anything with unordered keys, and prefixes may be removed by slicing. """
         matches = []
-        for rule, rsklen, rl in self._ordered_tree.match(skeys):
-            if rl in letters:
-                matches.append((rule, skeys[rsklen:], letters.find(rl), len(rl)))
+        for r_id, r_sklen, r_letters in self._ordered_tree.match(skeys):
+            if r_letters in letters:
+                matches.append((r_id, skeys[r_sklen:], letters.find(r_letters), len(r_letters)))
         return matches

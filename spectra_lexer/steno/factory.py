@@ -1,6 +1,7 @@
 from typing import Dict
 
 from .board import BoardEngine, BoardElementParser
+from .caption import BoardCaptioner
 from .engine import StenoEngine
 from .graph import GraphEngine
 from .keys import KeyLayout
@@ -92,12 +93,15 @@ class StenoEngineFactory:
                 graph_engine.add_connection(name, item.name, item.start, item.length)
         return graph_engine
 
-    def build_captions(self) -> Dict[str, str]:
-        return {rule.name: rule.caption for rule in self._rules}
+    def build_captioner(self) -> BoardCaptioner:
+        captioner = BoardCaptioner()
+        for rule in self._rules:
+            captioner.add_rule(rule.name, rule.keys, rule.letters, rule.description, bool(rule.rulemap))
+        return captioner
 
     def build_engine(self) -> StenoEngine:
         lexer = self.build_lexer()
         board_engine = self.build_board_engine()
         graph_engine = self.build_graph_engine()
-        captions = self.build_captions()
-        return StenoEngine(self._layout, lexer, board_engine, graph_engine, captions)
+        captioner = self.build_captioner()
+        return StenoEngine(self._layout, lexer, board_engine, graph_engine, captioner)

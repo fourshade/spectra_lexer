@@ -3,6 +3,8 @@ from typing import Callable, List
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCheckBox, QLineEdit
 
+from spectra_lexer.steno import SearchResults
+
 from .widgets import StringListView
 
 

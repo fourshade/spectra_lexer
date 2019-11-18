@@ -1,9 +1,9 @@
 from typing import Iterable, List, Tuple, TypeVar
 
-# Generic marker for the rule reference data type (may be anything).
-RULE_TP = TypeVar("RULE_TP")
+# Generic marker for the rule ID reference data type (may be anything).
+RULE_ID = TypeVar("RULE_ID")
 # Marker for the match data type: (rule, unmatched keys, rule start, rule length).
-MATCH_TP = Tuple[RULE_TP, str, int, int]
+MATCH_TP = Tuple[RULE_ID, str, int, int]
 
 
 class IRuleMatcher:

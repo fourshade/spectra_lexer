@@ -3,45 +3,28 @@
 from functools import reduce
 from typing import List, Iterable, Sequence, Tuple, Union
 
-from .base import IRuleMatcher, RULE_TP
+from .base import IRuleMatcher, RULE_ID
 
 
 class LexerResult:
     """ Contains names of rules in a translation, their positions in the word, and leftover keys we couldn't match. """
 
-    def __init__(self, unmatched_skeys:str,
-                 rules:List[RULE_TP]=(), rule_positions:List[int]=(), rule_lengths:List[int]=()) -> None:
-        self._unmatched_skeys = unmatched_skeys
-        self._rules = rules
+    def __init__(self, rule_ids:List[RULE_ID], rule_positions:List[int], unmatched_skeys:str) -> None:
+        self._rule_ids = rule_ids
         self._rule_positions = rule_positions
-        self._rule_lengths = rule_lengths
+        self._unmatched_skeys = unmatched_skeys
+
+    def rule_ids(self) -> List[str]:
+        """ Return a list of ID references to the rules found in the translation. """
+        return self._rule_ids
+
+    def rule_positions(self) -> List[int]:
+        """ Return a list of start positions (in the letters) for each rule we found in order. """
+        return self._rule_positions
 
     def unmatched_skeys(self) -> str:
         """ Return any leftover keys we couldn't match. """
         return self._unmatched_skeys
-
-    def rules(self) -> List[str]:
-        """ Return a list of references to the rules found in the translation. """
-        return self._rules
-
-    def rule_positions(self) -> List[int]:
-        """ Return a list of start positions (in the letters) for each rule we found. """
-        return self._rule_positions
-
-    def rule_lengths(self) -> List[int]:
-        """ Return a list of lengths (in the letters) for each rule we found. """
-        return self._rule_lengths
-
-    def caption(self) -> str:
-        """ Return the caption for a lexer result. """
-        if not self._unmatched_skeys:
-            caption = "Found complete match."
-        # The output is nowhere near reliable if some keys couldn't be matched.
-        elif self._rules:
-            caption = "Incomplete match. Not reliable."
-        else:
-            caption = "No matches found."
-        return caption
 
 
 class StenoLexer:
@@ -54,10 +37,10 @@ class StenoLexer:
         - The keys within each stroke must be sorted according to some total ordering (i.e. steno order). """
 
     # Data type containing the state of the lexer at some point in time. Must be very lightweight.
-    # Implemented as a list: [keys_not_yet_matched, rule1, rule1_start, rule1_length, rule2, ...]
-    _STATE_TP = List[Union[str, RULE_TP, int]]
+    # Implemented as a list: [keys_not_yet_matched, rule1_id, rule1_start, rule1_length, rule2_id, ...]
+    _STATE_TP = List[Union[str, RULE_ID, int]]
 
-    def __init__(self, rule_matcher:IRuleMatcher, rare_rules:Iterable[RULE_TP]=()) -> None:
+    def __init__(self, rule_matcher:IRuleMatcher, rare_rules:Iterable[RULE_ID]=()) -> None:
         self._match = rule_matcher.match   # Method of main rule matcher (may be compound).
         self._rare_set = set(rare_rules)   # Set of all rules that are considered "rare"
 
@@ -67,8 +50,9 @@ class StenoLexer:
         unmatched_skeys, *rulemap = self._process(skeys, letters)
         if match_all_keys and unmatched_skeys:
             # If <match_all_keys> is True and the best result is missing some, return a fully unmatched result instead.
-            return LexerResult(unmatched_skeys)
-        return LexerResult(unmatched_skeys, rulemap[::3], rulemap[1::3], rulemap[2::3])
+            rulemap = []
+            unmatched_skeys = skeys
+        return LexerResult(rulemap[::3], rulemap[1::3], unmatched_skeys)
 
     def find_best_translation(self, translations:Sequence[Tuple[str, str]]) -> int:
         """ Return the index of the best (most accurate) translation from a sequence of (skeys, word) translations. """
@@ -97,9 +81,9 @@ class StenoLexer:
                 wordptr = 0 if not rmap else rmap[-2] + rmap[-1]
                 letters_left = letters[wordptr:]
                 match_iter = self._match(skeys_left, letters_left, skeys, letters)
-                for rule, unmatched_keys, rule_start, rule_length in match_iter:
+                for rule_id, unmatched_keys, rule_start, rule_length in match_iter:
                     # Add a queue item with the remaining keys and the rulemap with the new item added.
-                    q_put([unmatched_keys, *rmap, rule, rule_start + wordptr, rule_length])
+                    q_put([unmatched_keys, *rmap, rule_id, rule_start + wordptr, rule_length])
         return self._find_best(q)
 
     def _find_best(self, states:Sequence[_STATE_TP]) -> _STATE_TP:
@@ -120,6 +104,6 @@ class StenoLexer:
             return current
         return other
 
-    def _rare_diff(self, c:RULE_TP, o:RULE_TP) -> int:
+    def _rare_diff(self, c:RULE_ID, o:RULE_ID) -> int:
         rare_set = self._rare_set
         return (c in rare_set) - (o in rare_set)

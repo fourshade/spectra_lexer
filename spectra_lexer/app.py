@@ -113,6 +113,7 @@ class ViewState:
     link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
 
     # Pure input values (display).
+    graph_node_ref: str = ""                # Last node identifier on the graph ("" for empty space).
     lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
     board_aspect_ratio: float = 100.0       # Aspect ratio for board viewing area.
     board_compound_key_labels: bool = True  # Show special labels for compound keys (i.e. `f` instead of TP).
@@ -124,7 +125,6 @@ class ViewState:
     match_selected: str = ""      # Last selected match from the upper list.
     mapping_selected: str = ""    # Last selected match from the lower list.
     translation: list = ["", ""]  # Currently diagrammed translation on graph.
-    graph_node_ref: str = ""      # Last node identifier on the graph ("" for empty space).
 
     # The user typically can't change these values directly. They are held for future reference.
     page_count: int = 1            # Number of pages in the upper list.
@@ -233,35 +233,40 @@ class ViewState:
 
     def _new_graph(self) -> None:
         """ A new graph should clear the last node ref and look for a new one that uses the same rule. """
-        if not all(self.translation):
+        keys, letters = self.translation
+        find_rule = self.graph_has_focus
+        select_ref = self.link_ref if find_rule else ""
+        if not keys and not letters:
             return
         self.graph_node_ref = ""
-        self.page = self._exec_query(self.graph_has_focus, True)
+        self.page = self._exec_query(keys, letters, select_ref, find_rule=find_rule, intense=True)
         if not self.page.rule_id:
             self.graph_has_focus = False
 
     def RUNGraphOver(self) -> dict:
         """ On mouseover, highlight the current graph node temporarily if nothing is focused.
             Mouseovers should do nothing as long as focus is active. """
-        if self.graph_has_focus or not all(self.translation):
+        keys, letters = self.translation
+        select_ref = self.graph_node_ref
+        if self.graph_has_focus or (not keys and not letters):
             return {}
-        self.page = self._exec_query(False, False)
+        self.page = self._exec_query(keys, letters, select_ref)
         return self._modified
 
     def RUNGraphClick(self) -> dict:
         """ On click, find the current graph node and set focus on it (or clear focus if node ref is empty). """
-        if not all(self.translation):
+        keys, letters = self.translation
+        select_ref = self.graph_node_ref
+        if not keys and not letters:
             return {}
-        self.page = self._exec_query(False, True)
-        self.graph_has_focus = bool(self.graph_node_ref)
+        self.page = self._exec_query(keys, letters, select_ref, intense=True)
+        self.graph_has_focus = bool(select_ref)
         return self._modified
 
-    def _exec_query(self, find_rule:bool, intense:bool) -> StenoAnalysisPage:
+    def _exec_query(self, keys:str, letters:str, select_ref="", intense=False, find_rule=False) -> StenoAnalysisPage:
         """ Execute a new lexer query and load the state with the output to draw the graph and board.
             If <find_rule> is True, attempt to select a node with the same rule as the previous one.
             If <intense> is True, draw any valid selection with a bright color. """
-        keys, letters = self.translation
-        select_ref = self.link_ref if find_rule else self.graph_node_ref
         return self._steno_engine.analyze(keys, letters,
                                           match_all_keys=self.lexer_strict_mode,
                                           select_ref=select_ref,

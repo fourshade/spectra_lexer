@@ -32,7 +32,7 @@ class ComponentBench:
         bench(self._make_board, self._spaced_results(5000))
 
     def _make_board(self, keys, letters, result) -> None:
-        self._engine._board_engine.from_rules(result.rules(), result.unmatched_skeys())
+        self._engine._board_engine.from_rules(result.rule_ids(), result.unmatched_skeys())
 
     def make_graph(self) -> None:
         bench(self._make_graph, self._spaced_results(5000))

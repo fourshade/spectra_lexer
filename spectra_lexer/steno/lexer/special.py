@@ -2,7 +2,7 @@
 
 from typing import Callable, List
 
-from .base import IRuleMatcher, MATCH_TP, RULE_TP
+from .base import IRuleMatcher, MATCH_TP, RULE_ID
 
 
 class SpecialMatcher(IRuleMatcher):
@@ -10,7 +10,7 @@ class SpecialMatcher(IRuleMatcher):
 
     def __init__(self, key_sep:str, key_special:str) -> None:
         self._key_sep = key_sep  # Steno stroke delimiter.
-        self._rule_tests = []    # Contains special rules and their test functions.
+        self._rule_tests = []    # Contains special rule IDs and their test functions.
         # If the special key is at the end of a stroke, these are the possibilities for the next two characters.
         self._valid_next_two_chars = {key_special, key_special + key_sep}
 
@@ -19,16 +19,16 @@ class SpecialMatcher(IRuleMatcher):
         """ If the letters contain a period, it's probably an abbreviation. """
         return "." in all_letters
 
-    def add_rule_abbreviation(self, rule:RULE_TP) -> None:
-        self._add_test(rule, self._test_rule_abbreviation)
+    def add_rule_abbreviation(self, rule_id:RULE_ID) -> None:
+        self._add_test(rule_id, self._test_rule_abbreviation)
 
     @staticmethod
     def _test_rule_proper(skeys:str, all_skeys:str, all_letters:str) -> bool:
         """ If some of the letters are uppercase, it's probably a proper noun. """
         return all_letters != all_letters.lower()
 
-    def add_rule_proper(self, rule:RULE_TP) -> None:
-        self._add_test(rule, self._test_rule_proper)
+    def add_rule_proper(self, rule_id:RULE_ID) -> None:
+        self._add_test(rule_id, self._test_rule_proper)
 
     def _test_rule_affix(self, skeys:str, all_skeys:str, all_letters:str) -> bool:
         """ If we are on either the first or last stroke (and there is more than one),
@@ -38,18 +38,18 @@ class SpecialMatcher(IRuleMatcher):
         is_last_stroke = (sep not in skeys)
         return is_first_stroke ^ is_last_stroke
 
-    def add_rule_affix(self, rule:RULE_TP) -> None:
-        self._add_test(rule, self._test_rule_affix)
+    def add_rule_affix(self, rule_id:RULE_ID) -> None:
+        self._add_test(rule_id, self._test_rule_affix)
 
     @staticmethod
     def _test_rule_fallback(skeys:str, all_skeys:str, all_letters:str) -> bool:
         """ If execution reaches this point without a valid guess, use a guaranteed fallback rule. """
         return True
 
-    def add_rule_fallback(self, rule:RULE_TP) -> None:
-        self._add_test(rule, self._test_rule_fallback)
+    def add_rule_fallback(self, rule_id:RULE_ID) -> None:
+        self._add_test(rule_id, self._test_rule_fallback)
 
-    def _add_test(self, rule:RULE_TP, test:Callable[[str, str, str], bool]) -> None:
+    def _add_test(self, rule:RULE_ID, test:Callable[[str, str, str], bool]) -> None:
         """ Add a special rule test. For pickleability, the callable *cannot* be an inner function or lambda. """
         self._rule_tests.append((rule, test))
 
@@ -61,7 +61,7 @@ class SpecialMatcher(IRuleMatcher):
             <all_letters>  - contains all letters in the translation. """
         if skeys[:2] in self._valid_next_two_chars:
             # Return the first rule whose test returns True (if any).
-            for rule, test in self._rule_tests:
+            for rule_id, test in self._rule_tests:
                 if test(skeys, all_skeys, all_letters):
-                    return [(rule, skeys[1:], 0, 0)]
+                    return [(rule_id, skeys[1:], 0, 0)]
         return []

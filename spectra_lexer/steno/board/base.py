@@ -2,10 +2,13 @@
 
 from collections import defaultdict
 from math import ceil
-from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import Dict, Hashable, Iterable, Iterator, List, Sequence, Tuple
 
 from .path import ArrowPathGenerator, ChainPathGenerator
 from .svg import SVGDefs, SVGDocument, SVGElement, SVGGroup, SVGPath, SVGUse
+
+# Generic marker for the rule ID reference data type (may be anything hashable).
+RULE_ID = Hashable
 
 
 class BoardElements:
@@ -219,7 +222,7 @@ class BoardEngine:
 
     _DEFAULT_RATIO = 100.0  # If no aspect ratio is given, this ensures that all boards end up in one row.
 
-    def __init__(self, rule_elems:Dict[str, List[BoardElements]], compound_elems:Dict[str, List[BoardElements]],
+    def __init__(self, rule_elems:Dict[RULE_ID, List[BoardElements]], compound_elems:Dict[RULE_ID, List[BoardElements]],
                  key_elems:Dict[str, BoardElements], unmatched_elems:Dict[str, BoardElements],
                  doc_factory:BoardDocumentFactory) -> None:
         self._rule_elems = rule_elems            # Dict with steno key elements for every rule.
@@ -233,14 +236,14 @@ class BoardEngine:
         elems = [self._key_elems[k] for k in skeys]
         return self._doc_factory.make_svg(elems, aspect_ratio)
 
-    def from_rules(self, rule_names:Iterable[str], unmatched_skeys="",
+    def from_rules(self, rule_ids:Iterable[RULE_ID], unmatched_skeys="",
                    aspect_ratio:float=_DEFAULT_RATIO, compound=True) -> bytes:
-        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from names of steno rules.
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from IDs of steno rules.
             If <compound> is False, do not use compound keys. The rules will be shown only as single keys. """
         elems = []
         d = self._compound_elems if compound else self._rule_elems
-        for name in rule_names:
-            elems += d[name]
+        for r_id in rule_ids:
+            elems += d[r_id]
         for k in unmatched_skeys:
             elems.append(self._unmatched_elems[k])
         return self._doc_factory.make_svg(elems, aspect_ratio)
@@ -257,7 +260,7 @@ class BoardElementParser:
         self._rule_elems = {}  # Elements corresponding to specific steno rules.
         self._base_elems = {}  # Elements corresponding to the board diagram base.
         self._rule_key_elems = {}
-        self._rule_child_names = {}
+        self._rule_child_ids = {}
         self._inversion_rules = set()
         self._linked_rules = set()
         elem_dicts = [("elem_key", self._key_elems),
@@ -278,17 +281,19 @@ class BoardElementParser:
                 meth(v, self._defs[k])
         return board_elems
 
-    def add_rule(self, name:str, skeys:str, is_inversion=False, is_linked=False) -> None:
-        self._rule_key_elems[name] = [self._key_elems[k] for k in skeys]
-        self._rule_child_names[name] = []
+    def add_rule(self, rule_id:RULE_ID, skeys:str, is_inversion=False, is_linked=False) -> None:
+        """ Add a new <rule_id> reference, which may be a string or any other hashable type. """
+        self._rule_key_elems[rule_id] = [self._key_elems[k] for k in skeys]
+        self._rule_child_ids[rule_id] = []
         if is_inversion:
-            self._inversion_rules.add(name)
+            self._inversion_rules.add(rule_id)
         if is_linked:
-            self._linked_rules.add(name)
+            self._linked_rules.add(rule_id)
 
-    def add_connection(self, parent:str, child:str) -> None:
-        child_names = self._rule_child_names[parent]
-        child_names.append(child)
+    def add_connection(self, parent:RULE_ID, child:RULE_ID) -> None:
+        """ Add a relationship between a <parent> and <child> rule. """
+        child_ids = self._rule_child_ids[parent]
+        child_ids.append(child)
 
     def build_engine(self) -> BoardEngine:
         """ Build an element index and board-generating engine from our current resources. """
@@ -297,23 +302,23 @@ class BoardElementParser:
         doc_factory = self._build_doc_factory()
         return BoardEngine(basic_rule_elems, compound_rule_elems, self._key_elems, self._ukey_elems, doc_factory)
 
-    def _process_compound_rule(self, name:str) -> List[BoardElements]:
-        known_elems = self._rule_elems.get(name)
+    def _process_compound_rule(self, rule_id:RULE_ID) -> List[BoardElements]:
+        known_elems = self._rule_elems.get(rule_id)
         if known_elems is not None:
             return [known_elems]
         # There may not be compound elements for everything; in that case, use elements for each raw key.
-        child_names = self._rule_child_names[name]
+        child_names = self._rule_child_ids[rule_id]
         if not child_names:
-            return self._rule_key_elems[name]
+            return self._rule_key_elems[rule_id]
         # Add elements recursively from all child rules.
         groups = [self._process_compound_rule(name) for name in child_names]
-        if name in self._linked_rules:
+        if rule_id in self._linked_rules:
             # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
             return [LinkedBoardElements(groups[0], groups[-1])]
         elems = []
         for g in groups:
             elems += g
-        if name in self._inversion_rules:
+        if rule_id in self._inversion_rules:
             # A rule using inversion connects the first two elements with arrows.
             elems.append(InversionBoardElements(elems[0], elems[1]))
         return elems

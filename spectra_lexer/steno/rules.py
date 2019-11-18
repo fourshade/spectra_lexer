@@ -13,13 +13,13 @@ class RuleMapItem:
 class StenoRule:
     """ A general rule mapping a set of steno keys to a set of letters. All contents are recursively immutable. """
 
-    def __init__(self, name:str, keys:str, letters:str, flags=frozenset(), caption="", rulemap=()) -> None:
-        self.name = name        # Rule name string. Used as a unique identifier.
-        self.keys = keys        # Raw string of steno keys that make up the rule.
-        self.letters = letters  # Raw English text of the word.
-        self.flags = flags      # Immutable set of string flags that apply to the rule.
-        self.caption = caption  # Textual description of the rule.
-        self.rulemap = rulemap  # Immutable sequence of tuples mapping child rules to letter positions *in order*.
+    def __init__(self, name:str, keys:str, letters:str, flags=frozenset(), desc="", rulemap=()) -> None:
+        self.name = name         # Rule name string. Used as a unique identifier.
+        self.keys = keys         # Raw string of steno keys that make up the rule.
+        self.letters = letters   # Raw English text of the word.
+        self.flags = flags       # Immutable set of string flags that apply to the rule.
+        self.description = desc  # Textual description of the rule.
+        self.rulemap = rulemap   # Immutable sequence of tuples mapping child rules to letter positions *in order*.
 
     def __str__(self) -> str:
         """ The standard string representation of a rule is its keys -> letters mapping. """
@@ -38,8 +38,7 @@ class RuleCollection:
     def make_special(self, keys:str, desc:str) -> StenoRule:
         """ Make a special rule, add it to the list, and return it. """
         name = f"~{len(self._rules)}~"
-        caption = f"{keys}: {desc}"
-        rule = StenoRule(name, keys, "", frozenset(), caption, ())
+        rule = StenoRule(name, keys, "", frozenset(), desc, ())
         self._rules.append(rule)
         return rule
 
@@ -92,14 +91,7 @@ class RuleParser:
         # The flags and rulemap must be frozen for immutability.
         flags = frozenset(flags)
         rulemap = tuple(rulemap)
-        # Generate a plaintext caption to finish.
-        if rulemap and letters:
-            # Derived rules show the complete mapping of keys to letters in their caption.
-            caption = f"{keys} → {letters}: {desc}"
-        else:
-            # Base rules display only their keys to the left of their descriptions.
-            caption = f"{keys}: {desc}"
-        rule = self._rules[k] = StenoRule(k, keys, letters, flags, caption, rulemap)
+        rule = self._rules[k] = StenoRule(k, keys, letters, flags, desc, rulemap)
         return rule
 
     def _substitute(self, pattern:str) -> Tuple[str, List[RuleMapItem]]:
