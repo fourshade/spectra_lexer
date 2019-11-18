@@ -35,10 +35,9 @@ $(document).ready(function(){
                 }
             }
         }
-        event(evt) {
-            var elem = evt.target;
-            if(this.selectElem(elem)){
-                state[this.statevar] = elem.textContent;
+        event({target}) {
+            if(this.selectElem(target)){
+                state[this.statevar] = target.textContent;
                 processAction(this.action);
             }
         }
@@ -53,10 +52,15 @@ $(document).ready(function(){
                 item.textContent = opt;
                 root.appendChild(item);
             }
+            if (optArray.length == 1){
+                // Automatically select the item if there was only one.
+                // FIXME: selects mappings twice
+                this.event({target: item});
+            }
         }
     }
-    const matchSelector = new ListHandler("w_matches",  "match_selected", "Lookup");
-    const mappingSelector = new ListHandler("w_mappings",  "mapping_selected", "Select");
+    const matchSelector = new ListHandler("w_matches", "match_selected", "Lookup");
+    const mappingSelector = new ListHandler("w_mappings", "mapping_selected", "Select");
 
     const searchInput = document.getElementById("w_input");
     const displayTitle = document.getElementById("w_title");
@@ -86,6 +90,7 @@ $(document).ready(function(){
     const displayLink = document.getElementById("w_link");
     const displayDesc = document.getElementById("w_desc");
     displayLink.addEventListener("click", function(){
+        state.link_ref = this.href;
         processAction("SearchExamples");
         return false;
     });
@@ -99,7 +104,7 @@ $(document).ready(function(){
     const displayText = document.getElementById("w_text");
     $("#w_text").on("mouseenter", "a.gg", function(){
         var ref = this.href.split("#").pop();
-        if(state.graph_node_ref!=ref){
+        if(state.graph_node_ref != ref){
             state.graph_node_ref = ref;
             processAction("GraphOver");
         }
@@ -119,7 +124,8 @@ $(document).ready(function(){
         page(value) {displayText.innerHTML = value.graph;
                      displayDesc.textContent = value.caption;
                      displayBoard.innerHTML = value.board;
-                     displayLink.style.display = (value.rule_id ? "" : "none");},
+                     displayLink.style.display = (value.rule_id ? "" : "none")
+                     displayLink.href = value.rule_id;},
         // These output variables must be stored in the state for reference.
         input_text(value) {searchInput.value = value; return true;},
         match_selected(value) {matchSelector.selectText(value); return true;},

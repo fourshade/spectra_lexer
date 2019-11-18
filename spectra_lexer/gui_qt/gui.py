@@ -49,8 +49,8 @@ class QtGUI:
 
     def set_state(self, **state_vars) -> None:
         self._state_vars.update(state_vars)
-        self._search.update(state_vars)
-        self._display.update(state_vars)
+        self._search.update(**state_vars)
+        self._display.update(**state_vars)
 
     def enable(self, msg:str=None) -> None:
         """ Enable all widgets when GUI-blocking operations are done. """
@@ -122,6 +122,6 @@ class QtGUIFactory:
         window = WindowController(w_window)
         window.load_icon(icon_data)
         menu = MenuController(ui.w_menubar)
-        search = SearchController(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
-        display = DisplayController(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption)
+        search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
+        display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption)
         return QtGUI(window, menu, search, display)

@@ -1,5 +1,5 @@
 from itertools import cycle
-from typing import Callable, List, Sequence, Tuple
+from typing import Callable, Sequence, Tuple
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRectF, QTimer, QUrl
 from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
@@ -15,88 +15,95 @@ class _TitleWrapper(QObject):
     """ Wrapper for title bar widget that displays translations as well as loading/status with simple text animations.
         Also allows manual lexer queries by editing translations directly. """
 
-    sig_edit_translation = pyqtSignal()  # Sent on a valid translation edit.
+    _sig_user_translation = pyqtSignal([str, str])  # Sent on a user edit that produces a valid translation.
 
-    _anim_iter = cycle([""])  # Animation string iterator. Should repeat indefinitely.
-
-    def __init__(self, w_title:QLineEdit, tr_delim:str=" -> ") -> None:
+    def __init__(self, w_title:QLineEdit, *, tr_delim=" -> ") -> None:
         super().__init__()
+        self.last_translation = ["", ""]  # FIXME
         self._w_title = w_title
-        self._last_translation = ["", ""]
-        self._tr_delim = tr_delim      # Delimiter between keys and letters of translations shown in title bar.
-        self._timer = QTimer(self)     # Animation timer for loading messages.
-        self._timer.timeout.connect(self._animate)
-        w_title.textEdited.connect(self._edit_translation)
+        self._tr_delim = tr_delim        # Delimiter between keys and letters of translations shown in title bar.
+        self._anim_timer = QTimer(self)  # Animation timer for loading messages.
+        self.call_on_translation = self._sig_user_translation.connect
+        w_title.textEdited.connect(self._on_edit_text)
 
-    def _edit_translation(self, text:str) -> None:
-        """ Parse the title bar text as a translation and send the signal if it is valid. """
+    def _on_edit_text(self, text:str) -> None:
+        """ Parse the title bar text as a translation and send the signal if it is valid and non-empty. """
         parts = text.split(self._tr_delim)
         if len(parts) == 2:
-            self._last_translation = [p.strip() for p in parts]
-            self.sig_edit_translation.emit()
-
-    def get_translation(self) -> List[str]:
-        return self._last_translation
-
-    def set_translation(self, translation:list) -> None:
-        """ Format a translation and show it in the title bar. """
-        self._last_translation = translation
-        text = self._tr_delim.join(translation)
-        self.set_static_text(text)
-
-    def set_static_text(self, text:str):
-        """ Stop any animation and show normal text in the title bar. """
-        self._timer.stop()
-        self._w_title.setText(text)
-
-    def set_animated_text(self, text_items:Sequence[str], delay_ms:int) -> None:
-        """ Set the widget text to animate over <text_items> on a timed cycle.
-            The first item is shown immediately, then a new one is shown every <delay_ms> milliseconds. """
-        assert text_items
-        self._anim_iter = cycle(text_items)
-        self._animate()
-        self._timer.start(delay_ms)
-
-    def _animate(self) -> None:
-        """ Set the widget text to the next item in the string iterator. """
-        text = next(self._anim_iter)
-        self._w_title.setText(text)
+            keys, letters = self.last_translation = [p.strip() for p in parts]  # FIXME
+            if keys and letters:
+                self._sig_user_translation.emit(keys, letters)
 
     def set_enabled(self, enabled:bool) -> None:
         """ The title bar should be set read-only instead of disabled to continue showing status messages. """
         self._w_title.setReadOnly(not enabled)
+
+    def show_status(self, text:str) -> None:
+        """ Check if the status text ends in an ellipsis. If not, just show the text normally.
+            Otherwise, animate the text with a • dot moving down the ellipsis until new text is shown:
+            loading...  ->  loading•..  ->  loading.•.  ->  loading..• """
+        if text.endswith("..."):
+            body = text.rstrip(".")
+            frames = [body + b for b in ("...", "•..", ".•.", "..•")]
+            self._set_animated_text(frames, 200)
+        else:
+            self._set_static_text(text)
+
+    def show_translation(self, keys:str, letters:str) -> None:
+        """ Format a translation and show it in the title bar. """
+        translation = self.last_translation = [keys, letters]  # FIXME
+        tr_text = self._tr_delim.join(translation)
+        self._set_static_text(tr_text)
+
+    def show_traceback_heading(self) -> None:
+        """ Display a stack traceback heading. """
+        self._set_static_text("Well, this is embarrassing...")
+
+    def _set_static_text(self, text:str) -> None:
+        """ Stop any animation and show normal text in the title bar. """
+        self._anim_timer.stop()
+        self._w_title.setText(text)
+
+    def _set_animated_text(self, text_items:Sequence[str], delay_ms:int) -> None:
+        """ Set the widget text to animate over <text_items> on a timed cycle.
+            The first item is shown immediately, then a new one is shown every <delay_ms> milliseconds. """
+        if text_items:
+            show_next_item = map(self._w_title.setText, cycle(text_items)).__next__
+            show_next_item()
+            self._anim_timer.timeout.connect(show_next_item)
+            self._anim_timer.start(delay_ms)
 
 
 class _GraphWrapper(QObject):
     """ Formatted text widget for displaying a monospaced HTML graph of the breakdown of text by steno rules.
         May also display plaintext output such as error messages and exceptions when necessary. """
 
-    sig_ref_over = pyqtSignal([str])   # Sent with a node reference when the mouse moves over a new one.
-    sig_ref_click = pyqtSignal([str])  # Sent with a node reference when the mouse clicks one.
+    _sig_mouse_over = pyqtSignal([str])   # Sent with a node reference when the mouse moves over a new one.
+    _sig_mouse_click = pyqtSignal([str])  # Sent with a node reference when the mouse clicks one.
 
     def __init__(self, w_graph:HyperlinkTextBrowser) -> None:
         super().__init__()
+        self.last_ref = ""  # FIXME
         self._w_graph = w_graph
         self._graph_enabled = False  # Does moving the mouse over the text do anything?
-        self._last_ref = ""
-        w_graph.linkOver.connect(self._on_hover_link)
-        w_graph.linkClicked.connect(self._on_click_link)
+        self.call_on_mouse_over = self._sig_mouse_over.connect
+        self.call_on_mouse_click = self._sig_mouse_click.connect
+        w_graph.linkOver.connect(self._on_link_over)
+        w_graph.linkClicked.connect(self._on_link_click)
 
-    def add_plaintext(self, text:str) -> None:
-        """ Add plaintext to the widget. If it currently contains a graph, disable it and reset the formatting. """
+    def _on_link_over(self, url:QUrl) -> None:
+        """ If the graph is enabled, send a signal with the fragment string of the currently highlighted URL.
+            When we move off of a link, this will be sent with an empty string. """
         if self._graph_enabled:
-            self._graph_enabled = False
-            self._w_graph.clear()
-            self._w_graph.setCurrentCharFormat(QTextCharFormat())
-        self._w_graph.append(text)
+            ref = self.last_ref = url.fragment()  # FIXME
+            self._sig_mouse_over.emit(ref)
 
-    def set_graph_text(self, text:str) -> None:
-        """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
-        self._graph_enabled = True
-        self._w_graph.setHtml(text, no_scroll=True)
-
-    def get_ref(self) -> str:
-        return self._last_ref
+    def _on_link_click(self, url:QUrl) -> None:
+        """ If the graph is enabled, send a signal with the fragment string of the clicked URL.
+            When we click something that isn't a link, this will be sent with an empty string. """
+        if self._graph_enabled:
+            ref = self.last_ref = url.fragment()  # FIXME
+            self._sig_mouse_click.emit(ref)
 
     def set_enabled(self, enabled:bool) -> None:
         """ Blank out the graph on disable. """
@@ -104,57 +111,75 @@ class _GraphWrapper(QObject):
         if not enabled:
             self._w_graph.clear()
 
-    def _on_hover_link(self, url:QUrl) -> None:
-        self._on_link_signal(self.sig_ref_over, url)
+    def set_graph_text(self, text:str) -> None:
+        """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
+        self._graph_enabled = True
+        self._w_graph.setHtml(text, no_scroll=True)
 
-    def _on_click_link(self, url:QUrl) -> None:
-        self._on_link_signal(self.sig_ref_click, url)
-
-    def _on_link_signal(self, sig, url:QUrl) -> None:
+    def add_traceback(self, tb_text:str) -> None:
+        """ Append an exception traceback's text to the widget.
+            If the widget currently contains a graph, disable it and reset the formatting first. """
         if self._graph_enabled:
-            self._last_ref = url.fragment()
-            sig.emit(self._last_ref)
+            self._graph_enabled = False
+            self._w_graph.clear()
+            self._w_graph.setCurrentCharFormat(QTextCharFormat())
+        self._w_graph.append(tb_text)
 
 
 class _BoardWrapper(QObject):
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
-    def __init__(self, w_board:PictureWidget) -> None:
-        """ Create the renderer and examples link. """
+    _sig_link_click = pyqtSignal([str])   # Sent with a rule reference when examples link is clicked.
+    _sig_new_ratio = pyqtSignal([float])  # Sent with the width / height aspect ratio of the board widget.
+
+    def __init__(self, w_board:PictureWidget, w_link:QLabel) -> None:
         super().__init__()
+        self._link_ref = ""
         self._w_board = w_board
-        self._w_link = QLabel(w_board)  # Rule example hyperlink.
+        self._w_link = w_link            # Rule example hyperlink.
         self._renderer = QSvgRenderer()  # XML SVG renderer.
-        self.sig_activate_link = self._w_link.linkActivated  # Sent when examples link is clicked.
-        sig_new_size = w_board.resized
-        self.sig_new_size = sig_new_size                     # Sent on board resize.
-        sig_new_size.connect(self._on_resize)
+        self.call_on_link_click = self._sig_link_click.connect
+        self.call_on_ratio_change = self._sig_new_ratio.connect
+        w_link.linkActivated.connect(self._on_link_click)
+        w_board.resized.connect(self._on_resize)
 
-    def set_link(self, ref="") -> None:
-        """ Show the link in the bottom-right corner of the diagram if examples exist.
-            Any currently linked rule is already known to the GUI, so the link href doesn't matter. """
-        self._w_link.setText("<a href='dummy'>More Examples</a>")
-        self._w_link.setVisible(bool(ref))
-
-    def _get_size(self) -> Tuple[float, float]:
-        """ Return the size of the board widget. """
-        return self._w_board.width(), self._w_board.height()
+    def _on_link_click(self, *args) -> None:
+        self._sig_link_click.emit(self._link_ref)
 
     def _on_resize(self) -> None:
         """ Reposition the link and redraw the board on any size change. """
         width, height = self._get_size()
         self._w_link.move(width - 75, height - 18)
         self._draw_board()
+        self._sig_new_ratio.emit(width / height)
 
-    def get_ratio(self) -> float:
-        """ Return the width / height aspect ratio of the board widget. """
-        width, height = self._get_size()
-        return width / height
+    def set_link(self, ref="") -> None:
+        """ Show the link in the bottom-right corner of the diagram if examples exist.
+            The ref may have non-HTML safe characters, so it is saved as a field instead of used as an href. """
+        self._link_ref = ref
+        self._w_link.setVisible(bool(ref))
 
     def set_data(self, xml_data:bytes=b"") -> None:
         """ Load the renderer with raw XML data containing the elements to draw, then render the new board. """
         self._renderer.load(xml_data)
         self._draw_board()
+
+    def set_enabled(self, enabled:bool) -> None:
+        """ Blank out the link on disable. """
+        if not enabled:
+            self.set_link()
+
+    def get_ratio(self) -> float:  # FIXME
+        """ Return the width / height aspect ratio of the board widget. """
+        width, height = self._get_size()
+        return width / height
+
+    def get_ref(self) -> str:  # FIXME
+        return self._link_ref
+
+    def _get_size(self) -> Tuple[float, float]:
+        """ Return the size of the board widget. """
+        return self._w_board.width(), self._w_board.height()
 
     def _draw_board(self) -> None:
         """ Render the diagram on a new picture and immediately repaint the board. """
@@ -180,11 +205,6 @@ class _BoardWrapper(QObject):
             # If no valid viewbox is defined, use the widget's natural size.
             return QRectF(0, 0, width, height)
 
-    def set_enabled(self, enabled:bool) -> None:
-        """ Blank out the link on disable. """
-        if not enabled:
-            self.set_link()
-
 
 class _CaptionWrapper:
 
@@ -196,47 +216,42 @@ class _CaptionWrapper:
         self._w_caption.setText(caption)
 
 
-class DisplayController(QObject):
+class DisplayController:
 
-    def __init__(self, w_title:QLineEdit, w_graph:HyperlinkTextBrowser,
-                 w_board:PictureWidget, w_caption:QLabel) -> None:
-        super().__init__()
-        self._title = _TitleWrapper(w_title)
-        self._graph = _GraphWrapper(w_graph)
-        self._board = _BoardWrapper(w_board)
-        self._caption = _CaptionWrapper(w_caption)
+    def __init__(self, title:_TitleWrapper, graph:_GraphWrapper, board:_BoardWrapper, caption:_CaptionWrapper) -> None:
+        self._title = title
+        self._graph = graph
+        self._board = board
+        self._caption = caption
         # List of all GUI input events that can result in a call to a steno engine action.
-        self._events = [(self._title.sig_edit_translation, "Query"),
-                        (self._graph.sig_ref_over, "GraphOver"),
-                        (self._graph.sig_ref_click, "GraphClick"),
-                        (self._board.sig_activate_link, "SearchExamples"),
-                        (self._board.sig_new_size, "GraphOver")]
-        # Dict of all possible GUI methods to call when a particular part of the state changes.
-        self._methods = {"translation":    self._title.set_translation,
-                         "page":           self._set_page}
+        self._events = [(title.call_on_translation, "Query"),
+                        (graph.call_on_mouse_over, "GraphOver"),
+                        (graph.call_on_mouse_click, "GraphClick"),
+                        (board.call_on_link_click, "SearchExamples"),
+                        (board.call_on_ratio_change, "GraphOver")]
+        self.set_status = title.show_status
 
     def connect(self, action_fn:Callable[[str], None]) -> None:
-        """ Connect all input signals to the function with their corresponding action. """
-        for signal, action_str in self._events:
-            signal.connect(lambda *args, action=action_str: action_fn(action))
+        """ Connect all input callbacks to the function with their corresponding action. """
+        for callback_set, action_str in self._events:
+            callback_set(lambda *args, action=action_str: action_fn(action))
 
     def get_state(self) -> dict:
         """ Return all GUI state values that may be needed by the steno engine. """
-        return {"translation": self._title.get_translation(),
-                "graph_node_ref": self._graph.get_ref(),
-                "board_aspect_ratio": self._board.get_ratio()}
+        return {"translation": self._title.last_translation,
+                "graph_node_ref": self._graph.last_ref,
+                "board_aspect_ratio": self._board.get_ratio(),
+                "link_ref": self._board.get_ref()}
 
-    def _set_page(self, page:StenoAnalysisPage) -> None:
-        self._graph.set_graph_text(page.graph)
-        self._caption.set_caption(page.caption)
-        self._board.set_data(page.board)
-        self._board.set_link(page.rule_id)
-
-    def update(self, state:dict) -> None:
+    def update(self, translation:list=None, page:StenoAnalysisPage=None, **state) -> None:
         """ For every state variable, call the corresponding GUI update method if one exists. """
-        for k in self._methods:
-            if k in state:
-                self._methods[k](state[k])
+        if translation is not None:
+            self._title.show_translation(*translation)
+        if page is not None:
+            self._graph.set_graph_text(page.graph)
+            self._caption.set_caption(page.caption)
+            self._board.set_data(page.board)
+            self._board.set_link(page.rule_id)
 
     def set_enabled(self, enabled:bool) -> None:
         self._title.set_enabled(enabled)
@@ -245,16 +260,14 @@ class DisplayController(QObject):
 
     def show_traceback(self, tb_text:str) -> None:
         """ Display a stack trace. """
-        self._title.set_static_text("Well, this is embarrassing...")
-        self._graph.add_plaintext(tb_text)
+        self._title.show_traceback_heading()
+        self._graph.add_traceback(tb_text)
 
-    def set_status(self, text:str) -> None:
-        """ Check if the status text ends in an ellipsis. If not, just show the text normally.
-            Otherwise, animate the text with a • dot moving down the ellipsis until new text is shown:
-            loading...  ->  loading•..  ->  loading.•.  ->  loading..• """
-        if text.endswith("..."):
-            body = text.rstrip(".")
-            frames = [body + b for b in ("...", "•..", ".•.", "..•")]
-            self._title.set_animated_text(frames, 200)
-        else:
-            self._title.set_static_text(text)
+    @classmethod
+    def from_widgets(cls, w_title:QLineEdit, w_graph:HyperlinkTextBrowser, w_board:PictureWidget, w_caption:QLabel):
+        title = _TitleWrapper(w_title)
+        graph = _GraphWrapper(w_graph)
+        w_link = QLabel("<a href='dummy'>More Examples</a>", w_board)
+        board = _BoardWrapper(w_board, w_link)
+        caption = _CaptionWrapper(w_caption)
+        return cls(title, graph, board, caption)

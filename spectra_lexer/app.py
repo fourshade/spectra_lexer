@@ -89,11 +89,10 @@ class StenoApplication:
     def process_action(self, state:Dict[str, Any], action:str) -> dict:
         """ Perform an <action> on an initial view <state>, then return the changes.
             Config options are added to the view state first. The main state variables may override them. """
-        view_state = ViewState(self._engine)
-        view_state.update(self._config.to_dict())
-        view_state.update(state)
-        view_state.run(action)
-        return view_state.get_modified()
+        state = {**self._config.to_dict(), **state}
+        view_state = ViewState(self._engine, state)
+        method = getattr(view_state, "RUN" + action)
+        return method()
 
 
 class ViewState:
@@ -111,6 +110,7 @@ class ViewState:
     search_mode_strokes: bool = False  # If True, search for strokes instead of translations.
     search_mode_regex: bool = False    # If True, perform search using regex characters.
     search_match_limit: int = 100      # Maximum number of matches returned on one page of a search.
+    link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
 
     # Pure input values (display).
     lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
@@ -129,16 +129,16 @@ class ViewState:
     # The user typically can't change these values directly. They are held for future reference.
     page_count: int = 1            # Number of pages in the upper list.
     graph_has_focus: bool = False  # Is a node under focus on the graph?
-    link_ref: str = ""             # Name for the most recent rule (if there are examples in the index).
 
     # Pure output values. These may be data classes that cannot be converted back from JSON.
     matches: list            # New items in the upper list.
     mappings: list           # New items in the lower list.
     page: StenoAnalysisPage  # Contains an HTML formatted graph, a caption, and an SVG board.
 
-    def __init__(self, steno_engine:StenoEngine) -> None:
-        self._steno_engine = steno_engine    # Has access to lexer and graphical components.
-        self._modified = {}                  # Tracks attributes that are changed by action methods.
+    def __init__(self, steno_engine:StenoEngine, state_vars:dict=()) -> None:
+        self._steno_engine = steno_engine  # Has access to lexer and graphical components.
+        self._modified = {}                # Tracks attributes that are changed by action methods.
+        self.__dict__.update(state_vars)   # Update state attributes without affecting the modified tracker.
 
     def __setattr__(self, name:str, value:Any) -> None:
         """ Add public attributes that are modified to the tracking dict. """
@@ -146,22 +146,7 @@ class ViewState:
         if not name.startswith("_"):
             self._modified[name] = value
 
-    def update(self, *args, **kwargs) -> None:
-        """ Update state attributes without affecting the modified tracker. """
-        self.__dict__.update(*args, **kwargs)
-
-    def get_modified(self) -> dict:
-        """ Return all state attributes that have been modified, then reset the tracker. """
-        last_modified = self._modified
-        self._modified = {}
-        return last_modified
-
-    def run(self, action:str) -> None:
-        """ Run an action method (if valid). """
-        method = getattr(self, f"RUN{action}")
-        method()
-
-    def RUNSearchExamples(self) -> None:
+    def RUNSearchExamples(self) -> dict:
         """ When a link is clicked, search for examples of the named rule and select one. """
         self.input_text = self.link_ref + self._INDEX_DELIM
         self.page_count = 1
@@ -172,23 +157,22 @@ class ViewState:
             self.input_text += match
             self._search()
             self._lookup()
+        return self._modified
 
-    def RUNSearch(self) -> None:
-        """ Do a new search unless the input is blank. """
+    def RUNSearch(self) -> dict:
+        """ Do a new search. """
         self.page_count = 1
         self._search()
-        # Automatically select the match if there was only one.
-        if len(self.matches) == 1:
-            self.match_selected = self.matches[0]
-            self._lookup()
+        return self._modified
 
-    def RUNLookup(self) -> None:
+    def RUNLookup(self) -> dict:
         """ If the user clicked "more", search again with another page. """
         if self.match_selected == self._MORE_TEXT:
             self.page_count += 1
             self._search()
         else:
             self._lookup()
+        return self._modified
 
     def _search(self) -> None:
         """ Look up a pattern in the dictionary and populate the upper matches list unless the input is blank. """
@@ -230,9 +214,10 @@ class ViewState:
         else:
             return self._steno_engine.search_translations(pattern, regex=self.search_mode_regex, **kwargs)
 
-    def RUNSelect(self) -> None:
+    def RUNSelect(self) -> dict:
         """ Do a lexer query based on the current search selections. """
         self._query_from_selection()
+        return self._modified
 
     def _query_from_selection(self) -> None:
         """ The order of lexer parameters must be reversed for strokes mode. """
@@ -241,37 +226,43 @@ class ViewState:
             translation.reverse()
         self._new_graph()
 
-    def RUNQuery(self) -> None:
+    def RUNQuery(self) -> dict:
         """ Execute and display a graph of a lexer query from user strokes. """
         self._new_graph()
+        return self._modified
 
     def _new_graph(self) -> None:
         """ A new graph should clear the last node ref and look for a new one that uses the same rule. """
+        if not all(self.translation):
+            return
         self.graph_node_ref = ""
-        self._exec_query(self.graph_has_focus, True)
-        if not self.link_ref:
+        self.page = self._exec_query(self.graph_has_focus, True)
+        if not self.page.rule_id:
             self.graph_has_focus = False
 
-    def RUNGraphOver(self) -> None:
+    def RUNGraphOver(self) -> dict:
         """ On mouseover, highlight the current graph node temporarily if nothing is focused.
             Mouseovers should do nothing as long as focus is active. """
-        if not self.graph_has_focus:
-            self._exec_query(False, False)
+        if self.graph_has_focus or not all(self.translation):
+            return {}
+        self.page = self._exec_query(False, False)
+        return self._modified
 
-    def RUNGraphClick(self) -> None:
+    def RUNGraphClick(self) -> dict:
         """ On click, find the current graph node and set focus on it (or clear focus if node ref is empty). """
-        self._exec_query(False, True)
+        if not all(self.translation):
+            return {}
+        self.page = self._exec_query(False, True)
         self.graph_has_focus = bool(self.graph_node_ref)
+        return self._modified
 
-    def _exec_query(self, find_rule:bool, intense:bool) -> None:
+    def _exec_query(self, find_rule:bool, intense:bool) -> StenoAnalysisPage:
         """ Execute a new lexer query and load the state with the output to draw the graph and board.
             If <find_rule> is True, attempt to select a node with the same rule as the previous one.
             If <intense> is True, draw any valid selection with a bright color. """
         keys, letters = self.translation
-        if not (keys and letters):
-            return
         select_ref = self.link_ref if find_rule else self.graph_node_ref
-        page = self._steno_engine.analyze(keys, letters,
+        return self._steno_engine.analyze(keys, letters,
                                           match_all_keys=self.lexer_strict_mode,
                                           select_ref=select_ref,
                                           find_rule=find_rule,
@@ -280,5 +271,3 @@ class ViewState:
                                           graph_intense=intense,
                                           board_ratio=self.board_aspect_ratio,
                                           board_compound=self.board_compound_key_labels)
-        self.page = page
-        self.link_ref = page.rule_id
