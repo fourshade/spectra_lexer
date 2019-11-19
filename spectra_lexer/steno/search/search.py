@@ -92,8 +92,10 @@ class TranslationSearchEngine:
         self._reverse = ReverseStenoSearchDict(rd, **kwargs)  # Reverse dict (English words -> strokes).
 
     def search(self, pattern:str, *, count=100, strokes=False, regex=False) -> SearchResults:
-        """ Delegate searches to one of the translations dicts depending on <strokes>.
-            Search for matches in that dict. Use regular expression matching if <regex> is True. """
+        """ Delegate searches to one of the translations dicts.
+            <count>   - Maximum number of matches returned.
+            <strokes> - If True, search for strokes instead of translations.
+            <regex>   - If True, treat the search pattern as a regular expression. """
         d = self._forward if strokes else self._reverse
         if regex:
             return d.search_regex(pattern, count=count)
@@ -121,7 +123,8 @@ class ExampleSearchEngine:
 
     def search(self, rule_name:str, pattern:str, **kwargs) -> SearchResults:
         """ Search for translations that contain examples of a particular steno rule. Only exact matches will work.
-            <strokes> - if True, the pattern will be interpreted as a steno key string. """
+            <count>   - Maximum number of matches returned.
+            <strokes> - If True, the pattern will be interpreted as a steno key string. """
         d = self._examples.get(rule_name) or {}
         e = TranslationSearchEngine(d)
         return e.search_nearby(pattern, **kwargs)

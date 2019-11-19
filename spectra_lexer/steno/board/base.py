@@ -231,22 +231,26 @@ class BoardEngine:
         self._unmatched_elems = unmatched_elems  # Dict with steno key elements in unmatched rules.
         self._doc_factory = doc_factory
 
-    def from_keys(self, skeys:str, aspect_ratio:float=_DEFAULT_RATIO) -> bytes:
-        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from a set of steno s-keys. """
-        elems = [self._key_elems[k] for k in skeys]
+    def generate(self, rule_ids:Iterable[RULE_ID], unmatched_skeys="",
+                 aspect_ratio:float=_DEFAULT_RATIO, compound=True) -> bytes:
+        """ Generate encoded board diagram layouts arranged according to <aspect_ratio>. """
+        elems = self._elems_from_rules(rule_ids, compound)
+        elems += self._elems_from_keys(unmatched_skeys, True)
         return self._doc_factory.make_svg(elems, aspect_ratio)
 
-    def from_rules(self, rule_ids:Iterable[RULE_ID], unmatched_skeys="",
-                   aspect_ratio:float=_DEFAULT_RATIO, compound=True) -> bytes:
-        """ Generate encoded board diagram layouts arranged according to <aspect_ratio> from IDs of steno rules.
+    def _elems_from_keys(self, skeys:str, unmatched=False) -> List[BoardElements]:
+        """ Generate board diagram elements from a set of steno s-keys. """
+        d = self._unmatched_elems if unmatched else self._key_elems
+        return [d[k] for k in skeys if k in d]
+
+    def _elems_from_rules(self, rule_ids:Iterable[RULE_ID], compound=True) -> List[BoardElements]:
+        """ Generate board diagram elements from IDs of steno rules.
             If <compound> is False, do not use compound keys. The rules will be shown only as single keys. """
-        elems = []
         d = self._compound_elems if compound else self._rule_elems
+        elems = []
         for r_id in rule_ids:
             elems += d[r_id]
-        for k in unmatched_skeys:
-            elems.append(self._unmatched_elems[k])
-        return self._doc_factory.make_svg(elems, aspect_ratio)
+        return elems
 
 
 class BoardElementParser:

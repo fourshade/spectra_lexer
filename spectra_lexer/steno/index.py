@@ -1,9 +1,10 @@
 from collections import defaultdict
-from typing import Dict, List
+from typing import List
 
 from .keys import KeyLayout
 from .lexer import StenoLexer
 from .parallel import ParallelMapper
+from .search import ExamplesDict, TranslationsDict
 
 
 class TranslationSizeFilter:
@@ -18,7 +19,7 @@ class TranslationSizeFilter:
     def __init__(self, size:int=None) -> None:
         self._size = size or self.MEDIUM_SIZE  # Maximum allowed length of any string in a translation.
 
-    def filter(self, translations:Dict[str, str]) -> Dict[str, str]:
+    def filter(self, translations:TranslationsDict) -> TranslationsDict:
         """ Return a new dict with <translations> filtered according to the required maximum size. """
         size = self._size
         if size < self.MINIMUM_SIZE:
@@ -39,7 +40,7 @@ class IndexFactory:
         self._layout = layout  # Converts between user RTFCRE steno strings and s-keys.
         self._lexer = lexer
 
-    def make_index(self, translations, *args, **kwargs) -> Dict[str, dict]:
+    def make_index(self, translations:TranslationsDict, *args, **kwargs) -> ExamplesDict:
         """ Run the lexer on all <translations> with an input filter and look at the top-level rule names.
             Make a index containing a dict for each built-in rule with every translation that used it. """
         tr_filter = TranslationSizeFilter(*args)

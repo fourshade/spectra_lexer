@@ -1,11 +1,10 @@
 from typing import Dict
 
 from .board import BoardEngine, BoardElementParser
-from .caption import BoardCaptioner
 from .engine import StenoEngine
 from .graph import GraphEngine
 from .keys import KeyLayout
-from .lexer import CompoundRuleMatcher, SpecialMatcher, StenoLexer, PrefixMatcher, StrokeMatcher, WordMatcher
+from .lexer import CompoundRuleMatcher, PrefixMatcher, SpecialMatcher, StenoLexer, StrokeMatcher, WordMatcher
 from .rules import RuleCollection
 
 
@@ -83,25 +82,24 @@ class StenoEngineFactory:
         return board_parser.build_engine()
 
     def build_graph_engine(self) -> GraphEngine:
-        graph_engine = GraphEngine(self._layout.sep)
+        key_sep = self._layout.sep
+        graph_engine = GraphEngine()
         for rule in self._rules:
             name = rule.name
+            keys = rule.keys
+            flags = rule.flags
             rulemap = rule.rulemap
-            is_inversion = self._INVERSION in rule.flags
-            graph_engine.add_rule(name, rule.keys, rule.letters, is_inversion, bool(rulemap))
+            is_separator = (keys == key_sep)
+            is_inversion = self._INVERSION in flags
+            is_linked = self._LINKED in flags
+            graph_engine.add_rule(name, keys, rule.letters, rule.description,
+                                  is_separator, is_inversion, is_linked)
             for item in rulemap:
                 graph_engine.add_connection(name, item.name, item.start, item.length)
         return graph_engine
-
-    def build_captioner(self) -> BoardCaptioner:
-        captioner = BoardCaptioner()
-        for rule in self._rules:
-            captioner.add_rule(rule.name, rule.keys, rule.letters, rule.description, bool(rule.rulemap))
-        return captioner
 
     def build_engine(self) -> StenoEngine:
         lexer = self.build_lexer()
         board_engine = self.build_board_engine()
         graph_engine = self.build_graph_engine()
-        captioner = self.build_captioner()
-        return StenoEngine(self._layout, lexer, board_engine, graph_engine, captioner)
+        return StenoEngine(self._layout, lexer, board_engine, graph_engine)

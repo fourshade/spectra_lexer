@@ -1,7 +1,7 @@
-const TITLE_DELIM = " -> ";           // Delimiter between keys and letters of translations shown in title bar.
-const MORE_TEXT = "(more...)";        // Text displayed as the final match, allowing the user to expand the search.
-const SEARCH_EXTEND_INTERVAL = 1000;  // Minimum time in ms between search expansions.
-const NODE_SELECTOR = "a.gg";         // CSS selector for graph nodes.
+const TITLE_DELIM = " -> ";             // Delimiter between keys and letters of translations shown in title bar.
+const MORE_TEXT = "(more...)";          // Text displayed as the final match, allowing the user to expand the search.
+const SEARCH_EXTEND_INTERVAL = 1000;    // Minimum time in ms between search expansions.
+const NODE_SELECTOR = ".stenoGraph a";  // CSS selector for graph nodes.
 
 // Add all URL query items as JSON-format options.
 var options = {};

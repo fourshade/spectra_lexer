@@ -49,10 +49,9 @@ def test_analysis(keys, letters) -> None:
     assert positions == sorted(map(abs, positions))
     # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
     # The root node uses the top-level rule. Every node available for interaction descends from it and is unique.
-    root = GRAPH_ENGINE.make_tree(letters, names, positions)
+    root = GRAPH_ENGINE.generate(letters, names, positions)
     nodes_list = [*root]
     nodes_set = set(nodes_list)
     assert len(nodes_list) == len(nodes_set)
     # Perform test for board diagram output. Currently only checks that the output doesn't raise.
-    BOARD_ENGINE.from_keys(skeys)
-    BOARD_ENGINE.from_rules(names)
+    BOARD_ENGINE.generate(names)

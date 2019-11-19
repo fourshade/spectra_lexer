@@ -46,14 +46,14 @@ class ComponentBench:
         bench(self._make_board, self._spaced_results(5000))
 
     def _make_board(self, letters:str, result) -> None:
-        self._engine._board_engine.from_rules(result.rule_ids(), result.unmatched_skeys())
+        self._engine._board_engine.generate(result.rule_ids(), result.unmatched_skeys())
 
     def make_graph(self) -> None:
         bench(self._make_graph, self._spaced_results(500))
 
     def _make_graph(self, letters:str, result) -> None:
         graph_engine = self._engine._graph_engine
-        root = graph_engine.make_tree(letters, result.rule_ids(), result.rule_positions(), result.unmatched_skeys())
+        root = graph_engine.generate(letters, result.rule_ids(), result.rule_positions(), result.unmatched_skeys())
         for node in root:
             root.render(node)
 
@@ -61,7 +61,7 @@ class ComponentBench:
         bench(self._run_analysis, self._spaced_translations(500))
 
     def _run_analysis(self, keys:str, letters:str) -> None:
-        self._engine.process_action("Query", keys, letters)
+        self._engine.process_action("Query", [keys, letters])
 
 
 def app_start():
