@@ -1,2 +1,2 @@
-from .methods import HTTPFileGetter, HTTPMethodTable, HTTPJSONProcessor
+from .methods import HTTPFileService, HTTPJSONService, HTTPMethodRouter, HTTPPathRouter
 from .server import HTTPServer

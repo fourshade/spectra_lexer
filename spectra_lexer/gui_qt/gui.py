@@ -30,27 +30,24 @@ class QtGUI:
         self._menu = menu
         self._search = search
         self._display = display
-        self._state_vars = {}
         self.show = window.show
         self.close = window.close
         self.menu_add = menu.add
         self.set_status = display.set_status
         self.show_traceback = display.show_traceback
 
-    def connect(self, action_fn:Callable[[str], None]) -> None:
+    def connect(self, action_fn:Callable[..., None]) -> None:
         """ Connect all GUI input signals to the action function. """
         self._search.connect(action_fn)
         self._display.connect(action_fn)
 
-    def get_state(self) -> dict:
-        return {**self._state_vars,
-                **self._search.get_state(),
-                **self._display.get_state()}
+    def get_options(self) -> dict:
+        return {**self._search.get_options(),
+                **self._display.get_options()}
 
-    def set_state(self, **state_vars) -> None:
-        self._state_vars.update(state_vars)
-        self._search.update(**state_vars)
-        self._display.update(**state_vars)
+    def update(self, *args, **kwargs) -> None:
+        self._search.update(*args, **kwargs)
+        self._display.update(*args, **kwargs)
 
     def enable(self, msg:str=None) -> None:
         """ Enable all widgets when GUI-blocking operations are done. """

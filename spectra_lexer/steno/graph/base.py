@@ -15,8 +15,9 @@ RULE_ID = Hashable
 class GraphNode:
     """ A visible node in a tree structure of steno rules. Each node may have zero or more children. """
 
-    def __init__(self, rule_id:RULE_ID, text:str, tstart:int, tlen:int, ref:str, depth:int, children:Sequence) -> None:
-        self._rule_id = rule_id      # ID reference to the rule from which this node was built.
+    def __init__(self, rule_ids:List[RULE_ID],
+                 text:str, tstart:int, tlen:int, ref:str, depth:int, children:Sequence) -> None:
+        self._rule_ids = rule_ids    # ID references to the rules from which this node was built.
         self._text = text            # Text characters drawn on the last row as the node's "body".
         self._attach_start = tstart  # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen   # Length in characters of the attachment to the parent node.
@@ -28,27 +29,15 @@ class GraphNode:
         """ The reference string is guaranteed to be unique in the tree. """
         return self._ref
 
-    def rule_id(self) -> RULE_ID:
-        """ Return the ID of the rule from which this node was built. """
-        return self._rule_id
+    def rule_ids(self) -> List[RULE_ID]:
+        """ Return the IDs of the rules from which this node was built, if any. """
+        return self._rule_ids
 
     def __iter__(self) -> Iterator:
         """ Yield all descendants of this node recursively depth-first. """
         yield self
         for child in self._children:
             yield from child
-
-    def find_from_ref(self, ref:str) -> Optional:
-        """ Return the child node with <ref> as its integer index. """
-        for node in self:
-            if node.ref() == ref:
-                return node
-
-    def find_from_rule_id(self, rule_id:str) -> Optional:
-        """ Return the first descendant node that matches <rule_id>, if any. """
-        for node in self:
-            if node.rule_id() == rule_id:
-                return node
 
     def lineage(self, node) -> Sequence:
         """ Return <node>'s ancestors in order, starting with self at index 0 and ending with <node>. """
@@ -332,10 +321,10 @@ class GraphEngine:
         if unmatched_keys:
             last_match_end = 0 if not rule_ids else (rule_positions[-1] + rule_lengths[-1])
             leftover_length = root_length - last_match_end
-            node = UnmatchedNode("...", unmatched_keys, last_match_end, leftover_length, self.REF_UNMATCHED, 1, ())
+            node = UnmatchedNode([], unmatched_keys, last_match_end, leftover_length, self.REF_UNMATCHED, 1, ())
             children.append(node)
         # The root node's attach points are arbitrary, so tstart=0 and tlen=blen.
-        return BranchNode("...", letters, 0, root_length, self.REF_ROOT, 0, children)
+        return BranchNode(rule_ids, letters, 0, root_length, self.REF_ROOT, 0, children)
 
     def _build_recursive(self, connections:Iterable[Tuple[RULE_ID, int, int]],
                          depth:int, counter:Iterator[int]) -> List[GraphNode]:
@@ -345,6 +334,6 @@ class GraphEngine:
             text, node_cls, child_connections = self._rule_data[rule_id]
             ref = str(next(counter))
             children = self._build_recursive(child_connections, depth + 1, counter) if child_connections else ()
-            node = node_cls(rule_id, text, start, length, ref, depth, children)
+            node = node_cls([rule_id], text, start, length, ref, depth, children)
             nodes.append(node)
         return nodes

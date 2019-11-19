@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QLabel, QLineEdit
 
-from spectra_lexer.steno import StenoAnalysisPage
+from spectra_lexer.steno import StenoAnalysisPage, StenoGUIOutput
 
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
@@ -19,7 +19,6 @@ class _TitleWrapper(QObject):
 
     def __init__(self, w_title:QLineEdit, *, tr_delim=" -> ") -> None:
         super().__init__()
-        self.last_translation = ["", ""]  # FIXME
         self._w_title = w_title
         self._tr_delim = tr_delim        # Delimiter between keys and letters of translations shown in title bar.
         self._anim_timer = QTimer(self)  # Animation timer for loading messages.
@@ -30,7 +29,7 @@ class _TitleWrapper(QObject):
         """ Parse the title bar text as a translation and send the signal if it is valid and non-empty. """
         parts = text.split(self._tr_delim)
         if len(parts) == 2:
-            keys, letters = self.last_translation = [p.strip() for p in parts]  # FIXME
+            keys, letters = [p.strip() for p in parts]
             if keys and letters:
                 self._sig_user_translation.emit(keys, letters)
 
@@ -51,7 +50,7 @@ class _TitleWrapper(QObject):
 
     def show_translation(self, keys:str, letters:str) -> None:
         """ Format a translation and show it in the title bar. """
-        translation = self.last_translation = [keys, letters]  # FIXME
+        translation = [keys, letters]
         tr_text = self._tr_delim.join(translation)
         self._set_static_text(tr_text)
 
@@ -83,33 +82,36 @@ class _GraphWrapper(QObject):
 
     def __init__(self, w_graph:HyperlinkTextBrowser) -> None:
         super().__init__()
-        self.last_ref = ""  # FIXME
         self._w_graph = w_graph
-        self._graph_enabled = False  # Does moving the mouse over the text do anything?
+        self._graph_enabled = False    # If True, all graph mouse actions are disabled.
+        self._graph_has_focus = False  # If True, freeze focus on the current page and do not allow mouseover signals.
         self.call_on_mouse_over = self._sig_mouse_over.connect
         self.call_on_mouse_click = self._sig_mouse_click.connect
         w_graph.linkOver.connect(self._on_link_over)
         w_graph.linkClicked.connect(self._on_link_click)
 
     def _on_link_over(self, url:QUrl) -> None:
-        """ If the graph is enabled, send a signal with the fragment string of the currently highlighted URL.
-            When we move off of a link, this will be sent with an empty string. """
-        if self._graph_enabled:
-            ref = self.last_ref = url.fragment()  # FIXME
-            self._sig_mouse_over.emit(ref)
+        """ If the graph is enabled, send a signal with the fragment string of the URL under the cursor.
+            When we move off of a link, this will be sent with an empty string.
+            Do not allow mouseover signals if focus is active. """
+        if self._graph_enabled and not self._graph_has_focus:
+            self._sig_mouse_over.emit(url.fragment())
 
     def _on_link_click(self, url:QUrl) -> None:
         """ If the graph is enabled, send a signal with the fragment string of the clicked URL.
             When we click something that isn't a link, this will be sent with an empty string. """
         if self._graph_enabled:
-            ref = self.last_ref = url.fragment()  # FIXME
-            self._sig_mouse_click.emit(ref)
+            self._sig_mouse_click.emit(url.fragment())
 
     def set_enabled(self, enabled:bool) -> None:
         """ Blank out the graph on disable. """
         self._graph_enabled = enabled
         if not enabled:
             self._w_graph.clear()
+
+    def set_focus(self, enabled=False) -> None:
+        """ Set the focus state of the graph. Mouseover signals will be suppressed when focus is active. """
+        self._graph_has_focus = enabled
 
     def set_graph_text(self, text:str) -> None:
         """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
@@ -129,12 +131,11 @@ class _GraphWrapper(QObject):
 class _BoardWrapper(QObject):
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
-    _sig_link_click = pyqtSignal([str])   # Sent with a rule reference when examples link is clicked.
+    _sig_link_click = pyqtSignal()        # Sent when examples link is clicked.
     _sig_new_ratio = pyqtSignal([float])  # Sent with the width / height aspect ratio of the board widget.
 
     def __init__(self, w_board:PictureWidget, w_link:QLabel) -> None:
         super().__init__()
-        self._link_ref = ""
         self._w_board = w_board
         self._w_link = w_link            # Rule example hyperlink.
         self._renderer = QSvgRenderer()  # XML SVG renderer.
@@ -144,7 +145,7 @@ class _BoardWrapper(QObject):
         w_board.resized.connect(self._on_resize)
 
     def _on_link_click(self, *args) -> None:
-        self._sig_link_click.emit(self._link_ref)
+        self._sig_link_click.emit()
 
     def _on_resize(self) -> None:
         """ Reposition the link and redraw the board on any size change. """
@@ -153,11 +154,9 @@ class _BoardWrapper(QObject):
         self._draw_board()
         self._sig_new_ratio.emit(width / height)
 
-    def set_link(self, ref="") -> None:
-        """ Show the link in the bottom-right corner of the diagram if examples exist.
-            The ref may have non-HTML safe characters, so it is saved as a field instead of used as an href. """
-        self._link_ref = ref
-        self._w_link.setVisible(bool(ref))
+    def set_link_visible(self, visible=True) -> None:
+        """ Show the link in the bottom-right corner of the diagram if examples exist. """
+        self._w_link.setVisible(visible)
 
     def set_data(self, xml_data:bytes=b"") -> None:
         """ Load the renderer with raw XML data containing the elements to draw, then render the new board. """
@@ -167,15 +166,12 @@ class _BoardWrapper(QObject):
     def set_enabled(self, enabled:bool) -> None:
         """ Blank out the link on disable. """
         if not enabled:
-            self.set_link()
+            self.set_link_visible(False)
 
-    def get_ratio(self) -> float:  # FIXME
+    def get_ratio(self) -> float:
         """ Return the width / height aspect ratio of the board widget. """
         width, height = self._get_size()
         return width / height
-
-    def get_ref(self) -> str:  # FIXME
-        return self._link_ref
 
     def _get_size(self) -> Tuple[float, float]:
         """ Return the size of the board widget. """
@@ -223,35 +219,62 @@ class DisplayController:
         self._graph = graph
         self._board = board
         self._caption = caption
-        # List of all GUI input events that can result in a call to a steno engine action.
-        self._events = [(title.call_on_translation, "Query"),
-                        (graph.call_on_mouse_over, "GraphOver"),
-                        (graph.call_on_mouse_click, "GraphClick"),
-                        (board.call_on_link_click, "SearchExamples"),
-                        (board.call_on_ratio_change, "GraphOver")]
+        self._last_analysis = None  # Contains HTML formatted graphs, captions, and SVG boards for each rule.
+        self._action_fn = lambda *_: None
+        self._link_ref = ""
+        graph.call_on_mouse_over(self._graph_action)
+        graph.call_on_mouse_click(self._graph_clicked)
+        title.call_on_translation(self._send_query)
+        board.call_on_link_click(self._send_example_search)
         self.set_status = title.show_status
 
-    def connect(self, action_fn:Callable[[str], None]) -> None:
-        """ Connect all input callbacks to the function with their corresponding action. """
-        for callback_set, action_str in self._events:
-            callback_set(lambda *args, action=action_str: action_fn(action))
+    def connect(self, action_fn:Callable[..., None]) -> None:
+        """ Set the action function to be called by all signals. """
+        self._action_fn = action_fn
 
-    def get_state(self) -> dict:
-        """ Return all GUI state values that may be needed by the steno engine. """
-        return {"translation": self._title.last_translation,
-                "graph_node_ref": self._graph.last_ref,
-                "board_aspect_ratio": self._board.get_ratio(),
-                "link_ref": self._board.get_ref()}
+    def get_options(self) -> dict:
+        """ Return all GUI values that may be needed by the steno engine. """
+        return {"board_aspect_ratio": self._board.get_ratio()}
 
-    def update(self, translation:list=None, page:StenoAnalysisPage=None, **state) -> None:
-        """ For every state variable, call the corresponding GUI update method if one exists. """
-        if translation is not None:
-            self._title.show_translation(*translation)
-        if page is not None:
-            self._graph.set_graph_text(page.graph)
-            self._caption.set_caption(page.caption)
-            self._board.set_data(page.board)
-            self._board.set_link(page.rule_id)
+    def _send_example_search(self, *_) -> None:
+        self._action_fn("SearchExamples", self._link_ref)
+
+    def _send_query(self, *translation:str) -> None:
+        self._action_fn("Query", translation)
+
+    def _graph_action(self, node_ref="", clicked=False) -> None:
+        """ On mouse actions, highlight the given graph node. """
+        analysis = self._last_analysis
+        pages = self._last_analysis.pages_by_ref
+        if node_ref in pages:
+            self._graph.set_focus(clicked)
+            self._set_page(pages[node_ref], intense=clicked)
+        else:
+            self._graph.set_focus(False)
+            self._set_page(analysis.default_page)
+
+    def _graph_clicked(self, node_ref:str) -> None:
+        self._graph_action(node_ref, True)
+
+    def update(self, out:StenoGUIOutput) -> None:
+        """ Set a new analysis and attempt to highlight the last linked rule. """
+        analysis = out.analysis
+        if analysis is not None:
+            self._last_analysis = analysis
+            self._title.show_translation(analysis.keys, analysis.letters)
+            if self._link_ref:
+                for ref, page in analysis.pages_by_ref.items():
+                    if page.rule_id == self._link_ref:
+                        self._graph_action(ref, True)
+                        return
+            self._graph_action()
+
+    def _set_page(self, page:StenoAnalysisPage, *, intense=False) -> None:
+        self._graph.set_graph_text(page.intense_graph if intense else page.graph)
+        self._caption.set_caption(page.caption)
+        self._board.set_data(page.board)
+        ref = self._link_ref = page.rule_id
+        self._board.set_link_visible(bool(ref))
 
     def set_enabled(self, enabled:bool) -> None:
         self._title.set_enabled(enabled)

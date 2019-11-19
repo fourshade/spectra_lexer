@@ -139,7 +139,8 @@ class HTTPRequestParser:
                 res += '%', item
         return ''.join(res)
 
-    def _parse_headers(self, header_lines:Iterable[str]) -> Dict[str, str]:
+    @staticmethod
+    def _parse_headers(header_lines:Iterable[str]) -> Dict[str, str]:
         """ Parse the raw string form of every header, even those with duplicate names, into a dict and return it. """
         raw = []
         for line in header_lines:

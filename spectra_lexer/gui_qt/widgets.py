@@ -88,7 +88,7 @@ class StringListView(QListView):
         """ Replace the list of items. This deselects every item, even ones that didn't change. """
         self.model().setStringList(str_list)
 
-    def selectByValue(self, value:str=None) -> None:
+    def selectByValue(self, value:str=None, *, center_selection=False) -> None:
         """ Programmatically select a specific item by value if it exists. If it doesn't, clear the selection.
             Suppress signals to keep from tripping the selectionChanged event. """
         self.blockSignals(True)
@@ -98,8 +98,9 @@ class StringListView(QListView):
             model_idx = model.index(list_idx, 0)
             sel_model = self.selectionModel()
             sel_model.select(model_idx, sel_model.SelectCurrent)
-            # Put any selection as close as possible to the center of the viewing area.
-            self.scrollTo(model_idx, self.PositionAtCenter)
+            if center_selection:
+                # Put the selection as close as possible to the center of the viewing area.
+                self.scrollTo(model_idx, self.PositionAtCenter)
         except ValueError:
             self.clearSelection()
         self.blockSignals(False)

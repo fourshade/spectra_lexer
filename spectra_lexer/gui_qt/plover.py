@@ -157,9 +157,9 @@ class PloverExtension:
         strokes = self._engine.get_last_strokes()
         translation = self._parser.parse_translation(strokes, new_actions)
         if translation is not None:
-            state = dict(translation=translation, match_all_keys=False)
-            changed = self._app.process_action(state, "Query")
-            self._gui.set_state(translation=translation, **changed)
+            options = self._gui.get_options()
+            out = self._app.process_action("Query", translation, lexer_strict_mode=False, **options)
+            self._gui.update(out)
 
 
 class PloverPlugin(QtAppFactory):

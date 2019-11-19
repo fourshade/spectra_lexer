@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from .config import ConfigDictionary, ConfigItem
 from .io import ResourceIO
-from .steno import SearchResults, StenoAnalysisPage, StenoEngine
+from .steno import ExamplesDict, StenoEngine, StenoGUIOutput, TranslationsDict
 
 
 class StenoApplication:
@@ -26,7 +26,7 @@ class StenoApplication:
             translations.update(d)
         self.set_translations(translations)
 
-    def set_translations(self, translations:Dict[str, str]) -> None:
+    def set_translations(self, translations:TranslationsDict) -> None:
         """ Send a new translations dict to the engine. """
         self._engine.set_translations(translations)
 
@@ -47,11 +47,11 @@ class StenoApplication:
         self.set_index(index)
         self.save_index(index)
 
-    def set_index(self, index:Dict[str, dict]) -> None:
+    def set_index(self, index:ExamplesDict) -> None:
         """ Send a new examples index dict to the engine. """
         self._engine.set_index(index)
 
-    def save_index(self, index:Dict[str, dict]) -> None:
+    def save_index(self, index:ExamplesDict) -> None:
         """ Save an examples index structure to a JSON file.
             Dict key sorting helps search algorithms run faster.
             An explicit flag is required to preserve Unicode symbols. """
@@ -86,193 +86,8 @@ class StenoApplication:
         """ Return all active config info with formatting instructions. """
         return self._config.info()
 
-    def process_action(self, state:Dict[str, Any], action:str) -> dict:
-        """ Perform an <action> on an initial view <state>, then return the changes.
-            Config options are added to the view state first. The main state variables may override them. """
-        state = {**self._config.to_dict(), **state}
-        view_state = ViewState(self._engine, state)
-        method = getattr(view_state, "RUN" + action)
-        return method()
-
-
-class ViewState:
-    """ The primary GUI state machine. Contains a complete representation of the state of the main GUI operations.
-        The general flow of information goes from the search box, to a list of words matching the search, to a list
-        of mappings (strokes <-> translations) that correspond to the chosen word, and finally to the lexer.
-        After the lexer is finished with a translation, a graph and board diagram are generated.
-        Various steps of the process may be done automatically; for example, if there is only one
-        possible mapping of a certain word, it will be chosen automatically and a lexer query sent. """
-
-    _MORE_TEXT = "(more...)"  # Text displayed as the final list item, allowing the user to expand the search.
-    _INDEX_DELIM = ";"        # Delimiter between rule name and query for example index searches.
-
-    # Pure input values (search).
-    search_mode_strokes: bool = False  # If True, search for strokes instead of translations.
-    search_mode_regex: bool = False    # If True, perform search using regex characters.
-    search_match_limit: int = 100      # Maximum number of matches returned on one page of a search.
-    link_ref: str = ""                 # Name for the most recent rule (if there are examples in the index).
-
-    # Pure input values (display).
-    graph_node_ref: str = ""                # Last node identifier on the graph ("" for empty space).
-    lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
-    board_aspect_ratio: float = 100.0       # Aspect ratio for board viewing area.
-    board_compound_key_labels: bool = True  # Show special labels for compound keys (i.e. `f` instead of TP).
-    graph_compressed_layout: bool = True    # Compress the graph layout vertically to save space.
-    graph_compatibility_mode: bool = False  # Force correct spacing in the graph using HTML tables.
-
-    # Either the program or user may manipulate the GUI to change these values.
-    input_text: str = ""          # Last pattern from user textbox input.
-    match_selected: str = ""      # Last selected match from the upper list.
-    mapping_selected: str = ""    # Last selected match from the lower list.
-    translation: list = ["", ""]  # Currently diagrammed translation on graph.
-
-    # The user typically can't change these values directly. They are held for future reference.
-    page_count: int = 1            # Number of pages in the upper list.
-    graph_has_focus: bool = False  # Is a node under focus on the graph?
-
-    # Pure output values. These may be data classes that cannot be converted back from JSON.
-    matches: list            # New items in the upper list.
-    mappings: list           # New items in the lower list.
-    page: StenoAnalysisPage  # Contains an HTML formatted graph, a caption, and an SVG board.
-
-    def __init__(self, steno_engine:StenoEngine, state_vars:dict=()) -> None:
-        self._steno_engine = steno_engine  # Has access to lexer and graphical components.
-        self._modified = {}                # Tracks attributes that are changed by action methods.
-        self.__dict__.update(state_vars)   # Update state attributes without affecting the modified tracker.
-
-    def __setattr__(self, name:str, value:Any) -> None:
-        """ Add public attributes that are modified to the tracking dict. """
-        super().__setattr__(name, value)
-        if not name.startswith("_"):
-            self._modified[name] = value
-
-    def RUNSearchExamples(self) -> dict:
-        """ When a link is clicked, search for examples of the named rule and select one. """
-        self.input_text = self.link_ref + self._INDEX_DELIM
-        self.page_count = 1
-        self._search()
-        matches = self.matches
-        if matches:
-            match = self.match_selected = matches[len(matches)//2]
-            self.input_text += match
-            self._search()
-            self._lookup()
-        return self._modified
-
-    def RUNSearch(self) -> dict:
-        """ Do a new search. """
-        self.page_count = 1
-        self._search()
-        return self._modified
-
-    def RUNLookup(self) -> dict:
-        """ If the user clicked "more", search again with another page. """
-        if self.match_selected == self._MORE_TEXT:
-            self.page_count += 1
-            self._search()
-        else:
-            self._lookup()
-        return self._modified
-
-    def _search(self) -> None:
-        """ Look up a pattern in the dictionary and populate the upper matches list unless the input is blank. """
-        if not self.input_text:
-            matches = []
-        else:
-            results = self._call_search()
-            matches = results.matches
-            # If we met the count, add a final item to allow search expansion.
-            if not results.is_complete:
-                matches.append(self._MORE_TEXT)
-        # Set a new match list. This invalidates the previous mappings.
-        self.matches = matches
-        self.mappings = []
-
-    def _lookup(self) -> None:
-        """ Look up mappings and display them in the lower list. """
-        match = self.match_selected
-        results = self._call_search()
-        matches = results.matches
-        if match in matches:
-            idx = results.matches.index(match)
-            mappings = self.mappings = results.mappings[idx]
-            if mappings:
-                # A lone mapping should be highlighted automatically and displayed on its own.
-                selection, *others = mappings
-                if others:
-                    # If there is more than one mapping, make a query to select the best combination.
-                    selection = self._steno_engine.lexer_best_strokes(mappings, match)
-                self.mapping_selected = selection
-                self._query_from_selection()
-
-    def _call_search(self) -> SearchResults:
-        pattern = self.input_text
-        kwargs = dict(count=self.page_count * self.search_match_limit, strokes=self.search_mode_strokes)
-        if self._INDEX_DELIM in pattern:
-            args = pattern.split(self._INDEX_DELIM, 1)
-            return self._steno_engine.search_examples(*args, **kwargs)
-        else:
-            return self._steno_engine.search_translations(pattern, regex=self.search_mode_regex, **kwargs)
-
-    def RUNSelect(self) -> dict:
-        """ Do a lexer query based on the current search selections. """
-        self._query_from_selection()
-        return self._modified
-
-    def _query_from_selection(self) -> None:
-        """ The order of lexer parameters must be reversed for strokes mode. """
-        self.translation = translation = [self.match_selected, self.mapping_selected]
-        if not self.search_mode_strokes:
-            translation.reverse()
-        self._new_graph()
-
-    def RUNQuery(self) -> dict:
-        """ Execute and display a graph of a lexer query from user strokes. """
-        self._new_graph()
-        return self._modified
-
-    def _new_graph(self) -> None:
-        """ A new graph should clear the last node ref and look for a new one that uses the same rule. """
-        keys, letters = self.translation
-        find_rule = self.graph_has_focus
-        select_ref = self.link_ref if find_rule else ""
-        if not keys and not letters:
-            return
-        self.graph_node_ref = ""
-        self.page = self._exec_query(keys, letters, select_ref, find_rule=find_rule, intense=True)
-        if not self.page.rule_id:
-            self.graph_has_focus = False
-
-    def RUNGraphOver(self) -> dict:
-        """ On mouseover, highlight the current graph node temporarily if nothing is focused.
-            Mouseovers should do nothing as long as focus is active. """
-        keys, letters = self.translation
-        select_ref = self.graph_node_ref
-        if self.graph_has_focus or (not keys and not letters):
-            return {}
-        self.page = self._exec_query(keys, letters, select_ref)
-        return self._modified
-
-    def RUNGraphClick(self) -> dict:
-        """ On click, find the current graph node and set focus on it (or clear focus if node ref is empty). """
-        keys, letters = self.translation
-        select_ref = self.graph_node_ref
-        if not keys and not letters:
-            return {}
-        self.page = self._exec_query(keys, letters, select_ref, intense=True)
-        self.graph_has_focus = bool(select_ref)
-        return self._modified
-
-    def _exec_query(self, keys:str, letters:str, select_ref="", intense=False, find_rule=False) -> StenoAnalysisPage:
-        """ Execute a new lexer query and load the state with the output to draw the graph and board.
-            If <find_rule> is True, attempt to select a node with the same rule as the previous one.
-            If <intense> is True, draw any valid selection with a bright color. """
-        return self._steno_engine.analyze(keys, letters,
-                                          match_all_keys=self.lexer_strict_mode,
-                                          select_ref=select_ref,
-                                          find_rule=find_rule,
-                                          graph_compress=self.graph_compressed_layout,
-                                          graph_compat=self.graph_compatibility_mode,
-                                          graph_intense=intense,
-                                          board_ratio=self.board_aspect_ratio,
-                                          board_compound=self.board_compound_key_labels)
+    def process_action(self, *args, **options) -> StenoGUIOutput:
+        """ Perform an action and return the changes.
+            Config options are added to the view state first. The main options may override them. """
+        options = {**self._config.to_dict(), **options}
+        return self._engine.process_action(*args, **options)

@@ -16,11 +16,14 @@ class HTTPRequestHandler:
         raise NotImplementedError
 
 
-class HTTPMethodTable(HTTPRequestHandler):
-    """ Master request handler that redirects requests to other handlers based on method type. """
+class HTTPMethodRouter(HTTPRequestHandler):
+    """ Delegates requests to other request handlers based on HTTP method. """
 
-    def __init__(self, **handlers:HTTPRequestHandler) -> None:
-        self._handlers = handlers  # Table of HTTP method handlers.
+    def __init__(self) -> None:
+        self._handlers = {}  # Table of HTTP request handlers by uppercase HTTP method.
+
+    def add_route(self, method:str, handler:HTTPRequestHandler) -> None:
+        self._handlers[method.upper()] = handler
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Route HTTP requests by method. Handlers must be completely thread safe. """
@@ -31,7 +34,25 @@ class HTTPMethodTable(HTTPRequestHandler):
         return handler(request)
 
 
-class HTTPFileGetter(HTTPRequestHandler):
+class HTTPPathRouter(HTTPRequestHandler):
+    """ Delegates requests to other request handlers based on URI path. """
+
+    def __init__(self) -> None:
+        self._handlers = {}  # Table of HTTP request handlers by lowercase URI path.
+
+    def add_route(self, path:str, handler:HTTPRequestHandler) -> None:
+        self._handlers[path.lower()] = handler
+
+    def __call__(self, request:HTTPRequest) -> HTTPResponse:
+        """ Route HTTP requests by path. Handlers must be completely thread safe. """
+        uri_path = request.path.lower()
+        handler = self._handlers.get(uri_path)
+        if handler is None:
+            raise HTTPError.NOT_FOUND(uri_path)
+        return handler(request)
+
+
+class HTTPFileService(HTTPRequestHandler):
     """ Handles requests specific to file retrieval (generally using GET and HEAD methods). """
 
     def __init__(self, directory:str, index_filename="index.html") -> None:
@@ -78,7 +99,7 @@ class HTTPFileGetter(HTTPRequestHandler):
         return file_path
 
 
-class HTTPDataProcessor(HTTPRequestHandler):
+class HTTPDataService(HTTPRequestHandler):
     """ Abstract class; handles requests specific to data processing (generally using the POST method). """
 
     ctype = "text/html"  # MIME content type for outgoing data.
@@ -108,7 +129,7 @@ class HTTPDataProcessor(HTTPRequestHandler):
         raise NotImplementedError
 
 
-class HTTPJSONProcessor(HTTPDataProcessor):
+class HTTPJSONService(HTTPDataService):
     """ Abstract class; decodes a JSON object from HTTP content, processes it, and returns a JSON-encoded result. """
 
     _JSON_OBJ = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.

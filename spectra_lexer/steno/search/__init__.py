@@ -1,1 +1,1 @@
-from .search import ExampleSearchEngine, SearchResults, TranslationSearchEngine
+from .search import ExamplesDict, ExampleSearchEngine, SearchResults, TranslationsDict, TranslationSearchEngine

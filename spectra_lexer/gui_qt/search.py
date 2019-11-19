@@ -3,7 +3,7 @@ from typing import Callable, List
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCheckBox, QLineEdit
 
-from spectra_lexer.steno import SearchResults
+from spectra_lexer.steno import StenoGUIOutput
 
 from .widgets import StringListView
 
@@ -74,6 +74,8 @@ class _ModeCheckboxWrapper:
 
 class SearchController:
 
+    _MORE_TEXT = "(more...)"  # Text displayed as the final match, allowing the user to expand the search.
+
     def __init__(self, input_:_InputTextboxWrapper, matches:_MatchListWrapper, mappings:_MappingListWrapper,
                  strokes:_ModeCheckboxWrapper, regex:_ModeCheckboxWrapper) -> None:
         self._input = input_
@@ -81,37 +83,71 @@ class SearchController:
         self._mappings = mappings
         self._strokes = strokes
         self._regex = regex
-        # List of all GUI input events that can result in a call to a steno engine action.
-        self._events = [(strokes.call_on_toggle, "Search"),
-                        (regex.call_on_toggle, "Search"),
-                        (input_.call_on_edit, "Search"),
-                        (matches.call_on_select, "Lookup"),
-                        (mappings.call_on_select, "Select")]
-        # Dict of all possible GUI methods to call when a particular part of the state changes.
-        self._methods = {"input_text":       input_.set,
-                         "matches":          matches.set_items,
-                         "match_selected":   matches.select,
-                         "mappings":         mappings.set_items,
-                         "mapping_selected": mappings.select}
+        self._last_matches = {}
+        self._last_page_count = 1
+        self._action_fn = lambda *_: None
+        strokes.call_on_toggle(self._send_search)
+        regex.call_on_toggle(self._send_search)
+        input_.call_on_edit(self._send_search)
+        matches.call_on_select(self._match_select)
+        mappings.call_on_select(self._mapping_select)
 
-    def get_state(self) -> dict:
-        """ Return all GUI state values that may be needed by the steno engine. """
+    def connect(self, action_fn:Callable[..., None]) -> None:
+        """ Set the action function to be called by all signals. """
+        self._action_fn = action_fn
+
+    def get_options(self) -> dict:
+        """ Return all GUI values that may be needed by the steno engine. """
         return {"search_mode_strokes": bool(self._strokes),
-                "search_mode_regex": bool(self._regex),
-                "input_text": self._input.value(),
-                "match_selected": self._matches.value(),
-                "mapping_selected": self._mappings.value()}
+                "search_mode_regex": bool(self._regex)}
 
-    def connect(self, action_fn:Callable[[str], None]) -> None:
-        """ Connect all input callbacks to the function with their corresponding action. """
-        for callback_set, action_str in self._events:
-            callback_set(lambda *args, action=action_str: action_fn(action))
+    def _send_search(self, *_, page_count=1) -> None:
+        self._last_page_count = page_count
+        self._action_fn("Search", self._input.value(), page_count)
 
-    def update(self, **state) -> None:
-        """ For every state variable, call the corresponding GUI update method if one exists. """
-        for k in self._methods:
-            if k in state:
-                self._methods[k](state[k])
+    def _match_select(self, match:str) -> None:
+        """ If the user clicked "more", search again with another page. """
+        if match == self._MORE_TEXT:
+            self._send_search(page_count=self._last_page_count + 1)
+        else:
+            self._set_mappings(match)
+            self._mapping_select()
+
+    def _mapping_select(self, mapping="") -> None:
+        """ The order of lexer parameters must be reversed for strokes mode. """
+        match = self._matches.value()
+        if mapping:
+            translations = [[match, mapping]]
+        else:
+            translations = [[match, m] for m in self._last_matches[match]]
+        if not self._strokes:
+            for t in translations:
+                t.reverse()
+        self._action_fn("Query", *translations)
+
+    def update(self, out:StenoGUIOutput) -> None:
+        if out.search_input is not None:
+            self._input.set(out.search_input)
+        if out.search_results is not None:
+            self._last_matches = out.search_results.matches
+            match_list = list(self._last_matches)
+            # If there are unseen results, add a final list item to allow search expansion.
+            if not out.search_results.is_complete:
+                match_list.append(self._MORE_TEXT)
+            self._matches.set_items(match_list)
+            self._mappings.set_items([])
+        if out.analysis is not None:
+            # Set the current selections to match the analyzed translation if possible.
+            translation = out.analysis.keys, out.analysis.letters
+            match, mapping = (translation if self._strokes else reversed(translation))
+            if match in self._last_matches:
+                self._matches.select(match)
+                self._set_mappings(match)
+                self._mappings.select(mapping)
+
+    def _set_mappings(self, match:str) -> None:
+        mappings = self._last_matches[match]
+        self._mappings.set_items(mappings)
 
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all search widgets. Leave the content intact. """

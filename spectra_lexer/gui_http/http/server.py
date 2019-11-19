@@ -17,11 +17,11 @@ class HTTPServer(BaseTCPServer):
         Threading is required to prevent one client from hogging the entire server with a persistent connection.
         To that end, this class is thread-safe to the extent that the request handler and logger are. """
 
-    server_version = f"Spectra/0.2 Python/{sys.version.split()[0]}"  # Server version string sent with each response.
+    server_version = f"Spectra/0.3 Python/{sys.version.split()[0]}"  # Server version string sent with each response.
 
-    def __init__(self, req_handler:HTTPRequestHandler, logger:Callable[[str], None]=print, *, threaded=False) -> None:
+    def __init__(self, req_handler:HTTPRequestHandler, log:Callable[[str], None]=print, *, threaded=False) -> None:
         self._req_handler = req_handler  # Handler for all HTTP requests. May delegate to subhandlers.
-        self._logger = logger            # Used to log all HTTP responses and errors (but not headers).
+        self._log = log                  # Callable used to log all HTTP responses and errors (but not headers).
         self._threaded = threaded        # If True, handle each connection with a new thread.
 
     def connect(self, *args) -> None:
@@ -33,7 +33,7 @@ class HTTPServer(BaseTCPServer):
     def _connect(self, stream:RawIOBase, addr:str) -> None:
         """ Process all requests on an open HTTP connection. Log all results with the client address. """
         def log(message:str) -> None:
-            self._logger(f'{addr} - {message}')
+            self._log(f'{addr} - {message}')
         try:
             log("Connection opened.")
             parser = HTTPRequestParser(stream)
@@ -46,7 +46,7 @@ class HTTPServer(BaseTCPServer):
         except OSError:
             log("Connection aborted by OS.")
         except Exception:
-            log(format_exc())
+            log('HTTP EXCEPTION\n' + format_exc())
         finally:
             stream.close()
             log("Connection terminated.")

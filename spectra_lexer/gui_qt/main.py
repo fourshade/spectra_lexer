@@ -37,14 +37,14 @@ class QtGUIController:
             if self._gui.confirm_startup_index():
                 self._make_index()
 
-    def _action(self, action:str) -> None:
+    def _action(self, action:str, *args) -> None:
         """ Send an action command with the current state.
             Run through the returned changes and update the GUI state with any relevant ones. """
         if self._app is not None:
             with self._exc_trap:
-                state = self._gui.get_state()
-                changed = self._app.process_action(state, action)
-                self._gui.set_state(**changed)
+                options = self._gui.get_options()
+                out = self._app.process_action(action, *args, **options)
+                self._gui.update(out)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """

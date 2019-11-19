@@ -263,15 +263,13 @@ def test_translations_search() -> None:
     engine = TranslationSearchEngine(TEST_TRANSLATIONS)
     for keys, word in TEST_TRANSLATIONS.items():
         results = engine.search(keys, count=2, strokes=True)
-        assert results.matches == [keys]
-        assert results.mappings == [[word]]
+        assert results.matches == {keys: [word]}
         results = engine.search(word, count=2, strokes=False)
-        assert results.matches == [word]
-        assert results.mappings == [[keys]]
+        assert results.matches == {word: [keys]}
         results = engine.search(re.escape(keys), count=2, strokes=True, regex=True)
-        assert results.matches == [keys]
+        assert keys in results.matches
         results = engine.search(re.escape(word), count=2, strokes=False, regex=True)
-        assert results.matches == [word]
+        assert word in results.matches
 
 
 def test_example_search() -> None:
@@ -279,8 +277,8 @@ def test_example_search() -> None:
     engine = ExampleSearchEngine(TEST_INDEX)
     for rule_name in TEST_INDEX:
         keys, letters = RULES_DICT[rule_name]
-        wmatches = engine.search(rule_name, count=100, strokes=False).matches
+        wmatches = engine.search(rule_name, "", count=100, strokes=False).matches
         assert all([letters in r for r in wmatches])
-        kmatches = engine.search(rule_name, count=100, strokes=True).matches
+        kmatches = engine.search(rule_name, "", count=100, strokes=True).matches
         all_keys = set(keys) - IGNORED_KEYS
         assert all_keys == all_keys.intersection(*kmatches)

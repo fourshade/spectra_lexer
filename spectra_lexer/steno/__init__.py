@@ -1,8 +1,8 @@
 """ Package for the steno components of Spectra. These handle operations related to steno rules and translations. """
 
-from .engine import StenoAnalysis, StenoAnalysisPage, StenoEngine
+from .engine import StenoAnalysis, StenoAnalysisPage, StenoEngine, StenoGUIOutput
 from .factory import StenoEngineFactory
-from .filter import TranslationSizeFilter
+from .index import TranslationSizeFilter
 from .keys import KeyLayout
 from .rules import RuleCollection, RuleParser
-from .search import SearchResults
+from .search import ExamplesDict, SearchResults, TranslationsDict
