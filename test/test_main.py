@@ -6,52 +6,47 @@ from collections import Counter
 
 import pytest
 
-from .base import FACTORY, IGNORED_KEYS, KEY_LAYOUT, RULES, RULES_DICT, TEST_TRANSLATIONS
+from .base import FACTORY, KEY_LAYOUT, RULES, TEST_TRANSLATIONS
+
+VALID_KEYS = KEY_LAYOUT.valid_rtfcre()
+IGNORED_KEYS = KEY_LAYOUT.dividers()
 
 
 @pytest.mark.parametrize("rule", RULES)
 def test_rules(rule) -> None:
     """ Go through each rule and perform integrity checks. """
-    rulemap = rule.rulemap
-    if rulemap:
+    key_counter = Counter(rule.keys)
+    # Every rule must match at least one key.
+    assert key_counter
+    # All keys must be valid RTFCRE characters.
+    assert key_counter.keys() <= VALID_KEYS
+    if rule:
         # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
         # Make sure the child rules contain all the keys of the parent between them, and no extras.
         parent_len = len(rule.letters)
-        key_count = Counter(rule.keys)
-        for item in rulemap:
+        for item in rule:
             assert item.start >= 0
             assert item.length >= 0
             assert item.start + item.length <= parent_len
-            keys, letters = RULES_DICT[item.name]
-            key_count.subtract(keys)
-        mismatched = [k for k in key_count if key_count[k] and k not in IGNORED_KEYS]
-        assert not mismatched, f"Entry {rule} has mismatched keys vs. its child rules: {mismatched}"
+            keys = item.child.keys
+            key_counter.subtract(keys)
+        mismatched = [k for k in key_counter if key_counter[k] and k not in IGNORED_KEYS]
+        assert not mismatched, f"Entry {rule.id} has mismatched keys vs. its child rules: {mismatched}"
 
 
-LEXER = FACTORY.build_lexer()
-BOARD_ENGINE = FACTORY.build_board_engine()
-GRAPH_ENGINE = FACTORY.build_graph_engine()
+ANALYZER = FACTORY.build_analyzer()
+DISPLAY = FACTORY.build_display_engine()
 
 
 @pytest.mark.parametrize("keys, letters", TEST_TRANSLATIONS.items())
 def test_analysis(keys, letters) -> None:
     """ The parsing tests fail if the lexer can't match all the keys. """
-    skeys = KEY_LAYOUT.from_rtfcre(keys)
-    result = LEXER.query(skeys, letters)
-    unmatched = result.unmatched_skeys()
-    names = result.rule_ids()
-    positions = result.rule_positions()
-    assert not unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
-    # Rule names must all refer to rules that exist.
-    # for name in names:
-    #     assert name in RULES_DICT
-    # Rule positions must be non-negative and increasing monotonic.
+    analysis = ANALYZER.query(keys, letters)
+    assert analysis
+    for item in analysis:
+        assert not item.child.is_unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
+    # Rule start positions must be non-negative and increasing monotonic.
+    positions = [c.start for c in analysis]
     assert positions == sorted(map(abs, positions))
-    # Perform test for text graph output. Mainly limited to examining the node tree for consistency.
-    # The root node uses the top-level rule. Every node available for interaction descends from it and is unique.
-    root = GRAPH_ENGINE.generate(letters, names, positions)
-    nodes_list = [*root]
-    nodes_set = set(nodes_list)
-    assert len(nodes_list) == len(nodes_set)
-    # Perform test for board diagram output. Currently only checks that the output doesn't raise.
-    BOARD_ENGINE.generate(names)
+    # Perform test for analysis output. Currently only checks that the output doesn't raise.
+    assert DISPLAY.process(analysis)

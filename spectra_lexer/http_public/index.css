@@ -1,0 +1,53 @@
+#w_mappings  {height: 100px;
+              margin-bottom: 4px;}
+#w_title     {width: 100%;
+              background: #F7F7F7;
+              border-style: none;}
+#w_graph     {height: 210px;
+              overflow: auto;}
+#w_link      {position: absolute;
+              bottom: 4px;
+              right: 4px;}
+
+.main        {width: 100%;
+              height: 100%;}
+.col1        {width: 150px;}
+.col2        {min-width: 450px;
+              vertical-align: top;}
+.mono        {margin: 2px;
+              white-space: pre;
+              font-family: "Courier New", Courier, monospace;
+              font-size: 10pt;}
+.footer      {text-align: right;}
+
+body         {font-family: Arial, Helvetica, sans-serif;
+              font-size: 11pt;}
+td           {position: relative;
+              margin: 0px;
+              padding: 4px;
+              background: #F7F7F7;
+              border: 1px solid black;}
+div, select  {width: inherit;
+              height: inherit;}
+svg          {max-height: 250px;}
+ul           {height: 210px;
+              padding: 0px;
+              background: white;
+              border: 1px solid black;
+              overflow: auto;
+              line-height: 0px;
+              font-size: 0px;}
+li           {padding: 2px;
+              line-height: 12px;
+              font-size: 9pt;
+              cursor: pointer;}
+li.selected  {background: #bfcfff;}
+input, label {vertical-align: middle;}
+
+input[type="checkbox"], input[type="radio"] {margin: 8px 10px 8px 10px;}
+
+.mobile {display: none;}
+@media only screen and (min-device-width : 320px) and (max-device-width : 480px)
+{
+    .mobile {display: block;}
+}

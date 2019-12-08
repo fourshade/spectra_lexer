@@ -1,0 +1,54 @@
+<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html">
+    <meta name="viewport" content="width=600">
+    <title>The Spectra Project</title>
+    <link rel="icon" href="icon.png" type="image/png" sizes="32x32">
+    <link rel="stylesheet" href="index.css" type="text/css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+</head><body>
+<table class="main">
+    <tr>
+        <td class="col1">
+            <input id="w_input" placeholder="Search..." title="Search the dictionary for a text pattern.">
+        </td>
+        <td class="col2">
+            <input class="mono" id="w_title" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'>
+        </td>
+    </tr>
+    <tr>
+        <td class="col1">
+            <ul id="w_matches"></ul>
+        </td>
+        <td class="col2">
+            <div class="mono" id="w_graph">Search for any word to see its breakdown.</div>
+        </td>
+    </tr>
+    <tr>
+        <td class="col1">
+            <ul id="w_mappings"></ul>
+            <div><input type="checkbox" id="w_strokes"><label for="w_strokes">Stroke Search</label></div>
+            <div><input type="checkbox" id="w_regex"><label for="w_regex">Regex Search</label></div>
+        </td>
+        <td class="col2" rowspan="2" style="text-align:center;">
+            <div class="mono" id="w_caption">No translation selected.</div>
+            <div id="w_board"><svg></svg></div>
+            <a id="w_link" href="#">More Examples</a>
+        </td>
+    </tr>
+    <tr>
+        <td class="col1" style="text-align:right;">
+            <div><label for="w_boardopts_0">Show Keys</label><input type="radio" name="w_boardopts" value="[0,0]" id="w_boardopts_0"></div>
+            <div><label for="w_boardopts_1">Show Sounds</label><input type="radio" name="w_boardopts" value="[1,0]" id="w_boardopts_1"></div>
+            <div><label for="w_boardopts_2">Show Text</label><input type="radio" name="w_boardopts" value="[1,1]" id="w_boardopts_2" checked></div>
+        </td>
+    </tr>
+</table>
+<div class="footer">
+    <span><a href="?graph_compatibility_mode=1">Compatibility Mode</a> ◆ <a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
+</div>
+<p class="mobile">
+    <span><u>WARNING</u>: The major mobile browsers do not grasp the concept of "monospaced" font rendering for anything outside the ASCII range. The line-based characters in Unicode are explicitly designed for this, yet mobile browsers routinely mangle the spacing in practically every font. You can try <a href="?graph_compatibility_mode=1">compatibility mode</a> if nothing is lining up.</span>
+</p>
+</body></html>

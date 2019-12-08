@@ -1,0 +1,10 @@
+{
+    "sep":    "/",
+    "split":  "-",
+    "left":   "#STKPWHR",
+    "center": "AO*EU",
+    "right":  "FRPBLGTSDZ",
+    "unordered": "*",
+    "aliases": {"0": "#O", "1": "#S", "2": "#T", "3": "#P", "4": "#H",
+                "5": "#A", "6": "#F", "7": "#P", "8": "#L", "9": "#T"}
+}

@@ -2,10 +2,11 @@
 
 """ Unit tests for Plover dictionary conversion. """
 
+from contextlib import nullcontext
 from typing import Dict
 
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.gui_qt.plover import IPloverStenoDictCollection, IPloverStenoDict, \
+from spectra_lexer.plover import IPloverEngine, IPloverStenoDict, IPloverStenoDictCollection, \
     PloverEngineWrapper, PloverTranslationParser
 
 
@@ -28,8 +29,13 @@ def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPloverStenoDictCo
     return steno_dc
 
 
+class DummyEngine(nullcontext, IPloverEngine):
+    pass
+
+
 def dc_to_dict(steno_dc:IPloverStenoDictCollection) -> Dict[str, str]:
-    wrapper = PloverEngineWrapper()
+    dummy_engine = DummyEngine()
+    wrapper = PloverEngineWrapper(dummy_engine)
     parser = PloverTranslationParser()
     d = wrapper.compile_raw_dict(steno_dc)
     return parser.convert_dict(d)

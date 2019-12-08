@@ -2,23 +2,27 @@
 
 """ cProfile benchmarks for each lexer component. Counts are tailored for a reasonable running time. """
 
+import subprocess
 import sys
 
-from .bench import bench
+from .bench import MultiProfiler, ProfileTestRunner, RawTestRunner
+
+PROFILER_TYPES = [RawTestRunner, ProfileTestRunner]
 
 
 class ComponentBench:
 
-    def __init__(self, engine) -> None:
+    def __init__(self, engine, profiler) -> None:
         self._engine = engine
+        self._profiler = profiler
 
     def _translations(self) -> dict:
-        return self._engine._translations.to_dict()
+        return self._engine._translations
 
     def init_plover(self) -> None:
         from test import test_plover
         steno_dc = test_plover.dict_to_dc(self._translations(), split_count=1)
-        bench(test_plover.dc_to_dict, [(steno_dc,)] * 10)
+        self._profiler.run(test_plover.dc_to_dict, [(steno_dc,)] * 10)
 
     def _spaced_translations(self, n:int) -> list:
         items = [*self._translations().items()]
@@ -29,44 +33,33 @@ class ComponentBench:
         import random
         random.seed(123)
         prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(50000)]
-        bench(self._run_search, zip(prefixes))
-
-    def _run_search(self, letters:str) -> None:
-        self._engine._translations.search(letters, count=100)
+        self._profiler.run(self._engine._search_engine.search, zip(prefixes))
 
     def run_lexer(self) -> None:
-        bench(self._engine.lexer_query, self._spaced_translations(5000))
+        self._profiler.run(self._engine.analyze, self._spaced_translations(5000))
 
     def _spaced_results(self, n:int) -> list:
         translations = self._spaced_translations(n)
-        query = self._engine.lexer_query
-        return [(w, query(k, w)) for k, w in translations]
+        query = self._engine.analyze
+        return [(query(k, w),) for k, w in translations]
 
-    def make_board(self) -> None:
-        bench(self._make_board, self._spaced_results(5000))
-
-    def _make_board(self, letters:str, result) -> None:
-        self._engine._board_engine.generate(result.rule_ids(), result.unmatched_skeys())
-
-    def make_graph(self) -> None:
-        bench(self._make_graph, self._spaced_results(500))
-
-    def _make_graph(self, letters:str, result) -> None:
-        graph_engine = self._engine._graph_engine
-        root = graph_engine.generate(letters, result.rule_ids(), result.rule_positions(), result.unmatched_skeys())
-        for node in root:
-            root.render(node)
+    def make_display(self) -> None:
+        self._profiler.run(self._engine.display, self._spaced_results(500))
 
     def run_analysis(self) -> None:
-        bench(self._run_analysis, self._spaced_translations(500))
+        self._profiler.run(self._run_analysis, self._spaced_translations(500))
 
     def _run_analysis(self, keys:str, letters:str) -> None:
-        self._engine.process_action("Query", [keys, letters])
+        analysis = self._engine.analyze(keys, letters)
+        self._engine.display(analysis)
 
 
 def app_start():
-    from spectra_lexer.base import StenoAppFactory
-    return StenoAppFactory().build_app()
+    from spectra_lexer.base import Spectra
+    prg = Spectra()
+    app = prg.build_app()
+    prg.load_app(app)
+    return app
 
 
 def app_index() -> None:
@@ -76,16 +69,24 @@ def app_index() -> None:
 
 
 def main(script="", operation="run_lexer", *argv:str) -> int:
-    """ Application startup benchmarks also include import time.
-        Only one run at a time is allowed, since imports are cached after that. """
     sys.argv = [script, *argv]
-    if operation.startswith("app"):
+    if operation.startswith("sub"):
+        _, idx, operation = operation.split("|")
+        p_type = PROFILER_TYPES[int(idx)]
         func = globals()[operation]
-        bench(func, max_lines=100)
+        profiler = MultiProfiler(p_type)
+        profiler.run(func, max_lines=100)
+    elif operation.startswith("app"):
+        # Application startup benchmarks also include import time.
+        # Since imports are cached after the first run, subprocesses must be used.
+        for i in range(len(PROFILER_TYPES)):
+            cmd = (sys.executable, '-m', 'benchmarks.run', f'sub|{i}|{operation}')
+            subprocess.run(cmd, check=True)
     else:
-        # Other benchmarks require an already-started app's engine components.
+        # Other benchmarks require an already-started app's engine.
         app = app_start()
-        b = ComponentBench(app._engine)
+        profiler = MultiProfiler(*PROFILER_TYPES)
+        b = ComponentBench(app._engine, profiler)
         getattr(b, operation)()
     return 0
 

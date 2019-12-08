@@ -1,149 +1,176 @@
-from configparser import ConfigParser
 import json
 import os
 import sys
-from typing import List
 
+from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
-from spectra_lexer.cmdline import CmdlineOption, CmdlineOptionNamespace
-from spectra_lexer.config import ConfigDictionary
-from spectra_lexer.io import AssetPathConverter, CSONLoader, PrefixPathConverter, ResourceIO, UserPathConverter
-from spectra_lexer.log import StreamLogger
-from spectra_lexer.steno import KeyLayout, RuleCollection, RuleParser, StenoEngineFactory
+from spectra_lexer.display import DisplayEngine
+from spectra_lexer.engine import StenoEngine
+from spectra_lexer.resource import ConfigDictionary, RTFCREDict, StenoBoardDefinitions, StenoKeyLayout, \
+    StenoRuleCollection
+from spectra_lexer.search import SearchEngine
+from spectra_lexer.util.cmdline import CmdlineOption, CmdlineOptionNamespace
+from spectra_lexer.util.log import StreamLogger
+from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
 
 # The name of this module's root package is used as a default path for built-in assets and user files.
 ROOT_PACKAGE = __package__.split(".", 1)[0]
-CONVERTER = PrefixPathConverter()
-CONVERTER.add(":/", AssetPathConverter(ROOT_PACKAGE))
-CONVERTER.add("~/", UserPathConverter(ROOT_PACKAGE))
-MAIN_IO = ResourceIO(CONVERTER)
 
 
-class StenoAppOptions(CmdlineOptionNamespace):
-    """ Contains all command-line and config options necessary to build a functioning app object. """
+class StenoEngineFactory:
 
-    ASSETS_DIR = ":/assets/"               # Location of built-in assets relative to this package.
-    PLOVER_TRANSLATIONS = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
+    def __init__(self, keymap:StenoKeyLayout, rules:StenoRuleCollection, board_defs:StenoBoardDefinitions) -> None:
+        self._keymap = keymap
+        self._rules = rules
+        self._board_defs = board_defs
+
+    @staticmethod
+    def build_search_engine() -> SearchEngine:
+        return SearchEngine()
+
+    def build_analyzer(self) -> StenoAnalyzer:
+        keymap = self._keymap
+        key_parser = keymap.make_parser()
+        return StenoAnalyzer.from_resources(key_parser, self._rules, keymap.sep, keymap.unordered)
+
+    def build_display_engine(self) -> DisplayEngine:
+        keymap = self._keymap
+        key_parser = keymap.make_parser()
+        ignored_chars = keymap.split
+        combo_key = keymap.unordered[-1:]
+        return DisplayEngine.from_resources(key_parser, self._board_defs, ignored_chars, combo_key)
+
+
+class Spectra(CmdlineOptionNamespace):
+    """ Main application class. Contains all command-line options necessary to build a functioning app object. """
+
+    _converter = PrefixPathConverter()
+    _converter.add(":/", AssetPathConverter(ROOT_PACKAGE))  # Prefix indicates built-in assets.
+    _converter.add("~/", UserPathConverter(ROOT_PACKAGE))   # Prefix indicates local user app data.
+
+    PLOVER_TRANSLATIONS_PATH = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
 
     log_files: str = CmdlineOption("--log", ["~/status.log"], "Text file(s) to log status and exceptions.")
-    resource_dir: str = CmdlineOption("--resources", ASSETS_DIR, "Directory with static steno resources.")
-    translations_files: list = CmdlineOption("--translations", [PLOVER_TRANSLATIONS],
+    resource_dir: str = CmdlineOption("--resources", ":/assets/", "Directory with static steno resources.")
+    translations_files: list = CmdlineOption("--translations", [PLOVER_TRANSLATIONS_PATH],
                                              "JSON translation files to load on start.")
     index_file: str = CmdlineOption("--index", "~/index.json",
                                     "JSON index file to load on start and/or write to.")
     config_file: str = CmdlineOption("--config", "~/config.cfg",
                                      "Config CFG/INI file to load at start and/or write to.")
 
+    # Options that can be user-configured (desktop), or sent in query strings (HTTP).
+    CONFIG = [("search_match_limit",        100,   "Maximum number of matches returned on one page of a search."),
+              ("lexer_strict_mode",         False, "Only return lexer results that match every key in a translation."),
+              ("graph_compressed_layout",   True,  "Compress the graph layout vertically to save space."),
+              ("graph_compatibility_mode",  False, "Force correct spacing in the graph using HTML tables.")]
 
-class StenoAppFactory:
-    """ Factory class for an app object. """
+    CSON_COMMENT_PREFIX = "#"        # Prefix for comments allowed in non-standard JSON files.
+    LAYOUT_JSON = "key_layout.cson"  # Filename for key layout inside resource directory.
+    RULES_CSON = "rules.cson"        # Filename for rules inside resource directory.
+    BOARD_CSON = "board_defs.cson"   # Filename for board layout inside resource directory.
 
-    # State attributes that can be user-configured (desktop), or sent in query strings (HTTP).
-    CONFIG = [("search_match_limit", 100, "Maximum number of matches returned on one page of a search."),
-              ("lexer_strict_mode", False, "Only return lexer results that match every key in a translation."),
-              ("graph_compressed_layout", True, "Compress the graph layout vertically to save space."),
-              ("graph_compatibility_mode", False, "Force correct spacing in the graph using HTML tables."),
-              ("board_compound_key_labels", True, "Show special labels for compound keys (i.e. `f` instead of TP).")]
-
-    def __init__(self, options=StenoAppOptions(), io:ResourceIO=MAIN_IO) -> None:
-        self._options = options
-        self._io = io
-        self._json_load = json.load
-        self._cson_load = CSONLoader().load
+    def load_app(self, app:StenoApplication) -> None:
+        """ Load an app object with all external starting resources. """
+        translations_files = self.translations_files
+        if self.PLOVER_TRANSLATIONS_PATH in translations_files:
+            # Search the user's local app data for the Plover config file to find the dictionaries.
+            cfg_filename = UserPathConverter("plover").convert("plover.cfg")
+            translations = RTFCREDict.from_plover_cfg(cfg_filename)
+            app.set_translations(translations)
+        elif translations_files:
+            app.load_translations(*map(self._convert_path, translations_files))
+        index_file = self.index_file
+        if index_file:
+            app.load_examples(self._convert_path(index_file, make_dirs=True))
+        config_file = self.config_file
+        if config_file:
+            app.load_config(self._convert_path(config_file, make_dirs=True))
 
     def build_logger(self) -> StreamLogger:
         """ Create a logger, which will print non-error messages to stdout by default.
-            Open optional files for logging as well (text mode, append to current contents.) """
+            Open optional files for logging as well (text mode, append to current contents.)
+            Create empty directories if necessary. Log files will remain open until program close. """
         logger = StreamLogger()
         logger.add_stream(sys.stdout)
-        for filename in self._options.log_files:
-            fstream = self._io.open(filename, 'a')
+        for path in self.log_files:
+            filename = self._convert_path(path, make_dirs=True)
+            fstream = open(filename, 'a', encoding='utf-8')
             logger.add_stream(fstream)
         return logger
 
     def build_app(self) -> StenoApplication:
-        """ Load an app with all required resources from this command-line options structure. """
-        engine_factory = self.build_factory()
-        steno_engine = engine_factory.build_engine()
+        """ Build an app with all required resources from this object's command-line options. """
         config = self.build_config()
-        app = StenoApplication(self._io, steno_engine, config)
-        translations_files = self._options.translations_files
-        if self._options.PLOVER_TRANSLATIONS in translations_files:
-            translations_files = self._plover_files()
-        if translations_files:
-            app.load_translations(*translations_files)
-        index_file = self._options.index_file
-        if index_file:
-            app.load_index(index_file)
-        config_file = self._options.config_file
-        if config_file:
-            app.load_config(config_file)
-        return app
-
-    def build_factory(self) -> StenoEngineFactory:
-        """ From the base directory, load each steno resource component by a standard name or pattern. """
-        layout = self.load_layout()
-        rules = self.load_rules()
-        rules.make_special(layout.sep, "stroke separator")
-        board_defs = self.load_board_defs()
-        return StenoEngineFactory(layout, rules, board_defs)
+        engine = self.build_engine()
+        return StenoApplication(config, engine)
 
     def build_config(self) -> ConfigDictionary:
-        """ Make a blank config dictionary with all option specifications loaded. """
         config = ConfigDictionary()
         for params in self.CONFIG:
             config.add_option(*params)
         return config
 
-    def load_layout(self) -> KeyLayout:
+    def build_engine(self) -> StenoEngine:
+        factory = self.build_factory()
+        search_engine = factory.build_search_engine()
+        analyzer = factory.build_analyzer()
+        display_engine = factory.build_display_engine()
+        return StenoEngine(search_engine, analyzer, display_engine)
+
+    def build_factory(self) -> StenoEngineFactory:
+        """ From the base directory, load each steno resource component and set up the main factory. """
+        keymap = self.load_keymap()
+        rules = self.load_rules()
+        board_defs = self.load_board_defs()
+        return StenoEngineFactory(keymap, rules, board_defs)
+
+    def load_keymap(self) -> StenoKeyLayout:
         """ Load a steno key constants structure. """
-        with self._open_text_resource("key_layout.json") as fp:
-            d = self._json_load(fp)
-        return KeyLayout.from_dict(d)
+        d = self._read_cson_resource(self.LAYOUT_JSON)
+        return StenoKeyLayout.from_dict(d)
 
-    def load_rules(self) -> RuleCollection:
-        """ Load steno rules from every CSON file matching a glob pattern. """
-        rules_pattern = self._res_path("[01]*.cson")
-        parser = RuleParser()
-        for fp in self._io.open_all(rules_pattern, 'r'):
-            with fp:
-                d = self._cson_load(fp)
-            for name, data in d.items():
-                parser.add_rule_data(name, data)
-        return parser.parse()
+    def load_rules(self) -> StenoRuleCollection:
+        d = self._read_cson_resource(self.RULES_CSON)
+        return StenoRuleCollection.from_dict(d)
 
-    def load_board_defs(self) -> dict:
-        """ Load steno board graphics definitions. """
-        with self._open_text_resource("board_defs.cson") as fp:
-            return self._cson_load(fp)
+    def load_board_defs(self) -> StenoBoardDefinitions:
+        """ Load a dict with steno board graphics definitions. """
+        d = self._read_cson_resource(self.BOARD_CSON)
+        return StenoBoardDefinitions(d)
 
-    def _open_text_resource(self, filename:str):
-        """ Open a stream to read a text resource from a relative <filename>. """
-        path = self._res_path(filename)
-        return self._io.open(path, 'r')
+    def _convert_path(self, path:str, *, make_dirs=False) -> str:
+        """ Convert a specially formatted path string into a full file path usable by open().
+            If <make_dirs> is true, create directories as needed to make the path exist. """
+        file_path = self._converter.convert(path)
+        if make_dirs:
+            directory = os.path.dirname(file_path) or "."
+            os.makedirs(directory, exist_ok=True)
+        return file_path
 
-    def _res_path(self, filename:str) -> str:
-        """ Return a full path to an asset resource from a relative <filename>. """
-        return os.path.join(self._options.resource_dir, filename)
+    def _read_cson_resource(self, rel_path:str) -> dict:
+        """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
+        path = os.path.join(self.resource_dir, rel_path)
+        path = self._convert_path(path)
+        return self._cson_read(path)
 
-    @staticmethod
-    def _plover_files() -> List[str]:
-        """ If the sentinel is encountered, search the user's local app data for the Plover config file.
-            Parse the dictionaries section and return all dictionary filenames in the correct order. """
-        try:
-            conv = UserPathConverter("plover")
-            path = conv.convert("plover.cfg")
-            parser = ConfigParser()
-            with open(path, 'r') as fp:
-                parser.read_file(fp)
-            # Dictionaries are located in the same directory as the config file.
-            # The config value we need is read as a string, but it must be decoded as a JSON array.
-            value = parser['System: English Stenotype']['dictionaries']
-            dict_files = json.loads(value)
-            plover_dir = os.path.split(path)[0]
-            # Since earlier keys override later ones in Plover, but dict.update does the opposite,
-            # we must reverse the priority order before merging.
-            return [os.path.join(plover_dir, e['path']) for e in reversed(dict_files)]
-        except (IndexError, KeyError, OSError, ValueError):
-            # Catch-all for file and parsing errors. The correct files aren't available, so just move on.
-            return []
+    def _cson_read(self, filename:str) -> dict:
+        """ Read an object from a non-standard JSON file stream with full-line comments (CSON = commented JSON).
+            JSON doesn't care about leading or trailing whitespace anyway, so strip every line first. """
+        with open(filename, 'r', encoding='utf-8') as fp:
+            stripped_line_iter = map(str.strip, fp)
+            data_lines = [line for line in stripped_line_iter
+                          if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
+            data = "\n".join(data_lines)
+            return json.loads(data)
+
+    @classmethod
+    def main(cls) -> int:
+        """ Parse the options and run the application. """
+        self = cls()
+        self.parse_options(app_description=str(cls.__doc__))
+        return self.run()
+
+    def run(self) -> int:
+        """ Run the application. """
+        return 0

@@ -6,10 +6,10 @@ import re
 
 import pytest
 
-from .base import IGNORED_KEYS, RULES_DICT, TEST_INDEX, TEST_TRANSLATIONS
-from spectra_lexer.steno.search import ExampleSearchEngine, TranslationSearchEngine
-from spectra_lexer.steno.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
-from spectra_lexer.steno.search.search import StenoSearchDict
+from .base import TEST_TRANSLATIONS
+from spectra_lexer.search import SearchEngine
+from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.search import BaseStenoDict, ForwardStenoDict, ReverseStenoDict
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -24,7 +24,8 @@ def class_hierarchy_tester(*test_classes:type):
 
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StenoSearchDict, StringSearchDict)
+class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict,
+                                    BaseStenoDict, ForwardStenoDict, ReverseStenoDict)
 
 
 @class_test(SimilarKeyDict)
@@ -260,25 +261,11 @@ def test_reverse_dict(cls) -> None:
 
 def test_translations_search() -> None:
     """ Go through each loaded test translation and check all search methods. """
-    engine = TranslationSearchEngine(TEST_TRANSLATIONS)
+    engine = SearchEngine()
+    engine.set_translations(TEST_TRANSLATIONS)
+    search = engine.search_translations
     for keys, word in TEST_TRANSLATIONS.items():
-        results = engine.search(keys, count=2, strokes=True)
-        assert results.matches == {keys: [word]}
-        results = engine.search(word, count=2, strokes=False)
-        assert results.matches == {word: [keys]}
-        results = engine.search(re.escape(keys), count=2, strokes=True, regex=True)
-        assert keys in results.matches
-        results = engine.search(re.escape(word), count=2, strokes=False, regex=True)
-        assert word in results.matches
-
-
-def test_example_search() -> None:
-    """ Any rule with translations in the example index should have its keys and letters somewhere in every entry. """
-    engine = ExampleSearchEngine(TEST_INDEX)
-    for rule_name in TEST_INDEX:
-        keys, letters = RULES_DICT[rule_name]
-        wmatches = engine.search(rule_name, "", count=100, strokes=False).matches
-        assert all([letters in r for r in wmatches])
-        kmatches = engine.search(rule_name, "", count=100, strokes=True).matches
-        all_keys = set(keys) - IGNORED_KEYS
-        assert all_keys == all_keys.intersection(*kmatches)
+        assert search(word, count=2).matches == {word: [keys]}
+        assert search(keys, count=2, mode_strokes=True).matches == {keys: [word]}
+        assert word in search(re.escape(word), count=2, mode_regex=True).matches
+        assert keys in search(re.escape(keys), count=2, mode_strokes=True, mode_regex=True).matches

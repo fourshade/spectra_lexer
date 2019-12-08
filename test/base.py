@@ -5,22 +5,16 @@
 import json
 import os
 
-from spectra_lexer.base import StenoAppFactory
+from spectra_lexer.base import Spectra, StenoEngineFactory
 
+TRANSLATIONS_PATH = os.path.join(__file__, "..", "data", "translations.json")
 
-def _test_json_read(filename:str) -> dict:
-    """ Read from JSON test data (e.g. translations that should all have matches). """
-    path = os.path.join(__file__, "..", "data", filename)
-    with open(path) as fp:
-        return json.load(fp)
-
-
-# Create all test resources using default command-line arguments.
-TEST_TRANSLATIONS = _test_json_read("translations.json")
-TEST_INDEX = _test_json_read("index.json")
-MAIN = StenoAppFactory()
-KEY_LAYOUT = MAIN.load_layout()
-RULES = list(MAIN.load_rules())
-RULES_DICT = {rule.name: (rule.keys, rule.letters) for rule in RULES}
-IGNORED_KEYS = {KEY_LAYOUT.sep, KEY_LAYOUT.split}
-FACTORY = MAIN.build_factory()
+# Create all test resources using default assets.
+MAIN = Spectra()
+KEY_LAYOUT = MAIN.load_keymap()
+RULES = MAIN.load_rules()
+RULES_DICT = {rule.id: (rule.keys, rule.letters) for rule in RULES}
+BOARD_DEFS = MAIN.load_board_defs()
+FACTORY = StenoEngineFactory(KEY_LAYOUT, RULES, BOARD_DEFS)
+with open(TRANSLATIONS_PATH) as fp:
+    TEST_TRANSLATIONS = json.load(fp)
