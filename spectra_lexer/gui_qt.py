@@ -22,7 +22,6 @@ from spectra_lexer.qt.svg import SVGIconRenderer
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionTrap
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.resource import RTFCREDict
-from spectra_lexer.util.console import SystemConsole
 from spectra_lexer.util.log import StreamLogger
 
 
@@ -103,21 +102,21 @@ class QtGUIApplication(StenoApplication):
 
     @trap_exceptions
     def on_search(self, *args, **options) -> None:
-        """ Send an action command with the current state and update the GUI with any results. """
+        """ Run a translation search and update the GUI with any results. """
         self._update_options(options)
         out = self.gui_search(*args, **options)
         self._update_gui(out)
 
     @trap_exceptions
     def on_query(self, *args, **options) -> None:
-        """ Send an action command with the current state and update the GUI with any results. """
+        """ Run a lexer query and update the GUI with any results. """
         self._update_options(options)
         out = self.gui_query(*args, **options)
         self._update_gui(out)
 
     @trap_exceptions
     def on_search_examples(self, *args, **options) -> None:
-        """ Send an action command with the current state and update the GUI with any results. """
+        """ Run an example search and update the GUI with any results. """
         self._update_options(options)
         out = self.gui_search_examples(*args, **options)
         self._update_gui(out)
@@ -213,7 +212,7 @@ class QtGUIApplication(StenoApplication):
         if dialog is not None:
             console_tool = ConsoleTool(dialog)
             stream = console_tool.to_stream()
-            console = SystemConsole(self._debug_vars(), file=stream)
+            console = self.open_console(stream)
             console.print_opening()
             console_tool.console_ref = console
             console_tool.call_on_new_line(console.send)
@@ -221,11 +220,11 @@ class QtGUIApplication(StenoApplication):
 
     @trap_exceptions
     def debug_tree(self) -> None:
-        """ Create and show the debug tree dialog. Create the item model by putting together debug data structures. """
+        """ Create and show the debug tree dialog. """
         dialog = self._window.open_dialog("Python Object Tree View", 600, 450)
         if dialog is not None:
             objtree_tool = ObjectTreeTool(dialog)
-            debug_vars = {**self._debug_vars(), "modules": package.modules()}
+            debug_vars = {**vars(self), "modules": package.modules()}
             factory = DebugDataFactory()
             factory.load_icons()
             root_data = factory.generate(debug_vars)
@@ -237,9 +236,6 @@ class QtGUIApplication(StenoApplication):
             item_model = ObjectTreeItemModel(root_item, [key_col, type_col, value_col])
             objtree_tool.set_model(item_model)
             objtree_tool.display()
-
-    def _debug_vars(self) -> dict:
-        return vars(self).copy()
 
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all widgets when GUI-blocking operations are running. """
@@ -253,10 +249,10 @@ class QtGUIApplication(StenoApplication):
         if disable:
             self.set_enabled(False)
         def on_task_finish(val) -> None:
-            if callback is not None:
-                callback(val)
             self.set_status(msg_done)
             self.set_enabled(True)
+            if callback is not None:
+                callback(val)
         self._async_call(func, *args, callback=on_task_finish)
 
     def _handle_exception(self, exc:Exception, max_frames=20) -> None:

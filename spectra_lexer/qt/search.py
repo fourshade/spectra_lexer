@@ -122,10 +122,11 @@ class SearchController:
             translations = [[match, mapping]]
         else:
             translations = [[match, m] for m in self._match_dict[match]]
-        if not self._strokes:
-            for t in translations:
-                t.reverse()
-        self._on_query(*translations)
+        if translations:
+            if not self._strokes:
+                for t in translations:
+                    t.reverse()
+            self._on_query(*translations)
 
     def update_results(self, matches:MatchDict, *, can_expand=True) -> None:
         """ Replace the current set of search results.

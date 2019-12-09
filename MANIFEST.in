@@ -2,6 +2,8 @@
 include *.txt
 # Built-in assets such as rules dictionaries and board graphics.
 recursive-include spectra_lexer/assets *
+# HTTP web GUI files.
+recursive-include spectra_lexer/http_public *
 # Built-in SVG resources such as icons.
 recursive-include spectra_lexer *.dat
 recursive-include spectra_lexer *.svg

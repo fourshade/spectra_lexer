@@ -7,10 +7,10 @@ const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board opt
 // Parse all URL query items as JSON-format options.
 var queryOptions = {};
 let queryParams = new URLSearchParams(window.location.search);
-for (let [k, v] of queryParams){
-    try{
+for (let [k, v] of queryParams) {
+    try {
         queryOptions[k] = JSON.parse(v);
-    }catch(e){
+    } catch(e) {
         console.error(e);
     }
 }
@@ -24,7 +24,7 @@ $(document).ready(function(){
             this.root.addEventListener("click", this.clickEvent.bind(this));
         }
         selectElem(elem) {
-            if(this.root === elem || this.active === elem){
+            if(this.root === elem || this.active === elem) {
                 return false;
             }
             this.active.className = "";
@@ -33,14 +33,14 @@ $(document).ready(function(){
             return true;
         }
         selectText(value) {
-            for (let elem of this.root.children){
-                if(elem.textContent == value){
+            for (let elem of this.root.children) {
+                if(elem.textContent == value) {
                     return this.selectElem(elem);
                 }
             }
         }
         clickEvent({target}) {
-            if(this.selectElem(target)){
+            if(this.selectElem(target)) {
                 this.onSelectFn(target.textContent);
             }
         }
@@ -51,7 +51,7 @@ $(document).ready(function(){
                 root.removeChild(root.firstChild);
             }
             let fragment = document.createDocumentFragment();
-            for (let opt of optArray){
+            for (let opt of optArray) {
                 let item = document.createElement("li");
                 item.textContent = opt;
                 fragment.appendChild(item);
@@ -77,7 +77,7 @@ $(document).ready(function(){
     var lastMatches = {};
     var lastPageCount = 1;
     function onSelectMatch(text) {
-        if(text == MORE_TEXT){
+        if(text == MORE_TEXT) {
             lastPageCount++;
             doSearch();
         } else {
@@ -90,9 +90,11 @@ $(document).ready(function(){
         let strokes = searchModeStrokes.checked;
         let match = matchSelector.value;
         let mappings = text ? [text] : lastMatches[match];
-        // The order of lexer parameters must be reversed for strokes mode.
-        let translations = mappings.map(m => (strokes ? [match, m] : [m, match]));
-        processAction("query", ...translations);
+        if(mappings.length) {
+            // The order of lexer parameters must be reversed for strokes mode.
+            let translations = mappings.map(m => (strokes ? [match, m] : [m, match]));
+            processAction("query", ...translations);
+        }
     }
 
     function newSearch() {
@@ -108,7 +110,7 @@ $(document).ready(function(){
 
     function doQuery() {
         let params = displayTitle.value.split(TITLE_DELIM);
-        if(params.length == 2){
+        if(params.length == 2) {
             let translation = params.map(s => s.trim());
             processAction("query", translation);
         }
@@ -159,22 +161,22 @@ $(document).ready(function(){
     });
 
     function updateGUI({search_input, search_results, display_data}) {
-        if(search_input){  // New example pattern for search textbox.
+        if(search_input) {  // New example pattern for search textbox.
             searchInput.value = search_input;
         }
         if(search_results) {  // New items in the search lists.
             lastMatches = search_results.matches;
             let keys = Object.keys(lastMatches);
             // If there are unseen results, add a final list item to allow search expansion.
-            if(!search_results.is_complete){
+            if(!search_results.is_complete) {
                 keys.push(MORE_TEXT);
             }
             matchSelector.update(keys);
             // If the new list does not have the previous selection, reset the mappings.
-            if(!matchSelector.value){
+            if(!matchSelector.value) {
                 mappingSelector.update([]);
             }
-            if (keys.length == 1){
+            if (keys.length == 1) {
                 // Automatically select the item if there was only one.
                 let [match] = keys;
                 matchSelector.selectText(match);
@@ -197,9 +199,9 @@ $(document).ready(function(){
             }
             let startPage = default_page;
             graphFocused = false;
-            if(currentLink){
-                for(let page of Object.values(pages_by_ref)){
-                    if(currentLink==page.rule_id){
+            if(currentLink) {
+                for (let page of Object.values(pages_by_ref)) {
+                    if(currentLink == page.rule_id) {
                         startPage = page;
                         graphFocused = true;
                         break;
@@ -225,7 +227,7 @@ $(document).ready(function(){
             contentType: 'application/json',
             data: JSON.stringify(request),
             success: updateGUI,
-            error() {displayDesc.innerHTML = '<span style="color: #d00000;">CONNECTION ERROR</span>'}
+            error() {displayDesc.innerHTML = '<span style="color: #d00000;">CONNECTION ERROR</span>';}
         });
     }
 

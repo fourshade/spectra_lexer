@@ -18,6 +18,7 @@ ROOT_PACKAGE = __package__.split(".", 1)[0]
 
 
 class StenoEngineFactory:
+    """ Sub-factory for the steno engine itself. """
 
     def __init__(self, keymap:StenoKeyLayout, rules:StenoRuleCollection, board_defs:StenoBoardDefinitions) -> None:
         self._keymap = keymap
@@ -42,7 +43,7 @@ class StenoEngineFactory:
 
 
 class Spectra(CmdlineOptionNamespace):
-    """ Main application class. Contains all command-line options necessary to build a functioning app object. """
+    """ Main factory class. Contains all command-line options necessary to build a functioning engine and app. """
 
     _converter = PrefixPathConverter()
     _converter.add(":/", AssetPathConverter(ROOT_PACKAGE))  # Prefix indicates built-in assets.

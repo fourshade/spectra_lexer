@@ -1,4 +1,4 @@
-""" Base module for text graphing. Defines top-level graph structures. """
+""" Package for constructing text graphs of steno rules. """
 
 from .base import GridElement, GraphLayout, IBody, IConnectors
 from .body import BoldBody, SeparatorBody, ShiftedBody, StandardBody

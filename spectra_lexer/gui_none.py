@@ -5,11 +5,10 @@ from time import time
 
 from spectra_lexer.base import Spectra
 from spectra_lexer.util.cmdline import CmdlineOption
-from spectra_lexer.util.console import SystemConsole
 
 
 class SpectraConsole(Spectra):
-    """ Run an interactive read-eval-print loop in a new console with the app vars as the namespace. """
+    """ Run an interactive read-eval-print loop in a new console. """
 
     def run(self) -> int:
         log = self.build_logger().log
@@ -17,7 +16,7 @@ class SpectraConsole(Spectra):
         app = self.build_app()
         self.load_app(app)
         log("Loading complete.")
-        console = SystemConsole(vars(app))
+        console = app.open_console()
         console.print_opening()
         for line in iter(input, "exit"):
             console.send(line)

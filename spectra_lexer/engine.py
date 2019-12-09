@@ -23,8 +23,7 @@ class AnalyzerOptions:
 
 
 class StenoEngine:
-    """ Top-level controller for all steno search, analysis, and display components.
-        This layer is intended to be called directly by applications i.e. as a library. """
+    """ Top-level controller for all steno search, analysis, and display components. """
 
     _INDEX_DELIM = ";"  # Delimiter between rule name and query for example index searches.
 

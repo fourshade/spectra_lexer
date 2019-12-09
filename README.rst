@@ -15,6 +15,8 @@ The Spectra Steno Lexer is an experimental tool for analyzing and matching patte
 
 |Screenshot 6|
 
+(screeenshots are slightly out of date)
+
 Installation
 ------------
 
@@ -66,9 +68,9 @@ Add the switch ``-h`` in front of any console command from the above section to 
 
 Anything that isn't a command-line switch is usually configured from the menu bar in the desktop app. The following options may be manually activated by users of the HTTP service by adding them in the URL query string:
 
-``board_compound_key_labels=0`` - Generate board diagrams with plain keys only.
-
 ``graph_compressed_layout=0`` - Generate graphs with items laid out in a longer, cascaded manner.
+
+``graph_compatibility_mode=1`` - Generate graphs with explicitly forced monospacing using HTML tables.
 
 
 More Details
@@ -76,7 +78,7 @@ More Details
 
 This software is currently experimental with many rules unaccounted for, so do not rely on it to figure out the rules of stenography with 100% accuracy. Depending on the config setting, if it cannot match every single steno key to letters in the word, it may not return a result at all (to avoid guessing wrong) or may return an incomplete guess on the first part of the word. Inversions and asterisks are particularly troublesome here; inversions of steno order violate the strict left-to-right parsing that lexers rely on, and oftentimes there is not enough context to figure out the meaning of an asterisk from just a stroke and the word it makes in the absence of other information. Briefs are often constructed by keeping only the most important parts or sounds of a word, and Spectra can usually match these, but briefs relying on strange phonetics or arbitrary sequences of keys simply cannot be matched without pre-programmed custom rules (which are included for some of the most common briefs, but not many).
 
-When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke). This choice is based on, among other things: the number of steno keys matched to rules, the number of letters those rules cover, the number of "unusual" rules involved, and if all else fails, choosing shorter strokes over longer ones to break ties.
+When searching from the lookup tool, if a word is chosen and there is more than one stroke entry for it, the lexer will analyze each one and select the one that has the best possibility of being "correct" (i.e. not a misstroke). This choice is based on, in order of importance: the number of steno keys matched to rules, the number of letters those rules cover, the number of "unusual" rules involved, and if all else fails, the total number of keys in the stroke.
 
 .. |Screenshot 1| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot1.png
 .. |Screenshot 2| image:: https://raw.githubusercontent.com/fourshade/spectra_lexer/master/doc/screenshot2.png

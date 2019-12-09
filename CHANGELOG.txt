@@ -1,3 +1,11 @@
+9.0.0
+-----
+* Massive application engine overhaul
+* Added phonetic display mode to board generator
+* Factored search and display data containers to generate fewer HTTP requests
+* Combined rules into one file, removed rules with bad accuracy
+* Deprecated less useful config options, added others to main GUI
+
 8.0.0
 -----
 * Restructured rules format

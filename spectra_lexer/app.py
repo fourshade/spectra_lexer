@@ -6,6 +6,7 @@ from spectra_lexer.display import DisplayData, DisplayOptions
 from spectra_lexer.engine import AnalyzerOptions, StenoEngine, SearchOptions
 from spectra_lexer.resource import ConfigDictionary, RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import SearchResults
+from spectra_lexer.util.console import SystemConsole
 
 
 class EngineOptions(SearchOptions, AnalyzerOptions, DisplayOptions):
@@ -117,3 +118,7 @@ class StenoApplication:
             output.search_input = pattern
             output.search_results = self._engine.search(pattern, 1, engine_options)
         return output
+
+    def open_console(self, *args) -> SystemConsole:
+        """ Create a debug console instance with this app's vars as the global namespace. """
+        return SystemConsole(vars(self), *args)
