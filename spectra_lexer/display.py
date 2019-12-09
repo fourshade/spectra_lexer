@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Dict, List
 
 from spectra_lexer.board import BoardDiagram, BoardDocumentFactory, BoardElementFactory, \
@@ -45,7 +46,8 @@ class DisplayNodeFactory:
             body = StandardBody(keys)
         return body
 
-    def _build_connectors(self, rule:StenoRule, length:int, width:int) -> IConnectors:
+    @staticmethod
+    def _build_connectors(rule:StenoRule, length:int, width:int) -> IConnectors:
         if rule.is_inversion:
             # Node for an inversion of steno order. Connectors should indicate some kind of "reversal".
             connectors = InversionConnectors(length, width)
@@ -90,20 +92,27 @@ class BoardElementIndex:
         self._rule_procs = rule_procs
 
     def base_elems(self) -> List[BoardElementGroup]:
+        """ Generate board diagram elements with the background of every key to use as a diagram base. """
         return [self._factory.processed_group(procs[:-1], self.FILL_BASE) for procs in self._key_procs.values()]
 
     def elems_from_keys(self, rule:StenoRule) -> List[BoardElementGroup]:
+        """ Generate board diagram elements from a rule's keys without any special shapes or colors. """
         skeys = self._to_skeys(rule.keys)
-        return self._elems_from_skeys(skeys)
+        return self._elems_from_skeys(skeys)[:]
 
-    def elems_from_rule(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
-        """ Generate board diagram elements from a steno rule object recursively. """
+    def elems_from_rule(self, rule:StenoRule, show_letters:bool) -> List[BoardElementGroup]:
+        """ Generate board diagram elements from a steno rule object. Copy the list to avoid corrupting the caches. """
+        return self._elems_from_rule(rule, show_letters)[:]
+
+    def _elems_from_rule(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
+        """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
         skeys = self._to_skeys(rule.keys)
         letters = rule.letters
-        if letters.isnumeric():
-            bg = self.FILL_NUMBER
-        elif letters and not any(map(str.isalnum, letters)):
-            bg = self.FILL_SYMBOL
+        alt_text = rule.alt
+        if letters and not any(map(str.isalpha, letters)):
+            bg = self.FILL_SYMBOL if not any(map(str.isdigit, letters)) else self.FILL_NUMBER
+            if not alt_text:
+                alt_text = letters
         if rule.is_linked:
             return self._elems_from_linked(rule, show_letters, bg)
         elif rule.is_inversion:
@@ -116,40 +125,50 @@ class BoardElementIndex:
             bg = self.FILL_SPELLING
         elif rule.is_word:
             bg = self.FILL_BRIEF
-        if self._combo_key in skeys and self._combo_key != skeys:
-            # Rules using the star should have that key separate from their text.
-            ck = skeys.replace(self._combo_key, "")
-            procs = self._rule_procs.get(ck)
-            if procs is not None:
-                bg = self.FILL_COMBO
-                procs = [*self._key_procs[self._combo_key], *procs]
-        else:
-            procs = self._rule_procs.get(skeys)
-        if procs is not None:
-            if letters and show_letters:
-                return [self._factory.processed_group(procs, bg or self.FILL_RULE, letters)]
-            elif rule.alt:
-                return [self._factory.processed_group(procs, bg or self.FILL_ALT, rule.alt)]
-        if rule:
+        elems = self._elems_from_rule_info(skeys, letters if show_letters else "", alt_text, bg)
+        if elems:
+            return elems
+        elif rule:
             # Add elements recursively from all child rules.
-            return [elem for item in rule for elem in self.elems_from_rule(item.child, show_letters, bg)]
+            return [elem for item in rule for elem in self._elems_from_rule(item.child, show_letters, bg)]
         # There may not be compound elements for everything; in that case, use elements for each raw key.
         return self._elems_from_skeys(skeys)
 
+    @lru_cache(maxsize=None)
     def _elems_from_skeys(self, skeys:str, bg:str=None) -> List[BoardElementGroup]:
         """ Generate board diagram elements from a set of steno s-keys. """
-        return [self._factory.processed_group(self._key_procs[s], bg or self.FILL_MATCHED) for s in skeys]
+        return [self._factory.processed_group(self._key_procs[s], bg or self.FILL_MATCHED)
+                for s in skeys if s in self._key_procs]
+
+    @lru_cache(maxsize=None)
+    def _elems_from_rule_info(self, skeys:str, letters:str, alt_text:str, bg:str=None) -> List[BoardElementGroup]:
+        """ Generate board diagram elements from a rule's properties if procs using its s-keys exist. """
+        elems = []
+        procs = self._rule_procs.get(skeys)
+        ck = self._combo_key
+        if procs is None and ck in skeys and ck != skeys:
+            # Rules using the star should have that key separate from their text.
+            leftover = skeys.replace(ck, "")
+            bg = self.FILL_COMBO
+            elems += self._elems_from_skeys(ck, bg)
+            procs = self._rule_procs.get(leftover)
+        if procs is not None:
+            if letters:
+                return [*elems, self._factory.processed_group(procs, bg or self.FILL_RULE, letters)]
+            elif alt_text:
+                return [*elems, self._factory.processed_group(procs, bg or self.FILL_ALT, alt_text)]
+        return []
 
     def _elems_from_linked(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
         """ A rule using linked strokes must follow this pattern: (.first)(~/~)(last.) """
-        strokes = [self.elems_from_rule(item.child, show_letters, bg) for item in rule]
+        strokes = [self._elems_from_rule(item.child, show_letters, bg) for item in rule]
         return [self._factory.linked_group(strokes[0], strokes[-1])]
 
     def _elems_from_inversion(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
         """ A rule using inversion connects the first two elements with arrows. """
         grps = []
         for item in rule:
-            grps += self.elems_from_rule(item.child, show_letters, bg)
+            grps += self._elems_from_rule(item.child, show_letters, bg)
         return [self._factory.inversion_group(grps)]
 
 

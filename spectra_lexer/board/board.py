@@ -11,16 +11,15 @@ BoardDiagram = str
 
 
 class BoardElementGroup:
-    """ Abstract base class for a group of SVG steno board elements. The internal representation may vary.
-        Must return finished SVG elements on iteration, positioned correctly within the context of a single stroke. """
+    """ A group of SVG steno board elements with metadata. """
 
     bg = "#000000"             # Background color for key shapes.
     txtmaxarea = [20.0, 20.0]  # Maximum available area for text. Determines text scale and orientation.
+    altangle = 0.0             # Alternate text orientation in degrees.
     ends_stroke = False        # If True, this element group is the last in the current stroke.
     iter_overlays = None       # Reserved for special elements that add overlays covering multiple strokes.
 
     def __init__(self, *elems:XMLElement) -> None:
-        """ Elements are added by proc_* methods, which are executed in order according to an external file. """
         self.tfrm = TransformData()  # Contains the approximate center of this element in the current stroke.
         self._elems = [*elems]
 
@@ -31,20 +30,22 @@ class BoardElementGroup:
         return self.tfrm.offset()
 
     def __iter__(self) -> Iterator[XMLElement]:
+        """ Iterate over all finished SVG elements, positioned correctly within the context of a single stroke. """
         return iter(self._elems)
 
 
 class ColumnTransforms:
+    """ Creates evenly spaced offset transformations for a grid with a given size and column count. """
 
-    def __init__(self, w:int, h:int, cols:int) -> None:
+    def __init__(self, w:int, h:int, ncols:int) -> None:
         self._w = w
         self._h = h
-        self._cols = cols
+        self._ncols = ncols
 
     def __getitem__(self, i:int) -> TransformData:
-        """ Create evenly spaced (dx, dy) grid translations for the current bounds and column count. """
-        dx = self._w * (i % self._cols)
-        dy = self._h * (i // self._cols)
+        """ Create a (dx, dy) translation for row-major item <i> in the grid. """
+        dx = self._w * (i % self._ncols)
+        dy = self._h * (i // self._ncols)
         return TransformData.translation(dx, dy)
 
 
@@ -83,6 +84,8 @@ class LinkedOverlay:
 
 
 class BoardElementFactory:
+    """ Factory for steno board element groups.
+        Elements are added by proc_* methods, which are executed in order according to an external file. """
 
     def __init__(self, factory:SVGElementFactory, key_positions:Dict[str, List[int]],
                  shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
@@ -91,13 +94,12 @@ class BoardElementFactory:
         self._shape_defs = shape_defs        # Defines paths forming the shape and inside area of steno keys.
         self._glyph_table = glyph_table      # Defines paths for each valid text glyph (and a default).
 
-    def processed_group(self, procs:Iterable[str], bg:str=None, text:str=None) -> BoardElementGroup:
+    def processed_group(self, procs:Iterable[str], bg:str, text:str=None) -> BoardElementGroup:
         """ Each string in <procs> defines a `proc`ess that positions and/or constructs SVG elements.
-            Execution involves running every proc in the list, in order, on an empty ProcessedBoardElements. """
-        # Match proc string keys to proc_* methods and call each method using the corresponding value.
+            Execution involves running every proc in the list, in order, on an empty BoardElementGroup. """
         grp = BoardElementGroup()
-        if bg is not None:
-            grp.bg = bg
+        grp.bg = bg
+        # Match proc string keys to proc_* methods and call each method using the corresponding value.
         for proc_str in procs:
             p_type, p_value = proc_str.split("=", 1)
             meth = getattr(self, "proc_" + p_type, None)
@@ -107,11 +109,8 @@ class BoardElementFactory:
             self.proc_text(grp, text)
         return grp
 
-    def proc_bg(self, grp:BoardElementGroup, bg:str) -> None:
-        """ Set the background color used by key shapes. """
-        grp.bg = bg
-
-    def proc_sep(self, grp:BoardElementGroup, *_) -> None:
+    @staticmethod
+    def proc_sep(grp:BoardElementGroup, *_) -> None:
         """ Set this element to separate strokes. """
         grp.ends_stroke = True
 
@@ -127,6 +126,7 @@ class BoardElementFactory:
         grp.append(elem)
         grp.tfrm.translate(*attrs["txtcenter"])
         grp.txtmaxarea = attrs["txtarea"]
+        grp.altangle = attrs["altangle"]
 
     def proc_text(self, grp:BoardElementGroup, text:str, _FONT_SIZE=24, _EM_SIZE=1000, _TXTSPACING=14.4) -> None:
         """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
@@ -136,10 +136,10 @@ class BoardElementFactory:
         spacing = _TXTSPACING
         w, h = grp.txtmaxarea
         scale = min(1.0, w / (n * spacing))
-        # If there is little horizontal space and plenty of vertical space, turn the text 90 degrees.
+        # If there is little horizontal space and plenty in another direction, rotate the text.
         if scale < 0.5 and h > w:
             scale = min(1.0, h / (n * spacing))
-            grp.tfrm.rot90()
+            grp.tfrm.rotate(grp.altangle)
         spacing *= scale
         font_scale = scale * _FONT_SIZE / _EM_SIZE
         x = - n * spacing / 2
@@ -169,7 +169,7 @@ class BoardElementFactory:
         return grp
 
     def _add_layers(self, grp:BoardElementGroup, start:complex, end:complex) -> None:
-        """ Yield SVG path elements that compose an arrow pointing between <start> and <end>.
+        """ Add SVG path elements that compose an arrow pointing between <start> and <end>.
             Layers are shifted by an incremental offset to create a drop shadow appearance. """
         gen = ArrowPathGenerator()
         for color in "#800000", "#FF0000":
@@ -204,7 +204,6 @@ class BoardDocumentFactory:
     _DEFAULT_RATIO = 100.0  # If no aspect ratio is given, this ensures that all boards end up in one row.
 
     def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, x:int, y:int, w:int, h:int) -> None:
-        """ Groups and transforms SVG elements into a final series of SVG steno board graphics. """
         self._factory = factory  # Standard SVG element factory.
         self._defs = defs        # SVG defs element to include at the beginning of every document.
         self._base = base        # Base SVG element that is shown under every stroke diagram.
@@ -222,14 +221,15 @@ class BoardDocumentFactory:
         return document.serialize()
 
     def _dimensions(self, count:int, device_ratio:float) -> Tuple[int, int]:
-        """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale.
-            <rel_ratio> is the aspect ratio of one diagram divided by that of the device viewing area. """
+        """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale. """
         w, h = self._size
         diagram_ratio = w / h
+        # rel_ratio is the aspect ratio of one diagram divided by that of the device viewing area.
         rel_ratio = diagram_ratio / device_ratio
         r = min(rel_ratio, 1 / rel_ratio)
         s = int((count * r) ** 0.5) or 1
-        s += r * ceil(count / s) > (s + 1)
+        if r * ceil(count / s) > (s + 1):
+            s += 1
         t = ceil(count / s)
         return (s, t) if rel_ratio < 1 else (t, s)
 

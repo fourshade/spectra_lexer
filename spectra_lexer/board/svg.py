@@ -1,3 +1,4 @@
+from math import cos, pi, sin
 from typing import List
 
 
@@ -39,6 +40,7 @@ class XMLElement:
 
 
 class TransformData:
+    """ Data for a 2D affine transformation. """
 
     def __init__(self) -> None:
         self._scale_x = 1.0
@@ -60,12 +62,13 @@ class TransformData:
         """ Return the current translation offset in complex form. """
         return self._dx + self._dy * 1j
 
-    def rot90(self, clockwise=True) -> None:
-        """ Rotate the system 90 degrees in either direction. """
-        self._scale_x = 0.0
-        self._shear_y = -1.0 if clockwise else 1.0
-        self._shear_x = 1.0 if clockwise else -1.0
-        self._scale_y = 0.0
+    def rotate(self, degrees:float) -> None:
+        """ Rotate the system <degrees> counterclockwise. """
+        theta = degrees * pi / 180
+        self._scale_x = cos(theta)
+        self._shear_y = -sin(theta)
+        self._shear_x = sin(theta)
+        self._scale_y = cos(theta)
         self._simple = False
 
     def scale(self, scale_x:float, scale_y:float) -> None:
@@ -92,6 +95,7 @@ class TransformData:
 
 
 class SVGElementFactory:
+    """ Factory for XML elements formatted as necessary for SVG. """
 
     def __init__(self, elem_cls=XMLElement) -> None:
         self._elem_cls = elem_cls
@@ -124,7 +128,7 @@ class SVGElementFactory:
         return self._elem_cls("use", href=f"#{elem_id}")
 
     def svg(self, x:int, y:int, w:int, h:int, *children:XMLElement) -> XMLElement:
-        """ Top-level SVG document. Set the (x, y, w, h) sequence of coordinates for the viewbox. """
+        """ Top-level SVG document. Set the (x, y, w, h) sequence of coordinates as the viewbox. """
         return self._elem_cls("svg", *children,
                               version="1.1", xmlns="http://www.w3.org/2000/svg",
                               viewBox=f"{x} {y} {w} {h}")
