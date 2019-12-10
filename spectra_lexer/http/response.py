@@ -1,14 +1,14 @@
 import email.utils
 from functools import partial
 from http import HTTPStatus
-from io import RawIOBase
+from typing import BinaryIO
 
 
 class HTTPStructMeta(type):
     """ Convenience metaclass for structures that use an HTTP status code as their first constructor argument. """
 
     def __getattr__(cls, name:str) -> partial:
-        """ Return a factory for an instance corresponding directly to a member of HTTPStatus. """
+        """ Return a factory for instances corresponding directly to a member of HTTPStatus. """
         code = getattr(HTTPStatus, name)
         return partial(cls, code)
 
@@ -32,13 +32,13 @@ class HTTPResponse(metaclass=HTTPStructMeta):
         """ Add additional header parameters. """
         self._params.update(params)
 
-    def send(self, stream:RawIOBase) -> None:
-        """ Parse each parameter into a header line. """
+    def write_to(self, stream:BinaryIO) -> None:
+        """ Parse each parameter into a header line and add the status line header and the blank line endings.
+            Write everything to an ISO-8859-1 binary <stream>. """
         d = self._params
         headers = [fn(d[k]) for k, fn in self.HEADER_TYPES if k in d]
-        # Add the status line header and the blank line endings, then write everything.
         full_header = "\r\n".join([f'HTTP/1.1 {self}', *headers, "", ""])
-        header_data = full_header.encode('latin-1', 'strict')
+        header_data = full_header.encode('iso-8859-1', 'strict')
         stream.write(header_data)
         # If there was a content section, write it unless the request method was HEAD.
         if 'content' in d and not d.get('head'):

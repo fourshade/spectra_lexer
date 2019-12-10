@@ -1,10 +1,9 @@
 """ Module for servicing HTTP connections and requests using I/O streams. """
 
-from io import RawIOBase
 import sys
 from threading import Thread
 from traceback import format_exc
-from typing import Callable, Iterable, Iterator, Tuple
+from typing import BinaryIO, Callable, Iterable, Iterator, Tuple
 
 from .methods import HTTPRequestHandler
 from .request import HTTPRequest, HTTPRequestParser
@@ -17,7 +16,7 @@ class HTTPServer(BaseTCPServer):
         Threading is required to prevent one client from hogging the entire server with a persistent connection.
         To that end, this class is thread-safe to the extent that the request handler and logger are. """
 
-    server_version = f"Spectra/0.3 Python/{sys.version.split()[0]}"  # Server version string sent with each response.
+    server_version = f"Spectra/0.4 Python/{sys.version.split()[0]}"  # Server version string sent with each response.
 
     def __init__(self, req_handler:HTTPRequestHandler, log:Callable[[str], None]=print, *, threaded=False) -> None:
         self._req_handler = req_handler  # Handler for all HTTP requests. May delegate to subhandlers.
@@ -30,7 +29,7 @@ class HTTPServer(BaseTCPServer):
         else:
             self._connect(*args)
 
-    def _connect(self, stream:RawIOBase, addr:str) -> None:
+    def _connect(self, stream:BinaryIO, addr:str) -> None:
         """ Process all requests on an open HTTP connection. Log all results with the client address. """
         def log(message:str) -> None:
             self._log(f'{addr} - {message}')
@@ -42,7 +41,7 @@ class HTTPServer(BaseTCPServer):
                 # Send each HTTP response with the current date and server software version and log the status line.
                 log(f"{request} -> {response}")
                 response.update(date=True, server=self.server_version)
-                response.send(stream)
+                response.write_to(stream)
         except OSError:
             log("Connection aborted by OS.")
         except Exception:

@@ -1,7 +1,6 @@
 import datetime
 import email.utils
-from io import RawIOBase
-from typing import Dict, Iterable, Iterator, Optional, Tuple
+from typing import BinaryIO, Dict, Iterable, Iterator, Optional, Tuple
 
 from .response import HTTPError
 
@@ -67,8 +66,8 @@ class HTTPRequestParser:
     # Maps two-digit hex strings to corresponding characters in the ASCII range.
     _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
 
-    def __init__(self, stream:RawIOBase, max_header_size:int=65536) -> None:
-        self._stream = stream                    # Readable TCP stream.
+    def __init__(self, stream:BinaryIO, max_header_size:int=65536) -> None:
+        self._stream = stream                    # Readable ISO-8859-1 binary stream.
         self._max_header_size = max_header_size  # Maximum combined size of headers in bytes.
 
     def read(self) -> Optional[HTTPRequest]:
