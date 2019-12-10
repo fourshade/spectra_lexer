@@ -1,3 +1,7 @@
+9.0.1
+-----
+* Fixed CSS GUI layout
+
 9.0.0
 -----
 * Massive application engine overhaul

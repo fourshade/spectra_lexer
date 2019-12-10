@@ -227,7 +227,7 @@ $(document).ready(function(){
             contentType: 'application/json',
             data: JSON.stringify(request),
             success: updateGUI,
-            error() {displayDesc.innerHTML = '<span style="color: #d00000;">CONNECTION ERROR</span>';}
+            error() {displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';}
         });
     }
 
