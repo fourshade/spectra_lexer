@@ -13,7 +13,7 @@ class LexerRule:
         return f'LexerRule{(self.skeys, self.letters, self.weight)!r}'
 
 
-# Rule match data type: (rule, unmatched keys, rule start index).
+# Rule match data type: (rule, unmatched keys, start offset in word).
 MATCH_TP = Tuple[LexerRule, str, int]
 
 

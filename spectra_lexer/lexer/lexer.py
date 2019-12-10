@@ -30,7 +30,7 @@ class StenoLexer:
         patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
 
     # Data type containing the state of the lexer at some point in time. Must be very lightweight.
-    # Implemented as a list: [keys_not_yet_matched, rule1, rule1_start, rule2, rule2_start, ...]
+    # Implemented as a list: [keys_not_yet_matched, word_pointer, rule1, rule1_start, rule2, rule2_start, ...]
     _LexerState = List[Union[str, LexerRule, int]]
 
     def __init__(self, *rule_matchers:IRuleMatcher) -> None:
@@ -39,7 +39,7 @@ class StenoLexer:
     def query(self, skeys:str, letters:str) -> LexerResult:
         """ Return a list of the best rules that map <skeys> to <letters>.
             Also return their positions in the word along with anything we couldn't match. """
-        unmatched_skeys, *rulemap = self._process(skeys, letters)
+        unmatched_skeys, _, *rulemap = self._process(skeys, letters)
         return LexerResult(rulemap[::2], rulemap[1::2], unmatched_skeys)
 
     def find_best_translation(self, translations:Sequence[Tuple[str, str]]) -> int:
@@ -66,18 +66,23 @@ class StenoLexer:
         # from the list; for practical purposes, the iterator index can be considered the start of the queue.
         # This index starts at 0 and advances every iteration. Appending items in-place does not affect it.
         # The queue starting state has all keys unmatched and no rules.
-        q = [[skeys]]
+        q = [[skeys, 0]]
+        complete = []
         q_put = q.append
-        for skeys_left, *rmap in q:
-            if skeys_left:
-                wordptr = 0 if not rmap else len(rmap[-2].letters) + rmap[-1]
-                letters_left = letters[wordptr:]
-                # Gather items from every registered rule matcher.
-                for matcher in self._matchers:
-                    for rule, unmatched_keys, rule_start in matcher.match(skeys_left, letters_left, skeys, letters):
-                        # Add a queue item with the remaining keys and the rulemap with the new item added.
-                        q_put([unmatched_keys, *rmap, rule, rule_start + wordptr])
-        return self._best_state(q)
+        complete_put = complete.append
+        for skeys_left, wordptr, *rmap in q:
+            letters_left = letters[wordptr:]
+            # Gather items from every registered rule matcher.
+            for matcher in self._matchers:
+                for rule, unmatched_keys, word_offset in matcher.match(skeys_left, letters_left, skeys, letters):
+                    # Make a state item with the remaining keys and the rulemap with the new item added.
+                    # Add it to the complete results if there are no more keys, otherwise push it on the queue.
+                    put = complete_put if not unmatched_keys else q_put
+                    next_start = wordptr + word_offset
+                    put([unmatched_keys, next_start + len(rule.letters), *rmap, rule, next_start])
+        # If we had complete matches, choose the final result from those.
+        # Otherwise, look through the queue list. It still contains every item we added to it.
+        return self._best_state(complete or q)
 
     @staticmethod
     def _best_state(states:Sequence[_LexerState], _wt=attrgetter("weight")) -> _LexerState:
@@ -89,7 +94,7 @@ class StenoLexer:
         best, *others = reversed(states)
         for other in others:
             if (-len(best[0]) + len(other[0]) or                           # Fewest total keys unmatched.
-                sum(map(_wt, best[1::2])) - sum(map(_wt, other[1::2])) or  # Highest total rule weight.
+                sum(map(_wt, best[2::2])) - sum(map(_wt, other[2::2])) or  # Highest total rule weight.
                -len(best) + len(other)) < 0:                               # Fewest rules.
                 best = other
         return best
