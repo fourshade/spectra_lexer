@@ -49,11 +49,12 @@ class Spectra(CmdlineOptionNamespace):
     _converter.add(":/", AssetPathConverter(ROOT_PACKAGE))  # Prefix indicates built-in assets.
     _converter.add("~/", UserPathConverter(ROOT_PACKAGE))   # Prefix indicates local user app data.
 
-    PLOVER_TRANSLATIONS_PATH = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
+    CSON_COMMENT_PREFIX = "#"              # Prefix for comments allowed in non-standard JSON files.
+    PLOVER_DICTIONARIES = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
 
     log_files: str = CmdlineOption("--log", ["~/status.log"], "Text file(s) to log status and exceptions.")
     resource_dir: str = CmdlineOption("--resources", ":/assets/", "Directory with static steno resources.")
-    translations_files: list = CmdlineOption("--translations", [PLOVER_TRANSLATIONS_PATH],
+    translations_files: list = CmdlineOption("--translations", [PLOVER_DICTIONARIES],
                                              "JSON translation files to load on start.")
     index_file: str = CmdlineOption("--index", "~/index.json",
                                     "JSON index file to load on start and/or write to.")
@@ -66,18 +67,18 @@ class Spectra(CmdlineOptionNamespace):
               ("graph_compressed_layout",   True,  "Compress the graph layout vertically to save space."),
               ("graph_compatibility_mode",  False, "Force correct spacing in the graph using HTML tables.")]
 
-    CSON_COMMENT_PREFIX = "#"        # Prefix for comments allowed in non-standard JSON files.
     LAYOUT_JSON = "key_layout.cson"  # Filename for key layout inside resource directory.
     RULES_CSON = "rules.cson"        # Filename for rules inside resource directory.
     BOARD_CSON = "board_defs.cson"   # Filename for board layout inside resource directory.
 
+    PLOVER_APP = "plover"            # Name of Plover application for finding its user data folder.
+    PLOVER_CFG = "plover.cfg"        # Filename for Plover configuration with user dictionaries.
+
     def load_app(self, app:StenoApplication) -> None:
         """ Load an app object with all external starting resources. """
         translations_files = self.translations_files
-        if self.PLOVER_TRANSLATIONS_PATH in translations_files:
-            # Search the user's local app data for the Plover config file to find the dictionaries.
-            cfg_filename = UserPathConverter("plover").convert("plover.cfg")
-            translations = RTFCREDict.from_plover_cfg(cfg_filename)
+        if self.PLOVER_DICTIONARIES in translations_files:
+            translations = self._plover_translations()
             app.set_translations(translations)
         elif translations_files:
             app.load_translations(*map(self._convert_path, translations_files))
@@ -87,6 +88,12 @@ class Spectra(CmdlineOptionNamespace):
         config_file = self.config_file
         if config_file:
             app.load_config(self._convert_path(config_file, make_dirs=True))
+
+    def _plover_translations(self) -> RTFCREDict:
+        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them. """
+        converter = UserPathConverter(self.PLOVER_APP)
+        cfg_filename = converter.convert(self.PLOVER_CFG)
+        return RTFCREDict.from_plover_cfg(cfg_filename)
 
     def build_logger(self) -> StreamLogger:
         """ Create a logger, which will print non-error messages to stdout by default.

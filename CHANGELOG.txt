@@ -1,6 +1,7 @@
-9.0.1
+9.1.0
 -----
 * Fixed CSS GUI layout
+* Improved Qt GUI responsiveness during startup
 
 9.0.0
 -----

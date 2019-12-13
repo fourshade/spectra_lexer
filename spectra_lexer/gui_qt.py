@@ -95,6 +95,20 @@ class QtGUIApplication(StenoApplication):
         exc_trap.connect(self._handle_exception)
         super().__init__(*args)
 
+    def connect_gui(self) -> None:
+        """ Connect all GUI inputs to their callbacks. """
+        self._menu.add(self.open_translations, "File", "Load Translations...")
+        self._menu.add(self.open_index, "File", "Load Index...")
+        self._menu.add(self.close, "File", "Close", after_sep=True)
+        self._menu.add(self.config_editor, "Tools", "Edit Configuration...")
+        self._menu.add(self.custom_index, "Tools", "Make Index...")
+        self._menu.add(self.debug_console, "Debug", "Open Console...")
+        self._menu.add(self.debug_tree, "Debug", "View Object Tree...")
+        self._search.call_on_search(self.on_search)
+        self._search.call_on_query(self.on_query)
+        self._display.call_on_query(self.on_query)
+        self._display.call_on_example_search(self.on_search_examples)
+
     def on_loaded(self, *_) -> None:
         """ On first start, present a dialog for the user to make a default-sized index on accept. """
         if self.is_first_run:
@@ -156,14 +170,16 @@ class QtGUIApplication(StenoApplication):
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self._window.open_files("Load Translations", "json")
         if filenames:
-            self.run_async(self.load_translations, *filenames, msg_done="Loaded translations from file dialog.")
+            self.run_async(self.load_translations, *filenames,
+                           msg_start="Loading files...", msg_done="Loaded translations from file dialog.")
 
     @trap_exceptions
     def open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
         filename = self._window.open_file("Load Index", "json")
         if filename:
-            self.run_async(self.load_examples, filename, msg_done="Loaded index from file dialog.")
+            self.run_async(self.load_examples, filename,
+                           msg_start="Loading file...", msg_done="Loaded index from file dialog.")
 
     @trap_exceptions
     def config_editor(self) -> None:
@@ -178,7 +194,7 @@ class QtGUIApplication(StenoApplication):
             dialog.tool_ref = config_tool
 
     def _update_config(self, options:dict) -> None:
-        self.run_async(self.set_config, options, disable=False, msg_done="Configuration saved.")
+        self.run_async(self.set_config, options, msg_done="Configuration saved.")
 
     @trap_exceptions
     def confirm_startup_index(self) -> None:
@@ -201,8 +217,7 @@ class QtGUIApplication(StenoApplication):
 
     def _make_index(self, size:int=None) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self.set_status("Making new index...")
-        self.run_async(self.make_index, size, msg_done="Successfully created index!")
+        self.run_async(self.make_index, size, msg_start="Making new index...", msg_done="Successfully created index!")
 
     @trap_exceptions
     def debug_console(self) -> None:
@@ -243,16 +258,21 @@ class QtGUIApplication(StenoApplication):
         self._search.set_enabled(enabled)
         self._display.set_enabled(enabled)
 
-    def run_async(self, func:Callable, *args, callback=None, disable=True, msg_done:str=None) -> None:
-        """ Start a blocking async task. Most require disabling the window controls.
+    def run_async(self, func:Callable, *args, callback=None, msg_start:str=None, msg_done:str=None) -> None:
+        """ Start a blocking async task. If <msg_start> is not None, show it and disable the window controls.
             Make a callback that will re-enable the controls and show <msg_done> when the task is done. """
-        if disable:
+        if msg_start is not None:
             self.set_enabled(False)
+            self.set_status(msg_start)
         def on_task_finish(val) -> None:
-            self.set_status(msg_done)
             self.set_enabled(True)
+            if msg_done is not None:
+                self.set_status(msg_done)
             if callback is not None:
                 callback(val)
+        # GUI events may misbehave unless explicitly processed first.
+        qt_app = QApplication.instance()
+        qt_app.processEvents()
         self._async_call(func, *args, callback=on_task_finish)
 
     def _handle_exception(self, exc:Exception, max_frames=20) -> None:
@@ -265,13 +285,13 @@ class QtGUIApplication(StenoApplication):
         self.set_enabled(True)
 
 
-class SpectraQt(Spectra):
-    """ Main factory for the Qt GUI application. """
+class SpectraQtBase(Spectra):
+    """ Base factory for the Qt GUI application. """
 
     ICON_PATH = __package__, 'qt/icon.svg'  # Package and relative file path for window icon.
 
-    def build(self) -> QtGUIApplication:
-        """ Build all components necessary to operate the GUI. """
+    def build_app(self) -> QtGUIApplication:
+        """ Build the app with all components necessary to operate the GUI. """
         logger = self.build_logger()
         w_window = QMainWindow()
         ui = Ui_MainWindow()
@@ -286,29 +306,23 @@ class SpectraQt(Spectra):
         display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
         config = self.build_config()
         engine = self.build_engine()
-        app = QtGUIApplication(logger, window, menu, search, display, config, engine)
-        menu.add(app.open_translations, "File", "Load Translations...")
-        menu.add(app.open_index, "File", "Load Index...")
-        menu.add(app.close, "File", "Close", after_sep=True)
-        menu.add(app.config_editor, "Tools", "Edit Configuration...")
-        menu.add(app.custom_index, "Tools", "Make Index...")
-        menu.add(app.debug_console, "Debug", "Open Console...")
-        menu.add(app.debug_tree, "Debug", "View Object Tree...")
-        search.call_on_search(app.on_search)
-        search.call_on_query(app.on_query)
-        display.call_on_query(app.on_query)
-        display.call_on_example_search(app.on_search_examples)
-        # Load the heavy app data asynchronously on a new thread to avoid blocking the GUI.
-        app.set_status("Loading...")
-        app.run_async(self.load_app, app, callback=app.on_loaded, msg_done="Loading complete.")
-        app.show()
-        return app
+        return QtGUIApplication(logger, window, menu, search, display, config, engine)
+
+    def load_app_async(self, app:QtGUIApplication) -> None:
+        """ Load heavy data asynchronously on a new thread to avoid blocking the GUI. """
+        app.run_async(self.load_app, app, callback=app.on_loaded, msg_start="Loading...", msg_done="Loading complete.")
+
+
+class SpectraQt(SpectraQtBase):
+    """ Start the interactive GUI application. """
 
     def run(self) -> int:
-        """ Create a QApplication and load the GUI in standalone mode. """
+        """ Create a QApplication before building any of the GUI. """
         qt_app = QApplication(sys.argv)
-        # The returned object must be assigned to a dummy local, or else Qt will garbage-collect it and crash...
-        _ = self.build()
+        app = self.build_app()
+        app.connect_gui()
+        app.show()
+        self.load_app_async(app)
         # After everything is loaded, start a GUI event loop and run it indefinitely.
         return qt_app.exec_()
 

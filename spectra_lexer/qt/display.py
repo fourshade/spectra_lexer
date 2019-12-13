@@ -309,6 +309,7 @@ class DisplayController:
         title = _TitleWrapper(w_title)
         graph = _GraphWrapper(w_graph)
         board = _BoardWrapper(w_board)
+        board.set_link_visible(False)
         caption = _CaptionWrapper(w_caption)
         slider = _OptionSliderWrapper(w_slider)
         return cls(title, graph, board, caption, slider)

@@ -4,7 +4,7 @@ from functools import partial
 import pkg_resources
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from spectra_lexer.gui_qt import QtGUIApplication, SpectraQt
+from spectra_lexer.gui_qt import SpectraQtBase
 from spectra_lexer.resource import RTFCREDict
 
 
@@ -24,7 +24,7 @@ class IPloverTranslatorState:
 
 
 class IPloverStenoDict:
-    items: Callable[[], Iterable[Tuple[tuple, dict]]]
+    items: Callable[[], Iterable[Tuple[tuple, str]]]
     enabled: bool
 
 
@@ -51,14 +51,11 @@ class PloverEngineWrapper:
             The callback must be wrapped in a partial for signals to reach it...no idea why. """
         self._engine.signal_connect(key, partial(callback))
 
-    def compile_raw_dict(self, steno_dc:IPloverStenoDictCollection=None) -> Dict[tuple, str]:
+    def compile_raw_dict(self, steno_dc:IPloverStenoDictCollection) -> Dict[tuple, str]:
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
             They only have a subset of the normal dict methods. The fastest of these is .items().
             As a plugin, we lock the Plover engine just long enough to copy these with dict().
             The contents are strings and tuples of strings, so we are thread-safe after this point. """
-        # With no args, convert the current set of dictionaries from the engine.
-        if steno_dc is None:
-            steno_dc = self._engine.dictionaries
         d = {}
         with self._engine:
             for steno_d in steno_dc.dicts:
@@ -114,43 +111,6 @@ class PloverTranslationParser:
         self._text = ""
 
 
-class PloverApplicationWrapper:
-    """ Main wrapper object for the Plover plugin configuration. """
-
-    def __init__(self, app:QtGUIApplication, engine:PloverEngineWrapper, parser:PloverTranslationParser) -> None:
-        self._app = app
-        self._engine = engine  # Wrapped Plover engine object.
-        self._parser = parser  # Converts Plover dictionaries and translates user strokes.
-
-    def connect(self, min_version:str=None) -> None:
-        """ Connect the Plover engine to the parsing callbacks if it is compatible. """
-        try:
-            if min_version is not None:
-                pkg_resources.working_set.require(f"plover>={min_version}")
-            self._engine.signal_connect("dictionaries_loaded", self._on_dictionaries_loaded)
-            self._engine.signal_connect("translated", self._on_translated)
-            self._on_dictionaries_loaded()
-        except pkg_resources.ResolutionError:
-            # If the compatibility check fails, send an error message.
-            self._app.set_status(f"ERROR: Plover v{min_version} or greater required.")
-
-    def _on_dictionaries_loaded(self, steno_dc:IPloverStenoDictCollection=None) -> None:
-        """ Convert Plover translation dictionaries to string-key format and send the result to the main engine. """
-        d_raw = self._engine.compile_raw_dict(steno_dc)
-        d_converted = self._parser.convert_dict(d_raw)
-        # FIXME - wrap this in an async call.
-        self._app.set_translations(d_converted)
-        self._app.set_status("Loaded new dictionaries from Plover engine.")
-
-    def _on_translated(self, _, new_actions:Sequence[IPloverAction]) -> None:
-        """ Parse user translations into custom queries and send signals with valid ones. """
-        strokes = self._engine.get_last_strokes()
-        translation = self._parser.parse_translation(strokes, new_actions)
-        if translation is not None:
-            # User strokes may involve all sorts of custom briefs, so do not attempt to match every key.
-            self._app.on_query(translation, lexer_strict_mode=False)
-
-
 class dummy:
     """ A robust dummy object. Returns itself through any chain of attribute lookups, subscriptions, and calls. """
 
@@ -160,7 +120,7 @@ class dummy:
     __getattr__ = __getitem__ = __call__ = return_self
 
 
-class PloverPlugin:
+class PloverPlugin(SpectraQtBase):
     """ Entry point wrapper and dialog proxy to Plover. Translates some attributes into GUI calls and fakes others.
         In order to be recognized as a valid plugin, this proxy class must face outwards as the entry point itself.
         We must not create our own QApplication object or run our own event loop if Plover is running. """
@@ -170,7 +130,7 @@ class PloverPlugin:
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *SpectraQt.ICON_PATH])
+    ICON = ':'.join(['asset', *SpectraQtBase.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
@@ -178,19 +138,56 @@ class PloverPlugin:
         """ Main entry point for Spectra's Plover plugin.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        main = SpectraQt()
-        # We get translations from the Plover engine, so auto-loading from disk must be suppressed.
-        main.translations_files = []
-        self.app = main.build()
-        engine = PloverEngineWrapper(engine)
-        parser = PloverTranslationParser()
-        wrapper = PloverApplicationWrapper(self.app, engine, parser)
-        # Connect the Plover engine if it is compatible. This must happen *before* the index check.
-        wrapper.connect(self.VERSION_REQUIRED)
+        self._steno_dc = engine.dictionaries        # Current set of dictionaries from the engine.
+        self._engine = PloverEngineWrapper(engine)  # Wrapped Plover engine object.
+        self._parser = PloverTranslationParser()    # Converts Plover dictionaries and translates user strokes.
+        self._app = app = self.build_app()          # Qt GUI app object.
+        app.connect_gui()
+        app.show()
+        if self._is_compatible():
+            # Connect the Plover engine to the parsing callbacks if it is compatible.
+            self._engine.signal_connect("dictionaries_loaded", self._on_dictionaries_loaded)
+            self._engine.signal_connect("translated", self._on_translated)
+            self.load_app_async(app)
+        else:
+            # If the compatibility check fails, abort the loading sequence and show an error message.
+            app.set_status(f"ERROR: Plover v{self.VERSION_REQUIRED} or greater required.")
+
+    def _is_compatible(self) -> bool:
+        """ Check the Plover version to see if it is compatible. """
+        try:
+            pkg_resources.working_set.require(f"plover>={self.VERSION_REQUIRED}")
+            return True
+        except pkg_resources.ResolutionError:
+            return False
+
+    def _on_dictionaries_loaded(self, steno_dc:IPloverStenoDictCollection) -> None:
+        """ Convert Plover translation dictionaries to string-key format and send the result to the main engine. """
+        if steno_dc is not self._steno_dc:
+            self._steno_dc = steno_dc
+            self._app.run_async(self._load_dictionaries_async, msg_start="Loading dictionaries...",
+                                msg_done="Loaded new dictionaries from Plover engine.")
+
+    def _load_dictionaries_async(self) -> None:
+        d = self._plover_translations()
+        self._app.set_translations(d)
+
+    def _plover_translations(self) -> RTFCREDict:
+        """ We get translations from the Plover engine instead of auto-loading from disk. """
+        d_raw = self._engine.compile_raw_dict(self._steno_dc)
+        return self._parser.convert_dict(d_raw)
+
+    def _on_translated(self, _, new_actions:Sequence[IPloverAction]) -> None:
+        """ Parse user translations into custom queries and send signals with valid ones. """
+        strokes = self._engine.get_last_strokes()
+        translation = self._parser.parse_translation(strokes, new_actions)
+        if translation is not None:
+            # User strokes may involve all sorts of custom briefs, so do not attempt to match every key.
+            self._app.on_query(translation, lexer_strict_mode=False)
 
     def __getattr__(self, name:str) -> Any:
         """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """
         try:
-            return getattr(self.app, name)
+            return getattr(self._app, name)
         except AttributeError:
             return dummy()
