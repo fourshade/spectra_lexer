@@ -128,12 +128,13 @@ class BoardElementFactory:
         grp.txtmaxarea = attrs["txtarea"]
         grp.altangle = attrs["altangle"]
 
-    def proc_text(self, grp:BoardElementGroup, text:str, _FONT_SIZE=24, _EM_SIZE=1000, _TXTSPACING=14.4) -> None:
+    def proc_text(self, grp:BoardElementGroup, text:str, _FONT_SIZE=24, _EM_SIZE=1000, _SPACING=600) -> None:
         """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
-            Max font size is 24 pt. Text paths are defined with an em box of 1000 units.
-            14.4 px is the horizontal spacing of text in pixels. """
+            Max font size is 24 px. Text paths are defined with an em box of 1000 units.
+            600 units (or 14.4 px) is the horizontal spacing of text. """
         n = len(text) or 1
-        spacing = _TXTSPACING
+        px_per_unit = _FONT_SIZE / _EM_SIZE
+        spacing = _SPACING * px_per_unit
         w, h = grp.txtmaxarea
         scale = min(1.0, w / (n * spacing))
         # If there is little horizontal space and plenty in another direction, rotate the text.
@@ -141,7 +142,7 @@ class BoardElementFactory:
             scale = min(1.0, h / (n * spacing))
             grp.tfrm.rotate(grp.altangle)
         spacing *= scale
-        font_scale = scale * _FONT_SIZE / _EM_SIZE
+        font_scale = scale * px_per_unit
         x = - n * spacing / 2
         y = (10 * scale) - 3
         elems = []

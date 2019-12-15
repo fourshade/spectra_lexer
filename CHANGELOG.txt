@@ -1,5 +1,6 @@
 9.1.0
 -----
+* Added new board diagram shapes
 * Fixed CSS GUI layout
 * Improved Qt GUI responsiveness during startup
 

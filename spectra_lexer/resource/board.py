@@ -35,7 +35,6 @@ class StenoBoardDefinitions:
     @property
     def bounds(self) -> Tuple[int, int, int, int]:
         """ Return the coordinates of the bounding box for a single board diagram (before transforms). """
-        bounds = self._defs["bounds"]
-        x, y = bounds["min"]
-        w, h = bounds["max"]
+        x, y = self._defs["min_bounds"]
+        w, h = self._defs["max_bounds"]
         return x, y, w, h
