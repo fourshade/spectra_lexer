@@ -13,9 +13,10 @@ lib
 # PyTest
 .pytest_cache
 
-# PyCharm
+# IDE files
 .idea
 .cache
+.vscode
 
 # Vim swap/undo files
 *.swp
