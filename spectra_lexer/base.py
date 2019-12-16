@@ -1,6 +1,8 @@
+from configparser import ConfigParser
 import json
 import os
 import sys
+from typing import List
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
@@ -91,9 +93,8 @@ class Spectra(CmdlineOptionNamespace):
 
     def _plover_translations(self) -> RTFCREDict:
         """ Search the user's local app data for the Plover config file, find the dictionaries, and load them. """
-        converter = UserPathConverter(self.PLOVER_APP)
-        cfg_filename = converter.convert(self.PLOVER_CFG)
-        return RTFCREDict.from_plover_cfg(cfg_filename)
+        filenames = self._find_plover_dictionaries()
+        return RTFCREDict.from_json_files(*filenames)
 
     def build_logger(self) -> StreamLogger:
         """ Create a logger, which will print non-error messages to stdout by default.
@@ -171,6 +172,28 @@ class Spectra(CmdlineOptionNamespace):
                           if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
             data = "\n".join(data_lines)
             return json.loads(data)
+
+    def _find_plover_dictionaries(self, *, ignore_errors=True) -> List[str]:
+        """ Search the user's local app data for the Plover config file.
+            Parse the dictionaries section and return the filenames for all dictionaries in order. """
+        try:
+            converter = UserPathConverter(self.PLOVER_APP)
+            cfg_filename = converter.convert(self.PLOVER_CFG)
+            parser = ConfigParser()
+            with open(cfg_filename, 'r', encoding='utf-8') as fp:
+                parser.read_file(fp)
+            # Dictionaries are located in the same directory as the config file.
+            # The config value we need is read as a string, but it must be decoded as a JSON array of objects.
+            value = parser['System: English Stenotype']['dictionaries']
+            dictionary_specs = json.loads(value)
+            plover_dir = os.path.split(cfg_filename)[0]
+            # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
+            return [os.path.join(plover_dir, spec['path']) for spec in reversed(dictionary_specs)]
+        except (IndexError, KeyError, OSError, ValueError):
+            # Catch-all for file and parsing errors. Return an empty list if <ignore_errors> is True.
+            if not ignore_errors:
+                raise
+            return []
 
     @classmethod
     def main(cls) -> int:

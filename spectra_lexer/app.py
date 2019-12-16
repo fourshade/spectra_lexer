@@ -93,7 +93,7 @@ class StenoApplication:
         """ Do a new search and return results unless the input is blank. """
         output = StenoGUIOutput()
         engine_options = self._with_config(options)
-        if pattern:
+        if pattern.strip():
             output.search_results = self._engine.search(pattern, pages, options=engine_options)
         return output
 

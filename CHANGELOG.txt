@@ -1,3 +1,7 @@
+9.1.1
+-----
+* Fixed crashes related to Plover input in the GUI search box
+
 9.1.0
 -----
 * Added new board diagram shapes

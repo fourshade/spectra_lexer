@@ -1,6 +1,5 @@
 from typing import Callable, Dict, List
 
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCheckBox, QLineEdit
 
 from .widgets import StringListView
@@ -28,35 +27,19 @@ class _ListWrapper:
 
     def __init__(self, w_list:StringListView) -> None:
         self._w_list = w_list
+        self.call_on_select = w_list.itemSelected.connect
 
-    def call_on_select(self, func:Callable) -> None:
-        self._w_list.itemSelected.connect(func, Qt.QueuedConnection)
+    def set_items(self, items:List[str]) -> None:
+        self._w_list.setItems(items)
 
     def select(self, value:str) -> None:
-        return self._w_list.selectByValue(value)
+        self._w_list.selectByValue(value)
 
     def value(self) -> str:
         return self._w_list.selectedValue()
 
     def set_enabled(self, enabled:bool) -> None:
         self._w_list.setEnabled(enabled)
-
-
-class _MatchListWrapper(_ListWrapper):
-
-    def set_items(self, matches:List[str]) -> None:
-        """ Set the match list and automatically select the match if there was only one. """
-        self._w_list.setItems(matches)
-        if len(matches) == 1:
-            match = matches[0]
-            self.select(match)
-            self._w_list.itemSelected.emit(match)
-
-
-class _MappingListWrapper(_ListWrapper):
-
-    def set_items(self, mappings:List[str]) -> None:
-        self._w_list.setItems(mappings)
 
 
 class _ModeCheckboxWrapper:
@@ -76,7 +59,7 @@ class SearchController:
 
     _MORE_TEXT = "(more...)"  # Text displayed as the final match, allowing the user to expand the search.
 
-    def __init__(self, input_:_InputTextboxWrapper, matches:_MatchListWrapper, mappings:_MappingListWrapper,
+    def __init__(self, input_:_InputTextboxWrapper, matches:_ListWrapper, mappings:_ListWrapper,
                  strokes:_ModeCheckboxWrapper, regex:_ModeCheckboxWrapper) -> None:
         self._input = input_
         self._matches = matches
@@ -90,8 +73,8 @@ class SearchController:
         strokes.call_on_toggle(self._send_search)
         regex.call_on_toggle(self._send_search)
         input_.call_on_edit(self._send_search)
-        matches.call_on_select(self._match_select)
-        mappings.call_on_select(self._mapping_select)
+        matches.call_on_select(self._match_selected)
+        mappings.call_on_select(self._mapping_selected)
         self.get_mode_strokes = strokes.__bool__
         self.get_mode_regex = regex.__bool__
         self.update_input = input_.set
@@ -107,49 +90,53 @@ class SearchController:
         self._last_page_count = page_count
         self._on_search(self._input.value(), page_count)
 
-    def _match_select(self, match:str) -> None:
-        """ If the user clicked "more", search again with another page. """
+    def _match_selected(self, match:str) -> None:
+        """ If the user clicked "more", search again with another page.
+            Otherwise, update the mappings list with the items corresponding to <match> and pick the best one. """
         if match == self._MORE_TEXT:
             self._send_search(page_count=self._last_page_count + 1)
-        else:
-            self._set_mappings(match)
-            self._mapping_select()
+        elif match in self._match_dict:
+            mappings = self._match_dict[match]
+            self._mappings.set_items(mappings)
+            if mappings:
+                self._send_query(*[[match, m] for m in mappings])
 
-    def _mapping_select(self, mapping="") -> None:
-        """ The order of lexer parameters must be reversed for strokes mode. """
+    def _mapping_selected(self, mapping:str) -> None:
+        """ Select a <mapping> and send a lexer query for this specific translation. """
         match = self._matches.value()
-        if mapping:
-            translations = [[match, mapping]]
-        else:
-            translations = [[match, m] for m in self._match_dict[match]]
-        if translations:
-            if not self._strokes:
-                for t in translations:
-                    t.reverse()
-            self._on_query(*translations)
+        self._send_query([match, mapping])
+
+    def _send_query(self, *translations:List[str]) -> None:
+        """ Send a lexer query for one or more <translations>.
+            The order of lexer parameters must be reversed for strokes mode. """
+        if not self._strokes:
+            for t in translations:
+                t.reverse()
+        self._on_query(*translations)
 
     def update_results(self, matches:MatchDict, *, can_expand=True) -> None:
         """ Replace the current set of search results.
-            If <can_expand> is True, add a final list item to allow search expansion. """
+            If <can_expand> is True, add a final list item to allow search expansion.
+            If there was only one match, select it automatically and proceed with a query. """
         self._match_dict = matches
         match_list = list(matches)
         if can_expand:
             match_list.append(self._MORE_TEXT)
         self._matches.set_items(match_list)
         self._mappings.set_items([])
+        if len(match_list) == 1:
+            match = match_list[0]
+            self._matches.select(match)
+            self._match_selected(match)
 
     def select_translation(self, keys:str, letters:str) -> None:
-        """ Set the current selections to match the analyzed translation if possible. """
+        """ Set the current selections to match the analyzed translation if possible. Do not send queries. """
         match, mapping = [keys, letters] if self._strokes else [letters, keys]
         if match in self._match_dict:
+            mappings = self._match_dict[match]
             self._matches.select(match)
-            self._set_mappings(match)
+            self._mappings.set_items(mappings)
             self._mappings.select(mapping)
-
-    def _set_mappings(self, match:str) -> None:
-        """ Update the mappings list with the items corresponding to <match>. """
-        mappings = self._match_dict[match]
-        self._mappings.set_items(mappings)
 
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all search widgets. Leave the content intact. """
@@ -163,8 +150,8 @@ class SearchController:
     def from_widgets(cls, w_input:QLineEdit, w_matches:StringListView, w_mappings:StringListView,
                      w_strokes:QCheckBox, w_regex:QCheckBox) -> "SearchController":
         input_ = _InputTextboxWrapper(w_input)
-        matches = _MatchListWrapper(w_matches)
-        mappings = _MappingListWrapper(w_mappings)
+        matches = _ListWrapper(w_matches)
+        mappings = _ListWrapper(w_mappings)
         strokes = _ModeCheckboxWrapper(w_strokes)
         regex = _ModeCheckboxWrapper(w_regex)
         return cls(input_, matches, mappings, strokes, regex)

@@ -1,4 +1,4 @@
-""" Main module for the interactive GUI application. """
+""" Main module for the interactive Qt GUI application. """
 
 import pkgutil
 import sys
@@ -209,9 +209,7 @@ class QtGUIApplication(StenoApplication):
         if dialog is not None:
             index_tool = IndexSizeTool(dialog)
             index_tool.call_on_size_accept(self._make_index)
-            info = RTFCREDict.FilterSizes
-            sizes = [info.MINIMUM_SIZE, info.SMALL_SIZE, info.MEDIUM_SIZE, info.LARGE_SIZE, info.MAXIMUM_SIZE]
-            index_tool.set_sizes(sizes)
+            index_tool.set_sizes(RTFCREDict.FILTER_SIZES)
             index_tool.display()
             dialog.tool_ref = index_tool
 
@@ -285,8 +283,8 @@ class QtGUIApplication(StenoApplication):
         self.set_enabled(True)
 
 
-class SpectraQtBase(Spectra):
-    """ Base factory for the Qt GUI application. """
+class SpectraQt(Spectra):
+    """ Start the interactive GUI application. """
 
     ICON_PATH = __package__, 'qt/icon.svg'  # Package and relative file path for window icon.
 
@@ -306,22 +304,19 @@ class SpectraQtBase(Spectra):
         display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
         config = self.build_config()
         engine = self.build_engine()
-        return QtGUIApplication(logger, window, menu, search, display, config, engine)
+        app = QtGUIApplication(logger, window, menu, search, display, config, engine)
+        app.connect_gui()
+        app.show()
+        return app
 
     def load_app_async(self, app:QtGUIApplication) -> None:
         """ Load heavy data asynchronously on a new thread to avoid blocking the GUI. """
         app.run_async(self.load_app, app, callback=app.on_loaded, msg_start="Loading...", msg_done="Loading complete.")
 
-
-class SpectraQt(SpectraQtBase):
-    """ Start the interactive GUI application. """
-
     def run(self) -> int:
         """ Create a QApplication before building any of the GUI. """
         qt_app = QApplication(sys.argv)
         app = self.build_app()
-        app.connect_gui()
-        app.show()
         self.load_app_async(app)
         # After everything is loaded, start a GUI event loop and run it indefinitely.
         return qt_app.exec_()

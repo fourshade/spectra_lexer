@@ -33,7 +33,7 @@ class ComponentBench:
         import random
         random.seed(123)
         prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(50000)]
-        self._profiler.run(self._engine._search_engine.search, zip(prefixes))
+        self._profiler.run(self._engine.search, zip(prefixes))
 
     def run_lexer(self) -> None:
         self._profiler.run(self._engine.analyze, self._spaced_translations(5000))
@@ -45,13 +45,6 @@ class ComponentBench:
 
     def make_display(self) -> None:
         self._profiler.run(self._engine.display, self._spaced_results(500))
-
-    def run_analysis(self) -> None:
-        self._profiler.run(self._run_analysis, self._spaced_translations(500))
-
-    def _run_analysis(self, keys:str, letters:str) -> None:
-        analysis = self._engine.analyze(keys, letters)
-        self._engine.display(analysis)
 
 
 def app_start():

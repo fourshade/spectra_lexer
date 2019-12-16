@@ -6,8 +6,7 @@ from contextlib import nullcontext
 from typing import Dict
 
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.plover import IPloverEngine, IPloverStenoDict, IPloverStenoDictCollection, \
-    PloverEngineWrapper, PloverTranslationParser
+from spectra_lexer.plover import IPlover, PloverExtension
 
 
 def test_plover() -> None:
@@ -15,27 +14,26 @@ def test_plover() -> None:
     assert dc_to_dict(dict_to_dc(TEST_TRANSLATIONS)) == TEST_TRANSLATIONS
 
 
-def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPloverStenoDictCollection:
-    steno_dc = IPloverStenoDictCollection()
+def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDictCollection:
+    steno_dc = IPlover.StenoDictCollection()
     dicts = steno_dc.dicts = []
     tuples = [(*k.split("/"),) for k in translations]
     items = list(zip(tuples, translations.values()))
     for i in range(split_count):
         tuple_d = dict(items[i::split_count])
-        sd = IPloverStenoDict()
+        sd = IPlover.StenoDict()
         sd.items = tuple_d.items
         sd.enabled = True
         dicts.append(sd)
     return steno_dc
 
 
-class DummyEngine(nullcontext, IPloverEngine):
+class DummyEngine(nullcontext, IPlover.Engine):
     pass
 
 
-def dc_to_dict(steno_dc:IPloverStenoDictCollection) -> Dict[str, str]:
+def dc_to_dict(steno_dc:IPlover.StenoDictCollection) -> Dict[str, str]:
     dummy_engine = DummyEngine()
-    wrapper = PloverEngineWrapper(dummy_engine)
-    parser = PloverTranslationParser()
-    d = wrapper.compile_raw_dict(steno_dc)
-    return parser.convert_dict(d)
+    dummy_engine.dictionaries = steno_dc
+    ext = PloverExtension.from_engine(dummy_engine)
+    return ext.get_translations()
