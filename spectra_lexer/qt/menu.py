@@ -1,6 +1,6 @@
 from typing import Callable
 
-from PyQt5.QtWidgets import QMenuBar, QAction, QMenu
+from PyQt5.QtWidgets import QAction, QMenu, QMenuBar
 
 
 class MenuController:

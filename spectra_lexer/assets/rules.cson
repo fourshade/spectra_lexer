@@ -604,7 +604,7 @@
   "~8":  ["-L", "8",   ["SPEC"], "8"],
   "~9":  ["-T", "9",   ["SPEC"], "9"],
   "~##": ["-D", "|x2", ["SPEC"], "repeats a digit"],
-  "~#I": ["EU", "|⇄",  ["SPEC"], "inverts the order of two digits"],
+  "~#I": ["EU", "|#⇄#",["SPEC"], "inverts the order of two digits"],
   "~00": ["-Z", "00",  ["SPEC"], "adds two zeroes"],
 
   # single digits

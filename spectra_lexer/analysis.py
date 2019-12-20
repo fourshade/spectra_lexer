@@ -65,7 +65,7 @@ class StenoAnalyzer:
             for r in result.rules:
                 r_id = r.rule.id
                 if r_id not in self.LEXER_SPECIALS:
-                    data.append(r.rule.id)
+                    data.append(r_id)
         return data
 
     @classmethod
