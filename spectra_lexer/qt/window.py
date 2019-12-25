@@ -2,6 +2,7 @@ from typing import List, Optional
 from weakref import WeakValueDictionary
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMainWindow, QMessageBox
 
 
@@ -22,14 +23,22 @@ class WindowController:
         self._w_window.activateWindow()
         self._w_window.raise_()
 
-    def open_dialog(self, title:str, width:int, height:int) -> Optional[QDialog]:
+    def set_icon(self, data:bytes) -> None:
+        """ Set the main window icon from a raw bytes object containing an image in some standard format.
+            PNG and SVG formats are known to work. """
+        pixmap = QPixmap()
+        pixmap.loadFromData(data)
+        icon = QIcon(pixmap)
+        self._w_window.setWindowIcon(icon)
+
+    def open_dialog(self, title:str, width:int, height:int, dlg_cls=QDialog) -> Optional[QDialog]:
         """ If a previous dialog with <title> is open, set focus on it and return None, otherwise return a new one. """
         dialog = self._dialogs_by_title.get(title)
         if dialog is not None and not dialog.isHidden():
             dialog.show()
             dialog.activateWindow()
             return None
-        dialog = self._dialogs_by_title[title] = QDialog(self._w_window, self._DIALOG_FLAGS)
+        dialog = self._dialogs_by_title[title] = dlg_cls(self._w_window, self._DIALOG_FLAGS)
         # Set the most basic properties of the dialog window: the title string and its dimensions in pixels.
         dialog.setWindowTitle(title)
         dialog.resize(width, height)

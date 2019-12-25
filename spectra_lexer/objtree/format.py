@@ -1,8 +1,10 @@
 """ Module for formatting and displaying types and values of arbitrary Python objects. """
 
+import csv
 from functools import lru_cache
 from itertools import islice
-from typing import Any
+import sys
+from typing import Any, Dict
 
 
 @lru_cache(maxsize=None)
@@ -123,3 +125,75 @@ class ValueRepr:
         return self._repr_iterable(x, '{', '}', repr_fn=item_repr)
 
     repr_mappingproxy = repr_dict
+
+
+SVGIconData = bytes
+
+
+class SVGIcons:
+
+    COMPONENT_ICON_ID = "__COMPONENT__"
+    METATYPE_ICON_ID = "__METATYPE__"
+
+    def __init__(self, icon_dict:Dict[str, SVGIconData]=None, cmp_package:str=None):
+        self._icon_dict = icon_dict or {}  # Dict of SVG XML icon data keyed by the names of object data types.
+        self._cmp_package = cmp_package    # Optional name of Python package for components using the gear icon.
+
+    @classmethod
+    def from_csv(cls, data:bytes, *args:str, encoding='utf-8') -> "SVGIcons":
+        """ Parse CSV formatted icon data. The first row contains only one field:
+            the basic document structure with header and footer, usable as a format string.
+            In all other rows, the last field is the SVG icon data itself, and every other field
+            contains the name of a data type alias that uses the icon described by that data. """
+        icon_dict = {}
+        lines = data.decode(encoding).splitlines()
+        [fmt], *items = csv.reader(map(str.strip, lines))
+        # Format each icon from the packaged bytes data and add them to the dict under each alias.
+        for *aliases, xml_data in items:
+            xml = fmt.format(xml_data).encode(encoding)
+            for n in aliases:
+                icon_dict[n] = xml
+        return cls(icon_dict, *args)
+
+    def get_best(self, type_params:TypeParams, is_metacls=False) -> SVGIconData:
+        """ Return the best of the given available icons out of a sequence of choices from most wanted to least. """
+        choices = [*type_params.mro_names]
+        # Metaclasses show a special icon.
+        if is_metacls:
+            choices.insert(0, self.METATYPE_ICON_ID)
+        # Objects originating from the 'component' package show a gear icon.
+        if self._cmp_package is not None and type_params.module.startswith(self._cmp_package):
+            choices[-1] = self.COMPONENT_ICON_ID
+        return next(filter(None, map(self._icon_dict.get, choices)), b"")
+
+
+class package(Dict[str, Any]):
+    """ Dict for nesting objects and modules under path-like string keys. Has a special icon. """
+
+    __slots__ = ()
+
+    @classmethod
+    def modules(cls) -> "package":
+        """ Make a package with a nested representation of the currently loaded modules. """
+        return cls.nested(sys.modules, delim=".", root_key="__init__")
+
+    @classmethod
+    def nested(cls, src:dict, delim:str, root_key:str) -> "package":
+        """ Split all keys in <src> on <delim> and nest package dicts in a hierarchy based on these splits.
+            If one key is a prefix of another, it may occupy a slot needed for another level of dicts.
+            If this happens, move the value one level deeper under <root_key>. """
+        pkg = cls()
+        for k, v in src.items():
+            d = pkg
+            *first, last = k.split(delim)
+            for i in first:
+                if i not in d:
+                    d[i] = cls()
+                elif not isinstance(d[i], cls):
+                    d[i] = cls({root_key: d[i]})
+                d = d[i]
+            if last not in d or not isinstance(d[last], cls):
+                d[last] = v
+            else:
+                d[last][root_key] = v
+        return pkg

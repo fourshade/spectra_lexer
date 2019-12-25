@@ -181,7 +181,7 @@ class UnorderedContainer(BaseContainer):
     """ A sized, unordered iterable item container. The most generic acceptable type of iterable container.
         Items may be sorted for display if they are orderable. Mappings do not need a subclass beyond this. """
 
-    _AUTOSORT_MAXSIZE: int = 200
+    _AUTOSORT_MAXSIZE = 200
     show_item_count = True
 
     def __iter__(self) -> Iterator:
@@ -300,13 +300,13 @@ class AttrContainer(MovableKeyContainer):
 @CONTAINER_TYPES.register(hasattr, "__dict__")
 class ClassContainer(GeneratedContainer):
     """ A container that displays the class hierarchy for instances of user-defined classes.
-        The main exception is type, which is its own class and would expand indefinitely.
-        Others include built-in types which provide next to nothing useful in their attr listings. """
+        Built-in types are excluded; they provide next to nothing useful in their attr listings.
+        (an especially pathological case is type, which is an instance of *itself*.) """
 
-    _EXCLUDED_CLASSES: set = {i for m in (builtins, types) for i in vars(m).values() if isinstance(i, type)}
+    _EXCLUDED_CLASSES = {x for module in [builtins, types] for x in vars(module).values() if isinstance(x, type)}
 
     def _gen_dict(self, obj:Any) -> dict:
-        """ Add each valid parent class as a child item. """
+        """ Add each valid parent class as a container item. """
         return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
 
@@ -324,7 +324,7 @@ class ExceptionContainer(GeneratedContainer):
 
     def _gen_dict(self, exc:BaseException) -> dict:
         """ Add parent exceptions (cause/context), then each frame object going down the stack. """
-        d = {f"arg{i}": v for i, v in enumerate(exc.args)}
+        d = {f'arg{i}': v for i, v in enumerate(exc.args)}
         for k in ("__cause__", "__context__"):
             v = getattr(exc, k)
             if v is not None:
@@ -351,22 +351,20 @@ class FrameContainer(GeneratedContainer):
 class instruction:
     """ A bytecode instruction as displayed in the debug tree. Has a special icon. """
 
-    __slots__ = ["_s"]
+    __slots__ = ["_instr"]
 
-    def get(self, inst:dis.Instruction):
-        """ Set an instruction's argument as a display string. If it is a code object, return that instead. """
-        if hasattr(inst.argval, 'co_code'):
-            return inst.argval
-        if inst.arg is None:
-            self._s = ""
-        elif not inst.argrepr:
-            self._s = f'{inst.arg}'
-        else:
-            self._s = f'{inst.arg} ({inst.argrepr})'
-        return self
+    def __init__(self, instr:dis.Instruction) -> None:
+        self._instr = instr
 
     def __repr__(self) -> str:
-        return self._s
+        """ Show the instruction's argument (if any) as a string. """
+        instr = self._instr
+        if instr.arg is None:
+            return ""
+        elif not instr.argrepr:
+            return f'{instr.arg}'
+        else:
+            return f'{instr.arg} ({instr.argrepr})'
 
 
 # Types known to consist of or contain inspectable bytecode.
@@ -378,5 +376,14 @@ class CodeContainer(GeneratedContainer):
     """ Shows disassembly of a code object. """
 
     def _gen_dict(self, obj:Union[_CODE_TYPES]) -> dict:
-        """ To display bytecode properly in the tree, make a special display object for each instruction found. """
-        return {f'{inst.offset} {inst.opname}': instruction().get(inst) for inst in dis.get_instructions(obj)}
+        """ To display bytecode properly in the tree, make a special display object for each instruction found.
+            If an instruction has a code object as its argument, add that instead. """
+        d = {}
+        for instr in dis.get_instructions(obj):
+            k = f'{instr.offset} {instr.opname}'
+            if hasattr(instr.argval, 'co_code'):
+                v = instr.argval
+            else:
+                v = instruction(instr)
+            d[k] = v
+        return d

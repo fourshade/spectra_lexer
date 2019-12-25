@@ -1,11 +1,11 @@
 from itertools import cycle
 from typing import Callable, Dict, Sequence, Tuple
 
-from PyQt5.QtCore import pyqtSignal, QObject, QTimer, QUrl
-from PyQt5.QtGui import QTextCharFormat
+from PyQt5.QtCore import pyqtSignal, QObject, QRectF, QTimer, QUrl
+from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
+from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
-from .svg import SVGPictureRenderer
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 
@@ -19,6 +19,40 @@ class DisplayPageData:
         self.board_caption = board_caption  # Text caption for this rule, drawn above the board.
         self.board_xml = board_xml          # XML byte string containing this rule's SVG board diagram.
         self.link_ref = link_ref            # Target ref for a link to find examples of this rule (empty if none).
+
+
+class SVGPictureRenderer:
+    """ Renders SVG bytes data on QPictures. """
+
+    def __init__(self, *, render_hints=QPainter.Antialiasing) -> None:
+        self._renderer = QSvgRenderer()    # XML SVG renderer.
+        self._render_hints = render_hints  # SVG rendering quality hints (such as anti-aliasing).
+
+    def set_data(self, xml_data=b"") -> None:
+        """ Load the renderer with raw XML data containing the SVG elements to draw. """
+        self._renderer.load(xml_data)
+
+    def render_fit(self, width:float, height:float) -> QPicture:
+        """ Render the current SVG elements on a new picture of size <width, height> and return it. """
+        gfx = QPicture()
+        with QPainter(gfx) as p:
+            p.setRenderHints(self._render_hints)
+            bounds = self._fit_bounds(width, height)
+            self._renderer.render(p, bounds)
+        return gfx
+
+    def _fit_bounds(self, width:float, height:float) -> QRectF:
+        """ Return the bounding box needed to center everything in the picture at maximum scale. """
+        _, _, vw, vh = self._renderer.viewBoxF().getRect()
+        if vw and vh:
+            scale = min(width / vw, height / vh)
+            fw, fh = vw * scale, vh * scale
+            ox = (width - fw) / 2
+            oy = (height - fh) / 2
+            return QRectF(ox, oy, fw, fh)
+        else:
+            # If no valid viewbox is defined, use the given size directly.
+            return QRectF(0, 0, width, height)
 
 
 class _TitleWrapper(QObject):
@@ -145,13 +179,15 @@ class _BoardWrapper(QObject):
 
     _sig_new_ratio = pyqtSignal([float])  # Sent with the width / height aspect ratio of the board widget.
 
-    def __init__(self, w_board:PictureWidget) -> None:
+    def __init__(self, w_board:PictureWidget, w_link:QLabel, renderer:SVGPictureRenderer) -> None:
         super().__init__()
-        self._w_board = w_board
-        self._w_link = QLabel(self._LINK_HTML, w_board)  # Rule example hyperlink.
-        self._renderer = SVGPictureRenderer()            # XML SVG renderer.
+        self._w_board = w_board    # Board diagram container widget.
+        self._w_link = w_link      # Rule example hyperlink.
+        self._renderer = renderer  # XML SVG renderer.
         self.call_on_link_click = self._w_link.linkActivated.connect
         self.call_on_ratio_change = self._sig_new_ratio.connect
+        w_link.setText(self._LINK_HTML)
+        w_link.setVisible(False)
         w_board.resized.connect(self._on_resize)
 
     def _on_resize(self) -> None:
@@ -231,7 +267,7 @@ class DisplayController:
         self._last_translation = None
         self._on_example_search = lambda *_: None
         self._on_query = lambda *_: None
-        graph.call_on_mouse_over(self._graph_action)
+        graph.call_on_mouse_over(self._graph_over)
         graph.call_on_mouse_click(self._graph_clicked)
         title.call_on_translation(self._send_query)
         board.call_on_link_click(self._send_example_search)
@@ -241,17 +277,17 @@ class DisplayController:
         self.get_board_letters = slider.is_mode_letters
         self.set_status = title.show_status
 
-    def call_on_example_search(self, fn:Callable[[str], None]) -> None:
-        self._on_example_search = fn
-
     def call_on_query(self, fn:Callable[[Tuple[str, str]], None]) -> None:
         self._on_query = fn
 
-    def _send_example_search(self, *_) -> None:
-        self._on_example_search(self._last_link_ref)
+    def call_on_example_search(self, fn:Callable[[str], None]) -> None:
+        self._on_example_search = fn
 
     def _send_query(self, keys:str, letters:str) -> None:
         self._on_query([keys, letters])
+
+    def _send_example_search(self, *_) -> None:
+        self._on_example_search(self._last_link_ref)
 
     def _slider_action(self, *_) -> None:
         """ On slider actions, resend the last query to get pages rendered with the new options. """
@@ -259,23 +295,27 @@ class DisplayController:
         if translation is not None:
             self._on_query(translation)
 
-    def _graph_action(self, node_ref="", clicked=False) -> None:
-        """ On mouse actions, change the currently displayed analysis page. """
+    def _graph_over(self, node_ref:str) -> None:
+        self._graph_action(node_ref, False)
+
+    def _graph_clicked(self, node_ref:str) -> None:
+        self._graph_action(node_ref, True)
+
+    def _graph_action(self, node_ref:str, focused:bool) -> None:
+        """ On mouse actions, change the currently displayed analysis page to the one under <node_ref>.
+            If <node_ref> is an empty string, show the default page with nothing focused. """
         pages = self._page_dict
         if not node_ref:
-            clicked = False
+            focused = False
             node_ref = DisplayPageData.DEFAULT_KEY
         page = pages.get(node_ref)
         if page is not None:
-            self._graph.set_graph_text(page.html_graphs[clicked])
-            self._graph.set_focus(clicked)
+            self._graph.set_graph_text(page.html_graphs[focused])
+            self._graph.set_focus(focused)
             self._caption.set_caption(page.board_caption)
             self._board.set_data(page.board_xml)
             self._board.set_link_visible(bool(page.link_ref))
             self._last_link_ref = page.link_ref
-
-    def _graph_clicked(self, node_ref:str) -> None:
-        self._graph_action(node_ref, True)
 
     def set_translation(self, keys:str, letters:str) -> None:
         self._last_translation = [keys, letters]
@@ -285,12 +325,13 @@ class DisplayController:
         """ Replace the current dict of analysis pages and attempt to select the last link target. """
         self._page_dict = page_dict
         last_link = self._last_link_ref
+        start_ref = ""
         if last_link:
             for node_ref, page in page_dict.items():
                 if page.link_ref == last_link:
-                    self._graph_clicked(node_ref)
-                    return
-        self._graph_action()
+                    start_ref = node_ref
+                    break
+        self._graph_action(start_ref, True)
 
     def set_enabled(self, enabled:bool) -> None:
         self._title.set_enabled(enabled)
@@ -308,8 +349,9 @@ class DisplayController:
                      w_caption:QLabel, w_slider:QSlider) -> "DisplayController":
         title = _TitleWrapper(w_title)
         graph = _GraphWrapper(w_graph)
-        board = _BoardWrapper(w_board)
-        board.set_link_visible(False)
+        w_link = QLabel(w_board)
+        board_renderer = SVGPictureRenderer()
+        board = _BoardWrapper(w_board, w_link, board_renderer)
         caption = _CaptionWrapper(w_caption)
         slider = _OptionSliderWrapper(w_slider)
         return cls(title, graph, board, caption, slider)

@@ -8,62 +8,18 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer.app import StenoApplication, StenoGUIOutput
 from spectra_lexer.base import Spectra
-from spectra_lexer.debug import DebugData, DebugDataFactory, package
+from spectra_lexer.objtree.qt import ObjectTreeDialog
 from spectra_lexer.qt.config import ConfigTool
 from spectra_lexer.qt.console import ConsoleTool
 from spectra_lexer.qt.display import DisplayController, DisplayPageData
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeTool
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
-from spectra_lexer.qt.objtree import ObjectTreeColumn, ObjectTreeItem, ObjectTreeItemModel, ObjectTreeTool
 from spectra_lexer.qt.search import SearchController
-from spectra_lexer.qt.svg import SVGIconRenderer
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.resource import RTFCREDict
 from spectra_lexer.util.exception import ExceptionManager
-
-
-class KeyColumn(ObjectTreeColumn):
-    """ Column 0 is the primary tree item with the key, icon, and children. Possible icons are based on type. """
-
-    def __init__(self, *args, icons:SVGIconRenderer=None) -> None:
-        super().__init__(*args)
-        self._icons = icons or SVGIconRenderer()  # Renders icons corresponding to data types.
-
-    def format_item(self, item:ObjectTreeItem, data:DebugData) -> None:
-        item.set_color(*data.color)
-        item.set_text(data.key_text)
-        item.set_tooltip(data.key_tooltip)
-        item.set_edit_cb(data.key_edit)
-        item.set_children(data)
-        icon_xml = data.icon_data
-        if icon_xml:
-            icon = self._icons.render(icon_xml)
-            item.set_icon(icon)
-
-
-class TypeColumn(ObjectTreeColumn):
-    """ Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO. """
-
-    def format_item(self, item:ObjectTreeItem, data:DebugData) -> None:
-        item.set_color(*data.color)
-        text = data.type_text
-        count = data.item_count
-        if count is not None:
-            text += f' - {count} item{"s" * (count != 1)}'
-        item.set_text(text)
-        item.set_tooltip(data.type_graph)
-
-
-class ValueColumn(ObjectTreeColumn):
-    """ Column 2 contains the string value of the object. It may be edited if mutable. """
-
-    def format_item(self, item:ObjectTreeItem, data:DebugData) -> None:
-        item.set_color(*data.color)
-        item.set_text(data.value_text)
-        item.set_tooltip(data.value_tooltip)
-        item.set_edit_cb(data.value_edit)
 
 
 class QtGUIApplication(StenoApplication):
@@ -209,21 +165,10 @@ class QtGUIApplication(StenoApplication):
 
     def debug_tree(self) -> None:
         """ Create and show the debug tree dialog. """
-        dialog = self._window.open_dialog("Python Object Tree View", 600, 450)
+        dialog = self._window.open_dialog("Python Object Tree View", 600, 450, dlg_cls=ObjectTreeDialog)
         if dialog is not None:
-            objtree_tool = ObjectTreeTool(dialog)
-            debug_vars = {**vars(self), "modules": package.modules()}
-            factory = DebugDataFactory()
-            factory.load_icons()
-            root_data = factory.generate(debug_vars)
-            root_item = ObjectTreeItem()
-            root_item.set_children(root_data)
-            key_col = KeyColumn("Name")
-            type_col = TypeColumn("Type/Item Count")
-            value_col = ValueColumn("Value")
-            item_model = ObjectTreeItemModel(root_item, [key_col, type_col, value_col])
-            objtree_tool.set_model(item_model)
-            objtree_tool.display()
+            dialog.setup(vars(self), with_modules=True)
+            dialog.show()
 
     def show(self) -> None:
         self._window.show()
@@ -278,11 +223,9 @@ class SpectraQt(Spectra):
         w_window = QMainWindow()
         ui = Ui_MainWindow()
         ui.setupUi(w_window)
-        # Load the main window icon from a bytes object.
-        icon_data = pkgutil.get_data(*self.ICON_PATH)
-        icon = SVGIconRenderer().render(icon_data)
-        w_window.setWindowIcon(icon)
         window = WindowController(w_window)
+        icon_data = pkgutil.get_data(*self.ICON_PATH)
+        window.set_icon(icon_data)
         menu = MenuController(ui.w_menubar)
         search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
         display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
