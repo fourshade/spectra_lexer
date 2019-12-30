@@ -1,8 +1,8 @@
-""" Module for config manager. Allows editing of config values for any component. """
+""" Module for Qt GUI config manager. """
 
 from typing import Any
 
-from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, \
     QTabWidget, QVBoxLayout, QWidget
 
@@ -47,17 +47,27 @@ class OptionWidgets:
             return int(self.text())
 
 
-class ConfigTool(QObject):
+class ConfigDialog(QDialog):
     """ Qt config dialog window tool. Adds standard submission form buttons. """
 
     _sig_accept = pyqtSignal([dict])  # Signal to return config values on dialog accept.
 
-    def __init__(self, dialog:QDialog) -> None:
-        super().__init__()
-        self._dialog = dialog            # Base dialog object.
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self.setWindowTitle("Configuration Options")
+        self.setMinimumSize(250, 300)
+        self.setMaximumSize(250, 300)
         self._tabs = QTabWidget()        # Central tab widget for the config info rows.
         self._widgets = OptionWidgets()  # Contains all active config option widgets.
         self._pages = {}                 # Contains each tab page layout indexed by name.
+        button_box = QDialogButtonBox(self)
+        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.setCenterButtons(True)
+        button_box.accepted.connect(self._check_accept)
+        button_box.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._tabs)
+        layout.addWidget(button_box)
         self.call_on_options_accept = self._sig_accept.connect
 
     def add_option(self, key:str, value:Any, sect_name:str, opt_name:str, description="") -> None:
@@ -85,30 +95,17 @@ class ConfigTool(QObject):
             self._tabs.addTab(w_frame, name)
         return page
 
-    def display(self) -> None:
-        """ Fill out the dialog with widgets and show it. """
-        dialog = self._dialog
-        button_box = QDialogButtonBox(dialog)
-        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.setCenterButtons(True)
-        button_box.accepted.connect(self._check_accept)
-        button_box.rejected.connect(dialog.reject)
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(self._tabs)
-        layout.addWidget(button_box)
-        dialog.show()
-
     def _check_accept(self) -> None:
         """ Compile the new config values into a dict on dialog accept and close the window.
             If there are one or more errors, show a popup without closing the window. """
         try:
             d = self._widgets.compile()
             self._sig_accept.emit(d)
-            self._dialog.accept()
+            self.accept()
         except TypeError:
             self._show_error("One or more config types are invalid.")
         except ValueError:
             self._show_error("One or more config values are invalid.")
 
     def _show_error(self, message:str) -> None:
-        QMessageBox.warning(self._dialog, "Config Error", message)
+        QMessageBox.warning(self, "Config Error", message)

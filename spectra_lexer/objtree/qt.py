@@ -3,7 +3,7 @@
 from collections import defaultdict
 from itertools import islice
 import pkgutil
-from typing import Any, Callable, Collection, Iterator, Sequence
+from typing import Any, Callable, Collection, Iterator, Sequence, Union
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
@@ -11,7 +11,7 @@ from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
 from .factory import ObjectData, ObjectDataFactory
-from .format import package, SVGIconData, SVGIcons
+from .format import package, SVGIcons
 
 
 class TreeItem:
@@ -85,8 +85,8 @@ class TreeItem:
 class TreeColumn:
     """ Abstract class for a tree column with a certain item format. """
 
-    def __init__(self, heading:str) -> None:
-        self.heading = heading  # Heading that appears above this column.
+    heading: str  # Heading text that appears above this column.
+    width = 0     # Default width (0 if not specified).
 
     def generate_item(self, data:ObjectData, parent:QModelIndex=None) -> TreeItem:
         """ Create and format a tree item from a data structure. """
@@ -145,7 +145,7 @@ class TreeItemModel(QAbstractItemModel):
             if role == Qt.DisplayRole:
                 return self._columns[section].heading
             if role == Qt.SizeHintRole:
-                return QSize(0, self._header_height)
+                return QSize(self._columns[section].width, self._header_height)
 
     def setData(self, idx:QModelIndex, new_value:str, *args) -> bool:
         """ Attempt to change an object's value. Re-expand the parent on success. """
@@ -177,8 +177,37 @@ class TreeItemModel(QAbstractItemModel):
         self.endInsertRows()
 
 
+class TreeDialog(QDialog):
+    """ Qt tree dialog window tool. """
+
+    def __init__(self, *args) -> None:
+        """ Lay out an empty tree dialog with the default title and size. """
+        super().__init__(*args)
+        self.setWindowTitle("Python Object Tree View")
+        self.setMinimumSize(600, 450)
+        self._w_view = w_view = QTreeView(self)
+        w_view.setFont(QFont("Segoe UI", 9))
+        w_view.setUniformRowHeights(True)
+        layout = QVBoxLayout(self)
+        layout.addWidget(w_view)
+
+    def set_model(self, item_model:TreeItemModel) -> None:
+        """ Connect an item model to the tree view widget and resize its headers. """
+        item_model.expand()
+        self._w_view.setModel(item_model)
+        self._w_view.expanded.connect(item_model.expand)
+        header = self._w_view.header()
+        for i in range(header.count()):
+            size_hint = item_model.headerData(i, Qt.Horizontal,  Qt.SizeHintRole)
+            width = size_hint.width()
+            if width:
+                header.resizeSection(i, width)
+
+
 class SVGIconRenderer:
     """ Renders SVG bytes data on bitmap images to create QIcons and caches the results. """
+
+    IconData = Union[bytes, bytearray, str]  # Valid input data types for QSvgRenderer.
 
     # Icons are small but important. Use these render hints by default for best quality.
     _HQ_RENDER_HINTS = QPainter.Antialiasing | QPainter.SmoothPixmapTransform
@@ -186,16 +215,16 @@ class SVGIconRenderer:
     def __init__(self, bg_color=QColor(255, 255, 255, 0), *, render_hints=_HQ_RENDER_HINTS) -> None:
         self._bg_color = bg_color          # Background color for icons (transparent white by default).
         self._render_hints = render_hints  # Render quality hints for the SVG painter/renderer.
-        self._cache = {}                   # Cache of icons already rendered, keyed by the XML that generated it.
+        self._cache = {}                   # Cache of icons already rendered, keyed by the XML data that generated it.
 
-    def render(self, data:SVGIconData) -> QIcon:
+    def render(self, data:IconData) -> QIcon:
         """ If we have the SVG rendered, return the icon from the cache. Otherwise, render and cache it first. """
         if data not in self._cache:
             self._cache[data] = self._render(data)
         return self._cache[data]
 
-    def _render(self, data:SVGIconData) -> QIcon:
-        """ Create a template image, render the XML in place, and convert it to an icon.
+    def _render(self, data:IconData) -> QIcon:
+        """ Create a template image, render the XML data in place, and convert it to an icon.
             Use the viewbox dimensions as pixel sizes. """
         svg = QSvgRenderer(data)
         viewbox = svg.viewBox().size()
@@ -207,33 +236,30 @@ class SVGIconRenderer:
         return QIcon(QPixmap.fromImage(im))
 
 
-class ObjectTreeDialog(QDialog):
-    """ Qt tree dialog window tool. """
+class TreeItemModelFactory:
+    """ Factory for item models with icons and a standard column arrangement. """
 
-    COMPONENT_PACKAGE = __package__.split(".")[0]  # Name of Python package for components using the gear icon.
-    ICON_PACKAGE = __package__    # Default Python package containing the file with all object tree icons.
-    ICON_PATH = "/treeicons.csv"  # Default relative path to icon file.
-    HEADER_WIDTHS = [200, 120, 120]
-
-    class KeyColumn(TreeColumn):
+    class KeyColumn(SVGIconRenderer, TreeColumn):
         """ Column 0 is the primary tree item with the key, icon, and children. Possible icons are based on type. """
-        def __init__(self, icon_renderer:SVGIconRenderer, *args) -> None:
-            super().__init__(*args)
-            self._icons = icon_renderer  # Renders icons corresponding to data types.
+        heading = "Name"
+        width = 200
 
         def _format_item(self, item:TreeItem, data:ObjectData) -> None:
             item.set_color(*data.color)
             item.set_text(data.key_text)
             item.set_tooltip(data.key_tooltip)
             item.set_edit_cb(data.key_edit)
-            item.set_children(data)
+            item.set_children(data.children)
             icon_xml = data.icon_data
             if icon_xml:
-                icon = self._icons.render(icon_xml)
+                icon = self.render(icon_xml)
                 item.set_icon(icon)
 
     class TypeColumn(TreeColumn):
         """ Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO. """
+        heading = "Type/Item Count"
+        width = 120
+
         def _format_item(self, item:TreeItem, data:ObjectData) -> None:
             item.set_color(*data.color)
             text = data.type_text
@@ -245,47 +271,40 @@ class ObjectTreeDialog(QDialog):
 
     class ValueColumn(TreeColumn):
         """ Column 2 contains the string value of the object. It may be edited if mutable. """
+        heading = "Value"
+        width = 230
+
         def _format_item(self, item:TreeItem, data:ObjectData) -> None:
             item.set_color(*data.color)
             item.set_text(data.value_text)
             item.set_tooltip(data.value_tooltip)
             item.set_edit_cb(data.value_edit)
 
-    def __init__(self, *args, title="Python Object Tree View", width=600, height=450) -> None:
-        super().__init__(*args)
-        self.setWindowTitle(title)
-        self.resize(width, height)
-        self.setMinimumSize(width, height)
-        self.setSizeGripEnabled(False)
-        self._w_view = w_view = QTreeView()
-        w_view.setFont(QFont("Segoe UI", 9))
-        w_view.setUniformRowHeights(True)
-        layout = QVBoxLayout(self)
-        layout.addWidget(w_view)
+    def __init__(self, *, root_package:str=None, icon_package=__package__, icon_path="/treeicons.csv") -> None:
+        self._root_package = root_package  # Name of Python package for objects using the root component icon.
+        self._icon_package = icon_package  # Name of Python package containing the file with all object tree icons.
+        self._icon_path = icon_path        # Relative path to icon file.
 
-    def set_model(self, item_model:TreeItemModel) -> None:
-        """ Connect an item model to the tree view widget. """
-        item_model.expand()
-        self._w_view.setModel(item_model)
-        self._w_view.expanded.connect(item_model.expand)
-
-    def resize_columns(self, col_widths:Sequence[int]) -> None:
-        header = self._w_view.header()
-        for i, w in enumerate(col_widths):
-            header.resizeSection(i, w)
-
-    def setup(self, root_dict:dict, *, with_modules=False, cmp_package=COMPONENT_PACKAGE) -> None:
-        if with_modules:
-            root_dict["modules"] = package.modules()
-        icon_csv = pkgutil.get_data(self.ICON_PACKAGE, self.ICON_PATH)
-        icons = SVGIcons.from_csv(icon_csv, cmp_package)
+    def model_from_object(self, root_obj:object) -> TreeItemModel:
+        icon_csv = pkgutil.get_data(self._icon_package, self._icon_path)
+        icons = SVGIcons.from_csv(icon_csv, self._root_package)
         factory = ObjectDataFactory(icons)
-        root_data = factory.generate(root_dict)
-        icon_renderer = SVGIconRenderer()
-        key_col = self.KeyColumn(icon_renderer, "Name")
-        type_col = self.TypeColumn("Type/Item Count")
-        value_col = self.ValueColumn("Value")
+        root_data = factory.generate(root_obj)
+        return self.model_from_data(root_data)
+
+    def model_from_data(self, root_data:ObjectData) -> TreeItemModel:
+        key_col = self.KeyColumn()
+        type_col = self.TypeColumn()
+        value_col = self.ValueColumn()
         root_item = key_col.generate_item(root_data)
-        item_model = TreeItemModel(root_item, [key_col, type_col, value_col])
+        return TreeItemModel(root_item, [key_col, type_col, value_col])
+
+
+class NamespaceTreeDialog(TreeDialog):
+
+    def set_namespace(self, namespace:dict, *, add_modules=True, **kwargs) -> None:
+        if add_modules:
+            namespace["modules"] = package.modules()
+        factory = TreeItemModelFactory(**kwargs)
+        item_model = factory.model_from_object(namespace)
         self.set_model(item_model)
-        self.resize_columns(self.HEADER_WIDTHS)

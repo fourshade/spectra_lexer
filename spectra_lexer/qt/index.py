@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from PyQt5.QtCore import pyqtSignal, QObject, Qt
+from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QLabel, QSlider, QToolTip, QVBoxLayout
 
 
@@ -44,51 +44,52 @@ class IndexSizeSlider(QSlider):
         super().sliderChange(change)
 
 
-class IndexSizeTool(QObject):
+class IndexSizeDialog(QDialog):
     """ Qt index dialog tool. Adds an interactive slider that submits a positive number on accept, or 0 on cancel. """
 
     _sig_accept = pyqtSignal([int])  # Signal to return the index size on dialog accept.
 
-    def __init__(self, dialog:QDialog) -> None:
-        super().__init__()
-        self._dialog = dialog                   # Base dialog object.
-        self._heading = QLabel(dialog)          # Index size description label.
-        self._slider = IndexSizeSlider(dialog)  # Horizontal slider widget.
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self.setWindowTitle("Choose Index Size")
+        self.set_size(360, 320)
+        self._heading = heading = QLabel(self)         # Index size description label.
+        heading.setWordWrap(True)
+        self._slider = slider = IndexSizeSlider(self)  # Horizontal slider widget.
+        slider.setOrientation(Qt.Horizontal)
+        slider.setTickPosition(QSlider.TicksBelow)
+        slider.setTickInterval(1)
+        desc_label = QLabel(self)
+        desc_label.setWordWrap(True)
+        desc_label.setText(SIZE_WARNING)
+        button_box = QDialogButtonBox(self)
+        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.setCenterButtons(True)
+        button_box.accepted.connect(self._check_accept)
+        button_box.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(heading)
+        layout.addWidget(slider)
+        layout.addWidget(desc_label)
+        layout.addWidget(button_box)
         self.call_on_size_accept = self._sig_accept.connect
 
-    def set_sizes(self, sizes:Sequence[int]) -> None:
-        """ Show info for a sequence of 5 sizes from smallest to largest. """
+    def set_size(self, width:int, height:int) -> None:
+        """ Set the minimum size of the window and resize it to be that. """
+        self.resize(width, height)
+        self.setMinimumSize(width, height)
+        self.setMaximumSize(width, height)
+
+    def setup(self, sizes:Sequence[int]) -> None:
+        """ Show info for a sequence of 5 index sizes from smallest to largest. """
         assert len(sizes) == 5
-        self._heading.setWordWrap(True)
         self._heading.setText(SIZE_DESCRIPTION_FMT.format(*sizes))
         self._slider.setMinimum(sizes[0])
         self._slider.setMaximum(sizes[4])
         self._slider.setValue(sizes[2])
 
-    def display(self) -> None:
-        """ Fill out the dialog with widgets and show it. """
-        dialog = self._dialog
-        slider = self._slider
-        slider.setOrientation(Qt.Horizontal)
-        slider.setTickPosition(QSlider.TicksBelow)
-        slider.setTickInterval(1)
-        desc_label = QLabel(dialog)
-        desc_label.setWordWrap(True)
-        desc_label.setText(SIZE_WARNING)
-        button_box = QDialogButtonBox(dialog)
-        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.setCenterButtons(True)
-        button_box.accepted.connect(self._check_accept)
-        button_box.rejected.connect(dialog.reject)
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(self._heading)
-        layout.addWidget(slider)
-        layout.addWidget(desc_label)
-        layout.addWidget(button_box)
-        dialog.show()
-
     def _check_accept(self) -> None:
         """ Emit the slider position on accept and close the window. """
         value = self._slider.value()
         self._sig_accept.emit(value)
-        self._dialog.accept()
+        self.accept()

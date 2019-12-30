@@ -4,6 +4,7 @@ import sys
 from time import time
 
 from spectra_lexer.base import Spectra
+from spectra_lexer.console import SystemConsole
 from spectra_lexer.util.cmdline import CmdlineOption
 
 
@@ -16,10 +17,8 @@ class SpectraConsole(Spectra):
         app = self.build_app()
         self.load_app(app)
         log("Loading complete.")
-        console = app.open_console()
-        console.print_opening()
-        for line in iter(input, "exit"):
-            console.send(line)
+        console = SystemConsole(vars(app))
+        console.repl()
         return 0
 
 

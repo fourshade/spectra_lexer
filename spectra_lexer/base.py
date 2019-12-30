@@ -6,10 +6,10 @@ from typing import List
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
+from spectra_lexer.config import ConfigDictionary
 from spectra_lexer.display import DisplayEngine
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.resource import ConfigDictionary, RTFCREDict, StenoBoardDefinitions, StenoKeyLayout, \
-    StenoRuleCollection
+from spectra_lexer.resource import RTFCREDict, StenoBoardDefinitions, StenoKeyLayout, StenoRuleCollection
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOption, CmdlineOptionNamespace
 from spectra_lexer.util.log import StreamLogger

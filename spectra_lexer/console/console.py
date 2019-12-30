@@ -1,8 +1,9 @@
 """ Contains useful types for introspection and/or interactive interpreter operations. """
 
-from code import InteractiveConsole
+import codeop
 import inspect
 import sys
+import traceback
 
 
 class xhelp:
@@ -59,34 +60,59 @@ class AttrRedirector:
 class SystemConsole:
     """ Component for interactive system interpreter operations. """
 
-    def __init__(self, locals_ns:dict=None, file=sys.stdout, *, ps1=">>> ", ps2="... ") -> None:
-        """ Override the interactive help() and write an opening message before input begins. """
-        locals_ns = locals_ns or {}
-        locals_ns["help"] = xhelp(file)
-        self._interpreter = InteractiveConsole(locals_ns)                 # Interpreter to evaluate text input.
+    ps1 = ">>> "  # Standard input prompt.
+    ps2 = "... "  # Input prompt when more lines are needed.
+    banner = "Spectra Console - Python " + sys.version + "\n" + \
+             "Type 'dir()' to see a list of application components and other globals.\n"
+
+    def __init__(self, namespace:dict=None, file=sys.stdout, *, show_banner=True) -> None:
+        self._namespace = namespace or {}                                 # Globals namespace for exec().
         self._redirector = AttrRedirector(sys, stdout=file, stderr=file)  # Writes output text (to stdout by default).
-        self._ps1 = ps1  # Standard input prompt.
-        self._ps2 = ps2  # Input prompt when more lines are needed.
+        self._line_buffer = []                                            # Buffer for incomplete Python statements.
+        # Override the interactive help() and print the opening message and prompt.
+        self._namespace["help"] = xhelp(file)
+        if show_banner:
+            file.write(self.banner)
+        file.write(self.ps1)
+        file.flush()
 
     def send(self, text_in:str) -> None:
         """ When a new line is sent, push it to the interpreter and run it if it makes a complete statement.
             Redirect the standard output streams to our file during execution. """
+        self._line_buffer.append(text_in)
         with self._redirector:
-            try:
-                is_more = self._interpreter.push(text_in)
-            except KeyboardInterrupt:
-                print("KeyboardInterrupt\n")
-                is_more = False
-            self._write_prompt(is_more)
+            if self._run_buffer():
+                prompt = self.ps2
+            else:
+                prompt = self.ps1
+                self._line_buffer = []
+            # The prompt is not a full line, so the stream must be flushed manually.
+            print(prompt, end="", flush=True)
 
-    def _write_prompt(self, is_more=False) -> None:
-        """ The prompt is not a full line, so the buffer must be flushed manually. """
-        prompt = self._ps2 if is_more else self._ps1
-        print(prompt, end="", flush=True)
+    def _run_buffer(self) -> bool:
+        """ Attempt to compile and run the buffer text as a Python source code string.
+            Return True if the text makes an incomplete statement. """
+        source = "\n".join(self._line_buffer)
+        try:
+            code = codeop.compile_command(source, "<console>")
+        except (OverflowError, SyntaxError, ValueError) as exc:
+            # The input is incorrect. There is no stack, so no traceback either.
+            traceback.print_exception(type(exc), exc, None)
+            return False
+        if code is None:
+            # The input is incomplete. Nothing happens (yet).
+            return True
+        try:
+            # The input is complete. The code object is executed.
+            exec(code, self._namespace)
+        except SystemExit:
+            raise
+        except BaseException as exc:
+            # We remove the first stack item because it is our own code.
+            traceback.print_exception(type(exc), exc, exc.__traceback__.tb_next)
+        return False
 
-    def print_opening(self) -> None:
-        """ Print an opening message using the redirector. """
-        with self._redirector:
-            print("Spectra Console - Python " + sys.version)
-            print("Type 'dir()' to see a list of application components and other globals.")
-            self._write_prompt()
+    def repl(self) -> None:
+        """ Run a read-eval-print loop using standard input. """
+        for line in iter(input, "exit"):
+            self.send(line)

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Type
 from weakref import WeakValueDictionary
 
 from PyQt5.QtCore import Qt
@@ -13,8 +13,8 @@ class WindowController:
     _DIALOG_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
 
     def __init__(self, w_window:QMainWindow) -> None:
-        self._w_window = w_window                       # Main Qt window. All dialogs must be children of this widget.
-        self._dialogs_by_title = WeakValueDictionary()  # Contains the current instance of each dialog by its title.
+        self._w_window = w_window                     # Main Qt window. All dialogs must be children of this widget.
+        self._dialogs_by_cls = WeakValueDictionary()  # Contains the current instance of each dialog class.
         self.close = w_window.close
 
     def show(self) -> None:
@@ -31,19 +31,14 @@ class WindowController:
         icon = QIcon(pixmap)
         self._w_window.setWindowIcon(icon)
 
-    def open_dialog(self, title:str, width:int, height:int, dlg_cls=QDialog) -> Optional[QDialog]:
-        """ If a previous dialog with <title> is open, set focus on it and return None, otherwise return a new one. """
-        dialog = self._dialogs_by_title.get(title)
+    def open_dialog(self, dlg_cls:Type[QDialog]) -> Optional[QDialog]:
+        """ If a previous <dlg_cls> is open, set focus on it and return None, otherwise return a new one. """
+        dialog = self._dialogs_by_cls.get(dlg_cls)
         if dialog is not None and not dialog.isHidden():
             dialog.show()
             dialog.activateWindow()
             return None
-        dialog = self._dialogs_by_title[title] = dlg_cls(self._w_window, self._DIALOG_FLAGS)
-        # Set the most basic properties of the dialog window: the title string and its dimensions in pixels.
-        dialog.setWindowTitle(title)
-        dialog.resize(width, height)
-        dialog.setMinimumSize(width, height)
-        dialog.setSizeGripEnabled(False)
+        dialog = self._dialogs_by_cls[dlg_cls] = dlg_cls(self._w_window, self._DIALOG_FLAGS)
         return dialog
 
     def yes_or_no(self, title:str, message:str) -> bool:

@@ -2,7 +2,6 @@
     Most structures are parsed from JSON. Built-in assets include a key layout, rules, and board graphics. """
 
 from .board import StenoBoardDefinitions
-from .config import ConfigDictionary, ConfigItem
 from .keys import StenoKeyConverter, StenoKeyLayout
 from .rules import StenoRule, StenoRuleCollection, StenoRuleParser
 from .translations import RTFCREDict, RTFCREExamplesDict

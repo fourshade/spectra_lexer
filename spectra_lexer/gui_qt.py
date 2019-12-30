@@ -8,11 +8,11 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer.app import StenoApplication, StenoGUIOutput
 from spectra_lexer.base import Spectra
-from spectra_lexer.objtree.qt import ObjectTreeDialog
-from spectra_lexer.qt.config import ConfigTool
-from spectra_lexer.qt.console import ConsoleTool
+from spectra_lexer.console.qt import ConsoleDialog
+from spectra_lexer.objtree.qt import NamespaceTreeDialog
+from spectra_lexer.qt.config import ConfigDialog
 from spectra_lexer.qt.display import DisplayController, DisplayPageData
-from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeTool
+from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
@@ -119,14 +119,12 @@ class QtGUIApplication(StenoApplication):
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
-        dialog = self._window.open_dialog("Spectra Configuration", 250, 300)
+        dialog = self._window.open_dialog(ConfigDialog)
         if dialog is not None:
-            config_tool = ConfigTool(dialog)
+            dialog.call_on_options_accept(self._update_config)
             for item in self._config.info():
-                config_tool.add_option(item.key, item.value, item.title, item.name, item.description)
-            config_tool.call_on_options_accept(self._update_config)
-            config_tool.display()
-            dialog.tool_ref = config_tool
+                dialog.add_option(item.key, item.value, item.title, item.name, item.description)
+            dialog.show()
 
     def _update_config(self, options:dict) -> None:
         self.run_async(self.set_config, options, msg_done="Configuration saved.")
@@ -138,36 +136,28 @@ class QtGUIApplication(StenoApplication):
 
     def custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        dialog = self._window.open_dialog("Choose Index Size", 360, 320)
+        dialog = self._window.open_dialog(IndexSizeDialog)
         if dialog is not None:
-            index_tool = IndexSizeTool(dialog)
-            index_tool.call_on_size_accept(self._make_index)
-            index_tool.set_sizes(RTFCREDict.FILTER_SIZES)
-            index_tool.display()
-            dialog.tool_ref = index_tool
+            dialog.call_on_size_accept(self._make_index)
+            dialog.setup(RTFCREDict.FILTER_SIZES)
+            dialog.show()
 
     def _make_index(self, size:int=None) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
         self.run_async(self.make_index, size, msg_start="Making new index...", msg_done="Successfully created index!")
 
     def debug_console(self) -> None:
-        """ Create an interpreter console instance and show the debug console dialog.
-            Save the console reference on an attribute to avoid garbage collection. """
-        dialog = self._window.open_dialog("Python Console", 680, 480)
+        """ Create and show an interpreter console dialog with this app's vars. """
+        dialog = self._window.open_dialog(ConsoleDialog)
         if dialog is not None:
-            console_tool = ConsoleTool(dialog)
-            stream = console_tool.to_stream()
-            console = self.open_console(stream)
-            console.print_opening()
-            console_tool.console_ref = console
-            console_tool.call_on_new_line(console.send)
-            console_tool.display()
+            dialog.start_console(vars(self))
+            dialog.show()
 
     def debug_tree(self) -> None:
         """ Create and show the debug tree dialog. """
-        dialog = self._window.open_dialog("Python Object Tree View", 600, 450, dlg_cls=ObjectTreeDialog)
+        dialog = self._window.open_dialog(NamespaceTreeDialog)
         if dialog is not None:
-            dialog.setup(vars(self), with_modules=True)
+            dialog.set_namespace(vars(self), root_package=__package__)
             dialog.show()
 
     def show(self) -> None:
