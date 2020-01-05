@@ -147,14 +147,15 @@ class QtGUIApplication(StenoApplication):
         self.run_async(self.make_index, size, msg_start="Making new index...", msg_done="Successfully created index!")
 
     def debug_console(self) -> None:
-        """ Create and show an interpreter console dialog with this app's vars. """
+        """ Create and show an interpreter console dialog. """
         dialog = self._window.open_dialog(ConsoleDialog)
         if dialog is not None:
-            dialog.start_console(vars(self))
+            namespace = self.console_vars()
+            dialog.start_console(namespace)
             dialog.show()
 
     def debug_tree(self) -> None:
-        """ Create and show the debug tree dialog. """
+        """ Create and show the debug tree dialog with this app's vars. """
         dialog = self._window.open_dialog(NamespaceTreeDialog)
         if dialog is not None:
             dialog.set_namespace(vars(self), root_package=__package__)

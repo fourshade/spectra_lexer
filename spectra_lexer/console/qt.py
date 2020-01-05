@@ -137,10 +137,10 @@ class ConsoleDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(w_text)
 
-    def start_console(self, locals_ns:dict=None) -> None:
-        """ Start a new Python console instance with namespace <locals_ns>, disconnecting any previous console. """
+    def start_console(self, namespace:dict=None) -> None:
+        """ Start a new Python console instance with <namespace> as globals, disconnecting any previous console. """
         file = self._w_text.to_stream()
-        console = SystemConsole(locals_ns, file)
+        console = SystemConsole.open(namespace, file)
         line_signal = self._w_text.lineEntered
         if self._last_console is not None:
             line_signal.disconnect()

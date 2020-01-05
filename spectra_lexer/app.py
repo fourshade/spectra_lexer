@@ -118,3 +118,7 @@ class StenoApplication:
             output.search_input = pattern
             output.search_results = self._engine.search(pattern, 1, engine_options)
         return output
+
+    def console_vars(self) -> dict:
+        """ Return variables suitable for direct use in an interactive Python console. """
+        return {k: getattr(self, k) for k in dir(self) if not k.startswith('_')}

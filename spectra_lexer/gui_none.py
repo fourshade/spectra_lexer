@@ -17,7 +17,8 @@ class SpectraConsole(Spectra):
         app = self.build_app()
         self.load_app(app)
         log("Loading complete.")
-        console = SystemConsole(vars(app))
+        namespace = app.console_vars()
+        console = SystemConsole.open(namespace)
         console.repl()
         return 0
 
