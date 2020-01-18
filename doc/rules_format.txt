@@ -57,8 +57,9 @@ id        ::=  string
 ; ".xx." = non-vowel keys near center
 ; "xx-"  = independent prefix stroke
 ; "-xx"  = independent suffix stroke
-; "XX"   = soft variants of consonants, long variants of vowels
-; "xx+"  = stroke required because of conflict with another entry (also resolves key name conflicts)
+; "xx+"  = resolves key name conflicts
+; "xx!"  = soft variants of consonants, long variants of vowels
+; "xx*"  = orthographic rule
 ; "xx~"  = for internal use only, should not appear in top level of parsing output
 ; "X:xx" = determines purpose of keys that don't contribute to the letters in the word
 
