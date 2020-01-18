@@ -5,7 +5,7 @@ from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QDialog, QTextEdit, QVBoxLayout
 
-from .console import SystemConsole
+from .system import SystemConsole
 
 
 class HistoryTracker:

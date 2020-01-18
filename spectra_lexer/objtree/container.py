@@ -3,9 +3,8 @@
 import builtins
 import dis
 import io
-import pkgutil
 import types
-from types import CodeType, FrameType, FunctionType, MethodType, ModuleType
+from types import CodeType, FrameType, FunctionType, MethodType
 from typing import AbstractSet, Any, Callable, Iterator, List, Mapping, MutableMapping, MutableSequence, MutableSet, \
     Sequence, Type, Union, Hashable
 
@@ -15,12 +14,9 @@ class BaseContainer(Mapping):
         The 'container' object may be iterable, have attributes, or have other data that can be presented as contents.
         No matter how the object is accessed, each container must present its contents as a mapping. """
 
-    color: tuple = (96, 64, 64)  # Immutable containers have a light color.
-    key_tooltip: str = "Immutable structure; cannot edit."
-    value_tooltip: str = key_tooltip
-    key_edit: Callable[[Any, str], None] = None
-    value_edit: Callable[[Any, str], None] = None
-    show_item_count: bool = False  # If True, len of items will be added to the base object's data.
+    color = (96, 64, 64)  # Immutable containers have a light color.
+    key_tooltip = value_tooltip = "Immutable structure; cannot edit."
+    show_item_count = False  # If True, len of items will be added to the base object's data.
 
     def __init__(self, obj:Any) -> None:
         self._obj = obj  # Object to be analyzed as a container (of some sort).
@@ -39,48 +35,15 @@ class BaseContainer(Mapping):
             Most containers can be subscripted. Ones that can't must have an alternate way to find items by key. """
         return self._obj[key]
 
-    key_str = str  # Return the key display value. It is just str(key) by default; subclasses should override this.
+    key_str = str  # Return the key display value. It is just str(key) by default; subclasses may override this.
 
 
-class AutoImporter(dict):
-    """ Namespace helper dict that functions as a copy of __builtins__ with extra features.
-        It automatically tries to import missing modules any time code would otherwise throw a NameError. """
-
-    def __missing__(self, k:str) -> ModuleType:
-        """ Try to import missing modules before raising a KeyError (which becomes a NameError).
-            If successful, attempt to import submodules recursively. """
-        try:
-            module = self[k] = __import__(k, self, locals(), [])
-        except Exception:
-            raise KeyError(k)
-        try:
-            for finder, name, ispkg in pkgutil.walk_packages(module.__path__, f'{k}.'):
-                __import__(name, self, locals(), [])
-        except Exception:
-            pass
-        return module
-
-    @classmethod
-    def eval_namespace(cls, *args, **kwargs) -> dict:
-        """ Make a globals namespace dict for eval(), within which an auto-importer will function as __builtins__.
-            The auto-import dict, as with normal __builtins__, will be tried only after the namespace fails.
-            The separate namespace is necessary; this class should *not* be used directly as an eval namespace.
-             (If used directly, __missing__ will be called *before* any builtin lookup is attempted.
-              This attempts a module import, and either outcome is terrible:
-              - The import succeeds, in which case the builtin is now shadowed.
-              - The import fails, which means the import machinery tried everything and failed.
-                Doing this on *every* builtin access is extremely expensive.) """
-        return dict(*args, __builtins__=cls(__builtins__), **kwargs)
-
-
-class MutableContainer(BaseContainer):
+class MutableContainer(BaseContainer, MutableMapping):
     """ Base subclass for mutable containers. Mutation methods correspond to those used on mappings by default. """
 
     color = (0, 0, 0)  # Mutable containers are the default color of black.
     key_tooltip = "This key may not be changed."
     value_tooltip = "Double-click to edit this value."
-
-    _eval_ns = AutoImporter.eval_namespace()  # Namespace for evaluation of user input strings as Python code.
 
     def __delitem__(self, key:Any) -> None:
         del self._obj[key]
@@ -88,29 +51,16 @@ class MutableContainer(BaseContainer):
     def __setitem__(self, key:Any, value:Any) -> None:
         self._obj[key] = value
 
-    def value_edit(self, key:Any, user_input:str) -> None:
-        """ Since only strings can be entered, we must evaluate them as Python expressions.
-            ast.literal_eval is safer, but not quite as useful (or fun). No need for restraint here. """
-        try:
-            self[key] = eval(user_input, self._eval_ns)
-        except Exception as e:
-            # User input + eval = BREAK ALL THE THINGS!!! At least try to replace the item with the exception.
-            self[key] = e
-
 
 class MovableKeyContainer(MutableContainer):
     """ Base subclass for mutable containers where it makes sense to change an item's order/key. """
 
     key_tooltip = "Double-click to move this item to another key."
 
-    def moveitem(self, old_key:Any, new_key:str) -> None:
+    def moveitem(self, old_key:Any, new_key:Any) -> None:
         """ Move an item from one key to another. """
         self[new_key] = self[old_key]
         del self[old_key]
-
-    def key_edit(self, key:Any, user_input:str) -> None:
-        """ Only allow movement using literal string input for now. """
-        self.moveitem(key, user_input)
 
 
 class GeneratedContainer(BaseContainer):
@@ -129,20 +79,22 @@ class GeneratedContainer(BaseContainer):
 
 
 class ContainerRegistry:
-    """ Tracks container classes by their conditions for use. """
+    """ Tracks container access classes by their conditions for use. """
 
-    # Base data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
+    # Default data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
+    # Strings are the primary use case; expanding strings into characters is not useful and just makes a mess.
+    # (especially since each character is a string containing *itself*, leading to infinite recursion.)
     ATOMIC_TYPES = {type(None), type(...),      # System singletons.
                     bool, int, float, complex,  # Guaranteed not iterable.
                     str, bytes, bytearray,      # Items are just characters; do not iterate over these.
                     range, slice,               # Items are just a pre-determined mathematical range.
                     filter, map, zip,           # Iteration is destructive.
-                    io.TextIOWrapper}           # Iteration may crash the program if std streams are in use.
+                    io.TextIOWrapper}           # Iteration over a blocking input stream may hang the program.
 
     class Condition:
-        """ Each container class is decorated with a condition which attempts to match some property of an object. """
+        """ A container access condition, tested against some property of an object. """
         def __init__(self, cmp_func:Callable[[object, object], bool], prop:object) -> None:
-            """ The class is only instantiated if cmp_func(<test object>, prop) is True. """
+            """ The decorated class is only instantiated if cmp_func(<test object>, prop) is True. """
             self.cls = None
             self.cmp_func = cmp_func
             self.prop = prop
@@ -150,23 +102,21 @@ class ContainerRegistry:
             self.cls = cls
             return cls
 
-    def __init__(self) -> None:
-        self._conditions = []  # List of classes together with their use conditions.
+    def __init__(self, atomic_types=frozenset(ATOMIC_TYPES)) -> None:
+        self._atomic_types = atomic_types  # Data types which are prevented from acting like containers.
+        self._conditions = []              # List of use conditions for various classes.
 
-    def match(self, obj:object, atomic_types=frozenset(ATOMIC_TYPES)) -> List[BaseContainer]:
-        """ Return container classes that match conditions regarding properties of <obj>. """
-        # "Atomic" data types are prevented from acting like containers even if they do have iterable contents.
-        # Strings are the primary use case; expanding strings into characters is not useful and just makes a mess.
-        # (especially since each character is a string containing *itself*, leading to infinite recursion.)
-        if type(obj) in atomic_types:
+    def containers_from(self, obj:object) -> List[BaseContainer]:
+        """ Return container accessors that pass condition checks against <obj>. """
+        if type(obj) in self._atomic_types:
             return []
-        # If a container condition is met, that class will be instantiated and may provide data from the object.
+        # If an class's use condition is met, that class will be instantiated and may provide data from the object.
         classes = [cond.cls for cond in self._conditions if cond.cmp_func(obj, cond.prop)]
-        # If any container classes are in a direct inheritance line, only keep the most derived class.
+        # If any classes are in a direct inheritance line, only instantiate the most derived class.
         return [cls(obj) for cls in classes if cls and sum([issubclass(m, cls) for m in classes]) == 1]
 
     def register(self, cmp_func:Callable, prop:object) -> Callable:
-        """ Decorator to register a new condition for a container class. These may be nested. """
+        """ Decorator to register a new condition for a container access class. These may be nested. """
         cond = self.Condition(cmp_func, prop)
         self._conditions.append(cond)
         return cond
@@ -272,7 +222,7 @@ class AttrContainer(MovableKeyContainer):
     key_tooltip = "Double-click to change this attribute name."
     value_tooltip = "Double-click to edit this attribute value."
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[str]:
         return iter(vars(self._obj))
 
     def __len__(self) -> int:
@@ -323,7 +273,7 @@ class ExceptionContainer(GeneratedContainer):
     """ A container for an exception object to show details about the entire stack. """
 
     def _gen_dict(self, exc:BaseException) -> dict:
-        """ Add parent exceptions (cause/context), then each frame object going down the stack. """
+        """ Add all arguments, then parent exceptions (cause/context), then each frame object going down the stack. """
         d = {f'arg{i}': v for i, v in enumerate(exc.args)}
         for k in ("__cause__", "__context__"):
             v = getattr(exc, k)
@@ -344,8 +294,8 @@ class FrameContainer(GeneratedContainer):
     def _gen_dict(self, f:FrameType) -> dict:
         """ Add only the most important inspectable information. """
         code = f.f_code
-        return dict(name=code.co_name, filename=code.co_filename, lineno=f.f_lineno,
-                    globals=f.f_globals, locals=f.f_locals, code=code)
+        return {"name": code.co_name, "filename": code.co_filename, "lineno": f.f_lineno,
+                "globals": f.f_globals, "locals": f.f_locals, "code": code}
 
 
 class instruction:

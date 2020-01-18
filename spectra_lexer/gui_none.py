@@ -4,7 +4,7 @@ import sys
 from time import time
 
 from spectra_lexer.base import Spectra
-from spectra_lexer.console import SystemConsole
+from spectra_lexer.console.system import SystemConsole
 from spectra_lexer.util.cmdline import CmdlineOption
 
 

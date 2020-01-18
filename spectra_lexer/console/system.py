@@ -1,4 +1,4 @@
-""" Contains useful types for introspection and/or interactive interpreter operations. """
+""" Base module for interactive system interpreter operations. """
 
 import codeop
 import inspect

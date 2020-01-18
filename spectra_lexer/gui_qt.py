@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from spectra_lexer.app import StenoApplication, StenoGUIOutput
 from spectra_lexer.base import Spectra
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.objtree.qt import NamespaceTreeDialog
+from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.config import ConfigDialog
 from spectra_lexer.qt.display import DisplayController, DisplayPageData
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog

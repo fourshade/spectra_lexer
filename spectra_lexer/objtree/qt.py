@@ -2,26 +2,25 @@
 
 from collections import defaultdict
 from itertools import islice
-import pkgutil
-from typing import Any, Callable, Collection, Iterator, Sequence, Union
+from typing import Any, Callable, Collection, Iterator, Sequence, TypeVar, Union
 
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPixmap
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 
-from .factory import ObjectData, ObjectDataFactory
-from .format import package, SVGIcons
+TreeItemData = TypeVar("TreeItemData")  # Marker class for a data structure with row formatting info.
 
 
 class TreeItem:
     """ A single item in the tree. Contains model data in attributes and role data in the dict. """
 
     def __init__(self, parent:QModelIndex=None) -> None:
-        self._parent = parent  # Model index of the direct parent of this item (None for the root).
-        self._roles = {}       # Contains all display data for this item indexed by Qt roles (really ints).
-        self._edit_cb = None   # Callback to edit the value of this item, or None if not editable.
-        self._children = ()    # Iterable collection that produces child data objects.
+        self._parent = parent   # Model index of the direct parent of this item (None for the root).
+        self._roles = {}        # Contains all display data for this item indexed by Qt roles (really ints).
+        self._edit_cb = None    # Callback to edit the value of this item, or None if not editable.
+        self._delete_cb = None  # Callback to delete this item, or None if not deletable.
+        self._children = ()     # Iterable collection that produces child data objects. Lazy iteration is advised.
 
     def role_data(self, role:int) -> Any:
         """ Return a role data item. Used heavily by the Qt item model. """
@@ -42,7 +41,7 @@ class TreeItem:
         """ Return True if at least one child data object will be yielded on iteration. """
         return bool(self._children)
 
-    def __iter__(self) -> Iterator[ObjectData]:
+    def __iter__(self) -> Iterator[TreeItemData]:
         """ Yield all available child data objects. """
         return iter(self._children)
 
@@ -52,10 +51,22 @@ class TreeItem:
             self._edit_cb(new_value)
             return True
         except Exception:
-            # Non-standard container classes could raise anything, so just ignore the specifics.
-            # Turn the item red. The item will return to the normal color after re-expansion.
-            self.set_color(192, 0, 0)
+            self._edit_failed()
             return False
+
+    def delete(self) -> bool:
+        """ Attempt to delete the object from its container. Return True on success. """
+        try:
+            self._delete_cb()
+            return True
+        except Exception:
+            self._edit_failed()
+            return False
+
+    def _edit_failed(self) -> None:
+        """ Non-standard container classes could raise anything on edit, so ignore the specifics.
+            Turn the item red. The item will return to the normal color after re-expansion. """
+        self.set_color(192, 0, 0)
 
     def set_text(self, text:str) -> None:
         """ Set the primary text as shown in the tree columns. """
@@ -73,11 +84,15 @@ class TreeItem:
         """ Set an icon to appear to the left of the item's text. """
         self._roles[Qt.DecorationRole] = icon
 
-    def set_edit_cb(self, edit:Callable[[str], None]) -> None:
+    def set_edit_cb(self, callback:Callable[[str], None]) -> None:
         """ Set a callback that uses a string to edit the underlying object's value. """
-        self._edit_cb = edit
+        self._edit_cb = callback
 
-    def set_children(self, children:Collection[ObjectData]) -> None:
+    def set_delete_cb(self, callback:Callable[[], None]) -> None:
+        """ Set a callback that deletes the object from its container. """
+        self._delete_cb = callback
+
+    def set_children(self, children:Collection[TreeItemData]) -> None:
         """ Set an iterable collection that will produce child data objects. """
         self._children = children
 
@@ -88,13 +103,13 @@ class TreeColumn:
     heading: str  # Heading text that appears above this column.
     width = 0     # Default width (0 if not specified).
 
-    def generate_item(self, data:ObjectData, parent:QModelIndex=None) -> TreeItem:
+    def generate_item(self, data:TreeItemData, parent:QModelIndex=None) -> TreeItem:
         """ Create and format a tree item from a data structure. """
         item = TreeItem(parent)
         self._format_item(item, data)
         return item
 
-    def _format_item(self, item:TreeItem, data:ObjectData) -> None:
+    def _format_item(self, item:TreeItem, data:TreeItemData) -> None:
         """ Format a tree item with attributes and Qt display roles from a data structure. """
         raise NotImplementedError
 
@@ -159,7 +174,7 @@ class TreeItemModel(QAbstractItemModel):
         return True
 
     def expand(self, idx:QModelIndex=_ROOT_IDX) -> None:
-        """ Add (or replace) all children on the item found at this index from its object data. """
+        """ Add (or replace) all child rows on the item found at <idx> from its object data. """
         child_rows = self._idx_to_children[idx]
         if child_rows:
             # If there are existing child rows, get rid of them first.
@@ -198,7 +213,7 @@ class TreeDialog(QDialog):
         self._w_view.expanded.connect(item_model.expand)
         header = self._w_view.header()
         for i in range(header.count()):
-            size_hint = item_model.headerData(i, Qt.Horizontal,  Qt.SizeHintRole)
+            size_hint = item_model.headerData(i, Qt.Horizontal, Qt.SizeHintRole)
             width = size_hint.width()
             if width:
                 header.resizeSection(i, width)
@@ -207,23 +222,24 @@ class TreeDialog(QDialog):
 class SVGIconRenderer:
     """ Renders SVG bytes data on bitmap images to create QIcons and caches the results. """
 
-    IconData = Union[bytes, bytearray, str]  # Valid input data types for QSvgRenderer.
+    XMLIconData = Union[bytes, bytearray, str]    # Valid input data types for QSvgRenderer.
+    TRANSPARENT_COLOR = QColor(255, 255, 255, 0)  # Transparent white default background color.
 
     # Icons are small but important. Use these render hints by default for best quality.
     _HQ_RENDER_HINTS = QPainter.Antialiasing | QPainter.SmoothPixmapTransform
 
-    def __init__(self, bg_color=QColor(255, 255, 255, 0), *, render_hints=_HQ_RENDER_HINTS) -> None:
-        self._bg_color = bg_color          # Background color for icons (transparent white by default).
+    def __init__(self, bg_color=TRANSPARENT_COLOR, *, render_hints=_HQ_RENDER_HINTS) -> None:
+        self._bg_color = bg_color          # Background color for icons (transparent by default).
         self._render_hints = render_hints  # Render quality hints for the SVG painter/renderer.
         self._cache = {}                   # Cache of icons already rendered, keyed by the XML data that generated it.
 
-    def render(self, data:IconData) -> QIcon:
+    def render(self, data:XMLIconData) -> QIcon:
         """ If we have the SVG rendered, return the icon from the cache. Otherwise, render and cache it first. """
         if data not in self._cache:
             self._cache[data] = self._render(data)
         return self._cache[data]
 
-    def _render(self, data:IconData) -> QIcon:
+    def _render(self, data:XMLIconData) -> QIcon:
         """ Create a template image, render the XML data in place, and convert it to an icon.
             Use the viewbox dimensions as pixel sizes. """
         svg = QSvgRenderer(data)
@@ -234,77 +250,3 @@ class SVGIconRenderer:
             p.setRenderHints(self._render_hints)
             svg.render(p)
         return QIcon(QPixmap.fromImage(im))
-
-
-class TreeItemModelFactory:
-    """ Factory for item models with icons and a standard column arrangement. """
-
-    class KeyColumn(SVGIconRenderer, TreeColumn):
-        """ Column 0 is the primary tree item with the key, icon, and children. Possible icons are based on type. """
-        heading = "Name"
-        width = 200
-
-        def _format_item(self, item:TreeItem, data:ObjectData) -> None:
-            item.set_color(*data.color)
-            item.set_text(data.key_text)
-            item.set_tooltip(data.key_tooltip)
-            item.set_edit_cb(data.key_edit)
-            item.set_children(data.children)
-            icon_xml = data.icon_data
-            if icon_xml:
-                icon = self.render(icon_xml)
-                item.set_icon(icon)
-
-    class TypeColumn(TreeColumn):
-        """ Column 1 contains the type of object, item count, and/or a tooltip detailing the MRO. """
-        heading = "Type/Item Count"
-        width = 120
-
-        def _format_item(self, item:TreeItem, data:ObjectData) -> None:
-            item.set_color(*data.color)
-            text = data.type_text
-            count = data.item_count
-            if count is not None:
-                text += f' - {count} item{"s" * (count != 1)}'
-            item.set_text(text)
-            item.set_tooltip(data.type_graph)
-
-    class ValueColumn(TreeColumn):
-        """ Column 2 contains the string value of the object. It may be edited if mutable. """
-        heading = "Value"
-        width = 230
-
-        def _format_item(self, item:TreeItem, data:ObjectData) -> None:
-            item.set_color(*data.color)
-            item.set_text(data.value_text)
-            item.set_tooltip(data.value_tooltip)
-            item.set_edit_cb(data.value_edit)
-
-    def __init__(self, *, root_package:str=None, icon_package=__package__, icon_path="/treeicons.csv") -> None:
-        self._root_package = root_package  # Name of Python package for objects using the root component icon.
-        self._icon_package = icon_package  # Name of Python package containing the file with all object tree icons.
-        self._icon_path = icon_path        # Relative path to icon file.
-
-    def model_from_object(self, root_obj:object) -> TreeItemModel:
-        icon_csv = pkgutil.get_data(self._icon_package, self._icon_path)
-        icons = SVGIcons.from_csv(icon_csv, self._root_package)
-        factory = ObjectDataFactory(icons)
-        root_data = factory.generate(root_obj)
-        return self.model_from_data(root_data)
-
-    def model_from_data(self, root_data:ObjectData) -> TreeItemModel:
-        key_col = self.KeyColumn()
-        type_col = self.TypeColumn()
-        value_col = self.ValueColumn()
-        root_item = key_col.generate_item(root_data)
-        return TreeItemModel(root_item, [key_col, type_col, value_col])
-
-
-class NamespaceTreeDialog(TreeDialog):
-
-    def set_namespace(self, namespace:dict, *, add_modules=True, **kwargs) -> None:
-        if add_modules:
-            namespace["modules"] = package.modules()
-        factory = TreeItemModelFactory(**kwargs)
-        item_model = factory.model_from_object(namespace)
-        self.set_model(item_model)
