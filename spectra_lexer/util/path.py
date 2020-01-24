@@ -58,10 +58,17 @@ class PrefixPathConverter(BasePathConverter):
         self._converters[prefix] = converter
         self._prefixes = sorted(self._converters, key=len, reverse=True)
 
-    def convert(self, filename:str) -> str:
-        """ Test a <filename> string for special path prefixes. Return it unchanged if nothing matches.
-            If a matching prefix is found, strip it and use its converter on the remaining characters. """
-        for prefix in filter(filename.startswith, self._prefixes):
-            raw_path = filename[len(prefix):]
-            return self._converters[prefix].convert(raw_path)
-        return filename
+    def convert(self, path:str, *, make_dirs=False) -> str:
+        """ Convert a specially formatted <path> string into a full file path usable by open().
+            If a special prefix is found, strip it and use its converter on the remaining characters.
+            If <make_dirs> is true, create directories as needed to make a valid path for write mode. """
+        for prefix in self._prefixes:
+            if path.startswith(prefix):
+                converter = self._converters[prefix]
+                raw_path = path[len(prefix):]
+                path = converter.convert(raw_path)
+                break
+        if make_dirs:
+            directory = os.path.dirname(path) or "."
+            os.makedirs(directory, exist_ok=True)
+        return path

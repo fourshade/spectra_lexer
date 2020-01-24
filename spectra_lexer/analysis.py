@@ -2,7 +2,8 @@ from typing import List, Mapping, Sequence, Tuple
 
 from spectra_lexer.lexer import LexerResult, LexerRule, \
     PrefixMatcher, SpecialMatcher, StenoLexer, StrokeMatcher, WordMatcher
-from spectra_lexer.resource import StenoKeyConverter, StenoRule, StenoRuleCollection
+from spectra_lexer.resource.keys import StenoKeyConverter
+from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
 
 
 class StenoAnalyzer:

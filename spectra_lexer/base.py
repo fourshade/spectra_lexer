@@ -1,17 +1,18 @@
-from configparser import ConfigParser
 import json
 import os
 import sys
-from typing import List
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
 from spectra_lexer.display import DisplayEngine
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.resource import RTFCREDict, StenoBoardDefinitions, StenoKeyLayout, StenoRuleCollection
+from spectra_lexer.plover import plover_info
+from spectra_lexer.resource.board import StenoBoardDefinitions
+from spectra_lexer.resource.config import ConfigDictionary
+from spectra_lexer.resource.keys import StenoKeyLayout
+from spectra_lexer.resource.rules import StenoRuleCollection
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOption, CmdlineOptionNamespace
-from spectra_lexer.resource.config import ConfigDictionary
 from spectra_lexer.util.log import StreamLogger
 from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
 
@@ -50,6 +51,7 @@ class Spectra(CmdlineOptionNamespace):
     _converter = PrefixPathConverter()
     _converter.add(":/", AssetPathConverter(ROOT_PACKAGE))  # Prefix indicates built-in assets.
     _converter.add("~/", UserPathConverter(ROOT_PACKAGE))   # Prefix indicates local user app data.
+    _convert_path = _converter.convert
 
     CSON_COMMENT_PREFIX = "#"              # Prefix for comments allowed in non-standard JSON files.
     PLOVER_DICTIONARIES = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
@@ -73,9 +75,6 @@ class Spectra(CmdlineOptionNamespace):
     RULES_CSON = "rules.cson"        # Filename for rules inside resource directory.
     BOARD_CSON = "board_defs.cson"   # Filename for board layout inside resource directory.
 
-    PLOVER_APP = "plover"            # Name of Plover application for finding its user data folder.
-    PLOVER_CFG = "plover.cfg"        # Filename for Plover configuration with user dictionaries.
-
     def load_app(self, app:StenoApplication) -> None:
         """ Load an app object with all external starting resources. """
         self._load_app_translations(app)
@@ -85,15 +84,10 @@ class Spectra(CmdlineOptionNamespace):
     def _load_app_translations(self, app:StenoApplication) -> None:
         translations_files = self.translations_files
         if self.PLOVER_DICTIONARIES in translations_files:
-            self._load_plover_translations(app)
+            translations = plover_info.user_translations(ignore_errors=True)
+            app.set_translations(translations)
         elif translations_files:
             app.load_translations(*map(self._convert_path, translations_files))
-
-    def _load_plover_translations(self, app:StenoApplication) -> None:
-        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them. """
-        filenames = self._find_plover_dictionaries()
-        translations = RTFCREDict.from_json_files(*filenames)
-        app.set_translations(translations)
 
     def _load_app_index(self, app:StenoApplication) -> None:
         index_file = self.index_file
@@ -157,15 +151,6 @@ class Spectra(CmdlineOptionNamespace):
         d = self._read_cson_resource(self.BOARD_CSON)
         return StenoBoardDefinitions(d)
 
-    def _convert_path(self, path:str, *, make_dirs=False) -> str:
-        """ Convert a specially formatted path string into a full file path usable by open().
-            If <make_dirs> is true, create directories as needed to make the path exist. """
-        file_path = self._converter.convert(path)
-        if make_dirs:
-            directory = os.path.dirname(file_path) or "."
-            os.makedirs(directory, exist_ok=True)
-        return file_path
-
     def _read_cson_resource(self, rel_path:str) -> dict:
         """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
         path = os.path.join(self.resource_dir, rel_path)
@@ -181,28 +166,6 @@ class Spectra(CmdlineOptionNamespace):
                           if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
             data = "\n".join(data_lines)
             return json.loads(data)
-
-    def _find_plover_dictionaries(self, *, ignore_errors=True) -> List[str]:
-        """ Search the user's local app data for the Plover config file.
-            Parse the dictionaries section and return the filenames for all dictionaries in order. """
-        try:
-            converter = UserPathConverter(self.PLOVER_APP)
-            cfg_filename = converter.convert(self.PLOVER_CFG)
-            parser = ConfigParser()
-            with open(cfg_filename, 'r', encoding='utf-8') as fp:
-                parser.read_file(fp)
-            # Dictionaries are located in the same directory as the config file.
-            # The config value we need is read as a string, but it must be decoded as a JSON array of objects.
-            value = parser['System: English Stenotype']['dictionaries']
-            dictionary_specs = json.loads(value)
-            plover_dir = os.path.split(cfg_filename)[0]
-            # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
-            return [os.path.join(plover_dir, spec['path']) for spec in reversed(dictionary_specs)]
-        except (IndexError, KeyError, OSError, ValueError):
-            # Catch-all for file and parsing errors. Return an empty list if <ignore_errors> is True.
-            if not ignore_errors:
-                raise
-            return []
 
     @classmethod
     def main(cls) -> int:

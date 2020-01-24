@@ -5,7 +5,7 @@ recursive-include spectra_lexer/assets *
 # HTTP web GUI files.
 recursive-include spectra_lexer/http_public *
 # Built-in SVG resources such as icons.
-recursive-include spectra_lexer *.dat
+recursive-include spectra_lexer *.csv
 recursive-include spectra_lexer *.svg
 # Do not include tests in distribution builds.
 exclude test/*

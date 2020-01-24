@@ -3,7 +3,8 @@ from typing import Tuple
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import DisplayData, DisplayEngine, DisplayOptions
-from spectra_lexer.resource import RTFCREDict, RTFCREExamplesDict, StenoRule
+from spectra_lexer.resource.rules import StenoRule
+from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import SearchEngine, SearchResults
 from spectra_lexer.util.parallel import ParallelMapper
 
@@ -20,6 +21,10 @@ class AnalyzerOptions:
     """ Namespace for lexer options. """
 
     lexer_strict_mode: bool = False  # Only return lexer results that match every key in a translation.
+
+
+class EngineOptions(SearchOptions, AnalyzerOptions, DisplayOptions):
+    """ Combined namespace dict for all steno engine options. """
 
 
 class StenoEngine:

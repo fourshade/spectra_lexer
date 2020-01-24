@@ -50,7 +50,7 @@ class StreamWriteAdapter(TextIOBase):
         return True
 
 
-class ConsoleTextWidget(QTextEdit):
+class TerminalTextWidget(QTextEdit):
     """ Formatted text widget meant to display plaintext interpreter input and output as a terminal.
         The text content is composed of two parts. The "base text" includes everything before the prompt.
         This is the terminal's saved output; it may be copied but not be edited.
@@ -63,8 +63,34 @@ class ConsoleTextWidget(QTextEdit):
         super().__init__(*args)
         self._history = HistoryTracker()  # Tracks previous keyboard input.
         self._base_text = ""              # Unchangeable base text. User input may only appear after this.
+        self._last_valid_text = ""        # Last valid state of text (including user input).
+        self.setFont(QFont("Courier New", 10))
+        self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
+        self.textChanged.connect(self._on_edited)
 
-    def add_text(self, text:str) -> None:
+    def _cursor_to_end(self) -> None:
+        """ Reset the cursor to the end of the current text. """
+        c = self.textCursor()
+        c.movePosition(QTextCursor.End)
+        self.setTextCursor(c)
+
+    def _set_content(self, text:str) -> None:
+        """ Set new text content and reset the cursor to the end without triggering signals. """
+        self.blockSignals(True)
+        self.setPlainText(text)
+        self._last_valid_text = text
+        self._cursor_to_end()
+        self.blockSignals(False)
+
+    def _on_edited(self) -> None:
+        """ Undo anything that modifies the base text. """
+        current_text = self.toPlainText()
+        if current_text.startswith(self._base_text):
+            self._last_valid_text = current_text
+        else:
+            self._set_content(self._last_valid_text)
+
+    def add_base_text(self, text:str) -> None:
         """ Add to the base text of the widget. """
         self._base_text += text
         self._set_content(self._base_text)
@@ -72,43 +98,31 @@ class ConsoleTextWidget(QTextEdit):
         sy = self.horizontalScrollBar()
         sy.setValue(sy.maximum())
 
-    def _set_content(self, text:str) -> None:
-        """ Set new base text content and reset the cursor to the end. """
-        self.setPlainText(text)
-        c = self.textCursor()
-        c.movePosition(QTextCursor.End)
-        self.setTextCursor(c)
-
     def _set_cursor_valid(self) -> None:
-        """ If the cursor is not within the current prompt, move it there. """
-        min_position = len(self._base_text)
+        """ If the cursor is not within the current prompt, move it to the end. """
         c = self.textCursor()
-        if c.position() < min_position:
-            c.setPosition(min_position)
-            self.setTextCursor(c)
+        prompt_start = len(self._base_text)
+        if c.position() < prompt_start:
+            self._cursor_to_end()
 
     def keyPressEvent(self, event:QKeyEvent) -> None:
-        """ Check the input for special cases. Make sure the cursor can't erase anything we started with. """
-        self._set_cursor_valid()
-        base_text = self._base_text
+        """ Check the input for special cases. """
         # Up/down arrow keys will scroll through the command history.
         if event.key() == Qt.Key_Up:
-            self._set_content(base_text + self._history.prev())
+            self._set_content(self._base_text + self._history.prev())
         elif event.key() == Qt.Key_Down:
-            self._set_content(base_text + self._history.next())
+            self._set_content(self._base_text + self._history.next())
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
             # If a newline is entered, capture only the user-provided text.
             # Add it to the history, append it to the base text (with newline), and send it in a signal.
-            user_text = self.toPlainText()[len(base_text):]
+            user_text = self._last_valid_text[len(self._base_text):]
             self._history.add(user_text)
-            self.add_text(user_text + "\n")
+            self.add_base_text(user_text + "\n")
             self.lineEntered.emit(user_text)
         else:
-            # In any other case, pass the keypress as normal. Undo anything that modifies the base text.
-            super().keyPressEvent(event)
-            if not self.toPlainText().startswith(base_text):
-                self.undo()
+            # In any other case, reset the cursor if necessary and pass the keypress as normal.
             self._set_cursor_valid()
+            super().keyPressEvent(event)
 
     def insertFromMimeData(self, data:QMimeData) -> None:
         """ On a paste attempt, reset the cursor if necessary and paste only the plaintext content. """
@@ -120,7 +134,7 @@ class ConsoleTextWidget(QTextEdit):
 
     def to_stream(self) -> TextIOBase:
         """ Wrap the widget as a writable text stream. """
-        return StreamWriteAdapter(self.add_text)
+        return StreamWriteAdapter(self.add_base_text)
 
 
 class ConsoleDialog(QDialog):
@@ -130,12 +144,10 @@ class ConsoleDialog(QDialog):
         super().__init__(*args)
         self.setWindowTitle("Python Console")
         self.setMinimumSize(680, 480)
-        self._last_console = None                        # Saved console reference (to avoid garbage collection).
-        self._w_text = w_text = ConsoleTextWidget(self)  # Text widget to receive user input and display console output.
-        w_text.setFont(QFont("Courier New", 10))
-        w_text.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
+        self._last_console = None                # Saved console reference (to avoid garbage collection).
+        self._w_text = TerminalTextWidget(self)  # Text widget to process user input and console output.
         layout = QVBoxLayout(self)
-        layout.addWidget(w_text)
+        layout.addWidget(self._w_text)
 
     def start_console(self, namespace:dict=None) -> None:
         """ Start a new Python console instance with <namespace> as globals, disconnecting any previous console. """

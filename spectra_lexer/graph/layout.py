@@ -89,7 +89,7 @@ class CompressedLayoutEngine(BaseLayoutEngine):
                 right_bound = self._max_width
                 continue
             # If this node starts where the last one ended and there's no overlap, use the same row.
-            if left_bound < right_bound or last_row < top_bound:
+            if left_bound != right_bound or last_row < top_bound:
                 # Search for the next free row from the top down and place the node there.
                 for row in range(top_bound, self._max_height):
                     if slots[row] <= left_bound:
@@ -102,12 +102,14 @@ class CompressedLayoutEngine(BaseLayoutEngine):
             top_bound = last_row
             bottom_bound = top_bound + height
             right_bound = left_bound + width
-            slots[top_bound:bottom_bound] = [right_bound] * (bottom_bound - top_bound)
-            # Prevent other text from starting adjacent to this text (unless handled specially as above).
-            slots[bottom_bound-1] = right_bound + 1
-            # Make sure other nodes can't be placed directly above or below this one.
-            # Only overwrite safety margins of other nodes if ours is larger.
-            for edge in (top_bound - 1, bottom_bound):
-                if slots[edge] < right_bound:
-                    slots[edge] = right_bound
+            # Prevent other text from starting adjacent to text in this node (unless handled specially as above).
+            # Also prevent this node from overlapping the next with its connector (rare, but can happen with asterisks).
+            new_slots = [*([left_bound + 1] * (top_bound - 1)),  # │... # . = free slots
+                         right_bound,                            # ├┐.. # x = unavailable slots
+                         *([right_bound + 1] * height),          # EUx. #
+                         right_bound]                            # xx.. #
+            # Only overwrite slots other nodes if ours is largest.
+            for i, bound in enumerate(new_slots):
+                if slots[i] < bound:
+                    slots[i] = bound
             yield GraphLayout(node, top_bound, left_bound, bottom_bound, right_bound, sublayouts)

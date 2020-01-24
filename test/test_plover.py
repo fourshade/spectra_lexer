@@ -34,8 +34,5 @@ class DummyEngine(IPlover.Engine):
 def dc_to_dict(steno_dc:IPlover.StenoDictCollection) -> Dict[str, str]:
     dummy_engine = DummyEngine()
     dummy_engine.dictionaries = steno_dc
-    ext = PloverExtension.from_engine(dummy_engine)
-    result = []
-    ext.call_on_new_dictionary(result.append)
-    ext.refresh_dictionaries()
-    return result[0]
+    ext = PloverExtension(dummy_engine)
+    return ext.parse_dictionaries()

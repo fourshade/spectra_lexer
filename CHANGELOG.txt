@@ -1,3 +1,10 @@
+10.0.0
+-----
+* Fixed all remaining known bugs
+* Resolved several incorrect applications of vowel rules
+* Improved GUI responsiveness in Plover
+* Refactored debug tools
+
 9.1.1
 -----
 * Fixed crashes related to Plover input in the GUI search box

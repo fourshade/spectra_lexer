@@ -2,19 +2,11 @@
 
 from typing import Any, Dict, Tuple
 
-from spectra_lexer.display import DisplayData, DisplayOptions
-from spectra_lexer.engine import AnalyzerOptions, StenoEngine, SearchOptions
-from spectra_lexer.resource import RTFCREDict, RTFCREExamplesDict
-from spectra_lexer.search import SearchResults
+from spectra_lexer.display import DisplayData
+from spectra_lexer.engine import EngineOptions, StenoEngine
 from spectra_lexer.resource.config import ConfigDictionary
-
-
-class EngineOptions(SearchOptions, AnalyzerOptions, DisplayOptions):
-    """ Combined namespace dict for all steno engine options. """
-
-    def __init__(self, **kwargs) -> None:
-        """ Add keyword arguments as attributes. """
-        self.__dict__.update(kwargs)
+from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
+from spectra_lexer.search import SearchResults
 
 
 class StenoGUIOutput:
@@ -85,9 +77,10 @@ class StenoApplication:
 
     def _with_config(self, options:dict) -> EngineOptions:
         """ Add config options first. The main <options> will override them. """
-        d = self._config.to_dict()
-        d.update(options)
-        return EngineOptions(**d)
+        opts = EngineOptions()
+        vars(opts).update(self._config.to_dict())
+        vars(opts).update(options)
+        return opts
 
     def gui_search(self, pattern:str, pages=1, **options) -> StenoGUIOutput:
         """ Do a new search and return results unless the input is blank. """

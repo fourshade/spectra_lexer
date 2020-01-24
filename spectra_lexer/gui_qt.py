@@ -18,7 +18,7 @@ from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
-from spectra_lexer.resource import RTFCREDict
+from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.util.exception import ExceptionManager
 
 
@@ -208,11 +208,11 @@ class SpectraQt(Spectra):
 
     def build_app(self) -> QtGUIApplication:
         """ Build the app with all components necessary to operate the GUI. """
-        self._excman = excman = ExceptionManager()
+        exc_man = ExceptionManager()
         exc_hook = QtExceptionHook(chain_hooks=False)
-        exc_hook.connect(excman.on_exception)
+        exc_hook.connect(exc_man.on_exception)
         logger = self.build_logger()
-        excman.add_logger(lambda s: logger.log('EXCEPTION\n' + s))
+        exc_man.add_logger(lambda s: logger.log('EXCEPTION\n' + s))
         async_dsp = QtAsyncDispatcher()
         w_window = QMainWindow()
         ui = Ui_MainWindow()
@@ -223,14 +223,17 @@ class SpectraQt(Spectra):
         menu = MenuController(ui.w_menubar)
         search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
         display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
-        excman.add_logger(display.show_traceback)
+        exc_man.add_logger(display.show_traceback)
         config = self.build_config()
         engine = self.build_engine()
         app = QtGUIApplication(async_dsp, window, menu, search, display, config, engine)
-        excman.add_handler(app.on_exception)
+        exc_man.add_handler(app.on_exception)
         app.set_enabled(False)
         app.set_status("Loading...")
         app.show()
+        # These objects must be saved on attributes or else Qt will disconnect the signals upon scope exit.
+        app.exc_man = exc_man
+        app.exc_hook = exc_hook
         return app
 
     def load_app_async(self, app:QtGUIApplication) -> None:

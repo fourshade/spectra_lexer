@@ -1,10 +1,13 @@
-""" Main module for the Plover plugin application and its components. """
+""" Main module for the Plover plugin components. """
 
+from configparser import ConfigParser
 from functools import partial
-import pkg_resources
+import json
+import os
 from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from spectra_lexer.resource import RTFCREDict
+from spectra_lexer.resource.translations import RTFCREDict
+from spectra_lexer.util.path import UserPathConverter
 
 
 class IPlover:
@@ -141,54 +144,37 @@ class TranslationState:
 
 class PloverExtension:
 
-    _steno_dc = None           # Current set of dictionaries from the engine.
-    _on_new_dictionary = None  # Callback to send new translations dictionaries.
-    _on_translation = None     # Callback to send valid user translations.
+    def __init__(self, engine:IPlover.Engine, *, stroke_delim="/") -> None:
+        self._engine = EngineWrapper(engine)  # Wrapped Plover engine object.
+        self._stroke_delim = stroke_delim     # Delimiter for Plover stroke strings.
+        self._state = TranslationState()      # Contains current user strokes and actions.
 
-    def __init__(self, engine:EngineWrapper, stroke_delim:str) -> None:
-        self._engine = engine              # Wrapped Plover engine object.
-        self._stroke_delim = stroke_delim  # Delimiter for Plover stroke strings.
-        self._state = TranslationState()   # Contains current user strokes and actions.
-
-    def refresh_dictionaries(self) -> None:
-        """ Load the current set of dictionaries from the engine. """
-        steno_dc = self._engine.get_dictionaries()
-        self._dictionaries_loaded(steno_dc)
-
-    def call_on_new_dictionary(self, callback:Callable[[RTFCREDict], None]) -> None:
+    def call_on_dictionaries_loaded(self, callback:Callable[[IPlover.StenoDictCollection], None]) -> None:
         """ Set a callback to receive dictionaries when Plover loads them (happens on startup, reordering, etc.) """
-        self._on_new_dictionary = callback
-        self._engine.signal_connect("dictionaries_loaded", self._dictionaries_loaded)
+        self._engine.signal_connect("dictionaries_loaded", callback)
 
-    def call_on_translation(self, callback:Callable[[str, str], None]) -> None:
-        """ Set a callback to receive valid translations resulting from user input. """
-        self._on_translation = callback
-        self._engine.signal_connect("translated", self._translated)
+    def call_on_translated(self, callback:Callable[[IPlover.ActionSequence, IPlover.ActionSequence], None]) -> None:
+        """ Set a callback to receive user input actions. """
+        self._engine.signal_connect("translated", callback)
 
-    def _dictionaries_loaded(self, steno_dc:IPlover.StenoDictCollection) -> None:
-        """ Convert and merge any new dictionaries into an RTFCREDict and call back with it. """
-        if steno_dc is not self._steno_dc:
-            self._steno_dc = steno_dc
-            d_raw = self._engine.compile_raw_dict(steno_dc)
-            translations = d_raw.to_string_dict(self._stroke_delim)
-            self._on_new_dictionary(translations)
+    def parse_dictionaries(self, steno_dc:IPlover.StenoDictCollection=None) -> RTFCREDict:
+        """ Convert and merge all translations in <steno_dc> into an RTFCREDict.
+            If None, convert the current set of dictionaries from the engine. """
+        if steno_dc is None:
+            steno_dc = self._engine.get_dictionaries()
+        d_raw = self._engine.compile_raw_dict(steno_dc)
+        return d_raw.to_string_dict(self._stroke_delim)
 
-    def _translated(self, _, new_actions:IPlover.ActionSequence) -> None:
-        """ Add Plover user actions to the current translation state with the latest strokes.
-            If valid, parse it into strings and call back with them. """
+    def parse_actions(self, _:IPlover.ActionSequence, new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:
+        """ Add new Plover user actions to the current translation state with the latest strokes.
+            If invalid or unchanged, return None. Otherwise, parse it into strings and return them. """
         strokes = self._engine.get_last_strokes()
         new_state = self._state & TranslationState(strokes, new_actions)
         if new_state is not self._state:
             self._state = new_state
             keys, letters = new_state.to_strings(self._stroke_delim)
             if keys and letters:
-                self._on_translation(keys, letters)
-
-    @classmethod
-    def from_engine(cls, engine:IPlover.Engine, stroke_delim="/") -> "PloverExtension":
-        """ Build a new extension object from a Plover <engine>. """
-        wrapper = EngineWrapper(engine)
-        return cls(wrapper, stroke_delim)
+                return keys, letters
 
 
 class IncompatibleError(Exception):
@@ -198,18 +184,49 @@ class IncompatibleError(Exception):
 class PloverAppInfo:
     """ Returns information about the user's Plover installation or its files. """
 
-    def __init__(self) -> None:
-        # self._app_name = "plover"              # Name of Plover application for finding its user data folder.
-        # self._cfg_filename = "plover.cfg"      # Filename for Plover configuration with user dictionaries.
-        self._version_required = "4.0.0.dev8"  # Minimum version of Plover required for plugin compatibility.
+    def __init__(self, *, app_name:str, cfg_filename:str, min_version:str) -> None:
+        self._app_name = app_name          # Name of Plover application for finding its user data folder.
+        self._cfg_filename = cfg_filename  # Filename for Plover configuration with user dictionaries.
+        self._min_version = min_version    # Minimum version of Plover required for plugin compatibility.
 
     def check_compatible(self) -> None:
         """ Check the Plover version to see if it is compatible with this extension. """
-        version = self._version_required
+        # pkg_resources takes 4x as long to import as *everything else combined*. Only import it when/if we need it.
+        import pkg_resources
         try:
-            pkg_resources.working_set.require(f"plover>={version}")
-        except pkg_resources.ResolutionError:
-            raise IncompatibleError(f"Plover v{version} or greater required.")
+            pkg_resources.working_set.require(f"plover>={self._min_version}")
+        except pkg_resources.ResolutionError as e:
+            raise IncompatibleError(f"Plover v{self._min_version} or greater required.") from e
+
+    def user_translations(self, *, ignore_errors=False) -> RTFCREDict:
+        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them.
+            Return an empty dictionary on a file or parsing error if <ignore_errors> is True. """
+        try:
+            filenames = self._find_dictionaries()
+        except (IndexError, KeyError, OSError, ValueError):
+            if not ignore_errors:
+                raise
+            filenames = []
+        return RTFCREDict.from_json_files(*filenames)
+
+    def _find_dictionaries(self) -> Sequence[str]:
+        """ Search the user's local app data for the Plover config file.
+            Parse the dictionaries section and return the filenames for all dictionaries in order. """
+        converter = UserPathConverter(self._app_name)
+        cfg_filename = converter.convert(self._cfg_filename)
+        parser = ConfigParser()
+        with open(cfg_filename, 'r', encoding='utf-8') as fp:
+            parser.read_file(fp)
+        # Dictionaries are located in the same directory as the config file.
+        # The config value we need is read as a string, but it must be decoded as a JSON array of objects.
+        value = parser['System: English Stenotype']['dictionaries']
+        dictionary_specs = json.loads(value)
+        plover_dir = os.path.split(cfg_filename)[0]
+        # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
+        return [os.path.join(plover_dir, spec['path']) for spec in reversed(dictionary_specs)]
 
 
-plover_info = PloverAppInfo()
+# Global import for compatibility checks and user data.
+plover_info = PloverAppInfo(app_name="plover",
+                            cfg_filename="plover.cfg",
+                            min_version="4.0.0.dev8")

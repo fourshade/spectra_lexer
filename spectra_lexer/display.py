@@ -5,8 +5,11 @@ from spectra_lexer.board import BoardDiagram, BoardDocumentFactory, BoardElement
     BoardElementGroup, SVGElementFactory
 from spectra_lexer.graph import IBody, BoldBody, SeparatorBody, ShiftedBody, StandardBody, GraphNode, IConnectors, \
     InversionConnectors, LinkedConnectors, NullConnectors, SimpleConnectors, ThickConnectors, UnmatchedConnectors, \
-    CascadedLayoutEngine, CompatHTMLFormatter, CompressedLayoutEngine, ElementCanvas, StandardHTMLFormatter
-from spectra_lexer.resource import StenoBoardDefinitions, StenoKeyConverter, StenoRule
+    CascadedLayoutEngine,  CompressedLayoutEngine, ElementCanvas, \
+    BaseHTMLFormatter, CompatHTMLFormatter, StandardHTMLFormatter
+from spectra_lexer.resource.board import StenoBoardDefinitions
+from spectra_lexer.resource.keys import StenoKeyConverter
+from spectra_lexer.resource.rules import StenoRule
 
 
 class DisplayNode(GraphNode):
@@ -23,7 +26,17 @@ class DisplayNodeFactory:
     def __init__(self, ignored_chars="") -> None:
         self._ignored = set(ignored_chars)  # Tokens to ignore at the beginning of key strings (usually the hyphen).
 
-    def build(self, rule:StenoRule, start:int, length:int, children:Sequence[DisplayNode]=()) -> DisplayNode:
+    def build_tree(self, rule:StenoRule) -> DisplayNode:
+        """ The root node's attach points are arbitrary, so tstart=0 and tlen=len(letters). """
+        return self._build_tree(rule, 0, len(rule.letters))
+
+    def _build_tree(self, rule:StenoRule, start:int, length:int) -> DisplayNode:
+        """ Build a display node tree recursively. """
+        children = [self._build_tree(c.child, c.start, c.length) for c in rule]
+        return self.build_node(rule, start, length, children)
+
+    def build_node(self, rule:StenoRule, start:int, length:int, children:Sequence[DisplayNode]=()) -> DisplayNode:
+        """ Make a new node from a rule's properties, position, and descendants. """
         body = self._build_body(rule)
         width = body.width()
         connectors = self._build_connectors(rule, length, width)
@@ -238,12 +251,8 @@ class DisplayEngine:
         """ Process a steno rule (usually a lexer analysis) into graphs and boards for the GUI. """
         keys = analysis.keys
         letters = analysis.letters
-        # The root node's attach points are arbitrary, so tstart=0 and tlen=len(letters).
-        root = self._build_tree(analysis, 0, len(letters))
-        layout_engine = CompressedLayoutEngine() if options.graph_compressed_layout else CascadedLayoutEngine()
-        layout = layout_engine.layout(root)
-        grid = ElementCanvas.from_layout(layout)
-        formatter = CompatHTMLFormatter(grid) if options.graph_compatibility_mode else StandardHTMLFormatter(grid)
+        root = self._node_factory.build_tree(analysis)
+        formatter = self._build_formatter(root, options.graph_compressed_layout, options.graph_compatibility_mode)
         # Iterate over the root node and render all its descendants depth-first recursively.
         pages = {}
         node_list = [root]
@@ -253,7 +262,10 @@ class DisplayEngine:
             ngraph, igraph = [formatter.format(ref, intense) for intense in (False, True)]
             # Make a caption to display above the board diagram for this rule.
             rule = node.rule
-            if rule and rule.letters:
+            if rule is analysis:
+                # The root translation is in the title bar. Show only the info string in its caption.
+                caption = rule.info
+            elif rule and rule.letters:
                 # Compound rules show the complete mapping of keys to letters in their caption.
                 caption = f'{rule}: {rule.info}'
             else:
@@ -262,18 +274,19 @@ class DisplayEngine:
             xml = self._board_factory.build(rule, options.board_aspect_ratio,
                                             options.board_show_compound, options.board_show_letters)
             pages[ref] = DisplayPage(ngraph, igraph, caption, xml, rule.id)
-        # The root node's translation is in the title bar. Show only the info string in its caption.
+        # When nothing is selected, use the board and caption for the root node.
         root_page = pages[root.ref()]
-        root_caption = root_page.caption = analysis.info
-        # If nothing is selected, use the board and caption for the root node.
         default_graph = formatter.format()
-        default_page = DisplayPage(default_graph, default_graph, root_caption, root_page.board, "")
+        default_page = DisplayPage(default_graph, default_graph, root_page.caption, root_page.board)
         return DisplayData(keys, letters, pages, default_page)
 
-    def _build_tree(self, rule:StenoRule, start:int, length:int) -> DisplayNode:
-        """ Build a display node tree recursively. """
-        children = [self._build_tree(c.child, c.start, c.length) for c in rule]
-        return self._node_factory.build(rule, start, length, children)
+    @staticmethod
+    def _build_formatter(root:DisplayNode, compressed=True, compat=False) -> BaseHTMLFormatter:
+        layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
+        layout = layout_engine.layout(root)
+        grid = ElementCanvas.from_layout(layout)
+        formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
+        return formatter
 
     @classmethod
     def from_resources(cls, converter:StenoKeyConverter, board_defs:StenoBoardDefinitions,
