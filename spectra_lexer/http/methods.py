@@ -133,7 +133,7 @@ class HTTPDataService(HTTPRequestHandler):
 class HTTPJSONService(HTTPDataService):
     """ Abstract class; decodes a JSON object from HTTP content, processes it, and returns a JSON-encoded result. """
 
-    _JSON_OBJ = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
+    JSONType = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
 
     ctype = "application/json"
     encoding = "utf-8"
@@ -142,7 +142,7 @@ class HTTPJSONService(HTTPDataService):
         self._size_limit = size_limit    # Limit on total size of JSON data in bytes.
         self._char_limits = char_limits  # Limits on special JSON characters.
 
-    def decode(self, data:bytes) -> _JSON_OBJ:
+    def decode(self, data:bytes) -> JSONType:
         """ Validate and decode incoming JSON data from a client. """
         if len(data) > self._size_limit:
             raise ValueError("JSON rejected - data payload too large.")
@@ -158,7 +158,7 @@ class HTTPJSONService(HTTPDataService):
             An explicit encoder flag is required to keep non-ASCII Unicode characters intact. """
         return json.dumps(obj, ensure_ascii=False, default=self.default).encode(self.encoding)
 
-    def default(self, obj:Any) -> _JSON_OBJ:
+    def default(self, obj:Any) -> JSONType:
         """ Convert arbitrary Python objects into JSON-compatible types using specially-named conversion methods. """
         type_name = type(obj).__name__
         try:
@@ -166,6 +166,13 @@ class HTTPJSONService(HTTPDataService):
             return meth(obj)
         except Exception as e:
             raise TypeError(f"Could not encode object of type {type_name} into JSON.") from e
+
+    def add_data_class(self, data_cls:type) -> None:
+        """ Add a conversion method for a data class, whose instance attributes may be encoded
+            directly into a JSON object. This uses vars(), so objects without a __dict__ are not allowed.
+            For this to work, each attribute must contain either a JSON-compatible type or another data class.
+            Since type information is not encoded, this conversion is strictly one-way. """
+        setattr(self, f"convert_{data_cls.__name__}", vars)
 
     # Convert sets and frozensets into lists, which become JSON arrays.
     convert_set = list

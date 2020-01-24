@@ -11,7 +11,7 @@ from spectra_lexer.base import Spectra
 from spectra_lexer.console.qt import ConsoleDialog
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.config import ConfigDialog
-from spectra_lexer.qt.display import DisplayController, DisplayPageData
+from spectra_lexer.qt.display import DisplayController, DisplayPageData, DisplayPageDict
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
@@ -29,26 +29,24 @@ class QtGUIApplication(StenoApplication):
 
     def __init__(self, async_dsp:QtAsyncDispatcher, window:WindowController,
                  menu:MenuController, search:SearchController, display:DisplayController, *args) -> None:
+        """ Connect all GUI inputs to their callbacks. """
+        super().__init__(*args)
         self._async_dsp = async_dsp
         self._window = window
         self._menu = menu
         self._search = search
         self._display = display
-        super().__init__(*args)
-
-    def connect_gui(self) -> None:
-        """ Connect the exception hook and all GUI inputs to their callbacks. """
-        self._menu.add(self.open_translations, "File", "Load Translations...")
-        self._menu.add(self.open_index, "File", "Load Index...")
-        self._menu.add(self.close, "File", "Close", after_sep=True)
-        self._menu.add(self.config_editor, "Tools", "Edit Configuration...")
-        self._menu.add(self.custom_index, "Tools", "Make Index...")
-        self._menu.add(self.debug_console, "Debug", "Open Console...")
-        self._menu.add(self.debug_tree, "Debug", "View Object Tree...")
-        self._search.call_on_search(self.on_search)
-        self._search.call_on_query(self.on_query)
-        self._display.call_on_query(self.on_query)
-        self._display.call_on_example_search(self.on_search_examples)
+        menu.add(self.open_translations, "File", "Load Translations...")
+        menu.add(self.open_index, "File", "Load Index...")
+        menu.add(self.close, "File", "Close", after_sep=True)
+        menu.add(self.config_editor, "Tools", "Edit Configuration...")
+        menu.add(self.custom_index, "Tools", "Make Index...")
+        menu.add(self.debug_console, "Debug", "Open Console...")
+        menu.add(self.debug_tree, "Debug", "View Object Tree...")
+        search.call_on_search(self.on_search)
+        search.call_on_query(self.on_query)
+        display.call_on_query(self.on_query)
+        display.call_on_example_search(self.on_search_examples)
 
     def on_loaded(self, *_) -> None:
         """ On first start, present a dialog for the user to make a default-sized index on accept. """
@@ -91,17 +89,19 @@ class QtGUIApplication(StenoApplication):
             self._search.update_results(results.matches, can_expand=not results.is_complete)
         display_data = out.display_data
         if display_data is not None:
-            translation = [display_data.keys, display_data.letters]
-            default_item = (DisplayPageData.DEFAULT_KEY, display_data.default_page)
+            self._update_gui_translation(display_data.keys, display_data.letters)
+            default_item = (DisplayPageDict.DEFAULT_KEY, display_data.default_page)
             input_items = [default_item, *display_data.pages_by_ref.items()]
-            output_dict = {}
+            output_dict = DisplayPageDict()
             for ref, page in input_items:
                 graphs = [page.graph, page.intense_graph]
                 board_xml = page.board.encode('utf-8')
                 output_dict[ref] = DisplayPageData(graphs, page.caption, board_xml, page.rule_id)
-            self._search.select_translation(*translation)
-            self._display.set_translation(*translation)
             self._display.set_pages(output_dict)
+
+    def _update_gui_translation(self, keys:str, letters:str) -> None:
+        self._search.select_translation(keys, letters)
+        self._display.set_translation(keys, letters)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
@@ -178,7 +178,9 @@ class QtGUIApplication(StenoApplication):
 
     def run_async(self, func:Callable, *args, callback:Callable=None, msg_start:str=None, msg_done:str=None) -> None:
         """ Start a blocking async task. If <msg_start> is not None, show it and disable the window controls.
-            Make a callback that will re-enable the controls and show <msg_done> when the task is done. """
+            Make a callback that will re-enable the controls and show <msg_done> when the task is done.
+            GUI events may misbehave unless explicitly processed before the async thread takes the GIL. """
+        qt_app = QApplication.instance()
         def on_task_start() -> None:
             if msg_start is not None:
                 self.set_enabled(False)
@@ -190,6 +192,7 @@ class QtGUIApplication(StenoApplication):
                 self.set_status(msg_done)
             if callback is not None:
                 callback(val)
+        qt_app.processEvents()
         self._async_dsp.dispatch(func, *args, on_start=on_task_start, on_finish=on_task_finish)
 
     def on_exception(self, exc:BaseException) -> None:
@@ -225,15 +228,13 @@ class SpectraQt(Spectra):
         engine = self.build_engine()
         app = QtGUIApplication(async_dsp, window, menu, search, display, config, engine)
         excman.add_handler(app.on_exception)
-        app.connect_gui()
+        app.set_enabled(False)
+        app.set_status("Loading...")
         app.show()
         return app
 
     def load_app_async(self, app:QtGUIApplication) -> None:
         """ Load heavy data asynchronously on a new thread to avoid blocking the GUI. """
-        # GUI events may misbehave unless explicitly processed first.
-        qt_app = QApplication.instance()
-        qt_app.processEvents()
         app.run_async(self.load_app, app, callback=app.on_loaded, msg_start="Loading...", msg_done="Loading complete.")
 
     def run(self) -> int:
@@ -245,7 +246,7 @@ class SpectraQt(Spectra):
         return qt_app.exec_()
 
 
-gui = SpectraQt.main
+gui_main = SpectraQt.main
 
 if __name__ == '__main__':
-    sys.exit(gui())
+    sys.exit(gui_main())

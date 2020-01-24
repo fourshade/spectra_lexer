@@ -2,7 +2,6 @@
 
 """ Unit tests for Plover dictionary conversion. """
 
-from contextlib import nullcontext
 from typing import Dict
 
 from .base import TEST_TRANSLATIONS
@@ -28,12 +27,15 @@ def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDictC
     return steno_dc
 
 
-class DummyEngine(nullcontext, IPlover.Engine):
-    pass
+class DummyEngine(IPlover.Engine):
+    signal_connect = __enter__ = __exit__ = lambda *_: False
 
 
 def dc_to_dict(steno_dc:IPlover.StenoDictCollection) -> Dict[str, str]:
     dummy_engine = DummyEngine()
     dummy_engine.dictionaries = steno_dc
     ext = PloverExtension.from_engine(dummy_engine)
-    return ext.get_translations()
+    result = []
+    ext.call_on_new_dictionary(result.append)
+    ext.refresh_dictionaries()
+    return result[0]

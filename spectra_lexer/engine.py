@@ -46,11 +46,11 @@ class StenoEngine:
         """ Run the lexer on all translations with an input filter and look at the top-level rule IDs.
             Make a index containing a dict for each built-in rule with every translation that used it. """
         translations = self._translations.size_filtered(size)
-        mapper = ParallelMapper(self._analyzer.parallel_query, **kwargs)
+        mapper = ParallelMapper(self._analyzer.query_rule_ids, **kwargs)
         results = mapper.starmap(translations.items())
         index = defaultdict(RTFCREDict)
-        for keys, letters, *ids in results:
-            for r_id in ids:
+        for keys, letters, *rule_ids in results:
+            for r_id in rule_ids:
                 index[r_id][keys] = letters
         return RTFCREExamplesDict(index)
 

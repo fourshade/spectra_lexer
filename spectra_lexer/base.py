@@ -6,12 +6,12 @@ from typing import List
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
-from spectra_lexer.config import ConfigDictionary
 from spectra_lexer.display import DisplayEngine
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.resource import RTFCREDict, StenoBoardDefinitions, StenoKeyLayout, StenoRuleCollection
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOption, CmdlineOptionNamespace
+from spectra_lexer.resource.config import ConfigDictionary
 from spectra_lexer.util.log import StreamLogger
 from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
 
@@ -78,23 +78,32 @@ class Spectra(CmdlineOptionNamespace):
 
     def load_app(self, app:StenoApplication) -> None:
         """ Load an app object with all external starting resources. """
+        self._load_app_translations(app)
+        self._load_app_index(app)
+        self._load_app_config(app)
+
+    def _load_app_translations(self, app:StenoApplication) -> None:
         translations_files = self.translations_files
         if self.PLOVER_DICTIONARIES in translations_files:
-            translations = self._plover_translations()
-            app.set_translations(translations)
+            self._load_plover_translations(app)
         elif translations_files:
             app.load_translations(*map(self._convert_path, translations_files))
+
+    def _load_plover_translations(self, app:StenoApplication) -> None:
+        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them. """
+        filenames = self._find_plover_dictionaries()
+        translations = RTFCREDict.from_json_files(*filenames)
+        app.set_translations(translations)
+
+    def _load_app_index(self, app:StenoApplication) -> None:
         index_file = self.index_file
         if index_file:
             app.load_examples(self._convert_path(index_file, make_dirs=True))
+
+    def _load_app_config(self, app:StenoApplication) -> None:
         config_file = self.config_file
         if config_file:
             app.load_config(self._convert_path(config_file, make_dirs=True))
-
-    def _plover_translations(self) -> RTFCREDict:
-        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them. """
-        filenames = self._find_plover_dictionaries()
-        return RTFCREDict.from_json_files(*filenames)
 
     def build_logger(self) -> StreamLogger:
         """ Create a logger, which will print non-error messages to stdout by default.
@@ -199,7 +208,7 @@ class Spectra(CmdlineOptionNamespace):
     def main(cls) -> int:
         """ Parse the options and run the application. """
         self = cls()
-        self.parse_options(app_description=str(cls.__doc__))
+        self.parse_options()
         return self.run()
 
     def run(self) -> int:

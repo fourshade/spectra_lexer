@@ -14,16 +14,6 @@ class LexerResult:
         self.rule_positions = rule_positions    # List of start positions (in the letters) for each rule in order.
         self.unmatched_skeys = unmatched_skeys  # Contains leftover keys we couldn't match.
 
-    def info(self) -> str:
-        """ Return an info string for this result. The output is nowhere near reliable if some keys are unmatched. """
-        if not self.unmatched_skeys:
-            info = "Found complete match."
-        elif self.rules:
-            info = "Incomplete match. Not reliable."
-        else:
-            info = "No matches found."
-        return info
-
 
 class StenoLexer:
     """ The main lexer engine. Uses trial-and-error stack based analysis to gather all possibilities for steno

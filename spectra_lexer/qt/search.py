@@ -114,7 +114,7 @@ class SearchController:
                 t.reverse()
         self._on_query(*translations)
 
-    def update_results(self, matches:MatchDict, *, can_expand=True) -> None:
+    def update_results(self, matches:MatchDict, *, can_expand=False) -> None:
         """ Replace the current set of search results.
             If <can_expand> is True, add a final list item to allow search expansion.
             If there was only one match, select it automatically and proceed with a query. """
@@ -139,7 +139,9 @@ class SearchController:
             self._mappings.select(mapping)
 
     def set_enabled(self, enabled:bool) -> None:
-        """ Enable/disable all search widgets. Leave the content intact. """
+        """ Enable/disable all search widgets. Invalidate the current search results on disable. """
+        if not enabled:
+            self.update_results({})
         self._input.set_enabled(enabled)
         self._matches.set_enabled(enabled)
         self._mappings.set_enabled(enabled)

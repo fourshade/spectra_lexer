@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 from spectra_lexer.board import BoardDiagram, BoardDocumentFactory, BoardElementFactory, \
     BoardElementGroup, SVGElementFactory
@@ -23,18 +23,14 @@ class DisplayNodeFactory:
     def __init__(self, ignored_chars="") -> None:
         self._ignored = set(ignored_chars)  # Tokens to ignore at the beginning of key strings (usually the hyphen).
 
-    def build(self, rule:StenoRule) -> DisplayNode:
-        return self._build(rule, 0, len(rule.letters))
-
-    def _build(self, rule:StenoRule, start:int, length:int) -> DisplayNode:
-        children = [self._build(c.child, c.start, c.length) for c in rule]
+    def build(self, rule:StenoRule, start:int, length:int, children:Sequence[DisplayNode]=()) -> DisplayNode:
         body = self._build_body(rule)
         width = body.width()
         connectors = self._build_connectors(rule, length, width)
         return DisplayNode(rule, body, connectors, start, length, children)
 
     def _build_body(self, rule:StenoRule) -> IBody:
-        # The text is shifted left if it starts with (and does not consist solely of) an ignored token.
+        """ Make a node display body. The text is shifted left if it starts with an ignored token. """
         keys = rule.keys
         if rule:
             body = BoldBody(rule.letters)
@@ -48,6 +44,7 @@ class DisplayNodeFactory:
 
     @staticmethod
     def _build_connectors(rule:StenoRule, length:int, width:int) -> IConnectors:
+        """ Make a node connector set based on the rule type. """
         if rule.is_inversion:
             # Node for an inversion of steno order. Connectors should indicate some kind of "reversal".
             connectors = InversionConnectors(length, width)
@@ -172,6 +169,33 @@ class BoardElementIndex:
         return [self._factory.inversion_group(grps)]
 
 
+class BoardFactory:
+    """ Creates visual representations of steno strokes. """
+
+    def __init__(self, element_index:BoardElementIndex, doc_factory:BoardDocumentFactory) -> None:
+        self._element_index = element_index
+        self._doc_factory = doc_factory
+
+    def build(self, rule:StenoRule, aspect_ratio:float=None, show_compound=True, show_letters=True) -> BoardDiagram:
+        """ Generate an encoded board diagram layout arranged according to <aspect ratio>. """
+        if show_compound:
+            elems = self._element_index.elems_from_rule(rule, show_letters)
+        else:
+            elems = self._element_index.elems_from_keys(rule)
+        return self._doc_factory.make_svg(elems, aspect_ratio)
+
+    @classmethod
+    def from_resources(cls, converter:StenoKeyConverter,
+                       board_defs:StenoBoardDefinitions, combo_key:str) -> "BoardFactory":
+        svg_factory = SVGElementFactory()
+        elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
+        elem_index = BoardElementIndex(converter, combo_key, elem_factory, board_defs.keys, board_defs.rules)
+        base_elems = elem_index.base_elems()
+        defs_base = elem_factory.base_group(*base_elems)
+        doc_factory = BoardDocumentFactory(svg_factory, *defs_base, *board_defs.bounds)
+        return cls(elem_index, doc_factory)
+
+
 class DisplayOptions:
     """ Namespace for steno display options. """
 
@@ -206,18 +230,16 @@ class DisplayData:
 class DisplayEngine:
     """ Creates visual representations of steno analyses. """
 
-    def __init__(self, node_factory:DisplayNodeFactory,
-                 board_index:BoardElementIndex, doc_factory:BoardDocumentFactory) -> None:
+    def __init__(self, node_factory:DisplayNodeFactory, board_factory:BoardFactory) -> None:
         self._node_factory = node_factory
-        self._board_index = board_index
-        self._doc_factory = doc_factory
+        self._board_factory = board_factory
 
     def process(self, analysis:StenoRule, options=DisplayOptions()) -> DisplayData:
         """ Process a steno rule (usually a lexer analysis) into graphs and boards for the GUI. """
         keys = analysis.keys
         letters = analysis.letters
         # The root node's attach points are arbitrary, so tstart=0 and tlen=len(letters).
-        root = self._node_factory.build(analysis)
+        root = self._build_tree(analysis, 0, len(letters))
         layout_engine = CompressedLayoutEngine() if options.graph_compressed_layout else CascadedLayoutEngine()
         layout = layout_engine.layout(root)
         grid = ElementCanvas.from_layout(layout)
@@ -237,7 +259,8 @@ class DisplayEngine:
             else:
                 # Base rules display only their keys to the left of their descriptions.
                 caption = f"{rule.keys}: {rule.info}"
-            xml = self._new_board(rule, options)
+            xml = self._board_factory.build(rule, options.board_aspect_ratio,
+                                            options.board_show_compound, options.board_show_letters)
             pages[ref] = DisplayPage(ngraph, igraph, caption, xml, rule.id)
         # The root node's translation is in the title bar. Show only the info string in its caption.
         root_page = pages[root.ref()]
@@ -247,22 +270,14 @@ class DisplayEngine:
         default_page = DisplayPage(default_graph, default_graph, root_caption, root_page.board, "")
         return DisplayData(keys, letters, pages, default_page)
 
-    def _new_board(self, rule:StenoRule, options:DisplayOptions) -> BoardDiagram:
-        # Generate an encoded board diagram layout arranged according to the aspect ratio.
-        if options.board_show_compound:
-            elems = self._board_index.elems_from_rule(rule, show_letters=options.board_show_letters)
-        else:
-            elems = self._board_index.elems_from_keys(rule)
-        return self._doc_factory.make_svg(elems, options.board_aspect_ratio)
+    def _build_tree(self, rule:StenoRule, start:int, length:int) -> DisplayNode:
+        """ Build a display node tree recursively. """
+        children = [self._build_tree(c.child, c.start, c.length) for c in rule]
+        return self._node_factory.build(rule, start, length, children)
 
     @classmethod
     def from_resources(cls, converter:StenoKeyConverter, board_defs:StenoBoardDefinitions,
                        ignored_chars:str, combo_key:str) -> "DisplayEngine":
         node_factory = DisplayNodeFactory(ignored_chars)
-        svg_factory = SVGElementFactory()
-        elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
-        elem_index = BoardElementIndex(converter, combo_key, elem_factory, board_defs.keys, board_defs.rules)
-        base_elems = elem_index.base_elems()
-        defs_base = elem_factory.base_group(*base_elems)
-        doc_factory = BoardDocumentFactory(svg_factory, *defs_base, *board_defs.bounds)
-        return cls(node_factory, elem_index, doc_factory)
+        board_factory = BoardFactory.from_resources(converter, board_defs, combo_key)
+        return cls(node_factory, board_factory)

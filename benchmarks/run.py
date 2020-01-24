@@ -56,9 +56,9 @@ def app_start():
 
 
 def app_index() -> None:
-    from spectra_lexer.gui_none import index
+    from spectra_lexer.gui_none import index_main
     sys.argv += ["--index=NUL", "--processes=1"]
-    index()
+    index_main()
 
 
 def main(script="", operation="run_lexer", *argv:str) -> int:

@@ -46,8 +46,8 @@ class SpectraBatchIndex(Spectra):
         return 0
 
 
-console = SpectraConsole.main
-index = SpectraBatchIndex.main
+console_main = SpectraConsole.main
+index_main = SpectraBatchIndex.main
 
 if __name__ == '__main__':
-    sys.exit(console())
+    sys.exit(console_main())

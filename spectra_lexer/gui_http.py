@@ -13,6 +13,7 @@ from spectra_lexer.http import HTTPFileService, HTTPJSONService, HTTPMethodRoute
 from spectra_lexer.search import SearchResults
 from spectra_lexer.util.cmdline import CmdlineOption
 
+JSON_DATA_CLASSES = [DisplayData, DisplayPage, SearchResults, StenoGUIOutput]
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 
@@ -39,13 +40,6 @@ class StenoAppService(HTTPJSONService):
                 self._log('APP EXCEPTION\n' + format_exc())
                 raise
 
-    def add_data_class(self, data_cls:type) -> None:
-        """ Add a conversion method for a data class, whose instance attributes may be encoded
-            directly into a JSON object. This uses vars(), so objects without a __dict__ are not allowed.
-            For this to work, each attribute must contain either a JSON-compatible type or another data class.
-            Since type information is not encoded, this conversion is strictly one-way. """
-        setattr(self, f"convert_{data_cls.__name__}", vars)
-
 
 class SpectraHttp(Spectra):
     """ Run the Spectra HTTP web application. """
@@ -57,7 +51,7 @@ class SpectraHttp(Spectra):
 
     def build_server(self, app:StenoApplication, logger:Callable[[str], None]=print) -> HTTPServer:
         app_service = StenoAppService(app, logger)
-        for cls in [DisplayData, DisplayPage, SearchResults, StenoGUIOutput]:
+        for cls in JSON_DATA_CLASSES:
             app_service.add_data_class(cls)
         file_service = HTTPFileService(self.directory)
         post_router = HTTPPathRouter()
@@ -84,7 +78,7 @@ class SpectraHttp(Spectra):
         return 0
 
 
-http = SpectraHttp.main
+http_main = SpectraHttp.main
 
 if __name__ == '__main__':
-    sys.exit(http())
+    sys.exit(http_main())

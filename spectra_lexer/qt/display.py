@@ -12,13 +12,17 @@ from .widgets import HyperlinkTextBrowser, PictureWidget
 class DisplayPageData:
     """ Data class that contains HTML formatted graphs, a caption, an SVG board, and a link reference. """
 
-    DEFAULT_KEY = "_DEFAULT"  # Key for default page when found in a dict.
-
-    def __init__(self, html_graphs:Sequence[str], board_caption:str, board_xml:bytes, link_ref:str) -> None:
+    def __init__(self, html_graphs:Sequence[str]=("", ""), board_caption="", board_xml=b"", link_ref="") -> None:
         self.html_graphs = html_graphs      # Sequence of 2 HTML text graphs for this rule: [normal, bright].
         self.board_caption = board_caption  # Text caption for this rule, drawn above the board.
         self.board_xml = board_xml          # XML byte string containing this rule's SVG board diagram.
         self.link_ref = link_ref            # Target ref for a link to find examples of this rule (empty if none).
+
+
+class DisplayPageDict(Dict[str, DisplayPageData]):
+    """ Contains HTML formatted graphs, captions, and SVG boards for each rule in an analysis. """
+
+    DEFAULT_KEY = "_DEFAULT"  # Key for default page (nothing selected).
 
 
 class SVGPictureRenderer:
@@ -127,8 +131,8 @@ class _GraphWrapper(QObject):
     def __init__(self, w_graph:HyperlinkTextBrowser) -> None:
         super().__init__()
         self._w_graph = w_graph
-        self._graph_enabled = False    # If True, all graph mouse actions are disabled.
-        self._graph_has_focus = False  # If True, freeze focus on the current page and do not allow mouseover signals.
+        self._mouse_enabled = False  # If True, all graph mouse actions are disabled.
+        self._has_focus = False      # If True, freeze focus on the current page and do not allow mouseover signals.
         self.call_on_mouse_over = self._sig_mouse_over.connect
         self.call_on_mouse_click = self._sig_mouse_click.connect
         w_graph.linkOver.connect(self._on_link_over)
@@ -138,38 +142,33 @@ class _GraphWrapper(QObject):
         """ If the graph is enabled, send a signal with the fragment string of the URL under the cursor.
             When we move off of a link, this will be sent with an empty string.
             Do not allow mouseover signals if focus is active. """
-        if self._graph_enabled and not self._graph_has_focus:
+        if self._mouse_enabled and not self._has_focus:
             self._sig_mouse_over.emit(url.fragment())
 
     def _on_link_click(self, url:QUrl) -> None:
         """ If the graph is enabled, send a signal with the fragment string of the clicked URL.
             When we click something that isn't a link, this will be sent with an empty string. """
-        if self._graph_enabled:
+        if self._mouse_enabled:
             self._sig_mouse_click.emit(url.fragment())
 
     def set_enabled(self, enabled:bool) -> None:
-        """ Blank out the graph on disable. """
-        self._graph_enabled = enabled
-        if not enabled:
-            self._w_graph.clear()
+        self._w_graph.setEnabled(enabled)
 
     def set_focus(self, enabled=False) -> None:
         """ Set the focus state of the graph. Mouseover signals will be suppressed when focus is active. """
-        self._graph_has_focus = enabled
+        self._has_focus = enabled
 
     def set_graph_text(self, text:str) -> None:
         """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
-        self._graph_enabled = True
+        self._mouse_enabled = True
         self._w_graph.setHtml(text, no_scroll=True)
 
-    def add_traceback(self, tb_text:str) -> None:
-        """ Append an exception traceback's text to the widget.
-            If the widget currently contains a graph, disable it and reset the formatting first. """
-        if self._graph_enabled:
-            self._graph_enabled = False
-            self._w_graph.clear()
-            self._w_graph.setCurrentCharFormat(QTextCharFormat())
-        self._w_graph.append(tb_text)
+    def set_plaintext(self, text:str) -> None:
+        """ Disable graph interaction and replace the current text with new plaintext. """
+        self._mouse_enabled = False
+        self._w_graph.clear()
+        self._w_graph.setCurrentCharFormat(QTextCharFormat())
+        self._w_graph.append(text)
 
 
 class _BoardWrapper(QObject):
@@ -205,11 +204,6 @@ class _BoardWrapper(QObject):
         """ Load the renderer with new SVG data and redraw the board. """
         self._renderer.set_data(xml_data)
         self._draw_board()
-
-    def set_enabled(self, enabled:bool) -> None:
-        """ Blank out the link on disable. """
-        if not enabled:
-            self.set_link_visible(False)
 
     def get_ratio(self) -> float:
         """ Return the width / height aspect ratio of the board widget. """
@@ -262,7 +256,7 @@ class DisplayController:
         self._board = board
         self._caption = caption
         self._slider = slider
-        self._page_dict = {}  # Contains HTML formatted graphs, captions, and SVG boards for each rule.
+        self._page_dict = DisplayPageDict()
         self._last_link_ref = ""
         self._last_translation = None
         self._on_example_search = lambda *_: None
@@ -302,26 +296,29 @@ class DisplayController:
         self._graph_action(node_ref, True)
 
     def _graph_action(self, node_ref:str, focused:bool) -> None:
-        """ On mouse actions, change the currently displayed analysis page to the one under <node_ref>.
+        """ On mouse actions, change the current analysis page to the one under <node_ref>.
             If <node_ref> is an empty string, show the default page with nothing focused. """
-        pages = self._page_dict
         if not node_ref:
             focused = False
-            node_ref = DisplayPageData.DEFAULT_KEY
-        page = pages.get(node_ref)
+            node_ref = DisplayPageDict.DEFAULT_KEY
+        page = self._page_dict.get(node_ref)
         if page is not None:
-            self._graph.set_graph_text(page.html_graphs[focused])
-            self._graph.set_focus(focused)
-            self._caption.set_caption(page.board_caption)
-            self._board.set_data(page.board_xml)
-            self._board.set_link_visible(bool(page.link_ref))
-            self._last_link_ref = page.link_ref
+            self._set_page_active(page, focused)
+
+    def _set_page_active(self, page=DisplayPageData(), focused=False) -> None:
+        """ Change the currently displayed analysis page and set its focus state. Call with no args to clear it. """
+        self._graph.set_graph_text(page.html_graphs[focused])
+        self._graph.set_focus(focused)
+        self._caption.set_caption(page.board_caption)
+        self._board.set_data(page.board_xml)
+        self._board.set_link_visible(bool(page.link_ref))
+        self._last_link_ref = page.link_ref
 
     def set_translation(self, keys:str, letters:str) -> None:
         self._last_translation = [keys, letters]
         self._title.show_translation(keys, letters)
 
-    def set_pages(self, page_dict:Dict[str, DisplayPageData]) -> None:
+    def set_pages(self, page_dict:DisplayPageDict) -> None:
         """ Replace the current dict of analysis pages and attempt to select the last link target. """
         self._page_dict = page_dict
         last_link = self._last_link_ref
@@ -334,15 +331,18 @@ class DisplayController:
         self._graph_action(start_ref, True)
 
     def set_enabled(self, enabled:bool) -> None:
+        """ Enable/disable all display widgets. Invalidate the current graph and board on disable. """
+        if not enabled:
+            self._set_page_active()
+            self._graph.set_plaintext("")
         self._title.set_enabled(enabled)
         self._graph.set_enabled(enabled)
-        self._board.set_enabled(enabled)
         self._slider.set_enabled(enabled)
 
     def show_traceback(self, tb_text:str) -> None:
         """ Display a stack trace. """
         self._title.show_traceback_heading()
-        self._graph.add_traceback(tb_text)
+        self._graph.set_plaintext(tb_text)
 
     @classmethod
     def from_widgets(cls, w_title:QLineEdit, w_graph:HyperlinkTextBrowser, w_board:PictureWidget,

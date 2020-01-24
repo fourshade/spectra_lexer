@@ -2,11 +2,11 @@
 
 from typing import Any, Dict, Tuple
 
-from spectra_lexer.config import ConfigDictionary
 from spectra_lexer.display import DisplayData, DisplayOptions
 from spectra_lexer.engine import AnalyzerOptions, StenoEngine, SearchOptions
 from spectra_lexer.resource import RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import SearchResults
+from spectra_lexer.resource.config import ConfigDictionary
 
 
 class EngineOptions(SearchOptions, AnalyzerOptions, DisplayOptions):
@@ -114,7 +114,7 @@ class StenoApplication:
         engine_options = self._with_config(options)
         keys, letters, pattern = self._engine.random_example(link_ref, engine_options)
         if keys and letters:
-            output = self.gui_query((keys, letters), options=engine_options)
+            output = self.gui_query((keys, letters), **options)
             output.search_input = pattern
             output.search_results = self._engine.search(pattern, 1, engine_options)
         return output

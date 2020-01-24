@@ -29,9 +29,6 @@
     </property>
     <item row="0" column="0">
      <widget class="QLineEdit" name="w_input">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
         <horstretch>0</horstretch>
@@ -91,9 +88,6 @@
     </item>
     <item row="1" column="0">
      <widget class="StringListView" name="w_matches">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
@@ -195,9 +189,6 @@
        </property>
        <item>
         <widget class="StringListView" name="w_mappings">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
