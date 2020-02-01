@@ -14,7 +14,15 @@ class HTTPRequestHeaders:
     def _get_lower(self, name:str) -> str:
         return self._d.get(name.lower(), "")
 
+    def content_type(self) -> str:
+        """ Return the media type/subtype in lowercase, discarding any comments. """
+        ctype = self._get_lower("Content-Type")
+        if ";" in ctype:
+            ctype = ctype.split(";", 1)[0].strip()
+        return ctype.lower()
+
     def content_length(self) -> int:
+        """ Return the content length in bytes if the header is present; 0 otherwise. """
         return int(self._get_lower("Content-Length") or 0)
 
     def accept_gzip(self) -> bool:
@@ -72,7 +80,7 @@ class HTTPRequestHeaders:
 
 
 class HTTPRequestURI:
-    """ Class representing an HTTP/1.1 request. Other versions should work, though headers may not be recognized. """
+    """ Structure representing the parts of an HTTP request URI. """
 
     # Maps two-digit hex strings to corresponding characters in the ASCII range.
     _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
@@ -116,17 +124,14 @@ class HTTPRequestURI:
 
 
 class HTTPRequest:
-    """ Class representing an HTTP/1.1 request. Other versions should work, though headers may not be recognized. """
+    """ Structure representing an HTTP/1.1 request.
+        Other versions should work, though headers may not be recognized. """
 
     def __init__(self, method:str, uri:HTTPRequestURI, headers:HTTPRequestHeaders, content:bytes) -> None:
         self.method = method    # HTTP method string (GET, POST, etc.)
         self.uri = uri          # HTTP URI starting from the server root.
         self.headers = headers  # HTTP request headers, unordered, with lowercase keys.
         self.content = content  # The rest of the data read from the HTTP stream, as a byte string.
-
-    def __str__(self) -> str:
-        """ Return a summary of the request for a log. """
-        return f'{self.method} {self.uri.path}'
 
 
 class HTTPRequestReader:

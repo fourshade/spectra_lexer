@@ -7,6 +7,23 @@ from threading import Thread
 from typing import BinaryIO
 
 
+class TCPConnection:
+    """ Data structure for an open TCP connection (in the server role). """
+
+    def __init__(self, stream:BinaryIO, addr:str, port:int) -> None:
+        self.stream = stream  # Raw binary I/O stream.
+        self.addr = addr      # Client IP address.
+        self.port = port      # Client TCP port.
+
+
+class TCPConnectionHandler:
+    """ Interface for a handler of incoming TCP client connections. """
+
+    def handle_connection(self, conn:TCPConnection) -> None:
+        """ Handle a TCP connection for its entire duration. It will be closed when this method exits. """
+        raise NotImplementedError
+
+
 class _SocketReader(RawIOBase):
     """ Aliases socket reading functions to match I/O methods. """
 
@@ -18,15 +35,13 @@ class _SocketReader(RawIOBase):
         return True
 
 
-class TCPConnection(BufferedReader, BinaryIO):
-    """ A raw TCP connection which sends/receives data as a binary I/O stream. Also includes client address information.
+class _SocketStream(BufferedReader, BinaryIO):
+    """ A raw socket connection which sends/receives data as a binary I/O stream.
         The I/O reader is line-buffered; the writer is raw. """
 
-    def __init__(self, sock:socket, addr:str, port:str) -> None:
+    def __init__(self, sock:socket) -> None:
         super().__init__(_SocketReader(sock))
         self._sock = sock
-        self._addr = addr
-        self._port = port
 
     def write(self, data:bytes) -> int:
         self._sock.sendall(data)
@@ -43,18 +58,6 @@ class TCPConnection(BufferedReader, BinaryIO):
             pass
         self._sock.close()
 
-    def client_info(self) -> str:
-        """ Generate a string for logging including the client address and port. """
-        return f'{self._addr}:{self._port}'
-
-
-class TCPConnectionHandler:
-    """ Interface for a handler of incoming TCP connections. """
-
-    def handle_connection(self, conn:TCPConnection) -> None:
-        """ Handle a TCP connection for its entire duration. The connection will be closed when this method exits. """
-        raise NotImplementedError
-
 
 class TCPServerSocket(socket):
     """ TCP socket subclass to poll for and accept connections using a basic selector. """
@@ -67,10 +70,11 @@ class TCPServerSocket(socket):
             return False
 
     def accept(self) -> TCPConnection:
-        """ Connect to the client and return an I/O stream along with the client's IP address and port. """
+        """ Connect to the client and return an I/O stream along with the client's IP address and TCP port. """
         fd, (addr, port) = self._accept()
         sock = socket(fileno=fd)
-        return TCPConnection(sock, addr, port)
+        stream = _SocketStream(sock)
+        return TCPConnection(stream, addr, port)
 
     def __enter__(self) -> "TCPServerSocket":
         return self
@@ -82,14 +86,15 @@ class TCPServerSocket(socket):
 class TCPServer:
     """ Simple TCP/IP stream server using sockets.  """
 
-    def __init__(self, handler:TCPConnectionHandler) -> None:
+    def __init__(self, handler:TCPConnectionHandler, *, timeout=0.5) -> None:
         self._handler = handler  # Handler of TCP/IP connections.
+        self._timeout = timeout  # Timeout in seconds to poll for new socket connections.
         self._running = False    # State variable. When set to False, the server stops after its current polling cycle.
 
-    def start(self, address:str, port:int, *, timeout=0.5) -> None:
+    def start(self, address:str, port:int) -> None:
         """ Make a server socket object bound to <address:port> which opens I/O streams for connections.
             Set options to avoid delays on small packets, then bind and activate the socket.
-            Poll it every <timeout> seconds until another thread calls shutdown(). """
+            Poll the socket for connections until another thread calls shutdown(). """
         if self._running:
             raise RuntimeError("Server already running.")
         self._running = True
@@ -99,13 +104,13 @@ class TCPServer:
             sock.bind((address, port))
             sock.listen()
             while self._running:
-                if sock.poll(timeout):
+                if sock.poll(self._timeout):
                     conn = sock.accept()
                     self.connect(conn)
 
     def connect(self, conn:TCPConnection) -> None:
         """ Send a newly established TCP connection to the connection handler. Close it when finished. """
-        with conn:
+        with conn.stream:
             self._handler.handle_connection(conn)
 
     def shutdown(self) -> None:

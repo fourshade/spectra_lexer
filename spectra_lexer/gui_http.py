@@ -8,7 +8,7 @@ from spectra_lexer.app import StenoApplication, StenoGUIOutput
 from spectra_lexer.base import Spectra
 from spectra_lexer.display import DisplayData, DisplayPage
 from spectra_lexer.http.connect import HTTPConnectionHandler
-from spectra_lexer.http.service import HTTPFileService, HTTPGzipFilter, HTTPJSONService, \
+from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
 from spectra_lexer.search import SearchResults
@@ -19,20 +19,29 @@ JSON_DATA_CLASSES = [DisplayData, DisplayPage, SearchResults, StenoGUIOutput]
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 
-class StenoAppService(HTTPJSONService):
-    """ Main HTTP service for handling requests to the steno app. """
+class StenoDataService(HTTPDataService):
+    """ Main HTTP service for handling JSON requests to the steno app. """
 
-    def __init__(self, app:StenoApplication, *args) -> None:
-        super().__init__(*args)
-        self._app = app      # Main steno app.
-        self._lock = Lock()  # Lock to protect the main app, which may not be thread-safe.
+    output_type = "application/json"
 
-    def process(self, params:dict, *args) -> StenoGUIOutput:
-        """ The decoded object is a params dict with the action, its arguments (if any), and all options. """
+    def __init__(self, app:StenoApplication, decoder:RestrictedJSONDecoder, encoder:CustomJSONEncoder) -> None:
+        self._app = app          # Main steno app.
+        self._decoder = decoder  # JSON decoder with client restrictions.
+        self._encoder = encoder  # JSON encoder with custom encoding methods for Python objects.
+        self._lock = Lock()      # Lock to protect the main app, which may not be thread-safe.
+
+    def process_application_json(self, data:bytes) -> bytes:
+        """ Decode JSON input data into a params dict, process it, and return the output in JSON form. """
+        str_in = data.decode('utf-8')
+        params = self._decoder.decode(str_in)
+        output = self._process(**params)
+        str_out = self._encoder.encode(output)
+        data_out = str_out.encode('utf-8')
+        return data_out
+
+    def _process(self, action:str, args:list, options:dict) -> StenoGUIOutput:
+        """ Input data includes the GUI action, its arguments (if any), and all options. """
         with self._lock:
-            action = params["action"]
-            args = params["args"]
-            options = params["options"]
             method = getattr(self._app, "gui_" + action)
             return method(*args, **options)
 
@@ -45,35 +54,33 @@ class SpectraHttp(Spectra):
     port: int = CmdlineOption("--http-port", 80, "TCP port to listen for connections.")
     directory: str = CmdlineOption("--http-dir", HTTP_PUBLIC_DEFAULT, "Root directory for public HTTP file service.")
 
-    def build_app_service(self) -> StenoAppService:
+    def build_data_service(self) -> StenoDataService:
         app = self.build_app()
         self.load_app(app)
         decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
         encoder = CustomJSONEncoder()
         for cls in JSON_DATA_CLASSES:
             encoder.add_data_class(cls)
-        app_service = StenoAppService(app, decoder, encoder)
-        compressed_service = HTTPGzipFilter(app_service, size_threshold=1000)
-        return compressed_service
+        return StenoDataService(app, decoder, encoder)
 
-    def build_server(self, *args) -> ThreadedTCPServer:
+    def build_dispatcher(self, *args) -> HTTPConnectionHandler:
         file_service = HTTPFileService(self.directory)
-        app_service = self.build_app_service()
+        data_service = self.build_data_service()
+        compressed_service = HTTPGzipFilter(data_service, size_threshold=1000)
         post_router = HTTPPathRouter()
-        post_router.add_route("/request", app_service)
+        post_router.add_route("/request", compressed_service)
         method_router = HTTPMethodRouter()
         method_router.add_route("GET", file_service)
         method_router.add_route("HEAD", file_service)
         method_router.add_route("POST", post_router)
-        dispatcher = HTTPConnectionHandler(method_router, *args)
-        server = ThreadedTCPServer(dispatcher)
-        return server
+        return HTTPConnectionHandler(method_router, *args)
 
     def run(self) -> int:
         """ Build the app, start the server, and poll for connections indefinitely. """
         log = self.build_logger().log
         log("Loading...")
-        server = self.build_server(log)
+        dispatcher = self.build_dispatcher(log)
+        server = ThreadedTCPServer(dispatcher)
         log("Server started.")
         try:
             server.start(self.address, self.port)
@@ -81,8 +88,6 @@ class SpectraHttp(Spectra):
             server.shutdown()
         log("Server stopped.")
         return 0
-
-
 
 
 http_main = SpectraHttp.main

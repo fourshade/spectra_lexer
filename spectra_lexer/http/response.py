@@ -1,7 +1,7 @@
 import email.utils
 from typing import BinaryIO, Iterator
 
-from .status import HTTPError, HTTPResponseStatus, HTTPStatusMeta
+from .status import HTTPResponseStatus, HTTPStatusMeta
 
 
 class HTTPResponseHeaders:
@@ -48,16 +48,12 @@ class HTTPResponseHeaders:
 
 
 class HTTPResponse(metaclass=HTTPStatusMeta):
-    """ Class representing the outcome of an HTTP/1.1 request with a status line, headers, and/or content. """
+    """ Structure representing the outcome of an HTTP/1.1 request with a status line, headers, and/or content. """
 
     def __init__(self, status:HTTPResponseStatus, headers:HTTPResponseHeaders, content=b'') -> None:
-        self.status = status
-        self.headers = headers
-        self.content = content
-
-    def __str__(self) -> str:
-        """ Return a summary of the response for a log. """
-        return str(self.status)
+        self.status = status    # Status code.
+        self.headers = headers  # Response headers.
+        self.content = content  # Binary content data.
 
 
 class HTTPResponseWriter:
@@ -67,36 +63,16 @@ class HTTPResponseWriter:
         self._stream = stream                  # Writable ISO-8859-1 binary stream.
         self._server_version = server_version  # Server version string sent with each response.
 
-    def write(self, response:HTTPResponse) -> str:
+    def write(self, response:HTTPResponse) -> None:
         """ Add standard headers, the status line, and blank line endings.
-            Write everything to the ISO-8859-1 binary stream and return the status log string. """
+            Write everything to the ISO-8859-1 binary stream. """
         status = response.status
         headers = response.headers
+        content = response.content
         headers.set_date()
         if self._server_version is not None:
             headers.set_server(self._server_version)
         header_lines = [status.header(), *headers.iter_lines(), "", ""]
         header_data = "\r\n".join(header_lines).encode('iso-8859-1', 'strict')
         self._stream.write(header_data)
-        self._stream.write(response.content)
-        return str(status)
-
-    def write_continue(self) -> str:
-        """ Write a continue response and return the status. This cannot have a message body. """
-        headers = HTTPResponseHeaders()
-        response = HTTPResponse.CONTINUE(headers)
-        return self.write(response)
-
-    def write_error(self, e:HTTPError) -> str:
-        """ Write an error response and return the status. This closes the connection. """
-        status = e.status
-        headers = HTTPResponseHeaders()
-        headers.set_connection_close()
-        content = None
-        if status.has_body():
-            html_text = status.error_html(*e.args)
-            content = html_text.encode('utf-8', 'replace')
-            headers.set_content_type('text/html')
-            headers.set_content_length(len(content))
-        response = HTTPResponse(status, headers, content)
-        return self.write(response)
+        self._stream.write(content)
