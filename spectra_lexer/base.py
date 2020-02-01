@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 
@@ -13,6 +12,7 @@ from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRuleCollection
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOption, CmdlineOptionNamespace
+from spectra_lexer.util.json import CSONDecoder
 from spectra_lexer.util.log import StreamLogger
 from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
 
@@ -53,7 +53,10 @@ class Spectra(CmdlineOptionNamespace):
     _converter.add("~/", UserPathConverter(ROOT_PACKAGE))   # Prefix indicates local user app data.
     _convert_path = _converter.convert
 
-    CSON_COMMENT_PREFIX = "#"              # Prefix for comments allowed in non-standard JSON files.
+    CSON_COMMENT_PREFIX = "#"  # Prefix for comments allowed in non-standard JSON files.
+    _cson_decoder = CSONDecoder(comment_prefix=CSON_COMMENT_PREFIX)
+    _cson_decode = _cson_decoder.decode
+
     PLOVER_DICTIONARIES = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
 
     log_files: str = CmdlineOption("--log", ["~/status.log"], "Text file(s) to log status and exceptions.")
@@ -154,18 +157,10 @@ class Spectra(CmdlineOptionNamespace):
     def _read_cson_resource(self, rel_path:str) -> dict:
         """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
         path = os.path.join(self.resource_dir, rel_path)
-        path = self._convert_path(path)
-        return self._cson_read(path)
-
-    def _cson_read(self, filename:str) -> dict:
-        """ Read an object from a non-standard JSON file stream with full-line comments (CSON = commented JSON).
-            JSON doesn't care about leading or trailing whitespace anyway, so strip every line first. """
+        filename = self._convert_path(path)
         with open(filename, 'r', encoding='utf-8') as fp:
-            stripped_line_iter = map(str.strip, fp)
-            data_lines = [line for line in stripped_line_iter
-                          if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
-            data = "\n".join(data_lines)
-            return json.loads(data)
+            s = fp.read()
+        return self._cson_decode(s)
 
     @classmethod
     def main(cls) -> int:

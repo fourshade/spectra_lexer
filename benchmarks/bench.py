@@ -71,7 +71,11 @@ class ProfileTestRunner(BaseTestRunner):
         s_buf = StringIO()
         ps = Stats(best_pr, stream=s_buf).sort_stats('cumulative')
         ps.print_stats(max_lines)
-        sections = ["Benchmark for ", self._func.__qualname__ , ", best of ", str(len(self._stats)), ":\n\n"]
+        try:
+            name = self._func.__qualname__
+        except AttributeError:
+            name = type(self._func).__name__ + ".__call__"
+        sections = ["Benchmark for ", name, ", best of ", str(len(self._stats)), ":\n\n"]
         for line in s_buf.getvalue().splitlines()[5:]:
             if line.strip():
                 *fields, path = line.split(maxsplit=5)

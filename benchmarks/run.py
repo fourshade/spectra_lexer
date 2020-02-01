@@ -46,6 +46,31 @@ class ComponentBench:
     def make_display(self) -> None:
         self._profiler.run(self._engine.display, self._spaced_results(500))
 
+    def run_http(self) -> None:
+        from spectra_lexer.gui_http import SpectraHttp
+        from spectra_lexer.http.connect import HTTPConnectionHandler
+        import io, json
+        class MockTCPConnection(io.BytesIO):
+            def client_info(self):
+                self.seek(0)
+                return ""
+        obj = {"action": "query", "options": {}}
+        args_list = []
+        for item in self._spaced_translations(500):
+            obj["args"] = [item]
+            data = json.dumps(obj).encode('utf8')
+            length = str(len(data)).encode('utf8')
+            request = [b"POST /request HTTP/1.1",
+                       b"Accept-Encoding: gzip",
+                       b"Content-Length: " + length,
+                       b"",
+                       data]
+            conn = MockTCPConnection(b"\r\n".join(request))
+            args_list.append((conn,))
+        app_service = SpectraHttp().build_app_service()
+        dispatcher = HTTPConnectionHandler(app_service, lambda s: None)
+        self._profiler.run(dispatcher.handle_connection, args_list)
+
 
 def app_start():
     from spectra_lexer.base import Spectra

@@ -1,21 +1,25 @@
 import datetime
 import email.utils
-from typing import BinaryIO, Dict, Iterable, Iterator, Optional, Tuple
+from typing import BinaryIO, Dict, Iterable, Iterator, Mapping, Optional
 
-from .response import HTTPError
+from .status import HTTPError
 
 
 class HTTPRequestHeaders:
-    """ Mapping structure for HTTP headers. """
+    """ Structure for HTTP headers (other than the request line). """
 
-    def __init__(self, h_dict:Dict[str, str]) -> None:
-        self._d = h_dict  # String dict with the last header under each unique lowercased name.
+    def __init__(self, header_map:Mapping[str, str]) -> None:
+        self._d = header_map  # String mapping with the last header under each unique lowercased name.
 
     def _get_lower(self, name:str) -> str:
         return self._d.get(name.lower(), "")
 
     def content_length(self) -> int:
         return int(self._get_lower("Content-Length") or 0)
+
+    def accept_gzip(self) -> bool:
+        """ Return True if the client accepts the gzip encoding method. """
+        return 'gzip' in self._get_lower("Accept-Encoding").lower()
 
     def expect_continue(self) -> bool:
         """ Return True if the client is expecting a 100 Continue before it sends any more data. """
@@ -25,26 +29,14 @@ class HTTPRequestHeaders:
         """ Return True if the connection should be kept alive after this request. """
         return self._get_lower('Connection').lower() != 'close'
 
-    def modified_time(self) -> Optional[str]:
-        """ Return the file modification timestamp, or None if it will be overridden by If-None-Match. """
-        if not self._get_lower("If-None-Match"):
-            return self._get_lower("If-Modified-Since")
-
-
-class HTTPRequest:
-    """ Class representing an HTTP/1.1 request. Other versions should work, though headers may not be recognized. """
-
-    def __init__(self, method:str, path:str, query:Dict[str, str], headers:HTTPRequestHeaders, content:bytes) -> None:
-        self.method = method     # HTTP method string (GET, POST, etc.)
-        self.path = path         # URI path (everything from the root / to the query ?)
-        self.query = query       # URI query (everything from the ? to the #), parsed into a string dict.
-        self.headers = headers   # HTTP request headers, unordered, with lowercase keys.
-        self.content = content   # The rest of the data read from the HTTP stream, as a byte string.
-
     def modified_since(self, mtime:float) -> bool:
-        """ Return True if the given file modification timestamp is later than If-Modified-Since in the header.
-            If there is no modification header, we must always resend the content, so return True there as well. """
-        header_mtime = self.headers.modified_time()
+        """ Return True if one of the following applies (meaning content must be sent/resent):
+            - the file modification timestamp <mtime> is later than the If-Modified-Since header.
+            - there is no If-Modified-Since header.
+            - there is an If-None-Match header, which overrides If-Modified-Since. """
+        if self._get_lower("If-None-Match"):
+            return True
+        header_mtime = self._get_lower("If-Modified-Since")
         if not header_mtime:
             return True
         try:
@@ -55,94 +47,11 @@ class HTTPRequest:
         except (TypeError, IndexError, OverflowError, ValueError):
             return True
 
-    def __str__(self) -> str:
-        """ Return a summary of the request for a log. """
-        return f'{self.method} {self.path}'
-
-
-class HTTPRequestParser:
-    """ Parses HTTP request headers and content from a text stream. """
-
-    # Maps two-digit hex strings to corresponding characters in the ASCII range.
-    _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
-
-    def __init__(self, stream:BinaryIO, max_header_size:int=65536) -> None:
-        self._stream = stream                    # Readable ISO-8859-1 binary stream.
-        self._max_header_size = max_header_size  # Maximum combined size of headers in bytes.
-
-    def read(self) -> Optional[HTTPRequest]:
-        """ Parse HTTP request data from the current stream into a request object. """
-        return self._parse(*self._readline_headers())
-
-    def _readline_headers(self) -> Iterator[str]:
-        """ Read and decode each header line as a string, up to the total maximum size. """
-        size_left = self._max_header_size
-        for line in self._stream:
-            size_left -= len(line)
-            if size_left < 0:
-                raise HTTPError.REQUEST_HEADER_FIELDS_TOO_LARGE()
-            line = line.decode('iso-8859-1').strip()
-            if not line:
-                break
-            yield line
-
-    def _parse(self, request_line:str="", *header_lines:str) -> Optional[HTTPRequest]:
-        """ Parse the request line into a method, URI components, and HTTP request version.
-            If the request was badly formed, raise an error; if there was no data at all, return None. """
-        if not request_line:
-            return None
-        try:
-            method, uri, version = request_line.split()
-            if not version.startswith('HTTP/'):
-                raise ValueError
-            major, minor = version[5:].split(".")
-            # Only HTTP/1.x is supported.
-            if int(major) != 1:
-                raise HTTPError.HTTP_VERSION_NOT_SUPPORTED(version)
-        except ValueError:
-            raise HTTPError.BAD_REQUEST(request_line)
-        path, query, fragment = self._parse_uri(uri)
-        # Parse the headers, get any content, and put the request structure together.
-        h_dict = self._parse_headers(header_lines)
-        headers = HTTPRequestHeaders(h_dict)
-        content = self._stream.read(headers.content_length())
-        return HTTPRequest(method, path, query, headers, content)
-
-    def _parse_uri(self, uri:str) -> Tuple[str, dict, str]:
-        """ Parse the URI into components. """
-        sfragment = ''
-        if '#' in uri:
-            uri, fragment = uri.split('#', 1)
-            sfragment = self._unquote_plus(fragment)
-        squery = {}
-        if '?' in uri:
-            unquote = self._unquote_plus
-            uri, query = uri.split('?', 1)
-            pairs = [s2.split('=', 1) for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
-            squery = {unquote(k): unquote(v) for k, v in pairs}
-        path = self._unquote_plus(uri)
-        return path, squery, sfragment
-
-    def _unquote_plus(self, string:str) -> str:
-        """ Replace + and %xx escapes by their single-character equivalent. """
-        if '+' in string:
-            string = string.replace('+', ' ')
-        if '%' not in string:
-            return string
-        first, *bits = string.split('%')
-        res = [first]
-        for item in bits:
-            try:
-                res += self._HEX_SUB[item[:2].lower()], item[2:]
-            except KeyError:
-                res += '%', item
-        return ''.join(res)
-
-    @staticmethod
-    def _parse_headers(header_lines:Iterable[str]) -> Dict[str, str]:
-        """ Parse the raw string form of every header, even those with duplicate names, into a dict and return it. """
+    @classmethod
+    def from_lines(cls, lines:Iterable[str]) -> "HTTPRequestHeaders":
+        """ Parse headers from raw string form, even those with duplicate names. """
         raw = []
-        for line in header_lines:
+        for line in lines:
             # Search for a line with no colon (including an empty line).
             if ':' not in line:
                 # Check for continuation, otherwise quit. A first line continuation is illegal.
@@ -159,4 +68,106 @@ class HTTPRequestParser:
             name, *values = source
             value = ''.join(values).lstrip().rstrip('\r\n')
             d[name.lower()] = value
-        return d
+        return cls(d)
+
+
+class HTTPRequestURI:
+    """ Class representing an HTTP/1.1 request. Other versions should work, though headers may not be recognized. """
+
+    # Maps two-digit hex strings to corresponding characters in the ASCII range.
+    _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
+
+    def __init__(self, path:str, query:Dict[str, str], fragment:str) -> None:
+        self.path = path          # URI path (everything from the root / to the query ?).
+        self.query = query        # URI query (everything from the ? to the #), parsed into a string dict.
+        self.fragment = fragment  # URI fragment (everything after the #).
+
+    @classmethod
+    def from_string(cls, s:str) -> "HTTPRequestURI":
+        """ Parse a URI from string form, unquoting special characters. """
+        unquote = cls._unquote_plus
+        fragment = ''
+        if '#' in s:
+            s, raw_fragment = s.split('#', 1)
+            fragment = unquote(raw_fragment)
+        query_dict = {}
+        if '?' in s:
+            s, query = s.split('?', 1)
+            pairs = [s2.split('=', 1) for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
+            query_dict = {unquote(k): unquote(v) for k, v in pairs}
+        path = unquote(s)
+        return cls(path, query_dict, fragment)
+
+    @classmethod
+    def _unquote_plus(cls, string:str) -> str:
+        """ Replace + and %xx escapes by their single-character equivalent. """
+        if '+' in string:
+            string = string.replace('+', ' ')
+        if '%' not in string:
+            return string
+        first, *bits = string.split('%')
+        res = [first]
+        for item in bits:
+            try:
+                res += cls._HEX_SUB[item[:2].lower()], item[2:]
+            except KeyError:
+                res += '%', item
+        return ''.join(res)
+
+
+class HTTPRequest:
+    """ Class representing an HTTP/1.1 request. Other versions should work, though headers may not be recognized. """
+
+    def __init__(self, method:str, uri:HTTPRequestURI, headers:HTTPRequestHeaders, content:bytes) -> None:
+        self.method = method    # HTTP method string (GET, POST, etc.)
+        self.uri = uri          # HTTP URI starting from the server root.
+        self.headers = headers  # HTTP request headers, unordered, with lowercase keys.
+        self.content = content  # The rest of the data read from the HTTP stream, as a byte string.
+
+    def __str__(self) -> str:
+        """ Return a summary of the request for a log. """
+        return f'{self.method} {self.uri.path}'
+
+
+class HTTPRequestReader:
+    """ Reads HTTP request headers and content from a binary stream. """
+
+    def __init__(self, stream:BinaryIO, max_header_size=65536) -> None:
+        self._stream = stream                    # Readable ISO-8859-1 binary stream.
+        self._max_header_size = max_header_size  # Maximum combined size of headers in bytes.
+
+    def read(self) -> Optional[HTTPRequest]:
+        """ Parse HTTP request data from the current stream into a request object.
+            If there was no data at all, return None. """
+        header_lines = list(self._readline_headers())
+        if header_lines:
+            return self._parse(*header_lines)
+
+    def _readline_headers(self) -> Iterator[str]:
+        """ Read and decode each header line as a string, up to the total maximum size. """
+        size_left = self._max_header_size
+        for line in self._stream:
+            size_left -= len(line)
+            if size_left < 0:
+                raise HTTPError.REQUEST_HEADER_FIELDS_TOO_LARGE()
+            line = line.decode('iso-8859-1').strip()
+            if not line:
+                break
+            yield line
+
+    def _parse(self, request_line:str, *other_lines:str) -> HTTPRequest:
+        """ Parse the request line into a method, URI components, and HTTP request version. """
+        try:
+            method, uri, version = request_line.split()
+            if not version.startswith('HTTP/'):
+                raise ValueError
+            major, minor = version[5:].split(".")
+            # Only HTTP/1.x is supported.
+            if int(major) != 1:
+                raise HTTPError.HTTP_VERSION_NOT_SUPPORTED(version)
+        except ValueError:
+            raise HTTPError.BAD_REQUEST(request_line)
+        uri_obj = HTTPRequestURI.from_string(uri)
+        headers = HTTPRequestHeaders.from_lines(other_lines)
+        content = self._stream.read(headers.content_length())
+        return HTTPRequest(method, uri_obj, headers, content)
