@@ -82,45 +82,10 @@ class HTTPRequestHeaders:
 class HTTPRequestURI:
     """ Structure representing the parts of an HTTP request URI. """
 
-    # Maps two-digit hex strings to corresponding characters in the ASCII range.
-    _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
-
     def __init__(self, path:str, query:Dict[str, str], fragment:str) -> None:
         self.path = path          # URI path (everything from the root / to the query ?).
         self.query = query        # URI query (everything from the ? to the #), parsed into a string dict.
         self.fragment = fragment  # URI fragment (everything after the #).
-
-    @classmethod
-    def from_string(cls, s:str) -> "HTTPRequestURI":
-        """ Parse a URI from string form, unquoting special characters. """
-        unquote = cls._unquote_plus
-        fragment = ''
-        if '#' in s:
-            s, raw_fragment = s.split('#', 1)
-            fragment = unquote(raw_fragment)
-        query_dict = {}
-        if '?' in s:
-            s, query = s.split('?', 1)
-            pairs = [s2.split('=', 1) for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
-            query_dict = {unquote(k): unquote(v) for k, v in pairs}
-        path = unquote(s)
-        return cls(path, query_dict, fragment)
-
-    @classmethod
-    def _unquote_plus(cls, string:str) -> str:
-        """ Replace + and %xx escapes by their single-character equivalent. """
-        if '+' in string:
-            string = string.replace('+', ' ')
-        if '%' not in string:
-            return string
-        first, *bits = string.split('%')
-        res = [first]
-        for item in bits:
-            try:
-                res += cls._HEX_SUB[item[:2].lower()], item[2:]
-            except KeyError:
-                res += '%', item
-        return ''.join(res)
 
 
 class HTTPRequest:
@@ -136,6 +101,9 @@ class HTTPRequest:
 
 class HTTPRequestReader:
     """ Reads HTTP request headers and content from a binary stream. """
+
+    # Maps two-digit hex strings to corresponding characters in the ASCII range.
+    _HEX_SUB = {bytes([b]).hex(): chr(b) for b in range(128)}
 
     def __init__(self, stream:BinaryIO, max_header_size=65536) -> None:
         self._stream = stream                    # Readable ISO-8859-1 binary stream.
@@ -172,7 +140,39 @@ class HTTPRequestReader:
                 raise HTTPError.HTTP_VERSION_NOT_SUPPORTED(version)
         except ValueError:
             raise HTTPError.BAD_REQUEST(request_line)
-        uri_obj = HTTPRequestURI.from_string(uri)
+        uri_obj = self._parse_uri(uri)
         headers = HTTPRequestHeaders.from_lines(other_lines)
         content = self._stream.read(headers.content_length())
         return HTTPRequest(method, uri_obj, headers, content)
+
+    @classmethod
+    def _parse_uri(cls, s:str) -> HTTPRequestURI:
+        """ Parse a URI from string form, unquoting special characters. """
+        unquote = cls._unquote_plus
+        fragment = ''
+        if '#' in s:
+            s, raw_fragment = s.split('#', 1)
+            fragment = unquote(raw_fragment)
+        query_dict = {}
+        if '?' in s:
+            s, query = s.split('?', 1)
+            pairs = [s2.split('=', 1) for s1 in query.split('&') for s2 in s1.split(';') if '=' in s2]
+            query_dict = {unquote(k): unquote(v) for k, v in pairs}
+        path = unquote(s)
+        return HTTPRequestURI(path, query_dict, fragment)
+
+    @classmethod
+    def _unquote_plus(cls, string:str) -> str:
+        """ Replace + and %xx escapes by their single-character equivalent. """
+        if '+' in string:
+            string = string.replace('+', ' ')
+        if '%' not in string:
+            return string
+        first, *bits = string.split('%')
+        res = [first]
+        for item in bits:
+            try:
+                res += cls._HEX_SUB[item[:2].lower()], item[2:]
+            except KeyError:
+                res += '%', item
+        return ''.join(res)

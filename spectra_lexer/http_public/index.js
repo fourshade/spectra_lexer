@@ -1,21 +1,25 @@
-const TITLE_DELIM = " -> ";     // Delimiter between keys and letters of translations shown in title bar.
-const MORE_TEXT = "(more...)";  // Text displayed as the final match, allowing the user to expand the search.
+function SpectraClient() {
 
-const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
-const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.
+    const TITLE_DELIM = ' -> ';     // Delimiter between keys and letters of translations shown in title bar.
+    const MORE_TEXT = '(more...)';  // Text displayed as the final match, allowing the user to expand the search.
 
-// Parse all URL query items as JSON-format options.
-var queryOptions = {};
-let queryParams = new URLSearchParams(window.location.search);
-for (let [k, v] of queryParams) {
-    try {
-        queryOptions[k] = JSON.parse(v);
-    } catch(e) {
-        console.error(e);
+    const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
+    const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.
+
+    function JSONQueryParams(queryString) {
+        // Construct an object from a URL query string with values in JSON format.
+        let params = new URLSearchParams(queryString);
+        for (let [k, v] of params) {
+            try {
+                this[k] = JSON.parse(v);
+            } catch(e) {
+                console.error(e);
+            }
+        }
     }
-}
 
-$(document).ready(function(){
+    var queryOptions = new JSONQueryParams(window.location.search);
+
     class ListHandler {
         constructor(id, onSelectFn) {
             this.active = {};
@@ -93,7 +97,8 @@ $(document).ready(function(){
         if(mappings.length) {
             // The order of lexer parameters must be reversed for strokes mode.
             let translations = mappings.map(m => (strokes ? [match, m] : [m, match]));
-            processAction("query", ...translations);
+            sendRequest({action: "query",
+                         args: translations});
         }
     }
 
@@ -102,7 +107,9 @@ $(document).ready(function(){
         doSearch();
     }
     function doSearch() {
-        processAction("search", searchInput.value, lastPageCount);
+        let input = searchInput.value;
+        sendRequest({action: "search",
+                     args: [input, lastPageCount]});
     }
     searchModeStrokes.addEventListener("change", newSearch);
     searchModeRegex.addEventListener("change", newSearch);
@@ -112,7 +119,8 @@ $(document).ready(function(){
         let params = displayTitle.value.split(TITLE_DELIM);
         if(params.length == 2) {
             let translation = params.map(s => s.trim());
-            processAction("query", translation);
+            sendRequest({action: "query",
+                         args: [translation]});
         }
     }
     displayTitle.addEventListener("input", doQuery);
@@ -128,7 +136,9 @@ $(document).ready(function(){
         currentLink = rule_id;
     }
     displayLink.addEventListener("click", function(){
-        processAction("search_examples", currentLink);
+        sendRequest({action: "search_examples",
+                     args: [currentLink],
+                     ignoreCache: true});
         return false;
     });
 
@@ -154,7 +164,7 @@ $(document).ready(function(){
         graphAction(nodeRef);
         return false;
     }).click(function(){
-        let nodeRef = ""
+        let nodeRef = "";
         graphFocused = false;
         graphAction(nodeRef);
         return false;
@@ -193,9 +203,9 @@ $(document).ready(function(){
             let mapping = strokes ? letters : keys;
             let mappings = lastMatches[match];
             if(mappings) {
-                matchSelector.selectText(match)
+                matchSelector.selectText(match);
                 mappingSelector.update(mappings);
-                mappingSelector.selectText(mapping)
+                mappingSelector.selectText(mapping);
             }
             let startPage = default_page;
             graphFocused = false;
@@ -212,7 +222,8 @@ $(document).ready(function(){
         }
     }
 
-    function processAction(action, ...args) {
+    var cache = new Map();
+    function sendRequest({action, args=[], ignoreCache=false}) {
         let boardOpts = JSON.parse(document.querySelector(OPT_SELECTOR + ':checked').value);
         let options = {search_mode_strokes: searchModeStrokes.checked,
                        search_mode_regex: searchModeRegex.checked,
@@ -220,17 +231,29 @@ $(document).ready(function(){
                        board_show_compound: boardOpts[0],
                        board_show_letters: boardOpts[1],
                        ...queryOptions};
-        let request = {action, args, options};
-        $.ajax({
-            method: 'POST',
-            url: 'request',
-            contentType: 'application/json',
-            data: JSON.stringify(request),
-            success: updateGUI,
-            error() {displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';}
-        });
+        let requestContent = JSON.stringify({action, args, options});
+        let cachedValue = cache.get(requestContent);
+        if(cachedValue && !ignoreCache) {
+            updateGUI(cachedValue);
+        } else {
+            $.ajax({
+                method: 'POST',
+                url: 'request',
+                contentType: 'application/json',
+                data: requestContent,
+                success(value) {
+                    cache.set(requestContent, value);
+                    updateGUI(value);
+                },
+                error() {
+                    displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';
+                }
+            });
+        }
     }
 
     // Before starting, hide the link.
     displayLink.style.display = "none";
-});
+}
+
+$(document).ready(SpectraClient);

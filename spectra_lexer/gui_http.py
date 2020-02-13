@@ -9,7 +9,7 @@ from spectra_lexer.base import Spectra
 from spectra_lexer.display import DisplayData, DisplayPage
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
-    HTTPMethodRouter, HTTPPathRouter
+    HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
 from spectra_lexer.search import SearchResults
 from spectra_lexer.util.cmdline import CmdlineOption
@@ -28,22 +28,22 @@ class StenoDataService(HTTPDataService):
         self._app = app          # Main steno app.
         self._decoder = decoder  # JSON decoder with client restrictions.
         self._encoder = encoder  # JSON encoder with custom encoding methods for Python objects.
-        self._lock = Lock()      # Lock to protect the main app, which may not be thread-safe.
+        self._lock = Lock()      # Lock to protect the codecs and main app, which may not be thread-safe.
 
-    def process_application_json(self, data:bytes) -> bytes:
+    def process(self, data:bytes) -> bytes:
         """ Decode JSON input data into a params dict, process it, and return the output in JSON form. """
         str_in = data.decode('utf-8')
-        params = self._decoder.decode(str_in)
-        output = self._process(**params)
-        str_out = self._encoder.encode(output)
+        with self._lock:
+            params = self._decoder.decode(str_in)
+            output = self._app_call(**params)
+            str_out = self._encoder.encode(output)
         data_out = str_out.encode('utf-8')
         return data_out
 
-    def _process(self, action:str, args:list, options:dict) -> StenoGUIOutput:
-        """ Input data includes the GUI action, its arguments (if any), and all options. """
-        with self._lock:
-            method = getattr(self._app, "gui_" + action)
-            return method(*args, **options)
+    def _app_call(self, *, action:str, args:list, options:dict) -> StenoGUIOutput:
+        """ Process a GUI app call. Input data includes a GUI action, its arguments (if any), and all options. """
+        method = getattr(self._app, "gui_" + action)
+        return method(*args, **options)
 
 
 class SpectraHttp(Spectra):
@@ -67,8 +67,10 @@ class SpectraHttp(Spectra):
         file_service = HTTPFileService(self.directory)
         data_service = self.build_data_service()
         compressed_service = HTTPGzipFilter(data_service, size_threshold=1000)
+        type_router = HTTPContentTypeRouter()
+        type_router.add_route("application/json", compressed_service)
         post_router = HTTPPathRouter()
-        post_router.add_route("/request", compressed_service)
+        post_router.add_route("/request", type_router)
         method_router = HTTPMethodRouter()
         method_router.add_route("GET", file_service)
         method_router.add_route("HEAD", file_service)

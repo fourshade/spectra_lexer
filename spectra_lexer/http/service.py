@@ -62,6 +62,26 @@ class HTTPPathRouter(HTTPRequestHandler):
         return handler(request)
 
 
+class HTTPContentTypeRouter(HTTPRequestHandler):
+    """ Delegates requests to other request handlers based on content type. """
+
+    def __init__(self) -> None:
+        self._handlers = {}  # Table of HTTP request handlers by content type.
+
+    def add_route(self, mime_type:str, handler:HTTPRequestHandler) -> None:
+        self._handlers[mime_type] = handler
+
+    def __call__(self, request:HTTPRequest) -> HTTPResponse:
+        """ Route HTTP requests by content type. """
+        mime_type = request.headers.content_type()
+        if not mime_type:
+            raise HTTPError.UNPROCESSABLE_ENTITY("Content-Type is missing.")
+        handler = self._handlers.get(mime_type)
+        if handler is None:
+            raise HTTPError.UNSUPPORTED_MEDIA_TYPE(mime_type)
+        return handler(request)
+
+
 class HTTPGzipFilter(HTTPRequestHandler):
 
     def __init__(self, handler:HTTPRequestHandler, *, compresslevel=9, size_threshold=0) -> None:
@@ -138,26 +158,17 @@ class HTTPFileService(HTTPRequestHandler):
 class HTTPDataService(HTTPRequestHandler):
     """ Abstract class; decodes binary data from HTTP content, processes it, and returns an encoded result. """
 
-    _METHOD_TRANS = str.maketrans('/-+', '___')  # Method names have underscores in place of other special characters.
-
     output_type: str  # Required - MIME type of output data.
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
-        """ Process content obtained from a client by calling a method corresponding to its MIME type.
-            If successful, send the returned data back to the client. """
+        """ Process content obtained from a client. If successful, send the returned data back to the client. """
         data_in = request.content
-        input_type = request.headers.content_type()
-        if not input_type:
-            raise HTTPError.UNPROCESSABLE_ENTITY("Content-Type is missing.")
-        method_name = "process_" + input_type.translate(self._METHOD_TRANS)
-        method = getattr(self, method_name, None)
-        if method is None:
-            raise HTTPError.UNSUPPORTED_MEDIA_TYPE(input_type)
-        data_out = method(data_in)
+        data_out = self.process(data_in)
         headers = HTTPResponseHeaders()
         headers.set_content_type(self.output_type)
         headers.set_content_length(len(data_out))
         return HTTPResponse.OK(headers, data_out)
 
-    # def process_text_plain(self, data:bytes) -> bytes:
-    #     """ Example signature of subclass method to process input data of type 'text/plain'. """
+    def process(self, data:bytes) -> bytes:
+        """ Subclass method to process binary data. """
+        raise NotImplementedError
