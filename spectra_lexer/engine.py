@@ -37,19 +37,26 @@ class StenoEngine:
         self._analyzer = analyzer
         self._display_engine = display_engine
         self._translations = RTFCREDict()
+        self._examples = RTFCREExamplesDict()
 
-    def set_search_translations(self, translations:RTFCREDict) -> None:
+    def load_translations(self, *filenames:str) -> None:
+        """ Load and merge translations from JSON files. """
+        translations = RTFCREDict.from_json_files(*filenames)
+        self.set_translations(translations)
+
+    def set_translations(self, translations:RTFCREDict) -> None:
         """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
         self._translations = translations
         self._search_engine.set_translations(translations)
 
-    def set_search_examples(self, examples:RTFCREExamplesDict) -> None:
-        """ Send a new examples index dict to the search engine. """
-        self._search_engine.set_examples(examples)
+    def load_examples(self, filename:str) -> None:
+        """ Load an examples index from a JSON file. """
+        examples = RTFCREExamplesDict.from_json_file(filename)
+        self.set_examples(examples)
 
-    def make_index(self, size:int=None, **kwargs) -> RTFCREExamplesDict:
+    def compile_examples(self, size:int=None, **kwargs) -> None:
         """ Run the lexer on all translations with an input filter and look at the top-level rule IDs.
-            Make a index containing a dict for each built-in rule with every translation that used it. """
+            Make a index with examples of every translation that used each built-in rule. """
         translations = self._translations.size_filtered(size)
         mapper = ParallelMapper(self._analyzer.query_rule_ids, **kwargs)
         results = mapper.starmap(translations.items())
@@ -57,7 +64,17 @@ class StenoEngine:
         for keys, letters, *rule_ids in results:
             for r_id in rule_ids:
                 index[r_id][keys] = letters
-        return RTFCREExamplesDict(index)
+        examples = RTFCREExamplesDict(index)
+        self.set_examples(examples)
+
+    def set_examples(self, examples:RTFCREExamplesDict) -> None:
+        """ Send a new examples index dict to the search engine. """
+        self._examples = examples
+        self._search_engine.set_examples(examples)
+
+    def save_examples(self, filename:str) -> None:
+        """ Save the current examples index to <filename> as JSON. """
+        self._examples.json_dump(filename)
 
     def search(self, pattern:str, pages=1, options=SearchOptions()) -> SearchResults:
         count = pages * options.search_match_limit

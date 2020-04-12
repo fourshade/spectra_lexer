@@ -4,8 +4,8 @@ from typing import Any, Dict, Tuple
 
 from spectra_lexer.display import DisplayData
 from spectra_lexer.engine import EngineOptions, StenoEngine
-from spectra_lexer.resource.config import ConfigDictionary
-from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
+from spectra_lexer.resource.config import Configuration
+from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.search import SearchResults
 
 
@@ -20,60 +20,47 @@ class StenoGUIOutput:
 class StenoApplication:
     """ Common layer for user operations (resource I/O, GUI actions, analysis...it all goes through here). """
 
-    _index_filename = ""   # Holds filename for index; set on first load.
-    _config_filename = ""  # Holds filename for config; set on first load.
-    is_first_run = False   # Set to True if we fail to load the config file.
-
-    def __init__(self, config:ConfigDictionary, engine:StenoEngine) -> None:
-        self._config = config  # Keeps track of configuration options in a master dict.
-        self._engine = engine  # Main steno analysis engine.
+    def __init__(self, config:Configuration, engine:StenoEngine) -> None:
+        self._config = config      # Keeps track of configuration options in a master dict.
+        self._engine = engine      # Main steno analysis engine.
+        self._index_filename = ""  # Holds filename for index; set on first load.
 
     def load_translations(self, *filenames:str) -> None:
-        """ Load and merge translations from JSON files. """
-        translations = RTFCREDict.from_json_files(*filenames)
-        self.set_translations(translations)
+        self._engine.load_translations(*filenames)
 
     def set_translations(self, translations:RTFCREDict) -> None:
         """ Send a new translations dict to the engine. """
-        self._engine.set_search_translations(translations)
+        self._engine.set_translations(translations)
 
     def load_examples(self, filename:str) -> None:
         """ Load an examples index from a JSON file. Ignore file I/O errors since it may be missing. """
         self._index_filename = filename
         try:
-            index = RTFCREExamplesDict.from_json_file(filename)
-            self.set_examples(index)
+            self._engine.load_examples(filename)
         except OSError:
             pass
 
-    def set_examples(self, index:RTFCREExamplesDict) -> None:
-        """ Send a new examples index dict to the search engine. """
-        self._engine.set_search_examples(index)
-
-    def load_config(self, filename:str) -> None:
-        """ Load config settings from a CFG file.
-            If the file is missing, set the 'first run' flag and start a new one. """
-        self._config_filename = filename
+    def load_config(self) -> bool:
+        """ Load config settings from a CFG file. If the file is missing, start a new one and return True. """
         try:
-            self._config.read_cfg(filename)
+            self._config.read()
+            return False
         except OSError:
-            self.set_config({})
-            self.is_first_run = True
+            self._config.write()
+            return True
 
     def set_config(self, options:Dict[str, Any]) -> None:
         """ Update the config dict with <options> and save them back to the original CFG file. """
-        assert self._config_filename
         self._config.update(options)
-        self._config.write_cfg(self._config_filename)
+        self._config.write()
 
     def make_index(self, *args, **kwargs) -> None:
         """ Run the lexer on all <translations> with an input filter and look at the top-level rule names.
             Make an examples index containing a dict for each built-in rule with every translation that used it.
             Finish by setting them active and saving them to disk. """
         assert self._index_filename
-        index = self._engine.make_index(*args, **kwargs)
-        self.set_examples(index)
-        index.json_dump(self._index_filename)
+        self._engine.compile_examples(*args, **kwargs)
+        self._engine.save_examples(self._index_filename)
 
     def _with_config(self, options:dict) -> EngineOptions:
         """ Add config options first. The main <options> will override them. """

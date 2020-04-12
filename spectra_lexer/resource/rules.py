@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import AbstractSet, Dict, Iterable, Iterator, List
 
 from .sub import TextSubstitutionParser
@@ -62,6 +63,25 @@ class StenoRule:
     def __str__(self) -> str:
         """ The standard string representation of a rule is its keys -> letters mapping. """
         return f"{self.keys} → {self.letters}"
+
+    def verify(self, valid_keys:set, ignored_keys:set) -> None:
+        """ Perform integrity checks on this rule. """
+        key_counter = Counter(self.keys)
+        assert key_counter, f"Rule {self.id} is empty"
+        # All keys must be valid RTFCRE characters.
+        assert (key_counter.keys() <= valid_keys), f"Rule {self.id} has invalid keys"
+        if self:
+            # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
+            # Make sure the child rules contain all the keys of the parent between them, and no extras.
+            parent_len = len(self.letters)
+            for item in self:
+                assert item.start >= 0
+                assert item.length >= 0
+                assert item.start + item.length <= parent_len
+                keys = item.child.keys
+                key_counter.subtract(keys)
+            mismatched = [k for k in key_counter if key_counter[k] and k not in ignored_keys]
+            assert not mismatched, f"Rule {self.id} has mismatched keys vs. its child rules: {mismatched}"
 
     @classmethod
     def analysis(cls, keys:str, letters:str, info:str) -> "StenoRule":

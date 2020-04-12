@@ -198,16 +198,15 @@ class PloverAppInfo:
         except pkg_resources.ResolutionError as e:
             raise IncompatibleError(f"Plover v{self._min_version} or greater required.") from e
 
-    def user_translations(self, *, ignore_errors=False) -> RTFCREDict:
-        """ Search the user's local app data for the Plover config file, find the dictionaries, and load them.
-            Return an empty dictionary on a file or parsing error if <ignore_errors> is True. """
+    def user_dictionary_files(self, *, ignore_errors=False) -> Sequence[str]:
+        """ Search the user's local app data for the Plover config file and find the dictionary files.
+            Return an empty list on a file or parsing error if <ignore_errors> is True. """
         try:
-            filenames = self._find_dictionaries()
+            return self._find_dictionaries()
         except (IndexError, KeyError, OSError, ValueError):
             if not ignore_errors:
                 raise
-            filenames = []
-        return RTFCREDict.from_json_files(*filenames)
+            return []
 
     def _find_dictionaries(self) -> Sequence[str]:
         """ Search the user's local app data for the Plover config file.

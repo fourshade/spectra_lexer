@@ -48,9 +48,9 @@ class QtGUIApplication(StenoApplication):
         display.call_on_query(self.on_query)
         display.call_on_example_search(self.on_search_examples)
 
-    def on_loaded(self, *_) -> None:
+    def on_loaded(self, is_first_run:bool) -> None:
         """ On first start, present a dialog for the user to make a default-sized index on accept. """
-        if self.is_first_run:
+        if is_first_run:
             self.confirm_startup_index()
 
     def on_search(self, pattern:str, pages:int, **options) -> None:
@@ -105,14 +105,14 @@ class QtGUIApplication(StenoApplication):
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
-        filenames = self._window.open_files("Load Translations", "json")
+        filenames = self._window.open_files("Load Translations", ".", "json")
         if filenames:
             self.run_async(self.load_translations, *filenames,
                            msg_start="Loading files...", msg_done="Loaded translations from file dialog.")
 
     def open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
-        filename = self._window.open_file("Load Index", "json")
+        filename = self._window.open_file("Load Index", ".", "json")
         if filename:
             self.run_async(self.load_examples, filename,
                            msg_start="Loading file...", msg_done="Loaded index from file dialog.")

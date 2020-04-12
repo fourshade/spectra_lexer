@@ -9,12 +9,13 @@ from typing import Any, List
 ConfigItem = namedtuple("ConfigItem", "key value title name description")
 
 
-class ConfigDictionary:
+class Configuration:
     """ Contains config options and their corresponding info. """
 
-    def __init__(self) -> None:
-        self._data = {}  # Contains all raw config values by a combined section/option string key.
-        self._info = []  # Contains display info for a set of config options (required for CFG format).
+    def __init__(self, filename:str) -> None:
+        self._filename = filename  # Full name of valid file in CFG format.
+        self._data = {}            # Contains all raw config values by a combined section/option string key.
+        self._info = []            # Contains display info for a set of config options (required for CFG format).
 
     def add_option(self, key:str, default:Any=None, desc:str="") -> None:
         """ Add an option under <key> and start it with the <default> value.
@@ -22,9 +23,10 @@ class ConfigDictionary:
                 sect - Category/section where option is found in a CFG file.
                 name - Name of individual option under this category.
             <desc> - Tooltip string describing the option. """
-        sect, name = key.split("_", 1)
-        self._data[key] = default
-        self._info.append((key, sect, name, desc))
+        if key not in self._data:
+            sect, name = key.split("_", 1)
+            self._data[key] = default
+            self._info.append((key, sect, name, desc))
 
     def info(self) -> List[ConfigItem]:
         """ Format the config params with the current values for display in a configuration window. """
@@ -37,12 +39,12 @@ class ConfigDictionary:
     def to_dict(self) -> dict:
         return self._data.copy()
 
-    def read_cfg(self, filename:str) -> None:
-        """ Read config settings in .cfg format from <filename> and update the values of each config option.
+    def read(self) -> None:
+        """ Read config settings from a file in .cfg format and update the values of each config option.
             Try to evaluate each string as a Python object using AST. This fixes crap like bool('False') = True.
             Strings that are read as names will throw an error, in which case they should be left as-is. """
         parser = ConfigParser()
-        with open(filename, 'r', encoding='utf-8') as fp:
+        with open(self._filename, 'r', encoding='utf-8') as fp:
             parser.read_file(fp)
         for key, sect, name, _ in self._info:
             if sect in parser:
@@ -55,12 +57,12 @@ class ConfigDictionary:
                         pass
                     self._data[key] = value
 
-    def write_cfg(self, filename:str) -> None:
-        """ Save the values of each config option to <filename> in .cfg format by section and name. """
+    def write(self) -> None:
+        """ Save the values of each config option to a file in .cfg format by section and name. """
         parser = ConfigParser()
         for key, sect, name, _ in self._info:
             if sect not in parser:
                 parser.add_section(sect)
             parser.set(sect, name, str(self._data[key]))
-        with open(filename, 'w', encoding='utf-8') as fp:
+        with open(self._filename, 'w', encoding='utf-8') as fp:
             parser.write(fp)
