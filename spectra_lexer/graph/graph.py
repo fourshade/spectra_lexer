@@ -82,13 +82,14 @@ class Canvas:
 class GraphNode(LayoutNode):
     """ A standard node in a tree structure of steno rules. """
 
-    def __init__(self, body:IBody, connectors:IConnectors, tstart:int, tlen:int, children:Sequence["GraphNode"]) -> None:
+    def __init__(self, ref:str, body:IBody, connectors:IConnectors,
+                 tstart:int, tlen:int, children:Sequence["GraphNode"]) -> None:
+        self._ref = ref                # Reference string that is guaranteed to be unique in the tree.
         self._body = body              # The node's "body" containing steno keys or English text.
         self._connectors = connectors  # Pattern constructor for connectors.
         self._attach_start = tstart    # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen     # Length in characters of the attachment to the parent node.
         self._children = children      # Direct children of this node.
-        self._ref = str(id(self))
 
     def children(self) -> Sequence["GraphNode"]:
         """ Return all direct children of this node. """
@@ -112,10 +113,6 @@ class GraphNode(LayoutNode):
 
     def is_separator(self) -> bool:
         return self._body.is_separator()
-
-    def ref(self) -> str:
-        """ Return a reference string that is guaranteed to be unique in the tree. """
-        return self._ref
 
     def iter_elements(self, top_row:int, bottom_row:int, col:int,
                       successors:Dict[int, Set[str]]) -> Iterator[Tuple[int, int, str, str, int, set]]:

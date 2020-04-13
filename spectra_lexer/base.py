@@ -1,10 +1,9 @@
-
 import os
 import sys
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.app import StenoApplication
-from spectra_lexer.display import DisplayEngine
+from spectra_lexer.display import BoardFactory, GraphFactory
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.plover import plover_info
 from spectra_lexer.resource.board import StenoBoardDefinitions
@@ -19,17 +18,6 @@ from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, Use
 
 # The name of this module's root package is used as a default path for built-in assets and user files.
 ROOT_PACKAGE = __package__.split(".", 1)[0]
-
-
-class StenoConfiguration(Configuration):
-
-    def __init__(self, *args) -> None:
-        """ Add options that can be user-configured (desktop), or sent in query strings (HTTP). """
-        super().__init__(*args)
-        self.add_option("search_match_limit", 100, "Maximum number of matches returned on one page of a search.")
-        self.add_option("lexer_strict_mode", False, "Only return lexer results that match every key in a translation.")
-        self.add_option("graph_compressed_layout", True, "Compress the graph layout vertically to save space.")
-        self.add_option("graph_compatibility_mode", False, "Force correct spacing in the graph using HTML tables.")
 
 
 class StenoEngineResources:
@@ -47,14 +35,13 @@ class StenoEngineResources:
             rule.verify(valid_keys, ignored_keys)
 
     def build_engine(self) -> StenoEngine:
-        search_engine = SearchEngine()
         keymap = self._keymap
         key_parser = keymap.make_parser()
+        search_engine = SearchEngine()
         analyzer = StenoAnalyzer.from_resources(key_parser, self._rules, keymap.sep, keymap.unordered)
-        ignored_chars = keymap.split
-        combo_key = keymap.unordered[-1:]
-        display_engine = DisplayEngine.from_resources(key_parser, self._board_defs, ignored_chars, combo_key)
-        return StenoEngine(search_engine, analyzer, display_engine)
+        node_factory = GraphFactory(keymap.split)
+        board_factory = BoardFactory.from_resources(key_parser,self._board_defs, keymap.unordered[-1:])
+        return StenoEngine(search_engine, analyzer, node_factory, board_factory)
 
 
 class Spectra(CmdlineOptionNamespace):
@@ -126,7 +113,7 @@ class Spectra(CmdlineOptionNamespace):
 
     def build_config(self) -> Configuration:
         filename = self._convert_path(self.config_file, make_dirs=True)
-        return StenoConfiguration(filename)
+        return Configuration(filename)
 
     def build_engine(self) -> StenoEngine:
         resources = self._load_resources()

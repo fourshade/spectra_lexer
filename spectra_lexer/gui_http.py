@@ -4,9 +4,8 @@ import os
 import sys
 from threading import Lock
 
-from spectra_lexer.app import StenoApplication, StenoGUIOutput
+from spectra_lexer.app import DisplayData, DisplayPage, StenoApplication, StenoGUIOutput
 from spectra_lexer.base import Spectra
-from spectra_lexer.display import DisplayData, DisplayPage
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter

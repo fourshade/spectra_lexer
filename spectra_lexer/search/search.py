@@ -63,8 +63,6 @@ class SearchResults:
 class SearchEngine:
     """ A hybrid forward+reverse steno translation search engine.  """
 
-    DEFAULT_COUNT = 100  # Maximum number of matches returned in a search by default.
-
     _forward = ForwardStenoDict()  # Forward translations dict (strokes -> English words).
     _reverse = ReverseStenoDict()  # Reverse dict (English words -> strokes).
     _examples = {}                 # Contains steno rule IDs mapped to dicts of example translations.
@@ -100,8 +98,7 @@ class SearchEngine:
         d = self._examples[rule_id]
         return self._new_forward_dict(d) if is_forward else self._new_reverse_dict(d)
 
-    def search_translations(self, pattern:str, count=DEFAULT_COUNT, *,
-                            mode_strokes=False, mode_regex=False) -> SearchResults:
+    def search_translations(self, pattern:str, count=None, *, mode_strokes=False, mode_regex=False) -> SearchResults:
         """ Do a new translations search. Return a warning match with no mappings if there's a regex syntax error.
             <count>        - Maximum number of matches returned. If None, there is no limit.
             <mode_strokes> - If True, search for strokes instead of translations.
@@ -117,9 +114,9 @@ class SearchEngine:
             is_complete = True
         return SearchResults(matches, is_complete)
 
-    def search_examples(self, rule_id:RuleID, pattern:str, count=DEFAULT_COUNT, *, mode_strokes=False) -> SearchResults:
+    def search_examples(self, rule_id:RuleID, pattern:str, count:int, *, mode_strokes=False) -> SearchResults:
         """ Search for translations that contain examples of a particular steno rule. Only exact matches will work.
-            Since this will return results until exhaustion, these searches are always marked "complete". """
+            Since this can return results until exhaustion, these searches are always marked "complete". """
         if rule_id not in self._examples:
             matches = {}
         else:
