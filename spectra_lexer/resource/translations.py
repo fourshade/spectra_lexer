@@ -16,12 +16,10 @@ class RTFCREDict(Dict[str, str]):
     # Ordered list of all filter sizes for GUI display.
     FILTER_SIZES = [FSIZE_MINIMUM, FSIZE_SMALL, FSIZE_MEDIUM, FSIZE_LARGE, FSIZE_MAXIMUM]
 
-    def size_filtered(self, size:int=None) -> "RTFCREDict":
+    def size_filtered(self, size:int) -> "RTFCREDict":
         """ Return a new dict including only translations below a maximum size.
             <size> is the maximum allowed length of any string in a translation. """
         cls = type(self)
-        if size is None:
-            size = self.FSIZE_MEDIUM
         if size < self.FSIZE_MINIMUM:
             # If the size is below minimum, it could be a dummy run. Keep nothing.
             filtered = cls()

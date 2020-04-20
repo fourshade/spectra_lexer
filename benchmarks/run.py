@@ -38,17 +38,9 @@ class ComponentBench:
     def run_lexer(self) -> None:
         self._profiler.run(self._engine.analyze, self._spaced_translations(5000))
 
-    def _spaced_results(self, n:int) -> list:
-        translations = self._spaced_translations(n)
-        query = self._engine.analyze
-        return [(query(k, w),) for k, w in translations]
-
-    def make_display(self) -> None:
-        self._profiler.run(self._engine.display, self._spaced_results(500))
-
     def run_http(self) -> None:
-        from spectra_lexer.gui_http import SpectraHttp
-        from spectra_lexer.http.tcp import TCPConnection
+        from spectra_lexer.app_http import build_server
+        from spectra_lexer.http.tcp import TCPConnection, TCPServer
         import io, json
         obj = {"action": "query", "options": {}}
         args_list = []
@@ -63,24 +55,34 @@ class ComponentBench:
                        b"",
                        content]
             args_list.append((b"\r\n".join(request),))
-        dispatcher = SpectraHttp().build_dispatcher(lambda s: None)
+        server = build_server(self._engine, ".", lambda s: None)
         def dispatch(data):
             stream = io.BytesIO(data)
             conn = TCPConnection(stream, "127.0.0.1", 80)
-            dispatcher.handle_connection(conn)
+            # Avoid threading issues by connecting with the base class.
+            TCPServer.connect(server, conn)
         self._profiler.run(dispatch, args_list)
 
 
-def app_start():
+def test_engine():
     from spectra_lexer.base import Spectra
-    prg = Spectra()
-    app = prg.build_app()
-    prg.load_app(app)
-    return app
+    spectra = Spectra()
+    engine = spectra.build_engine()
+    translations_files = spectra.translations_paths()
+    engine.load_translations(*translations_files)
+    index_file = spectra.index_path()
+    engine.load_examples(index_file)
+    return engine
+
+
+def app_start():
+    from spectra_lexer.app_http import build_server
+    engine = test_engine()
+    build_server(engine, ".", lambda s: None)
 
 
 def app_index() -> None:
-    from spectra_lexer.gui_none import index_main
+    from spectra_lexer.app_index import main as index_main
     sys.argv += ["--index=NUL", "--processes=1"]
     index_main()
 
@@ -100,10 +102,10 @@ def main(script="", operation="run_lexer", *argv:str) -> int:
             cmd = (sys.executable, '-m', 'benchmarks.run', f'sub|{i}|{operation}')
             subprocess.run(cmd, check=True)
     else:
-        # Other benchmarks require an already-started app's engine.
-        app = app_start()
+        # Other benchmarks require an already-started engine.
+        engine = test_engine()
         profiler = MultiProfiler(*PROFILER_TYPES)
-        b = ComponentBench(app._engine, profiler)
+        b = ComponentBench(engine, profiler)
         getattr(b, operation)()
     return 0
 

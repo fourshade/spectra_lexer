@@ -21,18 +21,12 @@ class CmdlineArgument:
 
 
 class CmdlineOption(CmdlineArgument):
-    """ A command-line option corresponding to a single object which can be placed in an attribute.
-        Each one is designed to return a default value until explicitly parsed, at which point
-        the descriptor should be overridden by setting the parsed value in the instance dict. """
+    """ A command-line option corresponding to a single object which can be placed in an attribute. """
 
-    def __init__(self, key:str, default:Any=None, desc:str="No description.") -> None:
-        self.keys = [key]
+    def __init__(self, key:str, default:Any=None, desc="No description.") -> None:
+        self.keys = [key]       # Option key (generally the name prefixed with --).
         self.default = default  # The value to be produced if the option is not specified.
-        self.desc = desc
-
-    def __get__(self, instance:object, owner:type=None) -> Any:
-        """ Return the default value of the option if accessed directly. """
-        return self.default
+        self.desc = desc        # Optional description to be displayed in help.
 
     def __call__(self, *args:str) -> Any:
         """ Usually a single value is returned. multiargs=True will produce a list, even with only one value. """
@@ -164,43 +158,39 @@ class CmdlineParser:
         return self._extra_args[:]
 
 
-class CmdlineOptionNamespace:
-    """
-    Base namespace class for CmdlineOption objects which are declared in the class body like this:
+class CmdlineOptions:
+    """ Namespace class for CmdlineOption objects. Option values are accessed as instance attributes.
+        Unparsed options will fall back to default values. """
 
-    test_option: str = CmdlineOption("--test", "default value", "Namespace test option")
+    def __init__(self, app_description="Command line application.") -> None:
+        self._app_description = app_description  # App description shown in command-line help.
+        self._options = {}  # Contains all option objects keyed by their destination attributes.
 
-    When parsed, arguments that match valid options are saved as instance attributes.
-    Unmatched options will fall back to the class attributes, which return default values.
+    def __getattr__(self, name:str) -> Any:
+        raise AttributeError(f'"{name}" is not the name of a valid command-line option.')
 
-    Declaring options this way ensures that linters know each option is a valid attribute,
-    but the type annotation may be necessary to keep them from complaining about the type.
-    """
+    def add(self, name:str, default:Any=None, desc="No description.") -> None:
+        """ Add a new option and set its attribute to be the default value (until parsed).
+            Since attribute names cannot have hyphens, they are replaced with underscores. """
+        opt = CmdlineOption("--" + name, default, desc)
+        attr_name = name.replace("-", "_")
+        self._options[attr_name] = opt
+        setattr(self, attr_name, default)
 
-    def parse_options(self, argv:Iterable[str]=None, *, app_description:str=None) -> None:
+    def parse(self, argv:Iterable[str]=None) -> None:
         """ Create a parser object, load command line options, and parse them into instance attributes.
-            Arguments are taken from <argv> if provided, otherwise from sys.argv.
-            If an <app_description> is given, command-line help will be shown on -h with that description. """
+            Arguments are taken from <argv> if provided, otherwise from sys.argv. """
         parser = CmdlineParser()
-        options = self.get_options()
-        for attr, item in options.items():
+        for attr, item in self._options.items():
             parser.add_option(attr, item)
         script, *argv = (argv or sys.argv)
         if script:
             script = os.path.basename(script)
         # Add a special object for formatting option help. The attribute is just a dummy name.
-        help_opt = CmdlineHelp(options.values(), script, app_description or str(self.__doc__))
+        help_opt = CmdlineHelp(self._options.values(), script, self._app_description)
         parser.add_option("_HELP_OPT", help_opt)
         opt_dict = parser.parse(argv)
         self.__dict__.update(opt_dict)
-
-    @classmethod
-    def get_options(cls) -> dict:
-        """ Find the command line options for each class in the MRO. """
-        return {attr: item
-                for tp in cls.__mro__[::-1]
-                for attr, item in vars(tp).items()
-                if isinstance(item, CmdlineOption)}
 
 
 class EntryPoint:

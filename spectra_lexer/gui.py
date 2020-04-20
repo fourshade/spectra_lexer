@@ -1,27 +1,7 @@
 from typing import Any, Dict, Tuple
 
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.resource.config import Configuration
 from spectra_lexer.search import SearchResults
-
-
-class EngineOptions:
-    """ Combined namespace for all steno engine options. """
-
-    search_mode_strokes: bool = False       # If True, search for strokes instead of translations.
-    search_mode_regex: bool = False         # If True, perform search using regex characters.
-    search_match_limit: int = 100           # Maximum number of matches returned on one page of a search.
-    lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
-    board_aspect_ratio: float = None        # Aspect ratio for board viewing area (None means pure horizontal layout).
-    board_show_compound: bool = True        # Show compound keys on board with alt labels (i.e. F instead of TP).
-    board_show_letters: bool = True         # Show letters on board when possible. Letters override alt labels.
-    graph_compressed_layout: bool = True    # Compress the graph layout vertically to save space.
-    graph_compatibility_mode: bool = False  # Force correct spacing in the graph using HTML tables.
-
-    # These user options are saved in a CFG file.
-    CFG_OPTIONS = [("search_match_limit", 100, "Maximum number of matches returned on one page of a search."),
-                   ("lexer_strict_mode", False, "Only return lexer results that match every key in a translation."),
-                   ("graph_compressed_layout", True, "Compress the graph layout vertically to save space.")]
 
 
 class DisplayPage:
@@ -45,7 +25,7 @@ class DisplayData:
         self.default_page = default_page  # Default starting analysis page. May also be included in pages_by_ref.
 
 
-class StenoGUIOutput:
+class GUIOutput:
     """ Data class that contains an entire GUI update. All fields are optional. """
 
     search_input: str = None              # Product of an example search action.
@@ -53,64 +33,42 @@ class StenoGUIOutput:
     display_data: DisplayData = None      # Product of a query action.
 
 
-class StenoApplication:
-    """ Common layer for user operations (resource I/O, GUI actions, analysis...it all goes through here). """
+class GUIOptions:
+    """ Namespace for all GUI-related steno engine options. """
 
-    def __init__(self, config:Configuration, engine:StenoEngine) -> None:
-        self._config = config      # Keeps track of configuration options in a master dict.
-        self._engine = engine      # Main steno analysis engine.
-        self._index_filename = ""  # Holds filename for index; set on first load.
-        for args in EngineOptions.CFG_OPTIONS:
-            config.add_option(*args)
+    search_mode_strokes: bool = False       # If True, search for strokes instead of translations.
+    search_mode_regex: bool = False         # If True, perform search using regex characters.
+    search_match_limit: int = 100           # Maximum number of matches returned on one page of a search.
+    lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
+    board_aspect_ratio: float = None        # Aspect ratio for board viewing area (None means pure horizontal layout).
+    board_show_compound: bool = True        # Show compound keys on board with alt labels (i.e. F instead of TP).
+    board_show_letters: bool = True         # Show letters on board when possible. Letters override alt labels.
+    graph_compressed_layout: bool = True    # Compress the graph layout vertically to save space.
+    graph_compatibility_mode: bool = False  # Force correct spacing in the graph using HTML tables.
 
-    def load_translations(self, *filenames:str) -> None:
-        self._engine.load_translations(*filenames)
+    # These user options should be saved in a CFG file.
+    CFG_OPTIONS = [("search_match_limit", "Match Limit",
+                    "Maximum number of matches returned on one page of a search."),
+                   ("lexer_strict_mode", "Strict Mode",
+                    "Only return lexer results that match every key in a translation."),
+                   ("graph_compressed_layout", "Compressed Layout",
+                    "Compress the graph layout vertically to save space.")]
 
-    def set_translations(self, *args) -> None:
-        """ Send a new translations dict to the engine. """
-        self._engine.set_translations(*args)
+    def __init__(self, *opt_dicts:Dict[str, Any]) -> None:
+        """ Update option attributes from input dicts in order. """
+        for d in opt_dicts:
+            self.__dict__.update(d)
 
-    def load_examples(self, filename:str) -> None:
-        """ Load an examples index from a JSON file. Ignore file I/O errors since it may be missing. """
-        self._index_filename = filename
-        try:
-            self._engine.load_examples(filename)
-        except OSError:
-            pass
 
-    def load_config(self) -> bool:
-        """ Load config settings from a CFG file. If the file is missing, start a new one and return True. """
-        try:
-            self._config.read()
-            return False
-        except OSError:
-            self._config.write()
-            return True
+class GUILayer:
+    """ Layer for common user GUI actions. """
 
-    def set_config(self, options:Dict[str, Any]) -> None:
-        """ Update the config dict with <options> and save them back to the original CFG file. """
-        self._config.update(options)
-        self._config.write()
+    def __init__(self, engine:StenoEngine) -> None:
+        self._engine = engine  # Main steno analysis engine.
 
-    def make_index(self, *args, **kwargs) -> None:
-        """ Run the lexer on all <translations> with an input filter and look at the top-level rule names.
-            Make an examples index containing a dict for each built-in rule with every translation that used it.
-            Finish by setting them active and saving them to disk. """
-        assert self._index_filename
-        self._engine.compile_examples(*args, **kwargs)
-        self._engine.save_examples(self._index_filename)
-
-    def _with_config(self, options:dict) -> EngineOptions:
-        """ Add config options first. The main <options> will override them. """
-        opts = EngineOptions()
-        vars(opts).update(self._config.to_dict())
-        vars(opts).update(options)
-        return opts
-
-    def gui_query(self, translation:Tuple[str, str], *others:Tuple[str, str], **options) -> StenoGUIOutput:
+    def query(self, translation:Tuple[str, str], *others:Tuple[str, str], opts=GUIOptions()) -> GUIOutput:
         """ Execute and display a graph of a lexer query from search results or user strokes. """
-        output = StenoGUIOutput()
-        opts = self._with_config(options)
+        output = GUIOutput()
         strict_mode = opts.lexer_strict_mode
         if others:
             analysis = self._engine.analyze_best(translation, *others, strict_mode=strict_mode)
@@ -153,33 +111,23 @@ class StenoApplication:
         output.display_data = DisplayData(analysis.keys, analysis.letters, pages, default_page)
         return output
 
-    def gui_search(self, pattern:str, pages=1, **options) -> StenoGUIOutput:
+    def search(self, pattern:str, pages=1, *, opts=GUIOptions()) -> GUIOutput:
         """ Do a new search and return results unless the input is blank. """
-        output = StenoGUIOutput()
-        opts = self._with_config(options)
+        output = GUIOutput()
         mode_strokes = opts.search_mode_strokes
         if pattern.strip():
             count = pages * opts.search_match_limit
             output.search_results = self._engine.search(pattern, count, mode_strokes, opts.search_mode_regex)
         return output
 
-    def gui_search_examples(self, link_ref:str, **options) -> StenoGUIOutput:
+    def search_examples(self, link_ref:str, *, opts=GUIOptions()) -> GUIOutput:
         """ When a link is clicked, search for examples of the named rule and select one. """
-        output = StenoGUIOutput()
-        opts = self._with_config(options)
         mode_strokes = opts.search_mode_strokes
         keys, letters, pattern = self._engine.random_example(link_ref, mode_strokes)
         if keys and letters:
-            output = self.gui_query((keys, letters), **options)
+            output = self.query((keys, letters), opts=opts)
             output.search_input = pattern
             output.search_results = self._engine.search(pattern, opts.search_match_limit, mode_strokes)
+        else:
+            output = GUIOutput()
         return output
-
-    def console_vars(self) -> dict:
-        """ Return a namespace with variables suitable for direct use in an interactive Python console. """
-        ns = {}
-        for obj in (self, self._engine):
-            for k in dir(obj):
-                if not k.startswith('_'):
-                    ns[k] = getattr(obj, k)
-        return ns

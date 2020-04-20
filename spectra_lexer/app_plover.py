@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from spectra_lexer.gui_qt import SpectraQt
+from spectra_lexer.app_qt import QtAppFactory
 from spectra_lexer.plover import IncompatibleError, plover_info, PloverExtension
 
 
@@ -23,7 +23,7 @@ class PloverPlugin:
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *SpectraQt.ICON_PATH])
+    ICON = ':'.join(['asset', *QtAppFactory.ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
@@ -31,14 +31,14 @@ class PloverPlugin:
         """ Main entry point for Spectra's Plover plugin. Create the extension and connect it only if compatible.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        spectra = SpectraQt()
-        self._app = app = spectra.build_app()
+        factory = QtAppFactory()
+        self._app = app = factory.build_app()
         self._ext = ext = PloverExtension(engine)
         try:
             # Load the app's user files followed by the current Plover dictionaries.
             plover_info.check_compatible()
-            spectra.translations_files = []
-            spectra.load_app_async(app)
+            app._translations_paths = []
+            app.load_engine()
             self.on_dictionaries_loaded()
             ext.call_on_dictionaries_loaded(self.on_dictionaries_loaded)
             ext.call_on_translated(self.on_translated)
@@ -46,14 +46,14 @@ class PloverPlugin:
             # If the compatibility check fails, abort the loading sequence and show an error message.
             app.set_status(f"ERROR: {e}")
 
-    def _load_translations(self, *args) -> None:
+    def _set_translations_async(self, *args) -> None:
         """ Convert Plover translation dictionaries to string-key format and send the result to the main engine. """
         translations = self._ext.parse_dictionaries(*args)
-        self._app.set_translations(translations)
+        self._app._engine.set_translations(translations)
 
     def on_dictionaries_loaded(self, *args) -> None:
         """ Load translation dictionaries in async mode to keep the GUI responsive. """
-        self._app.run_async(self._load_translations, *args, msg_start="Loading dictionaries...",
+        self._app.run_async(self._set_translations_async, *args, msg_start="Loading dictionaries...",
                             msg_done="Loaded new dictionaries from Plover.")
 
     def on_translated(self, *args) -> None:

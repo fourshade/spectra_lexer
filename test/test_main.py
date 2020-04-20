@@ -8,8 +8,6 @@ from spectra_lexer.base import Spectra
 
 from .base import TEST_TRANSLATIONS
 
-
-# Create all test resources using default assets.
 ENGINE = Spectra().build_engine()
 
 
@@ -23,5 +21,9 @@ def test_analysis(keys, letters) -> None:
     # Rule start positions must be non-negative and increasing monotonic.
     positions = [c.start for c in analysis]
     assert positions == sorted(map(abs, positions))
-    # Perform test for analysis output. Currently only checks that the output doesn't raise.
-    assert ENGINE.display(analysis)
+    # Perform tests for analysis output. Currently only checks that the output doesn't raise.
+    graph = ENGINE.generate_graph(analysis)
+    for ref in graph.refs():
+        assert graph.draw(ref)
+        rule = graph.get_rule(ref)
+        assert ENGINE.generate_board(rule)

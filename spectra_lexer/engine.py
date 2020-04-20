@@ -24,25 +24,33 @@ class StenoEngine:
         self._translations = RTFCREDict()
         self._examples = RTFCREExamplesDict()
 
+    def set_translations(self, translations:RTFCREDict) -> None:
+        """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
+        self._translations = translations
+        self._search_engine.set_translations(translations)
+
     def load_translations(self, *filenames:str) -> None:
         """ Load and merge translations from JSON files. """
         translations = RTFCREDict.from_json_files(*filenames)
         self.set_translations(translations)
 
-    def set_translations(self, translations:RTFCREDict) -> None:
-        """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
-        self._translations = translations
-        self._search_engine.set_translations(translations)
+    def set_examples(self, examples:RTFCREExamplesDict) -> None:
+        """ Send a new examples index dict to the search engine. """
+        self._examples = examples
+        self._search_engine.set_examples(examples)
 
     def load_examples(self, filename:str) -> None:
         """ Load an examples index from a JSON file. """
         examples = RTFCREExamplesDict.from_json_file(filename)
         self.set_examples(examples)
 
-    def compile_examples(self, size:int=None, **kwargs) -> None:
-        """ Run the lexer on all translations with an input filter and look at the top-level rule IDs.
-            Make a index with examples of every translation that used each built-in rule. """
-        translations = self._translations.size_filtered(size)
+    def compile_examples(self, size:int=None, filename:str=None, **kwargs) -> None:
+        """ Run the lexer on all translations with an optional <size> filter and look at the top-level rule IDs.
+            Make a index with examples of every translation that used each built-in rule and set it as active.
+            If a <filename> is given, save the index as JSON at the end. """
+        translations = self._translations
+        if size is not None:
+            translations = translations.size_filtered(size)
         mapper = ParallelMapper(self._analyzer.query_rule_ids, **kwargs)
         results = mapper.starmap(translations.items())
         index = defaultdict(RTFCREDict)
@@ -51,15 +59,8 @@ class StenoEngine:
                 index[r_id][keys] = letters
         examples = RTFCREExamplesDict(index)
         self.set_examples(examples)
-
-    def set_examples(self, examples:RTFCREExamplesDict) -> None:
-        """ Send a new examples index dict to the search engine. """
-        self._examples = examples
-        self._search_engine.set_examples(examples)
-
-    def save_examples(self, filename:str) -> None:
-        """ Save the current examples index to <filename> as JSON. """
-        self._examples.json_dump(filename)
+        if filename is not None:
+            examples.json_dump(filename)
 
     def search(self, pattern:str, count:int=SEARCH_LIMIT, mode_strokes=False, mode_regex=False) -> SearchResults:
         if self.INDEX_DELIM in pattern:

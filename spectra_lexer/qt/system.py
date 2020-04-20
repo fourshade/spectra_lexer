@@ -64,11 +64,11 @@ class QtAsyncDispatcher:
         self._thread = QThread()
         self._call_on_main = QtSignalCaller()
 
-    def dispatch(self, func:Callable, *args, on_start:Callable=None, on_finish:Callable=None) -> None:
-        """ Add <func> as a task with the given <args> and send back results using a Qt signal.
+    def dispatch(self, func:Callable, *args, on_start:Callable=None, on_finish:Callable=None, **kwargs) -> None:
+        """ Add <func> as a task with the given <args> and <kwargs> and send back results using a Qt signal.
             <on_start>, if given, will be called on the main thread with no arguments just before the task starts.
             <on_finish>, if given, must accept the return value of this function as its only argument. """
-        self._q.put((func, args, on_start, on_finish))
+        self._q.put((func, args, kwargs, on_start, on_finish))
         if not self._thread.isRunning():
             self._thread.run = self._run
             self._thread.start()
@@ -76,7 +76,7 @@ class QtAsyncDispatcher:
     def _run(self) -> None:
         """ Loop through the queue and execute each item in turn. """
         while True:
-            func, args, on_start, on_finish = self._q.get()
+            func, args, kwargs, on_start, on_finish = self._q.get()
             self._call_on_main(on_start)
-            value = func(*args)
+            value = func(*args, **kwargs)
             self._call_on_main(on_finish, value)
