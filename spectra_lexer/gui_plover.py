@@ -31,14 +31,14 @@ class PloverPlugin:
         """ Main entry point for Spectra's Plover plugin. Create the extension and connect it only if compatible.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        main = SpectraQt()
-        self._app = app = main.build_app()
+        spectra = SpectraQt()
+        self._app = app = spectra.build_app()
         self._ext = ext = PloverExtension(engine)
         try:
             # Load the app's user files followed by the current Plover dictionaries.
             plover_info.check_compatible()
-            main.translations_files = []
-            main.load_app_async(app)
+            spectra.translations_files = []
+            spectra.load_app_async(app)
             self.on_dictionaries_loaded()
             ext.call_on_dictionaries_loaded(self.on_dictionaries_loaded)
             ext.call_on_translated(self.on_translated)

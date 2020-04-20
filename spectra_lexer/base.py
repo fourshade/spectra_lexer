@@ -47,29 +47,35 @@ class StenoEngineResources:
 class Spectra(CmdlineOptionNamespace):
     """ Main factory class. Contains all command-line options necessary to build a functioning engine and app. """
 
-    _converter = PrefixPathConverter()
-    _converter.add(":/", AssetPathConverter(ROOT_PACKAGE))  # Prefix indicates built-in assets.
-    _converter.add("~/", UserPathConverter(ROOT_PACKAGE))   # Prefix indicates local user app data.
-    _convert_path = _converter.convert
+    ASSET_PATH_PREFIX = ":/"           # Prefix that indicates built-in assets.
+    USER_PATH_PREFIX = "~/"            # Prefix that indicates local user app data.
+    PLOVER_SENTINEL = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
 
-    CSON_COMMENT_PREFIX = "#"  # Prefix for comments allowed in non-standard JSON files.
-    _cson_decoder = CSONDecoder(comment_prefix=CSON_COMMENT_PREFIX)
-    _cson_decode = _cson_decoder.decode
-
-    PLOVER_DICTIONARIES = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
-
-    log_files: str = CmdlineOption("--log", ["~/status.log"], "Text file(s) to log status and exceptions.")
-    resource_dir: str = CmdlineOption("--resources", ":/assets/", "Directory with static steno resources.")
-    translations_files: list = CmdlineOption("--translations", [PLOVER_DICTIONARIES],
+    resource_dir: str = CmdlineOption("--resources", ASSET_PATH_PREFIX + "assets/",
+                                      "Directory with static steno resources.")
+    log_files: list = CmdlineOption("--log", [USER_PATH_PREFIX + "status.log"],
+                                    "Text file(s) to log status and exceptions.")
+    translations_files: list = CmdlineOption("--translations", [PLOVER_SENTINEL],
                                              "JSON translation files to load on start.")
-    index_file: str = CmdlineOption("--index", "~/index.json",
+    index_file: str = CmdlineOption("--index", USER_PATH_PREFIX + "index.json",
                                     "JSON index file to load on start and/or write to.")
-    config_file: str = CmdlineOption("--config", "~/config.cfg",
+    config_file: str = CmdlineOption("--config", USER_PATH_PREFIX + "config.cfg",
                                      "Config CFG/INI file to load at start and/or write to.")
 
-    LAYOUT_JSON = "key_layout.cson"  # Filename for key layout inside resource directory.
+    CSON_COMMENT_PREFIX = "#"        # Prefix for comments allowed in non-standard JSON files.
+    LAYOUT_CSON = "key_layout.cson"  # Filename for key layout inside resource directory.
     RULES_CSON = "rules.cson"        # Filename for rules inside resource directory.
     BOARD_CSON = "board_defs.cson"   # Filename for board layout inside resource directory.
+
+    def __init__(self) -> None:
+        """ Parse any command-line options before building the engine. """
+        self._cson_decoder = CSONDecoder(comment_prefix=self.CSON_COMMENT_PREFIX)
+        converter = PrefixPathConverter()
+        converter.add(self.ASSET_PATH_PREFIX, AssetPathConverter(ROOT_PACKAGE))
+        converter.add(self.USER_PATH_PREFIX, UserPathConverter(ROOT_PACKAGE))
+        self._convert_path = converter.convert
+        self.parse_options()
+        self.log = self.build_logger().log
 
     def load_app(self, app:StenoApplication) -> bool:
         """ Load an app object with all external starting resources. """
@@ -80,7 +86,7 @@ class Spectra(CmdlineOptionNamespace):
     def _load_app_translations(self, app:StenoApplication) -> None:
         filenames = []
         for f in self.translations_files:
-            if f == self.PLOVER_DICTIONARIES:
+            if f == self.PLOVER_SENTINEL:
                 filenames += plover_info.user_dictionary_files(ignore_errors=True)
             else:
                 filenames.append(self._convert_path(f))
@@ -129,7 +135,7 @@ class Spectra(CmdlineOptionNamespace):
 
     def _load_keymap(self) -> StenoKeyLayout:
         """ Load a steno key constants structure. """
-        d = self._read_cson_resource(self.LAYOUT_JSON)
+        d = self._read_cson_resource(self.LAYOUT_CSON)
         return StenoKeyLayout.from_dict(d)
 
     def _load_rules(self) -> StenoRuleCollection:
@@ -147,15 +153,4 @@ class Spectra(CmdlineOptionNamespace):
         filename = self._convert_path(path)
         with open(filename, 'r', encoding='utf-8') as fp:
             s = fp.read()
-        return self._cson_decode(s)
-
-    @classmethod
-    def main(cls) -> int:
-        """ Parse the options and run the application. """
-        self = cls()
-        self.parse_options()
-        return self.run()
-
-    def run(self) -> int:
-        """ Run the application. """
-        return 0
+        return self._cson_decoder.decode(s)

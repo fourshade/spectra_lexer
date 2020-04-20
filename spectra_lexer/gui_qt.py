@@ -202,7 +202,7 @@ class QtGUIApplication(StenoApplication):
 
 
 class SpectraQt(Spectra):
-    """ Start the interactive GUI application. """
+    """ Starts the interactive GUI application. """
 
     ICON_PATH = __package__, 'qt/icon.svg'  # Package and relative file path for window icon.
 
@@ -211,8 +211,7 @@ class SpectraQt(Spectra):
         exc_man = ExceptionManager()
         exc_hook = QtExceptionHook(chain_hooks=False)
         exc_hook.connect(exc_man.on_exception)
-        logger = self.build_logger()
-        exc_man.add_logger(lambda s: logger.log('EXCEPTION\n' + s))
+        exc_man.add_logger(lambda s: self.log('EXCEPTION\n' + s))
         async_dsp = QtAsyncDispatcher()
         w_window = QMainWindow()
         ui = Ui_MainWindow()
@@ -240,16 +239,16 @@ class SpectraQt(Spectra):
         """ Load heavy data asynchronously on a new thread to avoid blocking the GUI. """
         app.run_async(self.load_app, app, callback=app.on_loaded, msg_start="Loading...", msg_done="Loading complete.")
 
-    def run(self) -> int:
-        """ Create a QApplication before building any of the GUI. """
-        qt_app = QApplication(sys.argv)
-        app = self.build_app()
-        self.load_app_async(app)
-        # After everything is loaded, start a GUI event loop and run it indefinitely.
-        return qt_app.exec_()
 
+def gui_main() -> int:
+    """ Create a QApplication before building any of the GUI. """
+    qt_app = QApplication(sys.argv)
+    spectra = SpectraQt()
+    app = spectra.build_app()
+    spectra.load_app_async(app)
+    # After everything is loaded, start a GUI event loop and run it indefinitely.
+    return qt_app.exec_()
 
-gui_main = SpectraQt.main
 
 if __name__ == '__main__':
     sys.exit(gui_main())
