@@ -29,9 +29,9 @@ class QtGUIConfig:
     """ Keeps track of configuration options in a dict corresponding to one section of a CFG file. """
 
     def __init__(self, file:ConfigFile, sect="app_qt") -> None:
-        self._file = file
-        self._sect = sect
-        self._options = {}
+        self._file = file   # CFG file I/O wrapper.
+        self._sect = sect   # Name of the CFG file section.
+        self._options = {}  # Stores the current values of all loaded options.
 
     def to_dict(self) -> dict:
         """ Return a copy of all options in a dict. """
@@ -221,9 +221,7 @@ class QtGUIApplication:
         """ Create and show an interpreter console dialog. """
         dialog = self._window.open_dialog(ConsoleDialog)
         if dialog is not None:
-            namespace = {k: getattr(obj, k)
-                         for obj in (self, self._engine)
-                         for k in dir(obj) if not k.startswith('_')}
+            namespace = {k: getattr(self, k) for k in dir(self) if not k.startswith('__')}
             dialog.start_console(namespace)
             dialog.show()
 
@@ -256,7 +254,7 @@ class QtGUIApplication:
 
 
 class QtAppFactory:
-    """ Starts the interactive GUI application. """
+    """ Builds the interactive GUI application. """
 
     ICON_PATH = __package__, 'qt/icon.svg'  # Package and relative file path for window icon.
 
@@ -269,6 +267,7 @@ class QtAppFactory:
         self._exc_hook.connect(self._exc_man.on_exception)
 
     def log_exception(self, s:str) -> None:
+        """ Add a line to differentiate exception log messages from normal ones. """
         self._spc.log('EXCEPTION\n' + s)
 
     def build_app(self) -> QtGUIApplication:
@@ -308,7 +307,7 @@ class QtAppFactory:
 
 
 def main() -> int:
-    """ Create a QApplication before building any of the GUI. """
+    """ In standalone mode, we must create a QApplication before building any of the GUI. """
     opts = CmdlineOptions("Run Spectra as a standalone GUI application.")
     spectra = Spectra(opts)
     q_app = QApplication(sys.argv)
