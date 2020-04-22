@@ -64,7 +64,7 @@ class StenoRule:
         """ The standard string representation of a rule is its keys -> letters mapping. """
         return f"{self.keys} → {self.letters}"
 
-    def verify(self, valid_keys:set, ignored_keys:set) -> None:
+    def verify(self, valid_keys:AbstractSet[str], delimiters:AbstractSet[str]) -> None:
         """ Perform integrity checks on this rule. """
         key_counter = Counter(self.keys)
         assert key_counter, f"Rule {self.id} is empty"
@@ -80,7 +80,7 @@ class StenoRule:
                 assert item.start + item.length <= parent_len
                 keys = item.child.keys
                 key_counter.subtract(keys)
-            mismatched = [k for k in key_counter if key_counter[k] and k not in ignored_keys]
+            mismatched = [k for k in key_counter if key_counter[k] and k not in delimiters]
             assert not mismatched, f"Rule {self.id} has mismatched keys vs. its child rules: {mismatched}"
 
     @classmethod
@@ -147,6 +147,13 @@ class StenoRuleCollection:
     def __iter__(self) -> Iterator[StenoRule]:
         """ Iterate through every rule in order. """
         return iter(self._rules)
+
+    def verify(self, valid_keys:Iterable[str], delimiters:Iterable[str]) -> None:
+        """ Go through each rule and perform integrity checks. """
+        valid_keys = set(valid_keys)
+        delimiters = set(delimiters)
+        for rule in self:
+            rule.verify(valid_keys, delimiters)
 
     @classmethod
     def from_dict(cls, d:Dict[str, Iterable]) -> "StenoRuleCollection":

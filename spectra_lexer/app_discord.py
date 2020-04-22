@@ -10,7 +10,7 @@ from PyQt5.QtCore import QBuffer, QIODevice
 from PyQt5.QtGui import QColor, QImage, QPainter
 from PyQt5.QtSvg import QSvgRenderer
 
-from spectra_lexer.base import Spectra
+from spectra_lexer import Spectra
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.util.cmdline import CmdlineOptions

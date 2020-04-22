@@ -5,7 +5,7 @@ import sys
 from threading import Lock
 from typing import Callable
 
-from spectra_lexer.base import Spectra
+from spectra_lexer import Spectra
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput
 from spectra_lexer.http.connect import HTTPConnectionHandler

@@ -58,9 +58,10 @@ class PrefixPathConverter(BasePathConverter):
         self._converters[prefix] = converter
         self._prefixes = sorted(self._converters, key=len, reverse=True)
 
-    def convert(self, path:str, *, make_dirs=False) -> str:
+    def convert(self, path:str, *segments:str, make_dirs=False) -> str:
         """ Convert a specially formatted <path> string into a full file path usable by open().
             If a special prefix is found, strip it and use its converter on the remaining characters.
+            Any additional <segments> will be joined at the end after conversion.
             If <make_dirs> is true, create directories as needed to make a valid path for write mode. """
         for prefix in self._prefixes:
             if path.startswith(prefix):
@@ -68,6 +69,8 @@ class PrefixPathConverter(BasePathConverter):
                 raw_path = path[len(prefix):]
                 path = converter.convert(raw_path)
                 break
+        if segments:
+            path = os.path.join(path, *segments)
         if make_dirs:
             directory = os.path.dirname(path) or "."
             os.makedirs(directory, exist_ok=True)

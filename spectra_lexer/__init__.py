@@ -32,13 +32,12 @@
             Each stroke is shown separately, with certain rules shown as "compound" keys (such as `n` for -PB) in a
             different color. The board layout is updated to show more detail when the mouse is moved over the graph.
 
-    app - Contains the engine and handles user-level tasks such as configuration and GUI requests.
-    Facilitating communication is *all* it should do; other functionality should be implemented in its components.
-
     gui - As the frontend, the GUI variants are conceptually separate from the other components. The GUI may run
     on a standalone framework with its own threads, meaning we can't directly call into the engine without locks.
     Most interaction with the rest of the app involves a single object representing the "state" of the GUI.
     It is a simple data object which is passed to the app, updated with changes, then passed back.
+
+    app - Contains the engine and handles user-level tasks such as configuration and GUI requests.
 
         qt - The primary desktop GUI uses PyQt. There are several useful debug tools available as well.
 
@@ -50,8 +49,116 @@
         http - An HTML version of the GUI using AJAX is accessible by running an HTTP server. There is little
         in the way of performance or security, but it works well enough to run on a Raspberry Pi.
 
-        none - The engine may be run on its own in a Python console. This is usually not terribly useful, but it does
-        allow for batch operations such as example index generation directly from a terminal shell.
+        console - The engine may be run on its own in a Python console. This is usually not terribly useful.
 
-    base - Anything using Spectra, including the built-in application objects, must start by calling one of the main
-    factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
+        index - Perform batch index generation directly from a terminal shell.
+
+    __main__ - When spectra_lexer is run directly as a script, the first command-line argument will be used
+    to choose one of the application entry points described above, defaulting to the Qt GUI.
+
+    __init__ - Anything using Spectra, including the built-in application objects, must start by calling one of the
+    main factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
+
+import sys
+
+from spectra_lexer.engine import StenoEngine
+from spectra_lexer.plover import plover_info
+from spectra_lexer.resource.board import StenoBoardDefinitions
+from spectra_lexer.resource.keys import StenoKeyLayout
+from spectra_lexer.resource.rules import StenoRuleCollection
+from spectra_lexer.util.cmdline import CmdlineOptions
+from spectra_lexer.util.json import CSONDecoder
+from spectra_lexer.util.log import StreamLogger
+from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
+
+# The name of the root package is used as a default path for built-in assets and user files.
+ROOT_PACKAGE = __package__.split(".", 1)[0]
+
+
+class Spectra:
+    """ Main factory class. Contains all command-line options necessary to build a functioning engine and app. """
+
+    ASSET_PATH_PREFIX = ":/"           # Prefix that indicates built-in assets.
+    USER_PATH_PREFIX = "~/"            # Prefix that indicates local user app data.
+    PLOVER_SENTINEL = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
+    CSON_COMMENT_PREFIX = "#"          # Prefix for comments allowed in non-standard JSON files.
+    LAYOUT_CSON = "key_layout.cson"    # Filename for key layout inside resource directory.
+    RULES_CSON = "rules.cson"          # Filename for rules inside resource directory.
+    BOARD_CSON = "board_defs.cson"     # Filename for board layout inside resource directory.
+
+    def __init__(self, opts:CmdlineOptions=None) -> None:
+        """ Parse any command-line options, then create the logger.
+            It will print messages to stdout and to a file (text mode, append to current contents.)
+            Create empty directories if necessary. Log files will remain open until program close. """
+        if opts is None:
+            opts = CmdlineOptions("Running Spectra as a library (should never be seen).")
+        opts.add("log", self.USER_PATH_PREFIX + "status.log",
+                 "Text file to log status and exceptions.")
+        opts.add("resources", self.ASSET_PATH_PREFIX + "assets/",
+                 "Directory with static steno resources.")
+        opts.add("translations", [self.PLOVER_SENTINEL],
+                 "JSON translation files to load on start.")
+        opts.add("index", self.USER_PATH_PREFIX + "index.json",
+                 "JSON index file to load on start and/or write to.")
+        opts.add("config", Spectra.USER_PATH_PREFIX + "config.cfg",
+                 "Config CFG/INI file to load at start and/or write to.")
+        opts.parse()
+        converter = PrefixPathConverter()
+        converter.add(self.ASSET_PATH_PREFIX, AssetPathConverter(ROOT_PACKAGE))
+        converter.add(self.USER_PATH_PREFIX, UserPathConverter(ROOT_PACKAGE))
+        log_path = converter.convert(opts.log, make_dirs=True)
+        log_stream = open(log_path, 'a', encoding='utf-8')
+        logger = StreamLogger()
+        logger.add_stream(sys.stdout)
+        logger.add_stream(log_stream)
+        self.log = logger.log
+        self._convert_path = converter.convert
+        self._cson_decoder = CSONDecoder(comment_prefix=self.CSON_COMMENT_PREFIX)
+        self._opts = opts
+
+    def translations_paths(self) -> list:
+        filenames = []
+        for f in self._opts.translations:
+            if f == self.PLOVER_SENTINEL:
+                filenames += plover_info.user_dictionary_files(ignore_errors=True)
+            else:
+                filenames.append(self._convert_path(f))
+        return filenames
+
+    def index_path(self) -> str:
+        path = self._opts.index
+        return self._convert_path(path, make_dirs=True)
+
+    def config_path(self) -> str:
+        path = self._opts.config
+        return self._convert_path(path, make_dirs=True)
+
+    def _read_cson_resource(self, rel_path:str) -> dict:
+        """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
+        filename = self._convert_path(self._opts.resources, rel_path)
+        with open(filename, 'r', encoding='utf-8') as fp:
+            s = fp.read()
+        return self._cson_decoder.decode(s)
+
+    def _load_keymap(self) -> StenoKeyLayout:
+        """ Load a steno key constants structure. """
+        d = self._read_cson_resource(self.LAYOUT_CSON)
+        return StenoKeyLayout.from_dict(d)
+
+    def _load_rules(self) -> StenoRuleCollection:
+        d = self._read_cson_resource(self.RULES_CSON)
+        return StenoRuleCollection.from_dict(d)
+
+    def _load_board_defs(self) -> StenoBoardDefinitions:
+        """ Load a dict with steno board graphics definitions. """
+        d = self._read_cson_resource(self.BOARD_CSON)
+        return StenoBoardDefinitions(d)
+
+    def build_engine(self) -> StenoEngine:
+        """ From the base directory, load and verify each steno resource component, then build the base engine. """
+        keymap = self._load_keymap()
+        keymap.verify()
+        rules = self._load_rules()
+        rules.verify(keymap.valid_rtfcre(), keymap.dividers())
+        board_defs = self._load_board_defs()
+        return StenoEngine.from_resources(keymap, rules, board_defs)

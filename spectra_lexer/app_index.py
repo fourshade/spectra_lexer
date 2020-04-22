@@ -3,7 +3,7 @@
 import sys
 from time import time
 
-from spectra_lexer.base import Spectra
+from spectra_lexer import Spectra
 from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.util.cmdline import CmdlineOptions
 

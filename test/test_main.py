@@ -4,7 +4,7 @@
 
 import pytest
 
-from spectra_lexer.base import Spectra
+from spectra_lexer import Spectra
 
 from .base import TEST_TRANSLATIONS
 

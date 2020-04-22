@@ -65,7 +65,7 @@ class ComponentBench:
 
 
 def test_engine():
-    from spectra_lexer.base import Spectra
+    from spectra_lexer import Spectra
     spectra = Spectra()
     engine = spectra.build_engine()
     translations_files = spectra.translations_paths()

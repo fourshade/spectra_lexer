@@ -106,10 +106,9 @@ class StenoKeyLayout:
 
     @classmethod
     def from_dict(cls, d:dict) -> "StenoKeyLayout":
-        """ Verify and return a layout parsed from a standard dict. """
+        """ Return a layout parsed from a standard dict. """
         self = cls()
         self.__dict__.update(d)
-        self.verify()
         return self
 
     def dividers(self) -> Set[str]:
