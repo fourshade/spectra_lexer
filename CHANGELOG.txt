@@ -1,3 +1,9 @@
+11.0.0
+-----
+* Added Discord bot application
+* Refactored code to be more usable as a library
+* Fixed Plover plugin dict precedence
+
 10.1.0
 -----
 * Added gzip compression to HTTP package

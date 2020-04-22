@@ -33,7 +33,7 @@ class IPlover:
         enabled: bool
 
     class StenoDictCollection:
-        dicts: Iterable["IPlover.StenoDict"]
+        dicts: Sequence["IPlover.StenoDict"]
 
     class Engine:
         dictionaries: "IPlover.StenoDictCollection"
@@ -49,9 +49,10 @@ class RawStenoDict(Dict[IPlover.Strokes, str]):
     @classmethod
     def from_steno_dc(cls, steno_dc:IPlover.StenoDictCollection) -> "RawStenoDict":
         """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
-            They only have a subset of the normal dict methods. The fastest of these is .items(). """
+            They only have a subset of the normal dict methods. The fastest of these is .items().
+            A new dict must be updated with these items in reverse order of precedence. """
         self = cls()
-        for steno_d in steno_dc.dicts:
+        for steno_d in reversed(steno_dc.dicts):
             if steno_d and steno_d.enabled:
                 self.update(steno_d.items())
         return self
