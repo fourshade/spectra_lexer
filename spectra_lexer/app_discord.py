@@ -3,7 +3,7 @@
 import io
 import sys
 from traceback import format_exc
-from typing import Optional, Tuple
+from typing import Callable, Optional
 
 import discord
 from PyQt5.QtCore import QBuffer, QIODevice
@@ -16,82 +16,134 @@ from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.util.cmdline import CmdlineOptions
 
 
-def svg_to_png(svg_data:bytes, bg_color=QColor(0, 0, 0, 0)) -> bytearray:
-    """ Render SVG bytes on a transparent bitmap image and convert it to a PNG stream.
-        Use the viewbox dimensions as pixel sizes. """
-    svg = QSvgRenderer(svg_data)
-    viewbox = svg.viewBox().size()
-    im = QImage(viewbox, QImage.Format_ARGB32)
-    im.fill(bg_color)
-    with QPainter(im) as p:
-        svg.render(p)
-    buf = QBuffer()
-    buf.open(QIODevice.WriteOnly)
-    im.save(buf, "PNG")
-    return buf.data()
+class BotMessage:
+    """ Contains all data that makes up a Discord bot's response. """
+
+    def __init__(self, content:str) -> None:
+        self._content = content
+        self._file = None
+
+    def attach_as_file(self, data:bytes, filename:str) -> None:
+        """ Attach an arbitrary string of bytes to this message as a file. """
+        fstream = io.BytesIO(data)
+        self._file = discord.File(fstream, filename)
+
+    def to_kwargs(self) -> dict:
+        """ Return a dict of kwargs for message.channel.send. """
+        kwargs = {'content': self._content}
+        if self._file is not None:
+            kwargs['file'] = self._file
+        return kwargs
+
+    def __str__(self) -> str:
+        return self._content
 
 
 class DiscordBot:
+    """ Basic Discord bot that accepts commands from users in the form of '!command args' """
 
-    ARG_DELIMS = ["->", "→"]
-
-    def __init__(self, engine:StenoEngine, token:str, logger=print) -> None:
-        self._engine = engine
-        self._token = token
-        self._log = logger
+    def __init__(self, token:str, logger=print) -> None:
+        self._token = token  # Discord bot token.
+        self._log = logger   # String callable to log all bot activity.
+        self._cmds = {}      # Dict of command callables. Must accept a string and return a bot message.
         self._client = discord.Client()
         self._client.event(self.on_ready)
         self._client.event(self.on_message)
 
+    def add_command(self, name:str, func:Callable[[str], Optional[BotMessage]]) -> None:
+        """ Add a named ! command with a callable that will be executed with the remainder of the user's input. """
+        self._cmds[name] = func
+
     def run(self) -> int:
+        """ Attempt to connect to Discord with the provided token. """
         self._log('Connecting to Discord...')
         return self._client.run(self._token)
 
     async def on_ready(self) -> None:
-        self._log(f'Logged in as {self._client.user}')
+        """ When logged in, just print a success message and wait for user input. """
+        self._log(f'Logged in as {self._client.user}.')
 
     async def on_message(self, message:discord.Message) -> None:
+        """ Parse user input and execute a command if it isn't our own message, it starts with a "!",
+            and the characters after the "!" but before whitespace match a registered command. """
         if message.author == self._client.user:
             return
         content = message.content
-        for delim in self.ARG_DELIMS:
-            if delim in content:
-                args = [p.strip() for p in content.split(delim)]
-                if len(args) != 2 or not all(args):
-                    return
-                try:
-                    msg, kwargs = self.handle_query(*args)
-                    await message.channel.send(msg, **kwargs)
-                except Exception:
-                    self._log(format_exc())
-                    await message.channel.send('Parse Error.')
-                return
+        if not content.startswith("!"):
+            return
+        cmd_name, cmd_body = content[1:].split(None, 1)
+        cmd_func = self._cmds.get(cmd_name)
+        if cmd_func is None:
+            return
+        arg_string = cmd_body.strip()
+        self._log(f"Command: {cmd_name} {arg_string}")
+        try:
+            reply = cmd_func(arg_string)
+            self._log(f"Reply: {reply}")
+        except Exception:
+            reply = BotMessage('Command parse error.')
+            self._log(format_exc())
+        if reply is None:
+            return
+        kwargs = reply.to_kwargs()
+        await message.channel.send(**kwargs)
 
-    def handle_query(self, keys:str, letters:str) -> Tuple[str, dict]:
-        if len(keys) > 30 or len(letters) > 100:
-            return 'Query is too long.', {}
-        self._log(f'Parsing {keys} -> {letters}')
-        if "?" in keys:
-            rule = self.lookup_phrase(letters)
-            if rule is None:
-                return 'No suggestions.', {}
-            msg = f'Suggestion: {rule}'
-        else:
-            rule = self._engine.analyze(keys, letters)
-            msg = f'Analysis: {rule}'
-        board = self._engine.generate_board(rule, aspect_ratio=1.5)
+
+class DiscordApplication:
+    """ Spectra engine application that accepts string input from Discord users. """
+
+    BOARD_BG_COLOR = QColor(0, 0, 0, 0)  # Transparent color to use for board PNG backgrounds.
+    BOARD_ASPECT_RATIO = 1.5             # Fixed aspect ratio to make board images look best on Discord.
+    QUERY_MAX_CHARS = 100                # Maximum number of characters allowed in a user query string.
+    ANALYSIS_DELIMS = ["->", "→"]        # Tokens that indicate (and delimit) a strokes -> words analysis.
+
+    def __init__(self, engine:StenoEngine) -> None:
+        self._engine = engine  # Main query engine.
+
+    def _svg_to_png(self, svg_data:bytes) -> bytes:
+        """ Render SVG bytes on a transparent bitmap image and convert it to a PNG stream.
+            Use the viewbox dimensions as pixel sizes. """
+        svg = QSvgRenderer(svg_data)
+        viewbox = svg.viewBox().size()
+        im = QImage(viewbox, QImage.Format_ARGB32)
+        im.fill(self.BOARD_BG_COLOR)
+        with QPainter(im) as p:
+            svg.render(p)
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        im.save(buf, "PNG")
+        return buf.data()
+
+    def _board_from_rule(self, rule:StenoRule) -> bytes:
+        """ Generate a board diagram in PNG raster format with good dimensions. """
+        board = self._engine.generate_board(rule, aspect_ratio=self.BOARD_ASPECT_RATIO)
         svg_data = board.encode('utf-8')
-        png_data = svg_to_png(svg_data)
-        f = discord.File(io.BytesIO(png_data), "board.png")
-        return msg, {"file": f}
+        png_data = self._svg_to_png(svg_data)
+        return png_data
 
-    def lookup_phrase(self, letters:str) -> Optional[StenoRule]:
+    def _reply(self, content:str, rule:StenoRule=None) -> BotMessage:
+        """ Construct a Discord bot message from a content string and optionally a rule. """
+        msg = BotMessage(content)
+        if rule is not None:
+            png_data = self._board_from_rule(rule)
+            msg.attach_as_file(png_data, "board.png")
+        return msg
+
+    def analyze(self, keys:str, letters:str) -> BotMessage:
+        """ Do a standard lexical analysis and return the result (unless one or both inputs was empty). """
+        if not keys or not letters:
+            return self._reply('Invalid arguments for -> analysis.')
+        rule = self._engine.analyze(keys, letters)
+        return self._reply(f'Analysis: {rule}', rule)
+
+    def lookup(self, letters:str) -> BotMessage:
+        """ Do an advanced lookup to put together a rule containing strokes for multiple words. """
         subrules = []
         letters = letters.lower().replace(",", "").replace(".", "").replace("?", "").replace("!", "")
         for word in letters.split():
             matches = self._engine.search(word, 1).matches
             if not matches:
-                return None
+                return self._reply(f'No suggestions for {word}.')
             pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
             rule = self._engine.analyze_best(*pairs)
             subrules.append(rule)
@@ -106,7 +158,17 @@ class DiscordBot:
                     for item in r:
                         rule.add_connection(item.child, item.start + offset, item.length)
                     offset += len(r.keys)
-        return rule
+        return self._reply(f'Suggestion: {rule}', rule)
+
+    def exec(self, query:str) -> BotMessage:
+        """ Parse a user query string and return a Discord bot message. """
+        if len(query) > self.QUERY_MAX_CHARS:
+            return self._reply('Query is too long.')
+        for delim in self.ANALYSIS_DELIMS:
+            if delim in query:
+                keys, letters = query.split(delim, 1)
+                return self.analyze(keys.strip(), letters.strip())
+        return self.lookup(query)
 
 
 def main() -> int:
@@ -117,7 +179,9 @@ def main() -> int:
     engine = spectra.build_engine()
     translations_files = spectra.translations_paths()
     engine.load_translations(*translations_files)
-    bot = DiscordBot(engine, opts.token, spectra.log)
+    app = DiscordApplication(engine)
+    bot = DiscordBot(opts.token, spectra.log)
+    bot.add_command("spectra", app.exec)
     return bot.run()
 
 
