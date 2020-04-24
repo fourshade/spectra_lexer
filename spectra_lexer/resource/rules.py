@@ -38,7 +38,7 @@ class StenoRule:
     is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     is_unmatched = Flag("BAD")  # Placeholder for keys inside a compound rule that do not belong to another child rule.
 
-    def __init__(self, r_id:str, keys:str, letters:str, info:str, flags:AbstractSet[str], alt="") -> None:
+    def __init__(self, r_id:str, keys:str, letters:str, info:str, flags:AbstractSet[str]=frozenset(), alt="") -> None:
         self.id = r_id          # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
         self.keys = keys        # Raw string of steno keys that make up the rule.
         self.letters = letters  # Raw English text of the word.
@@ -71,21 +71,19 @@ class StenoRule:
         # All keys must be valid RTFCRE characters.
         assert (key_counter.keys() <= valid_keys), f"Rule {self.id} has invalid keys"
         if self:
-            # Check that the rulemap positions all fall within the legal bounds (i.e. within the parent's letters)
-            # Make sure the child rules contain all the keys of the parent between them, and no extras.
-            parent_len = len(self.letters)
+            # Check that the rulemap positions all fall within our own letter bounds.
+            # Make sure the child rules contain all the keys of this rule between them, and no extras.
             for item in self:
                 assert item.start >= 0
                 assert item.length >= 0
-                assert item.start + item.length <= parent_len
-                keys = item.child.keys
-                key_counter.subtract(keys)
+                assert item.start + item.length <= len(self.letters)
+                key_counter.subtract(item.child.keys)
             mismatched = [k for k in key_counter if key_counter[k] and k not in delimiters]
             assert not mismatched, f"Rule {self.id} has mismatched keys vs. its child rules: {mismatched}"
 
     @classmethod
     def analysis(cls, keys:str, letters:str, info:str) -> "StenoRule":
-        return cls("", keys, letters, info, set())
+        return cls("", keys, letters, info)
 
     @classmethod
     def unmatched(cls, keys:str) -> "StenoRule":

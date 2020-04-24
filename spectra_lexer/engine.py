@@ -86,10 +86,9 @@ class StenoEngine:
         """ Run a lexer query on a translation and return the result in rule format. """
         return self._analyzer.query(keys, letters, match_all_keys=strict_mode)
 
-    def analyze_best(self, *translations:Tuple[str, str], strict_mode=False) -> StenoRule:
-        """ Run a lexer query on a number of translations and return the best resulting rule. """
-        keys, letters = self._analyzer.best_translation(translations)
-        return self.analyze(keys, letters, strict_mode)
+    def best_translation(self, *translations:Tuple[str, str]) -> Tuple[str, str]:
+        """ Run a lexer query on a number of translations and return the best one. """
+        return self._analyzer.best_translation(translations)
 
     def generate_board(self, rule:StenoRule, aspect_ratio:float=None, show_letters=True) -> str:
         """ Generate an encoded board diagram layout for a rule arranged according to <aspect ratio>. """

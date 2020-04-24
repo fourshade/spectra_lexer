@@ -71,9 +71,8 @@ class GUILayer:
         output = GUIOutput()
         strict_mode = opts.lexer_strict_mode
         if others:
-            analysis = self._engine.analyze_best(translation, *others, strict_mode=strict_mode)
-        else:
-            analysis = self._engine.analyze(*translation, strict_mode=strict_mode)
+            translation = self._engine.best_translation(translation, *others)
+        analysis = self._engine.analyze(*translation, strict_mode=strict_mode)
         compressed = opts.graph_compressed_layout
         compat = opts.graph_compatibility_mode
         graph = self._engine.generate_graph(analysis, compressed, compat)

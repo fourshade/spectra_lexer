@@ -3,7 +3,7 @@
 import io
 import sys
 from traceback import format_exc
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 
 import discord
 from PyQt5.QtCore import QBuffer, QIODevice
@@ -96,9 +96,11 @@ class DiscordApplication:
     BOARD_ASPECT_RATIO = 1.5             # Fixed aspect ratio to make board images look best on Discord.
     QUERY_MAX_CHARS = 100                # Maximum number of characters allowed in a user query string.
     ANALYSIS_DELIMS = ["->", "→"]        # Tokens that indicate (and delimit) a strokes -> words analysis.
+    EXCLUDED_CHARS = ",.?!"              # Characters that should be removed before searching for words.
 
-    def __init__(self, engine:StenoEngine) -> None:
-        self._engine = engine  # Main query engine.
+    def __init__(self, engine:StenoEngine, space_rule:StenoRule) -> None:
+        self._engine = engine          # Main query engine.
+        self._space_rule = space_rule  # Stroke separator rule corresponding to space.
 
     def _svg_to_png(self, svg_data:bytes) -> bytes:
         """ Render SVG bytes on a transparent bitmap image and convert it to a PNG stream.
@@ -129,36 +131,51 @@ class DiscordApplication:
             msg.attach_as_file(png_data, "board.png")
         return msg
 
-    def analyze(self, keys:str, letters:str) -> BotMessage:
-        """ Do a standard lexical analysis and return the result (unless one or both inputs was empty). """
-        if not keys or not letters:
-            return self._reply('Invalid arguments for -> analysis.')
-        rule = self._engine.analyze(keys, letters)
-        return self._reply(f'Analysis: {rule}', rule)
+    @staticmethod
+    def _join_rules(rules:Iterable[StenoRule]) -> StenoRule:
+        """ Join several rules into one for display purposes. """
+        analysis = StenoRule.analysis("", "", "Compound analysis.")
+        offset = 0
+        for r in rules:
+            analysis.keys += r.keys
+            analysis.letters += r.letters
+            length = len(r.letters)
+            analysis.add_connection(r, offset, length)
+            offset += length
+        return analysis
 
-    def lookup(self, letters:str) -> BotMessage:
-        """ Do an advanced lookup to put together a rule containing strokes for multiple words. """
-        subrules = []
-        letters = letters.lower().replace(",", "").replace(".", "").replace("?", "").replace("!", "")
+    def _sanitize(self, letters:str) -> str:
+        """ Render a string of letters suitable for piece-by-piece word analysis. """
+        for c in self.EXCLUDED_CHARS:
+            letters = letters.replace(c, "")
+        return letters.lower()
+
+    def _analyze_words(self, letters:str) -> Optional[StenoRule]:
+        """ Do an advanced lookup to put together rules containing strokes for multiple words. """
+        letters = self._sanitize(letters)
+        rules = []
+        is_invalid = True
         for word in letters.split():
             matches = self._engine.search(word, 1).matches
             if not matches:
-                return self._reply(f'No suggestions for {word}.')
-            pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
-            rule = self._engine.analyze_best(*pairs)
-            subrules.append(rule)
-        rule, *others = subrules
-        if others:
-            offset = len(rule.keys)
-            sep = self._engine.analyze("/", " ")
-            for oth in others:
-                for r in (sep, oth):
-                    rule.keys += r.keys
-                    rule.letters += r.letters
-                    for item in r:
-                        rule.add_connection(item.child, item.start + offset, item.length)
-                    offset += len(r.keys)
-        return self._reply(f'Suggestion: {rule}', rule)
+                rule = StenoRule.analysis("?", "-" * len(word), "Skipped word.")
+            else:
+                is_invalid = False
+                pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
+                translation = self._engine.best_translation(*pairs)
+                rule = self._engine.analyze(*translation)
+            rules += [rule, self._space_rule]
+        if is_invalid:
+            return None
+        rules.pop()
+        return self._join_rules(rules)
+
+    def _analyze_translation(self, keys:str, letters:str) -> Optional[StenoRule]:
+        """ Do a standard lexical analysis and return the result (unless one or both inputs was empty). """
+        keys = keys.strip()
+        letters = letters.strip()
+        if keys and letters:
+            return self._engine.analyze(keys, letters)
 
     def exec(self, query:str) -> BotMessage:
         """ Parse a user query string and return a Discord bot message. """
@@ -166,9 +183,14 @@ class DiscordApplication:
             return self._reply('Query is too long.')
         for delim in self.ANALYSIS_DELIMS:
             if delim in query:
-                keys, letters = query.split(delim, 1)
-                return self.analyze(keys.strip(), letters.strip())
-        return self.lookup(query)
+                analysis = self._analyze_translation(*query.split(delim, 1))
+                if analysis is None:
+                    return self._reply('Invalid arguments for -> analysis.')
+                return self._reply(f'Analysis: {analysis}', analysis)
+        analysis = self._analyze_words(query)
+        if analysis is None:
+            return self._reply('No suggestions.')
+        return self._reply(f'Suggestion: {analysis}', analysis)
 
 
 def main() -> int:
@@ -179,7 +201,8 @@ def main() -> int:
     engine = spectra.build_engine()
     translations_files = spectra.translations_paths()
     engine.load_translations(*translations_files)
-    app = DiscordApplication(engine)
+    space_rule = engine.analyze("/", " ")
+    app = DiscordApplication(engine, space_rule)
     bot = DiscordBot(opts.token, spectra.log)
     bot.add_command("spectra", app.exec)
     return bot.run()
