@@ -71,11 +71,11 @@ class DiscordBot:
         content = message.content
         if not content.startswith("!"):
             return
-        cmd_name, cmd_body = content[1:].split(None, 1)
+        cmd_name, *cmd_body = content[1:].split(None, 1)
         cmd_func = self._cmds.get(cmd_name)
         if cmd_func is None:
             return
-        arg_string = cmd_body.strip()
+        arg_string = cmd_body[0].strip() if cmd_body else ""
         self._log(f"Command: {cmd_name} {arg_string}")
         try:
             reply = cmd_func(arg_string)

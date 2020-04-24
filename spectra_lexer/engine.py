@@ -109,6 +109,6 @@ class StenoEngine:
         key_parser = keymap.make_parser()
         search_engine = SearchEngine()
         analyzer = StenoAnalyzer.from_resources(key_parser, rules, keymap.sep, keymap.unordered)
-        node_factory = GraphFactory(keymap.split)
+        graph_factory = GraphFactory(keymap.split)
         board_factory = BoardFactory.from_resources(key_parser, board_defs, keymap.unordered[-1:])
-        return cls(search_engine, analyzer, node_factory, board_factory)
+        return cls(search_engine, analyzer, graph_factory, board_factory)
