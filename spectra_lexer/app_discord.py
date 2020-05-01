@@ -156,7 +156,7 @@ class DiscordApplication:
         rules = []
         is_invalid = True
         for word in letters.split():
-            matches = self._engine.search(word, 1).matches
+            matches = self._engine.search(word, 1)
             if not matches:
                 rule = StenoRule.analysis("?", "-" * len(word), "Skipped word.")
             else:

@@ -7,15 +7,14 @@ from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
 from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
-from spectra_lexer.search import SearchEngine, SearchResults
+from spectra_lexer.search import MatchDict, SearchEngine
 from spectra_lexer.util.parallel import ParallelMapper
 
 
 class StenoEngine:
     """ Top-level controller for all steno search, analysis, and display components. """
 
-    SEARCH_LIMIT = 100  # Maximum number of matches returned in a search by default.
-    INDEX_DELIM = ";"   # Delimiter between rule name and query for example index searches.
+    INDEX_DELIM = ";"  # Delimiter between rule name and query for example index searches.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  node_factory:GraphFactory, board_factory:BoardFactory) -> None:
@@ -64,11 +63,13 @@ class StenoEngine:
         if filename is not None:
             examples.json_dump(filename)
 
-    def search(self, pattern:str, count:int=SEARCH_LIMIT, mode_strokes=False, mode_regex=False) -> SearchResults:
+    def search(self, pattern:str, count:int=None, mode_strokes=False, mode_regex=False) -> MatchDict:
         if self.INDEX_DELIM in pattern:
             link_ref, pattern = pattern.split(self.INDEX_DELIM, 1)
             return self._search_engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
-        return self._search_engine.search_translations(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
+        if mode_regex:
+            return self._search_engine.search_regex(pattern, count, mode_strokes=mode_strokes)
+        return self._search_engine.search(pattern, count, mode_strokes=mode_strokes)
 
     def has_examples(self, rule_id:str) -> bool:
         return self._search_engine.has_examples(rule_id)

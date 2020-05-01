@@ -1,5 +1,5 @@
 import pkgutil
-from typing import Callable, Iterable
+from typing import Callable
 
 from PyQt5.QtWidgets import QApplication, QMainWindow
 

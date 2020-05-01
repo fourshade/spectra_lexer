@@ -1,11 +1,10 @@
 """ Module for key-search dictionaries from generic to specialized. """
 
 from bisect import bisect_left
-from collections import defaultdict
 from itertools import islice
 from operator import methodcaller
 import re
-from typing import Callable, Dict, Iterable, Mapping, List, Tuple, TypeVar
+from typing import Callable, Dict, Iterable, List, Tuple, TypeVar
 
 SKT = TypeVar("SKT")  # Similarity-transformed key (simkey) type.
 KT = TypeVar("KT")    # Raw key type.
@@ -234,31 +233,3 @@ class StringSearchDict(SimilarKeyDict):
             match_op = re.compile(pattern).match
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))
-
-
-class ReverseDict(dict):
-    """ A reverse dictionary. Inverts a mapping from {key: value} to {value: [keys]}. """
-
-    def add(self, k, v) -> None:
-        """ Add the value <v> to the list located under the key <k>.
-            Create a new list with that key if the value doesn't exist yet. """
-        if k in self:
-            self[k].append(v)
-        else:
-            self[k] = [v]
-
-    def remove(self, k, v) -> None:
-        """ Remove the value <v> from the list located under the key <k>. The key must exist.
-            If it was the last key in the list, remove the dictionary entry entirely. """
-        i = self[k]
-        i.remove(v)
-        if not i:
-            del self[k]
-
-    @classmethod
-    def from_forward(cls, forward:Mapping, **kwargs) -> "ReverseDict":
-        """ Create a matching inverse to the forward mapping <forward>.
-            It is a fast way to populate a reverse dict from scratch. """
-        rdict = defaultdict(list)
-        list(map(list.append, [rdict[v] for v in forward.values()], forward))
-        return cls(rdict, **kwargs)

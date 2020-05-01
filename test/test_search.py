@@ -8,8 +8,7 @@ import pytest
 
 from .base import TEST_TRANSLATIONS
 from spectra_lexer.search import SearchEngine
-from spectra_lexer.search.dict import ReverseDict, SimilarKeyDict, StringSearchDict
-from spectra_lexer.search.search import BaseStenoDict, ForwardStenoDict, ReverseStenoDict
+from spectra_lexer.search.dict import SimilarKeyDict, StringSearchDict
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -24,8 +23,7 @@ def class_hierarchy_tester(*test_classes:type):
 
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_hierarchy_tester(ReverseDict, SimilarKeyDict, StringSearchDict,
-                                    BaseStenoDict, ForwardStenoDict, ReverseStenoDict)
+class_test = class_hierarchy_tester(SimilarKeyDict, StringSearchDict)
 
 
 @class_test(SimilarKeyDict)
@@ -221,51 +219,12 @@ def test_string_dict(cls) -> None:
         d.regex_match_keys('beautiful...an open group(', count=1)
 
 
-@class_test(ReverseDict)
-def test_reverse_dict(cls) -> None:
-    """ Unit tests for the added functionality of the multidict/reverse dict class. """
-    # A multidict must add items to a list rather than overwrite them.
-    d = cls()
-    d.add('beautiful', ('WAOUFL',))
-    d.add('BEAUTIFUL', ('PWAOUT', '-FL'))
-    d.add('beautiful', ('PWAOUFL',))
-    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                 'BEAUTIFUL': [('PWAOUT', '-FL')]}
-    # Items can be removed from any list; the leftovers will stay in their original order.
-    d.add('ugly', ('LUG',))
-    d.add('ugly', ('ULG',))
-    d.add('ugly', ('UG', 'LY'))
-    d.add('ugly', ('UG', 'HREU'))
-    d.remove('ugly', ('LUG',))
-    d.remove('ugly', ('UG', 'LY'))
-    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                 'BEAUTIFUL': [('PWAOUT', '-FL')],
-                 'ugly':      [('ULG',), ('UG', 'HREU')]}
-    # Any list with all entries removed should be totally removed from the dict (don't leave an empty list).
-    d.remove('ugly', ('ULG',))
-    d.remove('ugly', ('UG', 'HREU'))
-    assert d == {'beautiful': [('WAOUFL',), ('PWAOUFL',)],
-                 'BEAUTIFUL': [('PWAOUT', '-FL')]}
-    # A reverse dict should be able to invert any mapping at the most basic level.
-    fd = {1: "a", 2: "b", 3: "a", 4: "c",
-          5: "a", 6: "b", 7: "a", 8: "d"}
-    rd = cls()
-    for k in fd:
-        rd.add(fd[k], k)
-    rd2 = cls.from_forward(fd)
-    assert rd == rd2 == {"a": [1, 3, 5, 7],
-                         "b": [2, 6],
-                         "c": [4],
-                         "d": [8]}
-
-
 def test_translations_search() -> None:
     """ Go through each loaded test translation and check all search methods. """
     engine = SearchEngine()
     engine.set_translations(TEST_TRANSLATIONS)
-    search = engine.search_translations
     for keys, word in TEST_TRANSLATIONS.items():
-        assert search(word, count=2).matches == {word: [keys]}
-        assert search(keys, count=2, mode_strokes=True).matches == {keys: [word]}
-        assert word in search(re.escape(word), count=2, mode_regex=True).matches
-        assert keys in search(re.escape(keys), count=2, mode_strokes=True, mode_regex=True).matches
+        assert engine.search(word, count=2) == {word: [keys]}
+        assert engine.search(keys, count=2, mode_strokes=True) == {keys: [word]}
+        assert word in engine.search_regex(re.escape(word), count=2)
+        assert keys in engine.search_regex(re.escape(keys), count=2, mode_strokes=True)

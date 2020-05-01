@@ -1,7 +1,15 @@
 from typing import Any, Dict, Tuple
 
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.search import SearchResults
+from spectra_lexer.search import MatchDict, SearchRegexError
+
+
+class SearchResults:
+    """ Data class for all results of a search. """
+
+    def __init__(self, matches:MatchDict, is_complete=True) -> None:
+        self.matches = matches          # Dict of matched strings with a list of mappings for each.
+        self.is_complete = is_complete  # If True, this includes all available results.
 
 
 class DisplayPage:
@@ -116,17 +124,24 @@ class GUILayer:
         mode_strokes = opts.search_mode_strokes
         if pattern.strip():
             count = pages * opts.search_match_limit
-            output.search_results = self._engine.search(pattern, count, mode_strokes, opts.search_mode_regex)
+            try:
+                matches = self._engine.search(pattern, count, mode_strokes, opts.search_mode_regex)
+                is_complete = len(matches) < count
+            except SearchRegexError:
+                matches = {"REGEX ERROR": []}
+                is_complete = True
+            output.search_results = SearchResults(matches, is_complete)
         return output
 
     def search_examples(self, link_ref:str, *, opts=GUIOptions()) -> GUIOutput:
-        """ When a link is clicked, search for examples of the named rule and select one. """
+        """ When a link is clicked, search for examples of the named rule and select one at random. """
         mode_strokes = opts.search_mode_strokes
         keys, letters, pattern = self._engine.random_example(link_ref, mode_strokes)
         if keys and letters:
+            matches = self._engine.search(pattern, opts.search_match_limit, mode_strokes)
             output = self.query((keys, letters), opts=opts)
             output.search_input = pattern
-            output.search_results = self._engine.search(pattern, opts.search_match_limit, mode_strokes)
+            output.search_results = SearchResults(matches, True)
         else:
             output = GUIOutput()
         return output

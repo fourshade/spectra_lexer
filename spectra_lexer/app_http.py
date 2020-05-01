@@ -7,13 +7,12 @@ from typing import Callable
 
 from spectra_lexer import Spectra
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput
+from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput, SearchResults
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
 from spectra_lexer.resource.translations import RTFCREDict
-from spectra_lexer.search import SearchResults
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.json import CustomJSONEncoder, RestrictedJSONDecoder
 

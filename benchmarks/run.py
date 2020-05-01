@@ -29,22 +29,23 @@ class ComponentBench:
         step = len(items) // n
         return items[:step*n:step]
 
-    def run_search(self) -> None:
+    def run_search(self, n=50000) -> None:
         import random
-        random.seed(123)
-        prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(50000)]
-        self._profiler.run(self._engine.search, zip(prefixes))
+        random.seed(n)
+        prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(n)]
+        counts = [100] * n
+        self._profiler.run(self._engine.search, zip(prefixes, counts))
 
-    def run_lexer(self) -> None:
-        self._profiler.run(self._engine.analyze, self._spaced_translations(5000))
+    def run_lexer(self, n=5000) -> None:
+        self._profiler.run(self._engine.analyze, self._spaced_translations(n))
 
-    def run_http(self) -> None:
+    def run_http(self, n=500) -> None:
         from spectra_lexer.app_http import build_server
         from spectra_lexer.http.tcp import TCPConnection, TCPServer
         import io, json
         obj = {"action": "query", "options": {}}
         args_list = []
-        for item in self._spaced_translations(500):
+        for item in self._spaced_translations(n):
             obj["args"] = [item]
             content = json.dumps(obj).encode('utf8')
             length = str(len(content)).encode('utf8')
