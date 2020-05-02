@@ -41,13 +41,15 @@ class BoardFactory:
         self._doc_factory = doc_factory
 
     def board_from_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
-        """ Generate a board diagram from keys without any special shapes or colors. """
+        """ Generate a board diagram from a steno key string arranged according to <aspect ratio>.
+            Copy the element list to avoid corrupting the caches. """
         skeys = self._to_skeys(keys)
         elems = self._elems_from_skeys(skeys)[:]
         return self._doc_factory.make_svg(elems, aspect_ratio)
 
-    def board_from_rule(self, rule:StenoRule, aspect_ratio:float=None, show_letters=True) -> BoardDiagram:
-        """ Generate a board diagram from a steno rule object. Copy the list to avoid corrupting the caches. """
+    def board_from_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
+        """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>.
+            Copy the element list to avoid corrupting the caches. """
         elems = self._elems_from_rule(rule, show_letters)[:]
         return self._doc_factory.make_svg(elems, aspect_ratio)
 
@@ -145,7 +147,7 @@ class RuleGraph:
         """ Return the rule mapped to this ref string. """
         return self._ref_map[ref]
 
-    def draw(self, ref="", intense=False) -> str:
+    def draw(self, ref="", *, intense=False) -> str:
         """ Return an HTML text graph with <ref> highlighted.
             Highlight nothing if <ref> is blank. Use brighter highlighting colors if <intense> is True. """
         return self._formatter.format(ref, intense)
@@ -157,8 +159,9 @@ class GraphFactory:
     def __init__(self, ignored_chars="") -> None:
         self._ignored = set(ignored_chars)  # Tokens to ignore at the beginning of key strings (usually the hyphen).
 
-    def build(self, rule:StenoRule, compressed=True, compat=False) -> RuleGraph:
-        """ The root node's attach points are arbitrary, so tstart=0 and tlen=len(letters). """
+    def build(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
+        """ Generate a graph object for a steno rule.
+            The root node's attach points are arbitrary, so start=0 and length=len(letters). """
         ref_dict = {}
         root = self._build_tree(ref_dict, rule, 0, len(rule.letters))
         layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
@@ -172,9 +175,9 @@ class GraphFactory:
         children = [self._build_tree(ref_dict, c.child, c.start, c.length) for c in rule]
         ref = str(len(ref_dict))
         ref_dict[ref] = rule
-        return self.build_node(ref, rule, start, length, children)
+        return self._build_node(ref, rule, start, length, children)
 
-    def build_node(self, ref:str, rule:StenoRule, start:int, length:int, children:Sequence[GraphNode]=()) -> GraphNode:
+    def _build_node(self, ref:str, rule:StenoRule, start:int, length:int, children:Sequence[GraphNode]=()) -> GraphNode:
         """ Make a new node from a rule's properties, position, and descendants. """
         body = self._build_body(rule)
         width = body.width()

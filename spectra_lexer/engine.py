@@ -84,24 +84,19 @@ class StenoEngine:
         return keys, letters, pattern
 
     def analyze(self, keys:str, letters:str, strict_mode=False) -> StenoRule:
-        """ Run a lexer query on a translation and return the result in rule format. """
-        return self._analyzer.query(keys, letters, match_all_keys=strict_mode)
+        return self._analyzer.query(keys, letters, strict_mode=strict_mode)
 
     def best_translation(self, *translations:Tuple[str, str]) -> Tuple[str, str]:
-        """ Run a lexer query on a number of translations and return the best one. """
         return self._analyzer.best_translation(translations)
 
     def generate_board(self, rule:StenoRule, aspect_ratio:float=None, show_letters=True) -> str:
-        """ Generate an encoded board diagram layout for a rule arranged according to <aspect ratio>. """
-        return self._board_factory.board_from_rule(rule, aspect_ratio, show_letters)
+        return self._board_factory.board_from_rule(rule, aspect_ratio, show_letters=show_letters)
 
     def generate_board_from_keys(self, keys:str, aspect_ratio:float=None) -> str:
-        """ Generate an encoded board diagram layout for a plain set of keys arranged according to <aspect ratio>. """
         return self._board_factory.board_from_keys(keys, aspect_ratio)
 
     def generate_graph(self, rule:StenoRule, compressed=True, compat=False) -> RuleGraph:
-        """ Generate a graph object for a rule. """
-        return self._graph_factory.build(rule, compressed, compat)
+        return self._graph_factory.build(rule, compressed=compressed, compat=compat)
 
     @classmethod
     def from_resources(cls, keymap:StenoKeyLayout, rules:StenoRuleCollection,

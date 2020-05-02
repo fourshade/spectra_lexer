@@ -21,16 +21,16 @@ class StenoAnalyzer:
         self._lexer = lexer                          # Main analysis engine; operates only on s-keys.
         self._refmap = refmap                        # Mapping of lexer rule objects to their original StenoRules.
 
-    def query(self, keys:str, letters:str, match_all_keys=False) -> StenoRule:
-        """ Return an analysis matching <keys> to <letters>. Thoroughly parse the key string into s-keys first.
-           If <match_all_keys> is True and the best result is missing some, return a fully unmatched result instead. """
+    def query(self, keys:str, letters:str, *, strict_mode=False) -> StenoRule:
+        """ Return a lexer analysis matching <keys> to <letters> in standard steno rule format.
+            If <strict_mode> is True and the best result is missing keys, return a fully unmatched result instead. """
         skeys = self._to_skeys(keys)
         result = self._lexer.query(skeys, letters)
         info = self._result_info(result)
         rule = StenoRule.analysis(keys, letters, info)
         unmatched_skeys = result.unmatched_skeys
         last_match_end = 0
-        if match_all_keys and unmatched_skeys:
+        if strict_mode and unmatched_skeys:
             unmatched_skeys = skeys
         else:
             for lr, start in zip(result.rules, result.rule_positions):
@@ -55,7 +55,7 @@ class StenoAnalyzer:
         return info
 
     def best_translation(self, translations:Sequence[Tuple[str, str]]) -> Tuple[str, str]:
-        """ Return the best (most accurate) from a sequence of <translations>. """
+        """ Return the best (most accurate) from a sequence of <translations> according to lexer ranking. """
         converted = [(self._to_skeys(keys), letters) for keys, letters in translations]
         best_index = self._lexer.find_best_translation(converted)
         return translations[best_index]
