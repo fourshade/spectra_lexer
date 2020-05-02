@@ -34,21 +34,6 @@ class BoardElementGroup:
         return iter(self._elems)
 
 
-class ColumnTransforms:
-    """ Creates evenly spaced offset transformations for a grid with a given size and column count. """
-
-    def __init__(self, w:int, h:int, ncols:int) -> None:
-        self._w = w
-        self._h = h
-        self._ncols = ncols
-
-    def __getitem__(self, i:int) -> TransformData:
-        """ Create a (dx, dy) translation for row-major item <i> in the grid. """
-        dx = self._w * (i % self._ncols)
-        dy = self._h * (i // self._ncols)
-        return TransformData.translation(dx, dy)
-
-
 class LinkedOverlay:
     """ Contains a chain connecting two strokes, which are shifted independently of the main stroke groupings. """
 
@@ -57,12 +42,9 @@ class LinkedOverlay:
         self._factory = factory
         self._strokes = s_stroke, e_stroke  # Element groups with the ending of one stroke and the start of another.
 
-    def iter_overlays(self, tfrms:ColumnTransforms, i:int) -> Iterator[XMLElement]:
-        """ <sx, sy> is the offset of the beginning stroke, and <ex, ey> is the offset of the ending stroke.
-            For multi-element rules, connect the last element in the first stroke to the first element in the next. """
+    def iter_overlays(self, first_tfrm:TransformData, last_tfrm:TransformData) -> Iterator[XMLElement]:
+        """ For multi-element rules, connect the last element in the first stroke to the first element in the next. """
         s_stroke, e_stroke = self._strokes
-        first_tfrm = tfrms[i]
-        last_tfrm = tfrms[i + 1]
         first_offset = s_stroke[-1].get_offset() + first_tfrm.offset()
         last_offset = e_stroke[0].get_offset() + last_tfrm.offset()
         yield from self._iter_layers(first_offset, last_offset)
@@ -187,44 +169,31 @@ class BoardElementFactory:
         grp.iter_overlays = LinkedOverlay(self._factory, strk1, strk2).iter_overlays
         return grp
 
-    def base_group(self, *base_elems:BoardElementGroup) -> BoardElementGroup:
+    def base_pair(self, base_groups:Sequence[BoardElementGroup]) -> Tuple[XMLElement, XMLElement]:
         """ Make a <use> element for the base present in every stroke matching a <defs> element. """
         base_id = "_BASE"
         items = []
-        for grp in base_elems:
+        for grp in base_groups:
             items += grp
         g = self._factory.group(*items, id=base_id)
         defs = self._factory.defs(g)
         base = self._factory.use(base_id)
-        return BoardElementGroup(defs, base)
+        return defs, base
 
 
-class BoardDocumentFactory:
-    """ Factory for SVG steno board documents corresponding to user input. """
+class BoardDimensions:
 
-    _DEFAULT_RATIO = 100.0  # If no aspect ratio is given, this ensures that all boards end up in one row.
+    def __init__(self, x:int, y:int, w:int, h:int) -> None:
+        self._offset = x, y  # X/Y offset for the viewbox of one stroke diagram.
+        self._w = w          # Width for the viewbox of one stroke diagram.
+        self._h = h          # Height for the viewbox of one stroke diagram.
 
-    def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, x:int, y:int, w:int, h:int) -> None:
-        self._factory = factory  # Standard SVG element factory.
-        self._defs = defs        # SVG defs element to include at the beginning of every document.
-        self._base = base        # Base SVG element that is shown under every stroke diagram.
-        self._offset = x, y      # X/Y offset for the viewbox of one stroke diagram.
-        self._size = w, h        # Width/height for the viewbox of one stroke diagram.
-
-    def make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
-        """ Split elements into diagrams, arrange them to match the aspect ratio, and encode a new SVG document. """
-        stroke_count = 1 + len([1 for el in elems if el.ends_stroke])
-        rows, cols = self._dimensions(stroke_count, aspect_ratio or self._DEFAULT_RATIO)
-        w, h = self._size
-        tfrms = ColumnTransforms(w, h, cols)
-        diagrams = self._arrange(elems, tfrms)
-        document = self._factory.svg(*self._offset, w * cols, h * rows, *diagrams)
-        return document.serialize()
-
-    def _dimensions(self, count:int, device_ratio:float) -> Tuple[int, int]:
+    def grid_dimensions(self, count:int, device_ratio:float=None) -> Tuple[int, int]:
         """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale. """
-        w, h = self._size
-        diagram_ratio = w / h
+        if device_ratio is None:
+            # If no aspect ratio is given, this ensures that all boards end up in one column.
+            return count, 1
+        diagram_ratio = self._w / self._h
         # rel_ratio is the aspect ratio of one diagram divided by that of the device viewing area.
         rel_ratio = diagram_ratio / device_ratio
         r = min(rel_ratio, 1 / rel_ratio)
@@ -234,7 +203,30 @@ class BoardDocumentFactory:
         t = ceil(count / s)
         return (s, t) if rel_ratio < 1 else (t, s)
 
-    def _arrange(self, elems:Iterable[BoardElementGroup], tfrms:ColumnTransforms) -> List[XMLElement]:
+    def _grid_offset(self, i:int, ncols:int) -> TransformData:
+        """ Create a (dx, dy) translation for row-major item <i> in a diagram grid with <ncols> columns. """
+        dx = self._w * (i % ncols)
+        dy = self._h * (i // ncols)
+        return TransformData.translation(dx, dy)
+
+    def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
+        """ Create evenly spaced offset transformations for a grid with <count> diagrams in <ncols> columns. """
+        return [self._grid_offset(i, ncols) for i in range(count)]
+
+    def viewbox(self, rows:int, cols:int) -> List[int]:
+        return [*self._offset, self._w * cols, self._h * rows]
+
+
+class BoardDocumentFactory:
+    """ Factory for SVG steno board documents corresponding to user input. """
+
+    def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, dims:BoardDimensions) -> None:
+        self._factory = factory  # Standard SVG element factory.
+        self._defs = defs        # SVG defs element to include at the beginning of every document.
+        self._base = base        # Base SVG element that is shown under every stroke diagram.
+        self._dims = dims
+
+    def _arrange(self, elems:Iterable[BoardElementGroup], tfrms:Sequence[TransformData]) -> List[XMLElement]:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
             Transform each diagram to be tiled left-to-right, top-to-bottom in a grid layout. """
         diagram_list = [self._defs]
@@ -244,7 +236,7 @@ class BoardDocumentFactory:
         for el in elems:
             stroke_elems += el
             if el.iter_overlays is not None:
-                overlay_list += el.iter_overlays(tfrms, i)
+                overlay_list += el.iter_overlays(tfrms[i], tfrms[i + 1])
             if el.ends_stroke:
                 diagram = self._factory.group(self._base, *stroke_elems, transform=tfrms[i])
                 diagram_list.append(diagram)
@@ -253,3 +245,13 @@ class BoardDocumentFactory:
         diagram_list.append(self._factory.group(self._base, *stroke_elems, transform=tfrms[i]))
         diagram_list += overlay_list
         return diagram_list
+
+    def make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
+        """ Split elements into diagrams, arrange them to match the aspect ratio, and encode a new SVG document. """
+        stroke_count = 1 + len([1 for el in elems if el.ends_stroke])
+        rows, cols = self._dims.grid_dimensions(stroke_count, aspect_ratio)
+        tfrms = self._dims.transforms(stroke_count, cols)
+        viewbox = self._dims.viewbox(rows, cols)
+        diagrams = self._arrange(elems, tfrms)
+        document = self._factory.svg(*viewbox, *diagrams)
+        return document.serialize()

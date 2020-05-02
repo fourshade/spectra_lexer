@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Dict, List, Sequence
 
-from spectra_lexer.board import BoardDiagram, BoardDocumentFactory, BoardElementFactory, \
+from spectra_lexer.board import BoardDiagram, BoardDimensions, BoardDocumentFactory, BoardElementFactory, \
     BoardElementGroup, SVGElementFactory
 from spectra_lexer.graph import IBody, BoldBody, SeparatorBody, ShiftedBody, StandardBody, GraphNode, IConnectors, \
     InversionConnectors, LinkedConnectors, NullConnectors, SimpleConnectors, ThickConnectors, UnmatchedConnectors, \
@@ -40,49 +40,6 @@ class BoardFactory:
         self._rule_procs = rule_procs
         self._doc_factory = doc_factory
 
-    def board_from_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
-        """ Generate a board diagram from a steno key string arranged according to <aspect ratio>.
-            Copy the element list to avoid corrupting the caches. """
-        skeys = self._to_skeys(keys)
-        elems = self._elems_from_skeys(skeys)[:]
-        return self._doc_factory.make_svg(elems, aspect_ratio)
-
-    def board_from_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
-        """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>.
-            Copy the element list to avoid corrupting the caches. """
-        elems = self._elems_from_rule(rule, show_letters)[:]
-        return self._doc_factory.make_svg(elems, aspect_ratio)
-
-    def _elems_from_rule(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
-        """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
-        skeys = self._to_skeys(rule.keys)
-        letters = rule.letters
-        alt_text = rule.alt
-        if letters and not any(map(str.isalpha, letters)):
-            bg = self.FILL_SYMBOL if not any(map(str.isdigit, letters)) else self.FILL_NUMBER
-            if not alt_text:
-                alt_text = letters
-        if rule.is_linked:
-            return self._elems_from_linked(rule, show_letters, bg)
-        elif rule.is_inversion:
-            return self._elems_from_inversion(rule, show_letters, bg)
-        elif rule.is_unmatched:
-            return self._elems_from_skeys(skeys, self.FILL_UNMATCHED)
-        elif rule.is_rare:
-            bg = self.FILL_RARE
-        elif rule.is_stroke:
-            bg = self.FILL_SPELLING
-        elif rule.is_word:
-            bg = self.FILL_BRIEF
-        elems = self._elems_from_rule_info(skeys, letters if show_letters else "", alt_text, bg)
-        if elems:
-            return elems
-        elif rule:
-            # Add elements recursively from all child rules.
-            return [elem for item in rule for elem in self._elems_from_rule(item.child, show_letters, bg)]
-        # There may not be compound elements for everything; in that case, use elements for each raw key.
-        return self._elems_from_skeys(skeys)
-
     @lru_cache(maxsize=None)
     def _elems_from_skeys(self, skeys:str, bg:str=None) -> List[BoardElementGroup]:
         """ Generate board diagram elements from a set of steno s-keys. """
@@ -120,15 +77,62 @@ class BoardFactory:
             grps += self._elems_from_rule(item.child, show_letters, bg)
         return [self._elem_factory.inversion_group(grps)]
 
+    def _elems_from_rule(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
+        """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
+        skeys = self._to_skeys(rule.keys)
+        letters = rule.letters
+        alt_text = rule.alt
+        if letters and not any(map(str.isalpha, letters)):
+            bg = self.FILL_SYMBOL if not any(map(str.isdigit, letters)) else self.FILL_NUMBER
+            if not alt_text:
+                alt_text = letters
+        if rule.is_linked:
+            return self._elems_from_linked(rule, show_letters, bg)
+        elif rule.is_inversion:
+            return self._elems_from_inversion(rule, show_letters, bg)
+        elif rule.is_unmatched:
+            return self._elems_from_skeys(skeys, self.FILL_UNMATCHED)
+        elif rule.is_rare:
+            bg = self.FILL_RARE
+        elif rule.is_stroke:
+            bg = self.FILL_SPELLING
+        elif rule.is_word:
+            bg = self.FILL_BRIEF
+        elems = self._elems_from_rule_info(skeys, letters if show_letters else "", alt_text, bg)
+        if elems:
+            return elems
+        elif rule:
+            # Add elements recursively from all child rules.
+            return [elem for item in rule for elem in self._elems_from_rule(item.child, show_letters, bg)]
+        # There may not be compound elements for everything; in that case, use elements for each raw key.
+        return self._elems_from_skeys(skeys)
+
+    def _make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
+        return self._doc_factory.make_svg(elems, aspect_ratio)
+
+    def board_from_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
+        """ Generate a board diagram from a steno key string arranged according to <aspect ratio>.
+            Copy the element list to avoid corrupting the caches. """
+        skeys = self._to_skeys(keys)
+        elems = self._elems_from_skeys(skeys)[:]
+        return self._make_svg(elems, aspect_ratio)
+
+    def board_from_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
+        """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>.
+            Copy the element list to avoid corrupting the caches. """
+        elems = self._elems_from_rule(rule, show_letters)[:]
+        return self._make_svg(elems, aspect_ratio)
+
     @classmethod
     def from_resources(cls, converter:StenoKeyConverter,
                        board_defs:StenoBoardDefinitions, combo_key:str) -> "BoardFactory":
         """ Generate board diagram elements with the background of every key to use as a diagram base. """
         svg_factory = SVGElementFactory()
         elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
-        base_elems = [elem_factory.processed_group(procs[:-1], cls.FILL_BASE) for procs in board_defs.keys.values()]
-        defs_base = elem_factory.base_group(*base_elems)
-        doc_factory = BoardDocumentFactory(svg_factory, *defs_base, *board_defs.bounds)
+        base_groups = [elem_factory.processed_group(procs[:-1], cls.FILL_BASE) for procs in board_defs.keys.values()]
+        defs, base = elem_factory.base_pair(base_groups)
+        dims = BoardDimensions(*board_defs.bounds)
+        doc_factory = BoardDocumentFactory(svg_factory, defs, base, dims)
         return cls(converter, combo_key, elem_factory, board_defs.keys, board_defs.rules, doc_factory)
 
 
@@ -158,31 +162,6 @@ class GraphFactory:
 
     def __init__(self, ignored_chars="") -> None:
         self._ignored = set(ignored_chars)  # Tokens to ignore at the beginning of key strings (usually the hyphen).
-
-    def build(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
-        """ Generate a graph object for a steno rule.
-            The root node's attach points are arbitrary, so start=0 and length=len(letters). """
-        ref_dict = {}
-        root = self._build_tree(ref_dict, rule, 0, len(rule.letters))
-        layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
-        layout = layout_engine.layout(root)
-        grid = ElementCanvas.from_layout(layout)
-        formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
-        return RuleGraph(ref_dict, formatter)
-
-    def _build_tree(self, ref_dict:Dict[str, StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
-        """ Build a display node tree recursively. """
-        children = [self._build_tree(ref_dict, c.child, c.start, c.length) for c in rule]
-        ref = str(len(ref_dict))
-        ref_dict[ref] = rule
-        return self._build_node(ref, rule, start, length, children)
-
-    def _build_node(self, ref:str, rule:StenoRule, start:int, length:int, children:Sequence[GraphNode]=()) -> GraphNode:
-        """ Make a new node from a rule's properties, position, and descendants. """
-        body = self._build_body(rule)
-        width = body.width()
-        connectors = self._build_connectors(rule, length, width)
-        return GraphNode(ref, body, connectors, start, length, children)
 
     def _build_body(self, rule:StenoRule) -> IBody:
         """ Make a node display body. The text is shifted left if it starts with an ignored token. """
@@ -215,3 +194,28 @@ class GraphFactory:
         else:
             connectors = SimpleConnectors(length, width)
         return connectors
+
+    def _build_node(self, ref:str, rule:StenoRule, start:int, length:int, children:Sequence[GraphNode]=()) -> GraphNode:
+        """ Make a new node from a rule's properties, position, and descendants. """
+        body = self._build_body(rule)
+        width = body.width()
+        connectors = self._build_connectors(rule, length, width)
+        return GraphNode(ref, body, connectors, start, length, children)
+
+    def _build_tree(self, ref_dict:Dict[str, StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
+        """ Build a display node tree recursively. """
+        children = [self._build_tree(ref_dict, c.child, c.start, c.length) for c in rule]
+        ref = str(len(ref_dict))
+        ref_dict[ref] = rule
+        return self._build_node(ref, rule, start, length, children)
+
+    def build(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
+        """ Generate a graph object for a steno rule.
+            The root node's attach points are arbitrary, so start=0 and length=len(letters). """
+        ref_dict = {}
+        root = self._build_tree(ref_dict, rule, 0, len(rule.letters))
+        layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
+        layout = layout_engine.layout(root)
+        grid = ElementCanvas.from_layout(layout)
+        formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
+        return RuleGraph(ref_dict, formatter)
