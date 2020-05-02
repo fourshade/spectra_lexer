@@ -12,7 +12,7 @@ def main() -> int:
     """ Analyze translations files and create an examples index from them. Time the execution. """
     opts = CmdlineOptions("Batch script for creating an examples index.")
     opts.add("size", RTFCREDict.FSIZE_MEDIUM, "Relative size of generated index.")
-    opts.add("processes", 0, "Number of processes used for parallel execution.")
+    opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
     spectra = Spectra(opts)
     spectra.log("Operation started...")
     start_time = time()
@@ -20,7 +20,7 @@ def main() -> int:
     files_in = spectra.translations_paths()
     engine.load_translations(*files_in)
     file_out = spectra.index_path()
-    engine.compile_examples(opts.size, file_out, processes=opts.processes)
+    engine.compile_examples(opts.size, file_out, process_count=opts.processes)
     total_time = time() - start_time
     spectra.log(f"Operation done in {total_time:.1f} seconds.")
     return 0

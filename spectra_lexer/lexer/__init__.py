@@ -5,8 +5,5 @@
     - Strokes are delimited by a single distinct character.
     - The keys within each stroke must be sorted according to some total ordering (i.e. steno order). """
 
-from .base import IRuleMatcher, LexerRule
-from .exact import StrokeMatcher, WordMatcher
+from .base import IRuleMatcher, LexerRule, RuleMatch
 from .lexer import LexerResult, StenoLexer
-from .prefix import PrefixMatcher
-from .special import SpecialMatcher

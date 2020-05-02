@@ -22,15 +22,15 @@ class ParallelMapper:
 
     _STARMAP_ITERABLE = Union[Iterable[tuple], ItemsView]  # Union of all types that work with starmap.
 
-    def __init__(self, func:Callable, *args, processes=0, retry=True, **kwargs) -> None:
+    def __init__(self, func:Callable, *args, process_count=0, retry=True, **kwargs) -> None:
         """ Extra arguments are treated as partials applying to *every* call. """
         if args or kwargs:
             func = partial(func, *args, **kwargs)
-        if not processes:
-            processes = os.cpu_count() or 1
-        self._func = func            # Function to map over.
-        self._processes = processes  # Number of parallel processes (0 = one process for each logical CPU core).
-        self._retry = retry          # If True, retry with a single process on failure.
+        if not process_count:
+            process_count = os.cpu_count() or 1
+        self._func = func                    # Function to map over.
+        self._process_count = process_count  # Number of parallel processes (0 = one process for each logical CPU core).
+        self._retry = retry                  # If True, retry with a single process on failure.
 
     def map(self, *iterables:Iterable) -> list:
         """ Using the saved function, perform the equivalent of builtins.map on <iterables> in parallel. """
@@ -40,7 +40,7 @@ class ParallelMapper:
         """ Using the saved function, perform the equivalent of itertools.starmap on <iterable> in parallel.
             This will return a list instead of an iterator. No order is guaranteed in the results. """
         # Don't add the overhead of multiprocessing if there's only one process.
-        if self._processes == 1:
+        if self._process_count == 1:
             return self._serial_starmap(iterable)
         # The iterable may be one-time use. Make a list out of it in case we have to retry with one process.
         iterable = list(iterable)
@@ -57,7 +57,7 @@ class ParallelMapper:
         """ Map the function over <iterable> in parallel with Pool.starmap. """
         # multiprocessing is fairly large, so don't import until we have to.
         from multiprocessing import Pool
-        with Pool(processes=self._processes) as pool:
+        with Pool(processes=self._process_count) as pool:
             return pool.starmap(self._func, iterable)
 
     def _serial_starmap(self, iterable:_STARMAP_ITERABLE) -> list:

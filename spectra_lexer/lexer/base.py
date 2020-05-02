@@ -14,11 +14,11 @@ class LexerRule:
 
 
 # Rule match data type: (rule, unmatched keys, start offset in word).
-MATCH_TP = Tuple[LexerRule, str, int]
+RuleMatch = Tuple[LexerRule, str, int]
 
 
 class IRuleMatcher:
     """ Interface for a class that matches steno rules using a rule's s-keys and/or letters. """
 
-    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> Iterable[MATCH_TP]:
+    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> Iterable[RuleMatch]:
         raise NotImplementedError

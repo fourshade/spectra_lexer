@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Tuple
 
 from spectra_lexer.analysis import StenoAnalyzer
@@ -8,7 +7,6 @@ from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
 from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import MatchDict, SearchEngine
-from spectra_lexer.util.parallel import ParallelMapper
 
 
 class StenoEngine:
@@ -45,24 +43,6 @@ class StenoEngine:
         examples = RTFCREExamplesDict.from_json_file(filename)
         self.set_examples(examples)
 
-    def compile_examples(self, size:int=None, filename:str=None, **kwargs) -> None:
-        """ Run the lexer on all translations with an optional <size> filter and look at the top-level rule IDs.
-            Make a index with examples of every translation that used each built-in rule and set it as active.
-            If a <filename> is given, save the index as JSON at the end. """
-        translations = self._translations
-        if size is not None:
-            translations = translations.size_filtered(size)
-        mapper = ParallelMapper(self._analyzer.query_rule_ids, **kwargs)
-        results = mapper.starmap(translations.items())
-        index = defaultdict(RTFCREDict)
-        for keys, letters, *rule_ids in results:
-            for r_id in rule_ids:
-                index[r_id][keys] = letters
-        examples = RTFCREExamplesDict(index)
-        self.set_examples(examples)
-        if filename is not None:
-            examples.json_dump(filename)
-
     def search(self, pattern:str, count:int=None, mode_strokes=False, mode_regex=False) -> MatchDict:
         if self.INDEX_DELIM in pattern:
             link_ref, pattern = pattern.split(self.INDEX_DELIM, 1)
@@ -88,6 +68,19 @@ class StenoEngine:
 
     def best_translation(self, *translations:Tuple[str, str]) -> Tuple[str, str]:
         return self._analyzer.best_translation(translations)
+
+    def compile_examples(self, size:int=None, filename:str=None, process_count=0) -> None:
+        """ Run the lexer on all translations with an optional <size> filter and look at the top-level rule IDs.
+            Make a index with examples of every translation that used each built-in rule and set it as active.
+            If a <filename> is given, save the index as JSON at the end. """
+        translations = self._translations
+        if size is not None:
+            translations = translations.size_filtered(size)
+        index = self._analyzer.compile_index(translations.items(), process_count=process_count)
+        examples = RTFCREExamplesDict(zip(index, map(RTFCREDict, index.values())))
+        self.set_examples(examples)
+        if filename is not None:
+            examples.json_dump(filename)
 
     def generate_board(self, rule:StenoRule, aspect_ratio:float=None, show_letters=True) -> str:
         return self._board_factory.board_from_rule(rule, aspect_ratio, show_letters=show_letters)
