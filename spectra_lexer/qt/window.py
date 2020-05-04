@@ -39,6 +39,10 @@ class WindowController:
         icon = QIcon(pixmap)
         self._w_window.setWindowIcon(icon)
 
+    def has_focus(self) -> bool:
+        """ Return True if the window (or something in it) currently has keyboard focus. """
+        return self._w_window.isActiveWindow()
+
     def open_dialog(self, dlg_cls:Type[QDialog], flags=_DEFAULT_DIALOG_FLAGS) -> Optional[QDialog]:
         """ If a previous <dlg_cls> is open, set focus on it and return None, otherwise return a new one. """
         dialog = self._dialogs_by_cls.get(dlg_cls)

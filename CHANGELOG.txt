@@ -1,3 +1,8 @@
+11.1.0
+-----
+* Refactored lexer and fixed some asterisk parsing issues
+* Fixed several Plover plugin issues
+
 11.0.0
 -----
 * Added Discord bot application

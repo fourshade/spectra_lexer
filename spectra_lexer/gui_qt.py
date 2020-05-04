@@ -228,6 +228,9 @@ class QtGUIApplication:
             dialog.set_namespace(vars(self), root_package=__package__)
             dialog.show()
 
+    def has_focus(self) -> bool:
+        return self._window.has_focus()
+
     def show(self) -> None:
         self._window.show()
 

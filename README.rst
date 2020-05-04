@@ -48,7 +48,7 @@ Creates a JSON rule examples index from JSON steno translations. This is used to
 
 ``spectra_lexer console``
 
-Starts an interactive Python console with Spectra's engine directly exposed as a top-level object. Some examination of the Python source may be necessary to see everything that can be done.
+Starts an interactive Python console with Spectra directly exposed as a top-level object. Some examination of the Python source may be necessary to see everything that can be done.
 
 
 Configuration

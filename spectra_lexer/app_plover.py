@@ -7,6 +7,8 @@ from spectra_lexer.gui_qt import QtGUIApplication
 from spectra_lexer.plover import IncompatibleError, plover_info, PloverExtension
 from spectra_lexer.qt import WINDOW_ICON_PATH
 
+STROKE_LIMIT = 6  # Maximum strokes to keep in buffer (just so the lexer doesn't shit itself).
+
 
 class _Dummy:
     """ A robust dummy object. Returns itself through any chain of attribute lookups, subscriptions, and calls. """
@@ -38,7 +40,8 @@ class PloverPlugin:
         cfg_path = spectra.config_path()
         self._engine = engine = spectra.build_engine()
         self._app = app = QtGUIApplication.build(engine, spectra.log, index_path, cfg_path)
-        self._ext = ext = PloverExtension(plover_engine)
+        self._ext = ext = PloverExtension(plover_engine, stroke_limit=STROKE_LIMIT)
+        app.plover = ext  # Add this attribute so the extension is viewable by app debug tools.
         try:
             # Load the current Plover dictionaries followed by the app's user files.
             plover_info.check_compatible()
@@ -61,9 +64,10 @@ class PloverPlugin:
                             msg_done="Loaded new dictionaries from Plover.")
 
     def on_translated(self, *args) -> None:
-        """ User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
+        """ Look up a user's strokes as they are entered, but *not* while the main search window is active.
+            User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
         translation = self._ext.parse_actions(*args)
-        if translation is not None:
+        if translation is not None and not self._app.has_focus():
             self._app.on_query(translation, lexer_strict_mode=False)
 
     def __getattr__(self, name:str) -> Any:

@@ -17,6 +17,7 @@ class IPlover:
 
     class Action:
         prev_attach: bool
+        prev_replace: Optional[str]
         text: Optional[str]
 
     ActionSequence = Sequence[Action]
@@ -100,24 +101,15 @@ class TranslationState:
         self._strokes = strokes  # Sequence of contiguous strokes.
         self._actions = actions  # Sequence of corresponding Plover actions.
 
-    def is_valid(self) -> bool:
-        """ Return True if the translation state is valid for parsing into a query.
-            The strokes must have produced English text with at least one alphanumeric character. """
-        if not self._strokes:
-            return False
-        for a in self._actions:
-            if a.text:
-                for char in a.text:
-                    if char.isalnum():
-                        return True
-        return False
-
     def is_attachment(self) -> bool:
-        """ Return True if this text attaches to the previous text. """
+        """ Return True if each piece of text attaches to the previous text. """
         for a in self._actions:
-            if not a.prev_attach:
+            if a.text and not a.prev_attach:
                 return False
         return True
+
+    def __len__(self) -> int:
+        return len(self._strokes)
 
     def __add__(self, other:"TranslationState") -> "TranslationState":
         """ Add two translation states together. """
@@ -125,30 +117,26 @@ class TranslationState:
         actions = [*self._actions, *other._actions]
         return self.__class__(strokes, actions)
 
-    def __and__(self, other:"TranslationState") -> "TranslationState":
-        """ Merge two translation states that occur together. """
-        # If the new translation is invalid, keep only this state.
-        if not other.is_valid():
-            return self
-        # If the new translation is independent, keep only that one.
-        if not other.is_attachment():
-            return other
-        # If the new translation attaches, add all strokes and actions to make a new state.
-        return self + other
-
     def to_strings(self, stroke_delim:str) -> Tuple[str, str]:
         """ Return the string values of this translation state. """
         keys = stroke_delim.join(self._strokes)
-        letters = "".join([a.text for a in self._actions if a.text])
+        letters_list = []
+        for a in self._actions:
+            if a.prev_replace:
+                letters_list = letters_list[:-len(a.prev_replace)]
+            if a.text:
+                letters_list += a.text
+        letters = "".join(letters_list).strip()
         return keys, letters
 
 
 class PloverExtension:
 
-    def __init__(self, engine:IPlover.Engine, *, stroke_delim="/") -> None:
+    def __init__(self, engine:IPlover.Engine, *, stroke_delim="/", stroke_limit=10000) -> None:
         self._engine = EngineWrapper(engine)  # Wrapped Plover engine object.
         self._stroke_delim = stroke_delim     # Delimiter for Plover stroke strings.
-        self._state = TranslationState()      # Contains current user strokes and actions.
+        self._stroke_limit = stroke_limit     # Maximum number of strokes/actions to keep in memory, if any.
+        self._state = None                    # Contains current user strokes and actions.
 
     def call_on_dictionaries_loaded(self, callback:Callable[[IPlover.StenoDictCollection], None]) -> None:
         """ Set a callback to receive dictionaries when Plover loads them (happens on startup, reordering, etc.) """
@@ -166,16 +154,24 @@ class PloverExtension:
         d_raw = self._engine.compile_raw_dict(steno_dc)
         return d_raw.to_string_dict(self._stroke_delim)
 
-    def parse_actions(self, _:IPlover.ActionSequence, new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:
+    def parse_actions(self, old_actions:IPlover.ActionSequence,
+                      new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:
         """ Add new Plover user actions to the current translation state with the latest strokes.
-            If invalid or unchanged, return None. Otherwise, parse it into strings and return them. """
+            If invalid (empty strokes or text), return None. Otherwise, return the strokes and text as strings. """
         strokes = self._engine.get_last_strokes()
-        new_state = self._state & TranslationState(strokes, new_actions)
-        if new_state is not self._state:
+        old_state = self._state
+        new_state = TranslationState(strokes, new_actions)
+        # Only combine states if there were no deletions, all the new text attaches, and the stroke limit is met.
+        if old_state is not None and not old_actions and new_state.is_attachment():
+            if len(old_state) + len(strokes) <= self._stroke_limit:
+                new_state = old_state + new_state
+        keys, letters = new_state.to_strings(self._stroke_delim)
+        if keys and letters:
             self._state = new_state
-            keys, letters = new_state.to_strings(self._stroke_delim)
-            if keys and letters:
-                return keys, letters
+            return keys, letters
+        else:
+            self._state = None
+            return None
 
 
 class IncompatibleError(Exception):
