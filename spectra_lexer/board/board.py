@@ -226,32 +226,38 @@ class BoardDocumentFactory:
         self._base = base        # Base SVG element that is shown under every stroke diagram.
         self._dims = dims
 
-    def _arrange(self, elems:Iterable[BoardElementGroup], tfrms:Sequence[TransformData]) -> List[XMLElement]:
-        """ Arrange all SVG elements in a document with a separate diagram for each stroke.
-            Transform each diagram to be tiled left-to-right, top-to-bottom in a grid layout. """
-        diagram_list = [self._defs]
-        overlay_list = []
+    @staticmethod
+    def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[XMLElement]]:
         stroke_elems = []
-        i = 0
+        stroke_list = [stroke_elems]
         for el in elems:
             stroke_elems += el
+            if el.ends_stroke:
+                stroke_elems = []
+                stroke_list.append(stroke_elems)
+        return stroke_list
+
+    @staticmethod
+    def _overlays(elems:Iterable[BoardElementGroup], tfrms:Sequence[TransformData]) -> List[XMLElement]:
+        overlay_list = []
+        i = 0
+        for el in elems:
             if el.iter_overlays is not None:
                 overlay_list += el.iter_overlays(tfrms[i], tfrms[i + 1])
             if el.ends_stroke:
-                diagram = self._factory.group(self._base, *stroke_elems, transform=tfrms[i])
-                diagram_list.append(diagram)
-                stroke_elems = []
                 i += 1
-        diagram_list.append(self._factory.group(self._base, *stroke_elems, transform=tfrms[i]))
-        diagram_list += overlay_list
-        return diagram_list
+        return overlay_list
 
-    def make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
-        """ Split elements into diagrams, arrange them to match the aspect ratio, and encode a new SVG document. """
-        stroke_count = 1 + len([1 for el in elems if el.ends_stroke])
+    def make_svg(self, elems:Iterable[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
+        """ Arrange all SVG elements in a document with a separate diagram for each stroke.
+            Transform each diagram to be tiled in a grid layout to match the aspect ratio.
+            Add overlays (if any), put it all in a new SVG document, and return the final encoded string. """
+        strokes = self._stroke_groups(elems)
+        stroke_count = len(strokes)
         rows, cols = self._dims.grid_dimensions(stroke_count, aspect_ratio)
         tfrms = self._dims.transforms(stroke_count, cols)
         viewbox = self._dims.viewbox(rows, cols)
-        diagrams = self._arrange(elems, tfrms)
-        document = self._factory.svg(*viewbox, *diagrams)
+        diagrams = [self._factory.group(self._base, *stroke, transform=tfrm) for stroke, tfrm in zip(strokes, tfrms)]
+        overlays = self._overlays(elems, tfrms)
+        document = self._factory.svg(self._defs, *diagrams, *overlays, viewbox=viewbox)
         return document.serialize()

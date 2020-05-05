@@ -1,5 +1,5 @@
 from math import cos, pi, sin
-from typing import List
+from typing import List, Sequence
 
 
 class XMLElement:
@@ -127,8 +127,9 @@ class SVGElementFactory:
         """ A use element may not have children, but it must have a reference id. """
         return self._elem_cls("use", href=f"#{elem_id}")
 
-    def svg(self, x:int, y:int, w:int, h:int, *children:XMLElement) -> XMLElement:
+    def svg(self, *children:XMLElement, viewbox:Sequence[int]=(0, 0, 100, 100)) -> XMLElement:
         """ Top-level SVG document. Set the (x, y, w, h) sequence of coordinates as the viewbox. """
+        x, y, w, h = viewbox
         return self._elem_cls("svg", *children,
                               version="1.1", xmlns="http://www.w3.org/2000/svg",
                               viewBox=f"{x} {y} {w} {h}")
