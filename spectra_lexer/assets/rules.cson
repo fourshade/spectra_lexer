@@ -11,6 +11,7 @@
   "-RBGS:PS":["-RBGS", "|...",  ["RARE"], "uncommon prefix modifier"],
   "KWR:PS":  ["KWR",   "|...",  ["RARE"], "connects multiple strokes"],
   "A*U:PS":  ["A*U",   "|SP",   ["STRK"], "suffix stroke to indicate international spelling variant"],
+  "TK-LS:PS":["TK-LS", "",      ["STRK"], "infix stroke to connect words (Don't Leave Space)"],
 
   # Standard rules - left side
   "s.":   ["S",    "s",      [],       "left side S"],

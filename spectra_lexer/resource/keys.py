@@ -3,12 +3,14 @@ from typing import Callable, Dict, Set
 
 class StenoKeyConverter:
     """ Converter between two general string-based formats of steno keys:
-        s-keys - Each key is a unique character. Lowercase letters are used for right-side keys.
+        s-keys - Internal format used exclusively by this application.
+                 Each key is a unique character. Lowercase letters are used for right-side keys.
                  Used by the lexer since one key is always one character with no possible
                  ambiguity over sides even if the keys are in the wrong order.
-        RTFCRE - Keys are all uppercase, hyphen delimits left vs. right side of the board.
+        RTFCRE - Older format defined in the "RTF Court Reporting Extensions" specification.
+                 Keys are all uppercase, hyphen delimits left vs. right side of the board.
                  Center keys may also delimit the sides, in which case the hyphen is omitted.
-                 Most steno dictionaries (i.e. for use in Plover) are in this format.
+                 Most steno dictionaries (i.e. for use in Plover) have strokes in this format.
         String variables should be distinctly labeled as "skeys" when they use the first format.
         Characters from an outside source (JSON files or the Plover engine) are assumed to be RTFCRE. """
 
