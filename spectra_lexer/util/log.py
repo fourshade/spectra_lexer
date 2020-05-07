@@ -6,23 +6,12 @@ from typing import TextIO
 class StreamLogger:
     """ Basic logger class. Writes to pre-opened text streams. Implements basic thread-safety. """
 
-    def __init__(self, time_fmt="%b %d %Y %H:%M:%S", repeat_mark="*") -> None:
+    def __init__(self, *streams:TextIO, time_fmt="%b %d %Y %H:%M:%S", repeat_mark="*") -> None:
+        self._streams = streams          # One or more writable/appendable text streams for logging.
         self._time_fmt = time_fmt        # Format string for timestamps using time.strftime.
         self._repeat_mark = repeat_mark  # Mark for repeated messages (to save space).
-        self._streams = []               # List of writable/appendable text streams for logging.
         self._lock = Lock()              # Lock to ensure only one thread writes to the streams at a time.
         self._last_message = ""          # Most recently logged message string.
-
-    def add_stream(self, stream:TextIO) -> None:
-        """ Add a text stream for logging. """
-        with self._lock:
-            self._streams.append(stream)
-
-    def log(self, message:str) -> None:
-        """ Filter, timestamp, and log a message with all streams. """
-        message = self._replace_if_duplicate(message)
-        message = self._add_timestamp(message)
-        self._write_all(message)
 
     def _replace_if_duplicate(self, message:str) -> str:
         """ Replace <message> with a short 'repeat' mark if identical to the last message. """
@@ -49,3 +38,9 @@ class StreamLogger:
                     # An exception here most likely means everything is FUBAR.
                     # At this point, we're in damage control mode. Keep trying streams no matter what.
                     continue
+
+    def log(self, message:str) -> None:
+        """ Filter, timestamp, and log a message with all streams. """
+        message = self._replace_if_duplicate(message)
+        message = self._add_timestamp(message)
+        self._write_all(message)

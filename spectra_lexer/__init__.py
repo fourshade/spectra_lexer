@@ -108,9 +108,7 @@ class Spectra:
         converter.add(self.USER_PATH_PREFIX, UserPathConverter(ROOT_PACKAGE))
         log_path = converter.convert(opts.log, make_dirs=True)
         log_stream = open(log_path, 'a', encoding='utf-8')
-        logger = StreamLogger()
-        logger.add_stream(sys.stdout)
-        logger.add_stream(log_stream)
+        logger = StreamLogger(sys.stdout, log_stream)
         self.log = logger.log
         self._convert_path = converter.convert
         self._cson_decoder = CSONDecoder(comment_prefix=self.CSON_COMMENT_PREFIX)

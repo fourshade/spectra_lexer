@@ -19,8 +19,8 @@ class xhelp:
                       lambda x: ["--------------INFO--------------",
                                  *map(str.lstrip, str(x.__doc__).splitlines())]]
 
-    def __init__(self, file=sys.stdout) -> None:
-        self._file = file  # Output text stream (stdout by default).
+    def __init__(self, file=None) -> None:
+        self._file = file or sys.stdout  # Output text stream (stdout by default).
 
     def __call__(self, *args:object) -> None:
         """ Write lines from each help section that doesn't raise an exception, in order. """
@@ -102,10 +102,10 @@ class SourceInterpreter:
 class PromptWriter:
     """ Writes interactive console prompts to a text stream. """
 
-    def __init__(self, file=sys.stdout, *, ps1=">>> ", ps2="... ") -> None:
-        self._file = file  # Output text stream (stdout by default).
-        self._ps1 = ps1    # Normal interpreter input prompt.
-        self._ps2 = ps2    # Input prompt when more lines are needed.
+    def __init__(self, file=None, *, ps1=">>> ", ps2="... ") -> None:
+        self._file = file or sys.stdout  # Output text stream (stdout by default).
+        self._ps1 = ps1                  # Normal interpreter input prompt.
+        self._ps2 = ps2                  # Input prompt when more lines are needed.
 
     def write(self, need_more=False) -> None:
         """ Write one of two prompt strings depending on if we <need_more> code to complete a statement.
@@ -147,10 +147,12 @@ class SystemConsole:
             self.send(line)
 
     @classmethod
-    def open(cls, namespace:dict=None, file=sys.stdout, *, banner=DEFAULT_BANNER, **kwargs) -> "SystemConsole":
+    def open(cls, namespace:dict=None, file=None, *, banner=DEFAULT_BANNER, **kwargs) -> "SystemConsole":
         """ Make a new console, override the interactive help(), and print an opening message and prompt. """
         if namespace is None:
             namespace = {}
+        if file is None:
+            file = sys.stdout
         namespace.setdefault("help", xhelp(file))
         interpreter = SourceInterpreter(namespace, excepthook=traceback.print_exception)
         redirector = AttrRedirector(sys, stdout=file, stderr=file)

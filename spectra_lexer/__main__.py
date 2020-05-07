@@ -4,7 +4,7 @@
 
 import sys
 
-from spectra_lexer.util.cmdline import EntryPoint, EntryPointSelector
+from spectra_lexer.util.entrypoints import EntryPoint, EntryPointSelector
 
 ENTRY_POINTS = {
     "console": EntryPoint("spectra_lexer.app_console", "main", "Run commands interactively from console."),
