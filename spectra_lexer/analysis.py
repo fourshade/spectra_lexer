@@ -7,10 +7,11 @@ from spectra_lexer.lexer.exact import StrokeMatcher, WordMatcher
 from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.resource.keys import StenoKeyConverter
-from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
+from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.util.parallel import ParallelMapper
 
 TranslationPairs = Iterable[Tuple[str, str]]  # Iterable collection of (keys, letters) steno translations.
+StenoRuleCollection = Iterable[StenoRule]     # Iterable collection of complete rule objects.
 
 
 class StenoAnalyzer:
@@ -77,11 +78,10 @@ class StenoAnalyzer:
         return index
 
     def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
-        """ Make a lexer query and return the rule IDs in a list with their matching keys and letters.
-            Only fully matched translations should have any rule IDs returned.
-            This output format works well for parallel operations because:
-                - results may be returned out of order, so the matching input is saved with the output.
-                - StenoRule objects are recursive structures that pickle poorly, so only the IDs are saved. """
+        """ Make a parallel-safe lexer query and return the result as a list of strings.
+            Results may be returned out of order, so the output starts with the original keys and letters.
+            The identities of rule objects do not survive pickling, so only ID strings are returned.
+            Only complete matches should return rule IDs. Rule positions are discarded. """
         skeys = self._to_skeys(keys)
         result = self._lexer.query(skeys, letters)
         output = [keys, letters]

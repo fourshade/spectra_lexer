@@ -1,10 +1,10 @@
 from typing import Tuple
 
-from spectra_lexer.analysis import StenoAnalyzer
+from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
 from spectra_lexer.display import BoardFactory, GraphFactory, RuleGraph
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
+from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import MatchDict, SearchEngine
 

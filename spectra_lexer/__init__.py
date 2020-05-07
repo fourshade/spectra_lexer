@@ -61,11 +61,12 @@
 
 import sys
 
+from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.plover import plover_info
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.rules import StenoRuleCollection
+from spectra_lexer.resource.rules import StenoRuleParser
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.json import CSONDecoder
 from spectra_lexer.util.log import StreamLogger
@@ -145,7 +146,9 @@ class Spectra:
 
     def _load_rules(self) -> StenoRuleCollection:
         d = self._read_cson_resource(self.RULES_CSON)
-        return StenoRuleCollection.from_dict(d)
+        parser = StenoRuleParser()
+        parser.add_json_dict(d)
+        return parser.parse()
 
     def _load_board_defs(self) -> StenoBoardDefinitions:
         """ Load a dict with steno board graphics definitions. """
@@ -157,6 +160,9 @@ class Spectra:
         keymap = self._load_keymap()
         keymap.verify()
         rules = self._load_rules()
-        rules.verify(keymap.valid_rtfcre(), keymap.dividers())
+        valid_keys = keymap.valid_rtfcre()
+        delimiters = keymap.dividers()
+        for rule in rules:
+            rule.verify(valid_keys, delimiters)
         board_defs = self._load_board_defs()
         return StenoEngine.from_resources(keymap, rules, board_defs)

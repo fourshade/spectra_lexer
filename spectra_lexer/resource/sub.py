@@ -1,6 +1,6 @@
 """ Module for recursive text substitution algorithms. """
 
-from typing import List, Tuple
+from typing import Sequence
 
 
 class TextSubstitution:
@@ -15,7 +15,7 @@ class TextSubstitution:
 class TextSubstitutionResult:
     """ Finished text after substitution along with a map of what was done and where. """
 
-    def __init__(self, text:str, subs:Tuple[TextSubstitution]) -> None:
+    def __init__(self, text:str, subs:Sequence[TextSubstitution]) -> None:
         self.text = text  # Finished text after all substitutions were made.
         self.subs = subs  # Sequence of info structures about the substitutions that were made.
 
@@ -58,14 +58,14 @@ class TextSubstitutionParser:
             return self._results[ref]
         # Convert the pattern string into a list to allow in-place modification.
         pattern = self._pattern_data[ref]
-        p_list = list(pattern)
+        char_list = list(pattern)
         subs = []
         lb, rb = self._ref_delims
         # For every bracket match, strip the parentheses to get the reference (and the text for aliases).
-        while lb in p_list:
-            start = p_list.index(lb)
-            end = p_list.index(rb) + 1
-            reference = "".join(p_list[start+1:end-1])
+        while lb in char_list:
+            start = char_list.index(lb)
+            end = char_list.index(rb) + 1
+            reference = "".join(char_list[start+1:end-1])
             *alias, child_ref = reference.split(self._alias_delim, 1)
             # Look up the child reference. If it is missing, parse its pattern first.
             try:
@@ -79,20 +79,24 @@ class TextSubstitutionParser:
             # Add the reference to the info map and substitute the text into the pattern.
             item = TextSubstitution(child_ref, start, len(text))
             subs.append(item)
-            p_list[start:end] = text
-        result = self._results[ref] = TextSubstitutionResult("".join(p_list), tuple(subs))
+            char_list[start:end] = text
+        full_text = "".join(char_list)
+        result = self._results[ref] = TextSubstitutionResult(full_text, subs)
         return result
 
-    def inv_parse(self, text:str, child_refs:List[str], child_positions:List[int]) -> str:
-        """ Parse text into pattern form by substituting references back in. """
-        lb, rb = self._ref_delims
-        # Convert the text string into a list to allow in-place modification.
-        text = [*text]
-        # Replace each reference's text with its parenthesized name. Go from right to left to preserve indexing.
-        for name, start in zip(child_refs[::-1], child_positions[::-1]):
-            pattern_map = self._results.get(name)
-            if pattern_map is not None:
-                length = len(pattern_map.letters)
-                end = start + length
-                text[start:end] = lb, name, rb
-        return "".join(text)
+    # XXX untested
+    # def inv_parse(self, result:TextSubstitutionResult) -> str:
+    #     """ Parse a result into pattern form by substituting references back in. """
+    #     lb, rb = self._ref_delims
+    #     # Convert the text string into a list to allow in-place modification.
+    #     char_list = [*result.text]
+    #     # Replace each reference's text with its parenthesized name. Go from right to left to preserve indexing.
+    #     for sub in result.subs[::-1]:
+    #         name = sub.ref
+    #         if name in self._results:
+    #             pattern_map = self._results[name]
+    #             length = len(pattern_map.text)
+    #             start = sub.start
+    #             end = start + length
+    #             char_list[start:end] = lb, name, rb
+    #     return "".join(char_list)
