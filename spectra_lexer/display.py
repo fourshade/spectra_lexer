@@ -160,7 +160,8 @@ class RuleGraph:
 class GraphFactory:
     """ Creates trees of displayable graph nodes out of steno rules. """
 
-    def __init__(self, ignored_chars="") -> None:
+    def __init__(self, key_sep:str, ignored_chars="") -> None:
+        self._key_sep = key_sep
         self._ignored = set(ignored_chars)  # Tokens to ignore at the beginning of key strings (usually the hyphen).
 
     def _build_body(self, rule:StenoRule) -> IBody:
@@ -168,7 +169,7 @@ class GraphFactory:
         keys = rule.keys
         if rule:
             body = BoldBody(rule.letters)
-        elif rule.is_separator:
+        elif keys == self._key_sep:
             body = SeparatorBody(keys)
         elif keys[:1] in self._ignored:
             body = ShiftedBody(keys, -1)
@@ -176,8 +177,7 @@ class GraphFactory:
             body = StandardBody(keys)
         return body
 
-    @staticmethod
-    def _build_connectors(rule:StenoRule, length:int, width:int) -> IConnectors:
+    def _build_connectors(self, rule:StenoRule, length:int, width:int) -> IConnectors:
         """ Make a node connector set based on the rule type. """
         if rule.is_inversion:
             # Node for an inversion of steno order. Connectors should indicate some kind of "reversal".
@@ -187,7 +187,7 @@ class GraphFactory:
             connectors = LinkedConnectors(length, width)
         elif rule:
             connectors = ThickConnectors(length, width)
-        elif rule.is_separator:
+        elif rule.keys == self._key_sep:
             connectors = NullConnectors()
         elif rule.is_unmatched:
             connectors = UnmatchedConnectors(length, width)

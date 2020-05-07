@@ -5,6 +5,30 @@ from typing import Callable, List
 from .base import IRuleMatcher, LexerRule, RuleMatch
 
 
+class DelimiterMatcher(IRuleMatcher):
+    """ Handles single steno key delimiter rules. """
+
+    def __init__(self) -> None:
+        self._delim_rules = {}
+
+    def add(self, rule:LexerRule) -> None:
+        """ Add a delimiter rule. It may not have letters. """
+        skey = rule.skeys
+        if len(skey) != 1:
+            raise ValueError("Delimiter rules must have exactly one key.")
+        if rule.letters:
+            raise ValueError("Delimiter rules may not have letters.")
+        self._delim_rules[skey] = rule
+
+    def match(self, skeys:str, *_) -> List[RuleMatch]:
+        """ Match a delimiter only if it is at the head of the key string. """
+        head = skeys[:1]
+        if head in self._delim_rules:
+            rule = self._delim_rules[head]
+            return [(rule, skeys[1:], 0)]
+        return []
+
+
 class SpecialMatcher(IRuleMatcher):
     """ Handles special steno rules individually in code. """
 
@@ -42,18 +66,21 @@ class SpecialMatcher(IRuleMatcher):
         """ If execution reaches this point without a valid guess, use a guaranteed fallback rule. """
         return True
 
-    def _add_valid_chars(self, rule:LexerRule) -> None:
-        """ Special rules must use only one steno key. Any letters are ignored.
-            To start special matching, this key plus a stroke separator must be next.
-            The key by itself will also match a 2-character slice if it is the only one left. """
-        skey = rule.skeys
-        assert len(skey) == 1
+    def _add_valid_chars(self, skey:str) -> None:
+        """ Allow this key to start special matching when found alone or followed by a stroke separator.
+            (The key by itself will still match a 2-character slice if it is the only key left.) """
         self._valid_next_two_chars |= {skey, skey + self._key_sep}
 
     def add_test(self, rule:LexerRule, test:Callable[[str, str, str], bool]) -> None:
-        """ Add a special rule test. For pickleability, the callable *cannot* be an inner function or lambda. """
+        """ Add a special rule test. Special rules must use only one steno key and no letters.
+            For pickleability, the test callable *cannot* be an inner function or lambda. """
+        skey = rule.skeys
+        if len(skey) != 1:
+            raise ValueError("Special rules must have exactly one key.")
+        if rule.letters:
+            raise ValueError("Special rules may not have letters.")
+        self._add_valid_chars(skey)
         self._rule_tests.append((rule, test))
-        self._add_valid_chars(rule)
 
     def add_by_id(self, rule:LexerRule, test_id:str) -> bool:
         """ Add a special rule test defined by a string ID. Return False if the ID is not recognized. """

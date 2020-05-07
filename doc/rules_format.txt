@@ -24,7 +24,7 @@ LHS ::= RHS      Substitution; anywhere LHS occurs, it must be replaced with a v
 'x'              Single UTF-8 character.
 <char>           Single UTF-8 character of code point 0x20 or greater.
 <s_char>         Single UTF-8 character of code point 0x20 or greater excluding '"' (double quote)
-<newline>        Newline sequence; either 0x0A or 0x0D+0x0A. Whichever is chosen must be uniform throughout a file.
+<newline>        Newline token: either 0x0A or 0x0D+0x0A. Whichever is chosen must be uniform throughout a file.
 expr1 expr2      Concatenation of expressions.
 expr1 | expr2    Either one expression or the other. Has lowest precedence.
 ; line           Comment line; explains usages of data fields.
@@ -76,11 +76,11 @@ alt       ::=  s_chars
 
 flag      ::=  string
 ; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
-; "SPEC" = special rule used internally, do not match directly using lexer
+; "SPEC" = special rule with custom matching code corresponding to its ID.
+; "REF"  = rule used internally by other rules as a reference, do not match directly using lexer
 ; "STRK" = only matches a full stroke (e.g. fingerspelling)
 ; "WORD" = only matches a full word (e.g. common briefs)
 ; "RARE" = rarely found in practice and/or may cause false positives. Matches are less reliable.
-; "SEP"  = rule that contains only a stroke separator.
 ; "INV"  = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
 ; "LINK" = rule that uses keys from two strokes. Anything that parses strokes individually must handle these carefully.
 

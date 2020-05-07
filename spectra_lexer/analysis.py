@@ -1,33 +1,16 @@
 from collections import defaultdict
 from typing import Iterable, List, Mapping, Tuple
 
-from spectra_lexer.lexer import IRuleMatcher, LexerResult, LexerRule, RuleMatch, StenoLexer
+from spectra_lexer.lexer import LexerResult, LexerRule, StenoLexer
+from spectra_lexer.lexer.composite import PriorityRuleMatcher
 from spectra_lexer.lexer.exact import StrokeMatcher, WordMatcher
-from spectra_lexer.lexer.prefix import PrefixMatcher, UnorderedPrefixMatcher
-from spectra_lexer.lexer.special import SpecialMatcher
+from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
+from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule, StenoRuleCollection
 from spectra_lexer.util.parallel import ParallelMapper
 
 TranslationPairs = Iterable[Tuple[str, str]]  # Iterable collection of (keys, letters) steno translations.
-
-
-class PriorityRuleMatcher(IRuleMatcher):
-    """ Master rule matcher for the lexer. """
-
-    def __init__(self, *matcher_groups:Iterable[IRuleMatcher]) -> None:
-        self._groups = matcher_groups  # Groups of steno rule matchers to be tried in order.
-
-    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[RuleMatch]:
-        """ Look for matches using each group of rule matchers in priority order.
-            If a group finds any matches, stop and return those. Only move to the next group if they find nothing. """
-        matches = []
-        for group in self._groups:
-            for matcher in group:
-                matches += matcher.match(skeys, letters, all_skeys, all_letters)
-            if matches:
-                break
-        return matches
 
 
 class StenoAnalyzer:
@@ -112,7 +95,7 @@ class StenoAnalyzer:
     def from_resources(cls, converter:StenoKeyConverter, rules:StenoRuleCollection,
                        key_sep:str, unordered_keys:str) -> "StenoAnalyzer":
         """ Distribute rules and build the rule matcher, lexer and analyzer. """
-        sep_matcher = PrefixMatcher()
+        sep_matcher = DelimiterMatcher()
         stroke_matcher = StrokeMatcher(key_sep)
         word_matcher = WordMatcher()
         prefix_matcher = UnorderedPrefixMatcher(key_sep, unordered_keys)
@@ -127,31 +110,33 @@ class StenoAnalyzer:
             letters = rule.letters
             weight = 10 * len(letters) - rule.is_rare
             lr = LexerRule(skeys, letters, weight)
-            r_id = rule.id
-            track_id = True
-            # Add the rule to one of the rule matchers based on flags.
-            if rule.is_separator:
-                # The separator should not have examples.
-                sep_matcher.add(lr)
-                track_id = False
-            elif rule.is_special:
-                # Special rules are not used by the lexer unless they have a specific ID.
-                # If used, their accuracy is low. The IDs should not be in example indices.
-                if special_matcher.add_by_id(lr, r_id):
-                    track_id = False
-            elif rule.is_stroke:
-                # Stroke rules are matched only by complete strokes.
-                stroke_matcher.add(lr)
-            elif rule.is_word:
-                # Word rules are matched only by whole words (but still case-insensitive).
-                word_matcher.add(lr)
-            else:
-                # Rules are added to the tree-based prefix matcher by default.
-                prefix_matcher.add(lr)
             # Map every lexer-format rule to the original so we can convert back.
             refmap[lr] = rule
-            if track_id:
+            # Add the lexer rule to one of the rule matchers based on flags.
+            r_id = rule.id
+            if rule.is_special:
+                # Rules with special behavior must be handled case-by-case.
+                if skeys == key_sep:
+                    sep_matcher.add(lr)
+                else:
+                    special_matcher.add_by_id(lr, r_id)
+            else:
+                # Rules without special behavior should be in example indices.
                 idmap[lr] = r_id
+                if rule.is_reference:
+                    # Reference-only rules are not matched directly.
+                    pass
+                elif rule.is_stroke:
+                    # Stroke rules are matched only by complete strokes.
+                    stroke_matcher.add(lr)
+                elif rule.is_word:
+                    # Word rules are matched only by whole words (but still case-insensitive).
+                    word_matcher.add(lr)
+                else:
+                    # All other rules are added to the tree-based prefix matcher.
+                    prefix_matcher.add(lr)
+        # Separators are force-matched before the normal matchers can waste cycles on them.
+        # Use the special matcher only if absolutely nothing else has worked.
         matcher = PriorityRuleMatcher([sep_matcher],
                                       [prefix_matcher, stroke_matcher, word_matcher],
                                       [special_matcher])

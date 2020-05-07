@@ -27,13 +27,13 @@ class StenoRule:
             return self in instance._flags
 
     # Acceptable string values for lexer flags, as read from JSON.
-    is_special = Flag("SPEC")   # Special rule used internally (in other rules). Only referenced by name.
+    is_special = Flag("SPEC")   # Special rule with hard-coded behavior. Only referenced by ID.
+    is_reference = Flag("REF")  # Rule used internally in other rules as a reference. Should not be matched directly.
     is_stroke = Flag("STRK")    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
     is_word = Flag("WORD")      # Exact match for a single word. These rules do not adversely affect lexer performance.
     is_rare = Flag("RARE")      # Rule applies to very few words and could specifically cause false positives.
 
     # Acceptable string values for graph and board element flags, as read from JSON or produced by the analyzer.
-    is_separator = Flag("SEP")  # Stroke separator rule.
     is_inversion = Flag("INV")  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
     is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     is_unmatched = Flag("BAD")  # Placeholder for keys inside a compound rule that do not belong to another child rule.
