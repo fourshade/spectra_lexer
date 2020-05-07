@@ -44,25 +44,17 @@ class IPlover:
         __exit__: Callable[..., bool]
 
 
-class RawStenoDict(Dict[IPlover.Strokes, str]):
-    """ Dict of tuple-keyed Plover translations. """
+RawStenoDict = Dict[IPlover.Strokes, str]  # Dict of tuple-keyed Plover translations.
 
-    @classmethod
-    def from_steno_dc(cls, steno_dc:IPlover.StenoDictCollection) -> "RawStenoDict":
-        """ Plover dictionaries are not proper Python dicts and cannot be handled as such.
-            They only have a subset of the normal dict methods. The fastest of these is .items().
-            A new dict must be updated with these items in reverse order of precedence. """
-        self = cls()
-        for steno_d in reversed(steno_dc.dicts):
-            if steno_d and steno_d.enabled:
-                self.update(steno_d.items())
-        return self
 
-    def to_string_dict(self, stroke_delim:str) -> RTFCREDict:
-        """ Convert this dict to use string keys. """
-        keys_iter = map(stroke_delim.join, self)
-        items_iter = zip(keys_iter, self.values())
-        return RTFCREDict(items_iter)
+def steno_dc_to_raw(steno_dc:IPlover.StenoDictCollection) -> RawStenoDict:
+    """ Return a raw Python dict updated with items from <steno_dc> in reverse order of precedence.
+        Plover dictionaries only have a subset of the normal dict methods. The fastest of these is .items(). """
+    d = {}
+    for steno_d in reversed(steno_dc.dicts):
+        if steno_d and steno_d.enabled:
+            d.update(steno_d.items())
+    return d
 
 
 class EngineWrapper:
@@ -84,7 +76,7 @@ class EngineWrapper:
         """ As a plugin, we lock the Plover engine just long enough to copy its steno dictionaries.
             The contents are strings and tuples of strings, so we are thread-safe after this point. """
         with self._engine:
-            return RawStenoDict.from_steno_dc(steno_dc)
+            return steno_dc_to_raw(steno_dc)
 
     def get_last_strokes(self) -> Sequence[str]:
         """ Lock the Plover engine thread to access the Plover translator state and get the newest strokes. """
@@ -152,7 +144,13 @@ class PloverExtension:
         if steno_dc is None:
             steno_dc = self._engine.get_dictionaries()
         d_raw = self._engine.compile_raw_dict(steno_dc)
-        return d_raw.to_string_dict(self._stroke_delim)
+        return self.convert_raw(d_raw)
+
+    def convert_raw(self, d_raw:RawStenoDict) -> RTFCREDict:
+        """ Convert <d_raw> into an RTFCREDict with string keys. """
+        keys_iter = map(self._stroke_delim.join, d_raw)
+        items_iter = zip(keys_iter, d_raw.values())
+        return RTFCREDict(items_iter)
 
     def parse_actions(self, old_actions:IPlover.ActionSequence,
                       new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:
