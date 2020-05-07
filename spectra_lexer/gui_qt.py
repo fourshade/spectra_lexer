@@ -252,7 +252,8 @@ class QtGUIApplication:
         self.set_enabled(True)
 
     @classmethod
-    def build(cls, engine:StenoEngine, logger:Callable, examples_path:str, cfg_path:str) -> "QtGUIApplication":
+    def build(cls, engine:StenoEngine, logger:Callable[[str], None],
+              examples_path:str, cfg_path:str) -> "QtGUIApplication":
         """ Build the interactive Qt GUI application with all necessary components. """
         exc_man = ExceptionManager()
         exc_man.add_logger(logger)

@@ -6,12 +6,10 @@ from traceback import format_exc
 from typing import Callable, Iterable, List, Optional
 
 import discord
-from PyQt5.QtCore import QBuffer, QIODevice
-from PyQt5.QtGui import QColor, QImage, QPainter
-from PyQt5.QtSvg import QSvgRenderer
 
 from spectra_lexer import Spectra
 from spectra_lexer.engine import StenoEngine
+from spectra_lexer.qt.svg import SVGConverter
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.search import MatchDict
 from spectra_lexer.util.cmdline import CmdlineOptions
@@ -24,20 +22,17 @@ class BotMessage:
         self._content = content
         self._file = None
 
+    def __str__(self) -> str:
+        return self._content
+
     def attach_as_file(self, data:bytes, filename:str) -> None:
         """ Attach an arbitrary string of bytes to this message as a file. """
         fstream = io.BytesIO(data)
         self._file = discord.File(fstream, filename)
 
-    def to_kwargs(self) -> dict:
-        """ Return a dict of kwargs for message.channel.send. """
-        kwargs = {'content': self._content}
-        if self._file is not None:
-            kwargs['file'] = self._file
-        return kwargs
-
-    def __str__(self) -> str:
-        return self._content
+    async def send(self, channel:discord.TextChannel) -> None:
+        """ Send the message to a Discord text channel. """
+        await channel.send(self._content, file=self._file)
 
 
 class DiscordBot:
@@ -86,51 +81,21 @@ class DiscordBot:
             self._log(format_exc())
         if reply is None:
             return
-        kwargs = reply.to_kwargs()
-        await message.channel.send(**kwargs)
+        await reply.send(message.channel)
 
 
 class DiscordApplication:
     """ Spectra engine application that accepts string input from Discord users. """
 
-    BOARD_BG_COLOR = QColor(0, 0, 0, 0)  # Transparent color to use for board PNG backgrounds.
-    BOARD_ASPECT_RATIO = 1.5             # Fixed aspect ratio to make board images look best on Discord.
-    QUERY_MAX_CHARS = 100                # Maximum number of characters allowed in a user query string.
-    EXCLUDED_CHARS = ",.?!"              # Characters that should be removed before searching for words.
-    SEARCH_LIMIT = 3                     # Maximum number of search results to analyze at once.
+    BOARD_ASPECT_RATIO = 1.5  # Fixed aspect ratio to make board images look best on Discord.
+    QUERY_MAX_CHARS = 100     # Maximum number of characters allowed in a user query string.
+    EXCLUDED_CHARS = ",.?!"   # Characters that should be removed before searching for words.
+    SEARCH_LIMIT = 3          # Maximum number of search results to analyze at once.
 
-    def __init__(self, engine:StenoEngine, space_rule:StenoRule) -> None:
+    def __init__(self, engine:StenoEngine, space_rule:StenoRule, svg_converter:SVGConverter) -> None:
         self._engine = engine          # Main query engine.
         self._space_rule = space_rule  # Stroke separator rule corresponding to space.
-
-    def _svg_to_png(self, svg_data:bytes) -> bytes:
-        """ Render SVG bytes on a transparent bitmap image and convert it to a PNG stream.
-            Use the viewbox dimensions as pixel sizes. """
-        svg = QSvgRenderer(svg_data)
-        viewbox = svg.viewBox().size()
-        im = QImage(viewbox, QImage.Format_ARGB32)
-        im.fill(self.BOARD_BG_COLOR)
-        with QPainter(im) as p:
-            svg.render(p)
-        buf = QBuffer()
-        buf.open(QIODevice.WriteOnly)
-        im.save(buf, "PNG")
-        return buf.data()
-
-    def _board_from_rule(self, rule:StenoRule) -> bytes:
-        """ Generate a board diagram in PNG raster format with good dimensions. """
-        board = self._engine.generate_board(rule, aspect_ratio=self.BOARD_ASPECT_RATIO)
-        svg_data = board.encode('utf-8')
-        png_data = self._svg_to_png(svg_data)
-        return png_data
-
-    def _reply(self, content:str, rule:StenoRule=None) -> BotMessage:
-        """ Construct a Discord bot message from a content string and optionally a rule. """
-        msg = BotMessage(content)
-        if rule is not None:
-            png_data = self._board_from_rule(rule)
-            msg.attach_as_file(png_data, "board.png")
-        return msg
+        self._svg_converter = svg_converter
 
     def _new_rule(self, word:str, matches:MatchDict) -> StenoRule:
         """ Make a new rule from a word and its possible stroke matches. """
@@ -188,14 +153,23 @@ class DiscordApplication:
     #             if keys and letters:
     #                 return self._engine.analyze(keys, letters)
 
+    def _board_png(self, rule:StenoRule) -> bytes:
+        """ Generate a board diagram in PNG raster format with good dimensions. """
+        board = self._engine.generate_board(rule, aspect_ratio=self.BOARD_ASPECT_RATIO)
+        svg_data = board.encode('utf-8')
+        return self._svg_converter.to_png(svg_data)
+
     def exec(self, query:str) -> BotMessage:
-        """ Parse a user query string and return a Discord bot message. """
+        """ Parse a user query string and return a Discord bot message, possibly with a board PNG attached. """
         if len(query) > self.QUERY_MAX_CHARS:
-            return self._reply('Query is too long.')
+            return BotMessage('Query is too long.')
         analysis = self._analyze_words(query)
         if analysis is None:
-            return self._reply('No suggestions.')
-        return self._reply(f'``{analysis}``', analysis)
+            return BotMessage('No suggestions.')
+        msg = BotMessage(f'``{analysis}``')
+        png_data = self._board_png(analysis)
+        msg.attach_as_file(png_data, "board.png")
+        return msg
 
 
 def main() -> int:
@@ -207,7 +181,8 @@ def main() -> int:
     translations_files = spectra.translations_paths()
     engine.load_translations(*translations_files)
     space_rule = engine.analyze("/", " ")
-    app = DiscordApplication(engine, space_rule)
+    svg_converter = SVGConverter(background_rgba=(0, 0, 0, 0))
+    app = DiscordApplication(engine, space_rule, svg_converter)
     bot = DiscordBot(opts.token, spectra.log)
     bot.add_command("spectra", app.exec)
     return bot.run()

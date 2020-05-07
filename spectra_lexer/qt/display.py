@@ -1,11 +1,11 @@
 from itertools import cycle
 from typing import Callable, Dict, Sequence, Tuple
 
-from PyQt5.QtCore import pyqtSignal, QObject, QRectF, QTimer, QUrl
-from PyQt5.QtGui import QPainter, QPicture, QTextCharFormat
-from PyQt5.QtSvg import QSvgRenderer
+from PyQt5.QtCore import pyqtSignal, QObject, QTimer, QUrl
+from PyQt5.QtGui import QTextCharFormat
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
+from .svg import SVGPictureRenderer
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 
@@ -23,40 +23,6 @@ class DisplayPageDict(Dict[str, DisplayPageData]):
     """ Contains HTML formatted graphs, captions, and SVG boards for each rule in an analysis. """
 
     DEFAULT_KEY = "_DEFAULT"  # Key for default page (nothing selected).
-
-
-class SVGPictureRenderer:
-    """ Renders SVG bytes data on QPictures. """
-
-    def __init__(self, *, render_hints=QPainter.Antialiasing) -> None:
-        self._renderer = QSvgRenderer()    # XML SVG renderer.
-        self._render_hints = render_hints  # SVG rendering quality hints (such as anti-aliasing).
-
-    def set_data(self, xml_data=b"") -> None:
-        """ Load the renderer with raw XML data containing the SVG elements to draw. """
-        self._renderer.load(xml_data)
-
-    def render_fit(self, width:float, height:float) -> QPicture:
-        """ Render the current SVG elements on a new picture of size <width, height> and return it. """
-        gfx = QPicture()
-        with QPainter(gfx) as p:
-            p.setRenderHints(self._render_hints)
-            bounds = self._fit_bounds(width, height)
-            self._renderer.render(p, bounds)
-        return gfx
-
-    def _fit_bounds(self, width:float, height:float) -> QRectF:
-        """ Return the bounding box needed to center everything in the picture at maximum scale. """
-        _, _, vw, vh = self._renderer.viewBoxF().getRect()
-        if vw and vh:
-            scale = min(width / vw, height / vh)
-            fw, fh = vw * scale, vh * scale
-            ox = (width - fw) / 2
-            oy = (height - fh) / 2
-            return QRectF(ox, oy, fw, fh)
-        else:
-            # If no valid viewbox is defined, use the given size directly.
-            return QRectF(0, 0, width, height)
 
 
 class _TitleWrapper(QObject):
@@ -154,7 +120,7 @@ class _GraphWrapper(QObject):
     def set_enabled(self, enabled:bool) -> None:
         self._w_graph.setEnabled(enabled)
 
-    def set_focus(self, enabled=False) -> None:
+    def set_focus(self, enabled:bool) -> None:
         """ Set the focus state of the graph. Mouseover signals will be suppressed when focus is active. """
         self._has_focus = enabled
 
@@ -200,7 +166,7 @@ class _BoardWrapper(QObject):
         """ Show the link in the bottom-right corner of the diagram if examples exist. """
         self._w_link.setVisible(visible)
 
-    def set_data(self, xml_data=b"") -> None:
+    def set_data(self, xml_data:bytes) -> None:
         """ Load the renderer with new SVG data and redraw the board. """
         self._renderer.set_data(xml_data)
         self._draw_board()
