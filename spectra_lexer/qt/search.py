@@ -90,6 +90,12 @@ class SearchController:
         self._last_page_count = page_count
         self._on_search(self._input.value(), page_count)
 
+    def _send_query(self, match:str, *mappings:str) -> None:
+        """ Send a lexer query for one or more translations.
+            The order of lexer parameters must be reversed for strokes mode. """
+        translations = [([match, m] if self._strokes else [m, match]) for m in mappings]
+        self._on_query(*translations)
+
     def _match_selected(self, match:str) -> None:
         """ If the user clicked "more", search again with another page.
             Otherwise, update the mappings list with the items corresponding to <match> and pick the best one. """
@@ -99,20 +105,12 @@ class SearchController:
             mappings = self._match_dict[match]
             self._mappings.set_items(mappings)
             if mappings:
-                self._send_query(*[[match, m] for m in mappings])
+                self._send_query(match, *mappings)
 
     def _mapping_selected(self, mapping:str) -> None:
         """ Select a <mapping> and send a lexer query for this specific translation. """
         match = self._matches.value()
-        self._send_query([match, mapping])
-
-    def _send_query(self, *translations:List[str]) -> None:
-        """ Send a lexer query for one or more <translations>.
-            The order of lexer parameters must be reversed for strokes mode. """
-        if not self._strokes:
-            for t in translations:
-                t.reverse()
-        self._on_query(*translations)
+        self._send_query(match, mapping)
 
     def update_results(self, matches:MatchDict, *, can_expand=False) -> None:
         """ Replace the current set of search results.

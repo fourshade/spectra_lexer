@@ -3,8 +3,11 @@
 import json
 from typing import Dict
 
+StringDict = Dict[str, str]
+NestedStringDict = Dict[str, StringDict]
 
-class RTFCREDict(Dict[str, str]):
+
+class RTFCREDict(StringDict):
     """ Dict of RTFCRE steno translations. """
 
     # Cutoffs for translation filters based on their size.
@@ -19,45 +22,39 @@ class RTFCREDict(Dict[str, str]):
     def size_filtered(self, size:int) -> "RTFCREDict":
         """ Return a new dict including only translations below a maximum size.
             <size> is the maximum allowed length of any string in a translation. """
-        cls = type(self)
+        filtered = RTFCREDict()
         if size < self.FSIZE_MINIMUM:
             # If the size is below minimum, it could be a dummy run. Keep nothing.
-            filtered = cls()
+            pass
         elif size >= self.FSIZE_MAXIMUM:
             # If the size is maximum, filtering is unnecessary. Keep everything.
-            filtered = cls(self)
+            filtered.update(self)
         else:
             # Eliminate long translations depending on the size factor.
-            filtered = cls()
             for keys, letters in self.items():
                 if len(keys) <= size and len(letters) <= size:
                     filtered[keys] = letters
         return filtered
 
-    @classmethod
-    def from_json_files(cls, *filenames:str) -> "RTFCREDict":
-        """ Load and merge translations from JSON files. UTF-8 is explicitly required for some translations. """
-        self = cls()
-        for filename in filenames:
-            with open(filename, 'r', encoding='utf-8') as fp:
-                d = json.load(fp)
-            if not isinstance(d, dict):
-                raise TypeError(f'Steno translations file "{filename}" does not contain a string dict.')
-            self.update(d)
-        return self
+    def update_from_json(self, filename:str) -> None:
+        """ Load and merge translations from a JSON file. UTF-8 is explicitly required for some translations. """
+        with open(filename, 'r', encoding='utf-8') as fp:
+            d = json.load(fp)
+        if not isinstance(d, dict):
+            raise TypeError(f'Steno translations file "{filename}" does not contain a string dict.')
+        self.update(d)
 
 
-class RTFCREExamplesDict(Dict[str, RTFCREDict]):
+class RTFCREExamplesDict(NestedStringDict):
     """ Dict of RTFCRE example translation dicts keyed by rule ID. """
 
-    @classmethod
-    def from_json_file(cls, filename:str) -> "RTFCREExamplesDict":
+    def update_from_json(self, filename:str) -> None:
         """ Load example translations from a JSON file. UTF-8 is explicitly required for some translations. """
         with open(filename, 'r', encoding='utf-8') as fp:
             d = json.load(fp)
         if not isinstance(d, dict) or not all([isinstance(v, dict) for v in d.values()]):
             raise TypeError(f'Examples index file "{filename}" does not contain a dict of dicts.')
-        return cls(d)
+        self.update(d)
 
     def json_dump(self, filename:str) -> None:
         """ Save this dict to a JSON file. Key sorting helps some algorithms run faster.

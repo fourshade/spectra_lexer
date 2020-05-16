@@ -71,16 +71,30 @@ class GUIOptions:
 class GUILayer:
     """ Layer for common user GUI actions. """
 
-    def __init__(self, engine:StenoEngine) -> None:
-        self._engine = engine  # Main steno analysis engine.
+    def __init__(self, engine:StenoEngine, *, index_delim=";") -> None:
+        self._engine = engine            # Main steno analysis engine.
+        self._index_delim = index_delim  # Delimiter between rule name and query for example index searches.
 
-    def query(self, translation:Tuple[str, str], *others:Tuple[str, str], opts=GUIOptions()) -> GUIOutput:
-        """ Execute and display a graph of a lexer query from search results or user strokes. """
-        output = GUIOutput()
+    def _search(self, pattern:str, pages:int, opts:GUIOptions) -> SearchResults:
+        count = pages * opts.search_match_limit
+        mode_strokes = opts.search_mode_strokes
+        if self._index_delim in pattern:
+            link_ref, pattern = pattern.split(self._index_delim, 1)
+            matches = self._engine.search_examples(link_ref, pattern, count, mode_strokes)
+            is_complete = True
+        else:
+            try:
+                method = self._engine.search_regex if opts.search_mode_regex else self._engine.search
+                matches = method(pattern, count, mode_strokes)
+                is_complete = len(matches) < count
+            except SearchRegexError:
+                matches = {"REGEX ERROR": []}
+                is_complete = True
+        return SearchResults(matches, is_complete)
+
+    def _analyze(self, keys:str, letters:str, opts:GUIOptions) -> DisplayData:
         strict_mode = opts.lexer_strict_mode
-        if others:
-            translation = self._engine.best_translation(translation, *others)
-        analysis = self._engine.analyze(*translation, strict_mode=strict_mode)
+        analysis = self._engine.analyze(keys, letters, strict_mode)
         compressed = opts.graph_compressed_layout
         compat = opts.graph_compatibility_mode
         graph = self._engine.generate_graph(analysis, compressed, compat)
@@ -115,33 +129,31 @@ class GUILayer:
         root_page = pages[root_ref]
         default_graph = graph.draw()
         default_page = DisplayPage(default_graph, default_graph, root_page.caption, root_page.board)
-        output.display_data = DisplayData(analysis.keys, analysis.letters, pages, default_page)
+        return DisplayData(keys, letters, pages, default_page)
+
+    def query(self, translation:Tuple[str, str], *others:Tuple[str, str], opts=GUIOptions()) -> GUIOutput:
+        """ Execute and display a graph of a lexer query from search results or user strokes. """
+        keys, letters = self._engine.best_translation(translation, *others) if others else translation
+        output = GUIOutput()
+        output.display_data = self._analyze(keys, letters, opts)
         return output
 
     def search(self, pattern:str, pages=1, *, opts=GUIOptions()) -> GUIOutput:
         """ Do a new search and return results unless the input is blank. """
         output = GUIOutput()
-        mode_strokes = opts.search_mode_strokes
         if pattern.strip():
-            count = pages * opts.search_match_limit
-            try:
-                matches = self._engine.search(pattern, count, mode_strokes, opts.search_mode_regex)
-                is_complete = len(matches) < count
-            except SearchRegexError:
-                matches = {"REGEX ERROR": []}
-                is_complete = True
-            output.search_results = SearchResults(matches, is_complete)
+            output.search_results = self._search(pattern, pages, opts)
         return output
 
     def search_examples(self, link_ref:str, *, opts=GUIOptions()) -> GUIOutput:
-        """ When a link is clicked, search for examples of the named rule and select one at random. """
-        mode_strokes = opts.search_mode_strokes
-        keys, letters, pattern = self._engine.random_example(link_ref, mode_strokes)
+        """ When a link is clicked, search for examples of the named rule and select one at random.
+            Overwrite the current search input with its pattern. """
+        output = GUIOutput()
+        keys, letters = self._engine.random_example(link_ref)
         if keys and letters:
-            matches = self._engine.search(pattern, opts.search_match_limit, mode_strokes)
-            output = self.query((keys, letters), opts=opts)
+            match = keys if opts.search_mode_strokes else letters
+            pattern = link_ref + self._index_delim + match
             output.search_input = pattern
-            output.search_results = SearchResults(matches, True)
-        else:
-            output = GUIOutput()
+            output.search_results = self._search(pattern, 1, opts)
+            output.display_data = self._analyze(keys, letters, opts)
         return output

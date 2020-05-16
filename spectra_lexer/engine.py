@@ -12,8 +12,6 @@ from spectra_lexer.search import MatchDict, SearchEngine
 class StenoEngine:
     """ Top-level controller for all steno search, analysis, and display components. """
 
-    INDEX_DELIM = ";"  # Delimiter between rule name and query for example index searches.
-
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  node_factory:GraphFactory, board_factory:BoardFactory) -> None:
         self._search_engine = search_engine
@@ -30,7 +28,9 @@ class StenoEngine:
 
     def load_translations(self, *filenames:str) -> None:
         """ Load and merge translations from JSON files. """
-        translations = RTFCREDict.from_json_files(*filenames)
+        translations = RTFCREDict()
+        for filename in filenames:
+            translations.update_from_json(filename)
         self.set_translations(translations)
 
     def set_examples(self, examples:RTFCREExamplesDict) -> None:
@@ -40,28 +40,24 @@ class StenoEngine:
 
     def load_examples(self, filename:str) -> None:
         """ Load an examples index from a JSON file. """
-        examples = RTFCREExamplesDict.from_json_file(filename)
+        examples = RTFCREExamplesDict()
+        examples.update_from_json(filename)
         self.set_examples(examples)
 
-    def search(self, pattern:str, count:int=None, mode_strokes=False, mode_regex=False) -> MatchDict:
-        if self.INDEX_DELIM in pattern:
-            link_ref, pattern = pattern.split(self.INDEX_DELIM, 1)
-            return self._search_engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
-        if mode_regex:
-            return self._search_engine.search_regex(pattern, count, mode_strokes=mode_strokes)
+    def search(self, pattern:str, count:int=None, mode_strokes=False) -> MatchDict:
         return self._search_engine.search(pattern, count, mode_strokes=mode_strokes)
+
+    def search_regex(self, pattern:str, count:int=None, mode_strokes=False) -> MatchDict:
+        return self._search_engine.search_regex(pattern, count, mode_strokes=mode_strokes)
+
+    def search_examples(self, rule_id:str, pattern:str, count:int, mode_strokes=False) -> MatchDict:
+        return self._search_engine.search_examples(rule_id, pattern, count, mode_strokes=mode_strokes)
 
     def has_examples(self, rule_id:str) -> bool:
         return self._search_engine.has_examples(rule_id)
 
-    def random_example(self, rule_id:str, mode_strokes=False) -> Tuple[str, str, str]:
-        """ Search for a random example translation using a rule by ID and return it with its search pattern. """
-        if not self.has_examples(rule_id):
-            return "", "", ""
-        keys, letters = self._search_engine.random_example(rule_id)
-        match = keys if mode_strokes else letters
-        pattern = rule_id + self.INDEX_DELIM + match
-        return keys, letters, pattern
+    def random_example(self, rule_id:str) -> Tuple[str, str]:
+        return self._search_engine.random_example(rule_id)
 
     def analyze(self, keys:str, letters:str, strict_mode=False) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=strict_mode)
@@ -77,7 +73,9 @@ class StenoEngine:
         if size is not None:
             translations = translations.size_filtered(size)
         index = self._analyzer.compile_index(translations.items(), process_count=process_count)
-        examples = RTFCREExamplesDict(zip(index, map(RTFCREDict, index.values())))
+        examples = RTFCREExamplesDict()
+        for r_id, pairs in index.items():
+            examples[r_id] = dict(pairs)
         self.set_examples(examples)
         if filename is not None:
             examples.json_dump(filename)
