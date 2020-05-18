@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import List
 
-from .base import IElementGrid
+from .base import TextElementGrid
 
 GRAPH_CSS_CLASS = "stenoGraph"
 
@@ -22,7 +22,7 @@ class BaseHTMLFormatter:
     _row_delim: str
     _col_delim: str
 
-    def __init__(self, grid:IElementGrid) -> None:
+    def __init__(self, grid:TextElementGrid) -> None:
         self._grid = grid
 
     def format(self, target="", intense=False) -> str:

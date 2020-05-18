@@ -1,12 +1,14 @@
 from functools import lru_cache
 from typing import Dict, List, Sequence
 
-from spectra_lexer.board import BoardDiagram, BoardDimensions, BoardDocumentFactory, BoardElementFactory, \
+from spectra_lexer.board import BoardDiagram, GridLayoutEngine, BoardDocumentFactory, BoardElementFactory, \
     BoardElementGroup, SVGElementFactory
-from spectra_lexer.graph import IBody, BoldBody, SeparatorBody, ShiftedBody, StandardBody, GraphNode, IConnectors, \
-    InversionConnectors, LinkedConnectors, NullConnectors, SimpleConnectors, ThickConnectors, UnmatchedConnectors, \
-    CascadedLayoutEngine,  CompressedLayoutEngine, ElementCanvas, \
-    BaseHTMLFormatter, CompatHTMLFormatter, StandardHTMLFormatter
+from spectra_lexer.graph import GraphNode, IBody, IConnectors, TextElementCanvas
+from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
+from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors, NullConnectors, \
+                                           SimpleConnectors, ThickConnectors, UnmatchedConnectors
+from spectra_lexer.graph.format import BaseHTMLFormatter, CompatHTMLFormatter, StandardHTMLFormatter
+from spectra_lexer.graph.layout import CascadedLayoutEngine, CompressedLayoutEngine
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
@@ -131,8 +133,8 @@ class BoardFactory:
         elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
         base_groups = [elem_factory.processed_group(procs[:-1], cls.FILL_BASE) for procs in board_defs.keys.values()]
         defs, base = elem_factory.base_pair(base_groups)
-        dims = BoardDimensions(*board_defs.bounds)
-        doc_factory = BoardDocumentFactory(svg_factory, defs, base, dims)
+        layout = GridLayoutEngine(*board_defs.bounds)
+        doc_factory = BoardDocumentFactory(svg_factory, defs, base, layout)
         return cls(converter, combo_key, elem_factory, board_defs.keys, board_defs.rules, doc_factory)
 
 
@@ -216,6 +218,6 @@ class GraphFactory:
         root = self._build_tree(ref_dict, rule, 0, len(rule.letters))
         layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
         layout = layout_engine.layout(root)
-        grid = ElementCanvas.from_layout(layout)
+        grid = TextElementCanvas.from_layout(layout).to_grid()
         formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
         return RuleGraph(ref_dict, formatter)

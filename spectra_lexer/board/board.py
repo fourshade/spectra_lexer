@@ -181,21 +181,21 @@ class BoardElementFactory:
         return defs, base
 
 
-class BoardDimensions:
+class GridLayoutEngine:
+    """ Calculates dimensions and transforms for items arranged in a grid. """
 
     def __init__(self, x:int, y:int, w:int, h:int) -> None:
-        self._offset = x, y  # X/Y offset for the viewbox of one stroke diagram.
-        self._w = w          # Width for the viewbox of one stroke diagram.
-        self._h = h          # Height for the viewbox of one stroke diagram.
+        self._x = x  # X offset for the full grid.
+        self._y = y  # Y offset for the full grid.
+        self._w = w  # Width of a single cell.
+        self._h = h  # Height of a single cell.
 
-    def grid_dimensions(self, count:int, device_ratio:float=None) -> Tuple[int, int]:
-        """ Calculate the best arrangement of <count> sub-diagrams in rows and columns for the best possible scale. """
-        if device_ratio is None:
-            # If no aspect ratio is given, this ensures that all boards end up in one column.
-            return count, 1
+    def arrange(self, count:int, aspect_ratio:float) -> Tuple[int, int]:
+        """ Calculate the best arrangement of <count> cells in rows and columns
+            for the best possible scale in a viewing area of <aspect_ratio>. """
         diagram_ratio = self._w / self._h
-        # rel_ratio is the aspect ratio of one diagram divided by that of the device viewing area.
-        rel_ratio = diagram_ratio / device_ratio
+        # rel_ratio is the aspect ratio of one cell divided by that of the viewing area.
+        rel_ratio = diagram_ratio / aspect_ratio
         r = min(rel_ratio, 1 / rel_ratio)
         s = int((count * r) ** 0.5) or 1
         if r * ceil(count / s) > (s + 1):
@@ -203,28 +203,29 @@ class BoardDimensions:
         t = ceil(count / s)
         return (s, t) if rel_ratio < 1 else (t, s)
 
-    def _grid_offset(self, i:int, ncols:int) -> TransformData:
-        """ Create a (dx, dy) translation for row-major item <i> in a diagram grid with <ncols> columns. """
+    def _offset_tfrm(self, i:int, ncols:int) -> TransformData:
+        """ Create a (dx, dy) translation for row-major cell <i> in a grid with <ncols> columns. """
         dx = self._w * (i % ncols)
         dy = self._h * (i // ncols)
         return TransformData.translation(dx, dy)
 
     def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
-        """ Create evenly spaced offset transformations for a grid with <count> diagrams in <ncols> columns. """
-        return [self._grid_offset(i, ncols) for i in range(count)]
+        """ Create evenly spaced offset transformations for a grid with <count> cells in <ncols> columns. """
+        return [self._offset_tfrm(i, ncols) for i in range(count)]
 
-    def viewbox(self, rows:int, cols:int) -> List[int]:
-        return [*self._offset, self._w * cols, self._h * rows]
+    def viewbox(self, rows:int, cols:int) -> Tuple[int, int, int, int]:
+        """ Return the final offset and dimensions for a grid of size <rows, cols>. """
+        return (self._x, self._y, self._w * cols, self._h * rows)
 
 
 class BoardDocumentFactory:
     """ Factory for SVG steno board documents corresponding to user input. """
 
-    def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, dims:BoardDimensions) -> None:
+    def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, layout:GridLayoutEngine) -> None:
         self._factory = factory  # Standard SVG element factory.
         self._defs = defs        # SVG defs element to include at the beginning of every document.
         self._base = base        # Base SVG element that is shown under every stroke diagram.
-        self._dims = dims
+        self._layout = layout    # Layout engine to position each stroke diagram on the document.
 
     @staticmethod
     def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[XMLElement]]:
@@ -254,9 +255,10 @@ class BoardDocumentFactory:
             Add overlays (if any), put it all in a new SVG document, and return the final encoded string. """
         strokes = self._stroke_groups(elems)
         stroke_count = len(strokes)
-        rows, cols = self._dims.grid_dimensions(stroke_count, aspect_ratio)
-        tfrms = self._dims.transforms(stroke_count, cols)
-        viewbox = self._dims.viewbox(rows, cols)
+        # If no aspect ratio is given, aspect_ratio=0.0001 ensures that all boards end up in one column.
+        rows, cols = self._layout.arrange(stroke_count, aspect_ratio or 0.0001)
+        tfrms = self._layout.transforms(stroke_count, cols)
+        viewbox = self._layout.viewbox(rows, cols)
         diagrams = [self._factory.group(self._base, *stroke, transform=tfrm) for stroke, tfrm in zip(strokes, tfrms)]
         overlays = self._overlays(elems, tfrms)
         document = self._factory.svg(self._defs, *diagrams, *overlays, viewbox=viewbox)

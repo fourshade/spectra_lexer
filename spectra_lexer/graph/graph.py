@@ -1,10 +1,10 @@
 from collections import defaultdict
 from typing import Dict, Iterable, Iterator, List, Sequence, Set, TypeVar, Tuple
 
-from .base import GridElement, GraphLayout, IBody, IConnectors, IElementGrid, LayoutNode
+from .base import GraphLayout, IBody, IConnectors, LayoutNode, TextElement, TextElementGrid
 
 
-class Canvas:
+class GridCanvas:
     """ A mutable 2D grid for drawing generic elements in a random-access manner. """
 
     _ELEMENT = TypeVar("_ELEMENT")
@@ -66,9 +66,9 @@ class Canvas:
         for r in self._grid:
             r[:0] = padding
 
-    def __iter__(self) -> Iterator[List[_ELEMENT]]:
-        """ Yield a copy of each grid row in sequence. """
-        return map(list.copy, self._grid)
+    def to_lists(self) -> List[List[_ELEMENT]]:
+        """ Return the contents of the grid as a list of lists. """
+        return list(map(list.copy, self._grid))
 
     def __str__(self) -> str:
         """ Return all grid elements joined into a single string with default line ends. """
@@ -117,14 +117,15 @@ class GraphNode(LayoutNode):
     def iter_elements(self, top_row:int, bottom_row:int, col:int,
                       successors:Dict[int, Set[str]]) -> Iterator[Tuple[int, int, str, str, int, set]]:
         body = self._body
-        bcol, text = body.text(col)
+        body_col, text = body.text(col)
         ref = self._ref
         for i in range(self._attach_length):
             successors[i+col].add(ref)
         bold_at = 1 - body.is_always_bold()
         for char in text:
-            yield bottom_row, bcol, char, ref, bold_at, {ref, *successors[bcol]}
-            bcol += 1
+            triggers = {ref, *successors[body_col]}
+            yield bottom_row, body_col, char, ref, bold_at, triggers
+            body_col += 1
         height = bottom_row - top_row
         if height:
             triggers = {ref}.union(*successors.values())
@@ -137,35 +138,43 @@ class GraphNode(LayoutNode):
                 row += 1
 
 
-class ElementCanvas(Canvas, IElementGrid):
-    """ A mutable 2D grid for drawing text elements in a random-access manner.
-        Each element should correspond to exactly one printed character, with additional optional markup. """
+class TextElementCanvas:
 
-    _EMPTY = GridElement(" ", "", False, None)
+    _EMPTY = TextElement(" ")
 
-    @classmethod
-    def from_layout(cls, layout:GraphLayout) -> "ElementCanvas":
-        self = cls(layout.bottom, layout.right, cls._EMPTY)
-        self._write_from_layout(layout, 0, 0, 0)
-        return self
+    def __init__(self, canvas:GridCanvas) -> None:
+        self._canvas = canvas
 
-    def _write_from_layout(self, layout:GraphLayout, parent_top=0, parent_left=0, depth=0) -> Dict[int, Set[str]]:
+    def to_grid(self) -> TextElementGrid:
+        """ Return the contents of the canvas as a list grid. """
+        return self._canvas.to_lists()
+
+    def write_layout(self, layout:GraphLayout, parent_top=0, parent_left=0, depth=0) -> Dict[int, Set[str]]:
+        """ Draw text elements on the canvas recursively from a layout. """
         node = layout.node
         top = parent_top + layout.top
         left = parent_left + layout.left
         successors = defaultdict(set)
         for sublayout in layout.sublayouts:
-            triggers = self._write_from_layout(sublayout, top, left, depth + 1)
+            triggers = self.write_layout(sublayout, top, left, depth + 1)
             for i, s in triggers.items():
                 successors[i].update(s)
         it = node.iter_elements(parent_top, top, left, successors)
         if node.is_separator():
             # Replace every element in the bottom row with the separator.
             row, col, char, *_ = next(it)
-            elem = GridElement(char)
-            self.replace_empty(elem, row)
+            elem = TextElement(char)
+            self._canvas.replace_empty(elem, row)
         else:
             for row, col, char, ref, bold_at, triggers in it:
-                elem = GridElement(char, ref, depth, bold_at, triggers)
-                self.write(elem, row, col)
+                elem = TextElement(char, ref, depth, bold_at, triggers)
+                self._canvas.write(elem, row, col)
         return successors
+
+    @classmethod
+    def from_layout(cls, layout:GraphLayout) -> "TextElementCanvas":
+        """ Make a new canvas from the dimensions of the layout and draw it. """
+        canvas = GridCanvas(layout.bottom, layout.right, cls._EMPTY)
+        self = cls(canvas)
+        self.write_layout(layout)
+        return self

@@ -2,7 +2,7 @@
 
 """ Build script for main program; originally copied from Plover and stripped down. """
 
-from glob import glob
+import glob
 import os
 import shutil
 import subprocess
@@ -10,6 +10,16 @@ import sys
 
 from setuptools import Command as stCommand, setup
 from setuptools.command import develop, install, sdist
+
+
+def iglob_all(*patterns):
+    """ Yield each unique file path that matches one of many glob <patterns>. """
+    seen = set()
+    for pattern in patterns:
+        for path in glob.iglob(pattern, recursive=True):
+            if path not in seen:
+                yield path
+                seen.add(path)
 
 
 class BaseCommand(stCommand):
@@ -39,7 +49,7 @@ class CommandNamespace:
         description = "Build Python code from new/modified Qt UI files."
         requires = "clean"
         def run(self):
-            for src in glob('**/*.ui', recursive=True):
+            for src in iglob_all('**/*.ui'):
                 dst = os.path.splitext(src)[0] + '_ui.py'
                 if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
                     continue
@@ -50,12 +60,11 @@ class CommandNamespace:
     class clean(Command):
         description = "Remove all build and test-generated files."
         def run(self):
-            for pattern in ('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py'):
-                for path in glob(pattern, recursive=True):
-                    if os.path.isdir(path):
-                        shutil.rmtree(path)
-                    elif os.path.exists(path):
-                        os.remove(path)
+            for path in iglob_all('.pytest_cache', 'build', 'dist', '*.egg-info', '**/__pycache__', '**/*_ui.py'):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif os.path.exists(path):
+                    os.remove(path)
 
     class develop(BaseCommand, develop.develop):
         requires = "build_ui"

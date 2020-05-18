@@ -1,4 +1,41 @@
-from typing import Container, Iterator, List, Sequence, Tuple
+from typing import Container, List, Sequence, Tuple
+
+
+class IBody:
+
+    __slots__ = ()
+
+    def height(self) -> int:
+        """ Return the height of the node body in rows. """
+        raise NotImplementedError
+
+    def width(self) -> int:
+        """ Return the width of the node body in columns. """
+        raise NotImplementedError
+
+    def is_always_bold(self) -> bool:
+        raise NotImplementedError
+
+    def is_separator(self) -> bool:
+        raise NotImplementedError
+
+    def text(self, col:int) -> Tuple[int, str]:
+        """ Return a column offset (possibly shifted) with a string of text to start writing there as a row. """
+        raise NotImplementedError
+
+
+class IConnectors:
+    """ A set of connector characters joining a node to its parent. """
+
+    __slots__ = ()
+
+    def strlist(self, height:int) -> List[str]:
+        """ Return a list of strings where index 0 goes under the parent, then extends to <height>. """
+        raise NotImplementedError
+
+    def min_height(self) -> int:
+        """ Minimum height is 3 characters, or 2 if the bottom attachment is one character wide. """
+        raise NotImplementedError
 
 
 class LayoutNode:
@@ -41,44 +78,8 @@ class GraphLayout:
         self.sublayouts = sublayouts  # Sublayouts in the order they should be drawn.
 
 
-class IBody:
-
-    __slots__ = ()
-
-    def height(self) -> int:
-        """ Return the height of the node body in rows. """
-        raise NotImplementedError
-
-    def width(self) -> int:
-        """ Return the width of the node body in columns. """
-        raise NotImplementedError
-
-    def is_always_bold(self) -> bool:
-        raise NotImplementedError
-
-    def is_separator(self) -> bool:
-        raise NotImplementedError
-
-    def text(self, col:int) -> Tuple[int, str]:
-        """ Return a column offset (possibly shifted) with a string of text to start writing there as a row. """
-        raise NotImplementedError
-
-
-class IConnectors:
-    """ A set of connector characters joining a node to its parent. """
-
-    __slots__ = ()
-
-    def strlist(self, height:int) -> List[str]:
-        """ Return a list of strings where index 0 goes under the parent, then extends to <height>. """
-        raise NotImplementedError
-
-    def min_height(self) -> int:
-        """ Minimum height is 3 characters, or 2 if the bottom attachment is one character wide. """
-        raise NotImplementedError
-
-
-class GridElement:
+class TextElement:
+    """ A single text element with markup. Corresponds to exactly one printed character. """
 
     __slots__ = ["char", "ref", "color_index", "bold_at", "activators"]
 
@@ -90,9 +91,4 @@ class GridElement:
         self.activators = activators    # Contains all refs that will activate (highlight) this element.
 
 
-class IElementGrid:
-    """ Abstract text element grid. """
-
-    def __iter__(self) -> Iterator[Sequence[GridElement]]:
-        """ Yield a copy of each grid row in sequence. """
-        raise NotImplementedError
+TextElementGrid = Sequence[Sequence[TextElement]]  # Abstract 2D grid of text elements.
