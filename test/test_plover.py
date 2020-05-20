@@ -2,10 +2,8 @@
 
 """ Unit tests for Plover dictionary conversion. """
 
-from typing import Dict
-
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.plover import IPlover, PloverExtension
+from spectra_lexer.plover.plugin import IPlover, PloverExtension, steno_dc_to_dict, StringStenoDict
 
 
 def test_plover() -> None:
@@ -13,7 +11,7 @@ def test_plover() -> None:
     assert dc_to_dict(dict_to_dc(TEST_TRANSLATIONS)) == TEST_TRANSLATIONS
 
 
-def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDictionaryCollection:
+def dict_to_dc(translations:StringStenoDict, split_count=3) -> IPlover.StenoDictionaryCollection:
     steno_dc = IPlover.StenoDictionaryCollection()
     dicts = steno_dc.dicts = []
     tuples = [(*k.split("/"),) for k in translations]
@@ -27,12 +25,11 @@ def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDicti
     return steno_dc
 
 
-class DummyEngine(IPlover.Engine):
-    signal_connect = __enter__ = __exit__ = lambda *_: False
+class DummyEngine:
+    compile_dict = staticmethod(steno_dc_to_dict)
 
 
-def dc_to_dict(steno_dc:IPlover.StenoDictionaryCollection) -> Dict[str, str]:
+def dc_to_dict(steno_dc:IPlover.StenoDictionaryCollection) -> StringStenoDict:
     dummy_engine = DummyEngine()
-    dummy_engine.dictionaries = steno_dc
     ext = PloverExtension(dummy_engine)
-    return ext.parse_dictionaries()
+    return ext.parse_dictionaries(steno_dc)

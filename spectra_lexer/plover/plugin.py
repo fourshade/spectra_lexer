@@ -1,12 +1,7 @@
 """ Main module for the Plover plugin components. """
 
-from configparser import ConfigParser
 from functools import partial
-import json
-import os
-from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
-
-from spectra_lexer.util.path import UserPathConverter
+from typing import Tuple, Dict, Optional, Sequence, Callable, Iterable
 
 StrokeTuple = Tuple[str, ...]            # Tuple of RTFCRE strokes.
 TupleStenoDict = Dict[StrokeTuple, str]  # Dict of tuple-keyed Plover translations.
@@ -17,6 +12,19 @@ class IPlover:
     """ Data types and interfaces containing only what is necessary for compatibility with Plover. """
 
     VERSION = "4.0.0.dev8"  # Plover version for which these interfaces are known to be valid.
+
+    class IncompatibleError(Exception):
+        """ Raised if the installed Plover version is not compatible with this application. """
+
+    @classmethod
+    def is_compatible(cls) -> None:
+        """ Check the Plover version to see if it is compatible with this extension. """
+        # pkg_resources takes 4x as long to import as *everything else combined*. Only import it when/if we need it.
+        import pkg_resources
+        try:
+            pkg_resources.working_set.require(f"plover>={cls.VERSION}")
+        except pkg_resources.ResolutionError as e:
+            raise cls.IncompatibleError(f"Plover v{cls.VERSION} or greater required.") from e
 
     class Action:
         prev_attach: bool
@@ -124,11 +132,11 @@ class TranslationState:
 
 class PloverExtension:
 
-    def __init__(self, engine:IPlover.Engine, *, stroke_delim="/", stroke_limit=10000) -> None:
-        self._engine = EngineWrapper(engine)  # Wrapped Plover engine object.
-        self._stroke_delim = stroke_delim     # Delimiter for Plover stroke strings.
-        self._stroke_limit = stroke_limit     # Maximum number of strokes/actions to keep in memory, if any.
-        self._state = None                    # Contains current user strokes and actions.
+    def __init__(self, engine:EngineWrapper, *, stroke_delim="/", stroke_limit=10000) -> None:
+        self._engine = engine              # Wrapped Plover engine object.
+        self._stroke_delim = stroke_delim  # Delimiter for Plover stroke strings.
+        self._stroke_limit = stroke_limit  # Maximum number of strokes/actions to keep in memory, if any.
+        self._state = None                 # Contains current user strokes and actions.
 
     def call_on_dictionaries_loaded(self, callback:Callable[[IPlover.StenoDictionaryCollection], None]) -> None:
         """ Set a callback to receive dictionaries when Plover loads them (happens on startup, reordering, etc.) """
@@ -157,7 +165,7 @@ class PloverExtension:
         new_state = TranslationState(strokes, new_actions)
         # Only combine states if there were no deletions, all the new text attaches, and the stroke limit is met.
         if old_state is not None and not old_actions and new_state.is_attachment():
-            if len(old_state) + len(strokes) <= self._stroke_limit:
+            if len(old_state) + len(new_state) <= self._stroke_limit:
                 new_state = old_state + new_state
         keys, letters = new_state.to_strings(self._stroke_delim)
         if keys and letters:
@@ -166,57 +174,3 @@ class PloverExtension:
         else:
             self._state = None
             return None
-
-
-class IncompatibleError(Exception):
-    """ Raised if the installed Plover version is not compatible with this application. """
-
-
-class PloverAppInfo:
-    """ Returns information about the user's Plover installation or its files. """
-
-    def __init__(self, *, app_name:str, cfg_filename:str, min_version:str) -> None:
-        self._app_name = app_name          # Name of Plover application for finding its user data folder.
-        self._cfg_filename = cfg_filename  # Filename for Plover configuration with user dictionaries.
-        self._min_version = min_version    # Minimum version of Plover required for plugin compatibility.
-
-    def check_compatible(self) -> None:
-        """ Check the Plover version to see if it is compatible with this extension. """
-        # pkg_resources takes 4x as long to import as *everything else combined*. Only import it when/if we need it.
-        import pkg_resources
-        try:
-            pkg_resources.working_set.require(f"plover>={self._min_version}")
-        except pkg_resources.ResolutionError as e:
-            raise IncompatibleError(f"Plover v{self._min_version} or greater required.") from e
-
-    def _find_dictionaries(self) -> Sequence[str]:
-        """ Search the user's local app data for the Plover config file.
-            Parse the dictionaries section and return the filenames for all dictionaries in order. """
-        converter = UserPathConverter(self._app_name)
-        cfg_filename = converter.convert(self._cfg_filename)
-        parser = ConfigParser()
-        with open(cfg_filename, 'r', encoding='utf-8') as fp:
-            parser.read_file(fp)
-        # Dictionaries are located in the same directory as the config file.
-        # The config value we need is read as a string, but it must be decoded as a JSON array of objects.
-        value = parser['System: English Stenotype']['dictionaries']
-        dictionary_specs = json.loads(value)
-        plover_dir = os.path.split(cfg_filename)[0]
-        # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
-        return [os.path.join(plover_dir, spec['path']) for spec in reversed(dictionary_specs)]
-
-    def dictionary_paths(self, *, ignore_errors=False) -> Sequence[str]:
-        """ Search the user's local app data for the Plover config file and find the file paths for the dictionaries.
-            Return an empty list on a file or parsing error if <ignore_errors> is True. """
-        try:
-            return self._find_dictionaries()
-        except (IndexError, KeyError, OSError, ValueError):
-            if not ignore_errors:
-                raise
-            return []
-
-
-# Global import for compatibility checks and user data.
-plover_info = PloverAppInfo(app_name="plover",
-                            cfg_filename="plover.cfg",
-                            min_version=IPlover.VERSION)

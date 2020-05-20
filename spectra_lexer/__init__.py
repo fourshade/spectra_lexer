@@ -64,7 +64,7 @@ import sys
 from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
 from spectra_lexer.display import BoardFactory, GraphFactory
 from spectra_lexer.engine import StenoEngine
-from spectra_lexer.plover import plover_info
+from spectra_lexer.plover.config import find_dictionaries
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRuleParser
@@ -72,10 +72,11 @@ from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.json import CSONDecoder
 from spectra_lexer.util.log import StreamLogger
-from spectra_lexer.util.path import AssetPathConverter, PrefixPathConverter, UserPathConverter
+from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory
 
 # The name of the root package is used as a default path for built-in assets and user files.
 ROOT_PACKAGE = __package__.split(".", 1)[0]
+PLOVER_APP_NAME = "plover"
 
 
 class Spectra:
@@ -103,12 +104,14 @@ class Spectra:
                  "JSON translation files to load on start.")
         opts.add("index", self.USER_PATH_PREFIX + "index.json",
                  "JSON index file to load on start and/or write to.")
-        opts.add("config", Spectra.USER_PATH_PREFIX + "config.cfg",
+        opts.add("config", self.USER_PATH_PREFIX + "config.cfg",
                  "Config CFG/INI file to load at start and/or write to.")
         opts.parse()
         converter = PrefixPathConverter()
-        converter.add(self.ASSET_PATH_PREFIX, AssetPathConverter(ROOT_PACKAGE))
-        converter.add(self.USER_PATH_PREFIX, UserPathConverter(ROOT_PACKAGE))
+        asset_path = module_directory(ROOT_PACKAGE)
+        converter.add(self.ASSET_PATH_PREFIX, asset_path)
+        user_path = user_data_directory(ROOT_PACKAGE)
+        converter.add(self.USER_PATH_PREFIX, user_path)
         log_path = converter.convert(opts.log, make_dirs=True)
         log_stream = open(log_path, 'a', encoding='utf-8')
         logger = StreamLogger(sys.stdout, log_stream)
@@ -121,7 +124,8 @@ class Spectra:
         filenames = []
         for f in self._opts.translations:
             if f == self.PLOVER_SENTINEL:
-                filenames += plover_info.dictionary_paths(ignore_errors=True)
+                plover_user_path = user_data_directory(PLOVER_APP_NAME)
+                filenames += find_dictionaries(plover_user_path, ignore_errors=True)
             else:
                 filenames.append(self._convert_path(f))
         return filenames

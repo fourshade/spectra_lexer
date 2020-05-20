@@ -61,20 +61,18 @@ class StenoAnalyzer:
         skeys = self._to_skeys(keys)
         result = self._lexer.query(skeys, letters)
         info = self._result_info(result)
-        rule = StenoRule.analysis(keys, letters, info)
+        rule = StenoRule(keys, letters, info)
         unmatched_skeys = result.unmatched_skeys
-        last_match_end = 0
         if strict_mode and unmatched_skeys:
             unmatched_skeys = skeys
         else:
             for lr, start in zip(result.rules, result.rule_positions):
                 child = self._refmap[lr]
                 length = len(lr.letters)
-                last_match_end = start + length
                 rule.add_connection(child, start, length)
         if unmatched_skeys:
-            ur = StenoRule.unmatched(self._to_rtfcre(unmatched_skeys))
-            rule.add_connection(ur, last_match_end, len(letters) - last_match_end)
+            unmatched_keys = self._to_rtfcre(unmatched_skeys)
+            rule.add_unmatched(unmatched_keys)
         return rule
 
     @staticmethod

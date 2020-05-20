@@ -38,19 +38,30 @@ class StenoRule:
     is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     is_unmatched = Flag("BAD")  # Placeholder for keys inside a compound rule that do not belong to another child rule.
 
-    def __init__(self, r_id:str, keys:str, letters:str, info:str, flags:AbstractSet[str]=frozenset(), alt="") -> None:
-        self.id = r_id          # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
+    def __init__(self, keys:str, letters:str, info:str, flags:AbstractSet[str]=frozenset(), r_id="", alt="") -> None:
         self.keys = keys        # Raw string of steno keys that make up the rule.
         self.letters = letters  # Raw English text of the word.
         self.info = info        # Textual description of the rule.
         self._flags = flags     # Set of string flags that apply to the rule.
         self._rulemap = []      # List of child rules mapped to letter positions *in order*.
+        self.id = r_id          # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
         self.alt = alt          # Alternate text specifically for display in diagrams.
 
     def add_connection(self, child:"StenoRule", start:int, length:int) -> None:
         """ Connect a <child> rule to this one at <start>. Must be done in order. <length> may be 0. """
         item = self.Connection(child, start, length)
         self._rulemap.append(item)
+
+    def add_unmatched(self, unmatched_keys:str) -> None:
+        """ Add a placeholder child rule mapping leftover keys to an empty string of letters. """
+        if self._rulemap:
+            last_item = self._rulemap[-1]
+            last_child_end = last_item.start + last_item.length
+        else:
+            last_child_end = 0
+        remaining_length = len(self.letters) - last_child_end
+        child = StenoRule(unmatched_keys, "", "unmatched keys", {StenoRule.is_unmatched})
+        self.add_connection(child, last_child_end, remaining_length)
 
     def __bool__(self) -> bool:
         """ Return True if this rule is compound, meaning it is composed of smaller child rules. """
@@ -80,15 +91,6 @@ class StenoRule:
                 key_counter.subtract(item.child.keys)
             mismatched = [k for k in key_counter if key_counter[k] and k not in delimiters]
             assert not mismatched, f"Rule {self.id} has mismatched keys vs. its child rules: {mismatched}"
-
-    @classmethod
-    def analysis(cls, keys:str, letters:str, info:str) -> "StenoRule":
-        return cls("", keys, letters, info)
-
-    @classmethod
-    def unmatched(cls, keys:str) -> "StenoRule":
-        """ Return a placeholder rule mapping leftover keys from a lexer result to an empty string of letters. """
-        return cls("", keys, "", "unmatched keys", {cls.is_unmatched})
 
 
 class StenoRuleParser:
@@ -136,7 +138,7 @@ class StenoRuleParser:
             return memo[r_id]
         keys, flags, info, alt = self._rule_data[r_id]
         sub_result = self._sub_parser.parse(r_id)
-        rule = self._rule_memo[r_id] = StenoRule(r_id, keys, sub_result.text, info, set(flags), alt)
+        rule = self._rule_memo[r_id] = StenoRule(keys, sub_result.text, info, set(flags), r_id, alt)
         for sub in sub_result.subs:
             child = self._parse(sub.ref)
             rule.add_connection(child, sub.start, sub.length)

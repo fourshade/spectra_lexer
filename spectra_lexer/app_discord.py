@@ -100,7 +100,7 @@ class DiscordApplication:
     def _new_rule(self, word:str, matches:MatchDict) -> StenoRule:
         """ Make a new rule from a word and its possible stroke matches. """
         if not matches:
-            return StenoRule.analysis("?", "-" * len(word), "Skipped word.")
+            return StenoRule("?", "-" * len(word), "Skipped word.")
         if word in matches:
             pairs = [(s, word) for s in matches[word]]
         elif word.lower() in matches:
@@ -113,7 +113,7 @@ class DiscordApplication:
     @staticmethod
     def _join_rules(rules:Iterable[StenoRule]) -> StenoRule:
         """ Join several rules into one for display purposes. """
-        analysis = StenoRule.analysis("", "", "Compound analysis.")
+        analysis = StenoRule("", "", "Compound analysis.")
         offset = 0
         for r in rules:
             analysis.keys += r.keys
@@ -180,7 +180,7 @@ def main() -> int:
     engine = spectra.build_engine()
     translations_files = spectra.translations_paths()
     engine.load_translations(*translations_files)
-    space_rule = engine.analyze("/", " ")
+    space_rule = StenoRule("/", " ", "space")
     svg_converter = SVGConverter(background_rgba=(0, 0, 0, 0))
     app = DiscordApplication(engine, space_rule, svg_converter)
     bot = DiscordBot(opts.token, spectra.log)
