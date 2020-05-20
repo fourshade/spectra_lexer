@@ -1,17 +1,20 @@
 {
   # Coordinates of the bounding box for a single steno board diagram.
-  "min_bounds": [-5, -25],
-  "max_bounds": [306, 116],
+  "bounds": {
+    "left": -5,
+    "top": -25,
+    "width": 306,
+    "height": 116},
 
   # Coordinates for the upper-left corner of every basic steno key. Also includes offsets for the bottom half of every tall key.
-  "pos": {
+  "offsets": {
     "#":  [0, -20],
     "S":  [0, 0],  "T": [30, 0],  "P": [60, 0],  "H": [90, 0],  "*":  [120, 0],  "f": [150, 0],  "p": [180, 0],  "l": [210, 0],  "t": [240, 0],  "d": [270, 0],
     "S2": [0, 30], "K": [30, 30], "W": [60, 30], "R": [90, 30], "*2": [120, 30], "r": [150, 30], "b": [180, 30], "g": [210, 30], "s": [240, 30], "z": [270, 30],
                                        "A": [70, 60], "O": [100, 60],       "E": [140, 60], "U": [170, 60]},
 
   # Data for SVG paths composing key shapes and the areas that text may occupy on them.
-  "shape": {
+  "shapes": {
     "number": {"txtcenter": [148, 9],   "txtarea": [290, 12], "altangle": 0,   "d": "M0,0h296v16h-296v-16z"},
     "square": {"txtcenter": [13,  14],  "txtarea": [20, 20],  "altangle": 0,   "d": "M0,0h26v26h-26v-26z"},
     "round":  {"txtcenter": [13,  13],  "txtarea": [20, 20],  "altangle": 0,   "d": "M0,0h26v13a13,13,0,0,1,-26,0v-13z"},
@@ -42,7 +45,7 @@
     "v_*_v":  {"txtcenter": [13,  28],  "txtarea": [20, 45],  "altangle": 90,  "d": "M0,0h26v60h50v13a13,13,0,0,1,-26,0h-74a13,13,0,0,1,-26,0v-13h50v-60z"}},
 
   # Text glyph shapes for English characters and a few other Unicode symbols.
-  "glyph": {
+  "glyphs": {
     "DEFAULT": "M62,0l0,660l476,0l0,-660M170,58l257,0l-73,132l-52,103l-4,0l-54,-103M127,110l128,230l-128,232M298,387l4,0l49,94l66,119l-235,0l66,-119M345,340l127,-230l0,462z",
     " ": "Mz",
     "A": "M232,367l-31,-100l196,0l-31,100C355,404 344,440 333,477C322,513 311,550 301,588l-4,0C286,550 276,513 265,477C254,440 243,404 232,367M32,0l221,656l94,0l221,-656l-88,0l-62,200l-238,0l-63,-200z",
@@ -142,8 +145,8 @@
     "↑": "M246,676C190,623 146,580 86,520C47,481 96,430 140,470C174,500 231,556 263,588C263,403 264,159 264,-26C264,-83 339,-83 339,-26C339,179 341,400 339,588C382,546 433,496 461,470C500,432 556,485 521,520C467,573 403,628 355,676C311,720 295,722 246,676z",
     "⇄": "M50,150l150,150l30,-30l-95,-95h400v-50h-400l95,-95l-30,-30l-150,150zM550,450l-150,150l-30,-30l95,-95h-400v-50h400l-95,-95l30,-30l150,150z"},
 
-  # Standard keys in basic positions with text.
-  "key": {
+  # Rendering info for standard keys in basic positions with text.
+  "keys": {
     "/":      ["sep=1"],
     "#":      ["pos=#", "shape=number", "text=   #   #   #   #   #   "],
     "S":      ["pos=S", "shape=tall",   "text=S"],
@@ -169,8 +172,8 @@
     "d":      ["pos=d", "shape=square", "text=D"],
     "z":      ["pos=z", "shape=round",  "text=Z"]},
 
-  # Key shapes without text, used for rules.
-  "rule": {
+  # Rendering info for key combinations (without text), used for rules.
+  "rules": {
     "#":      ["pos=#", "shape=number"],
     "T":      ["pos=T", "shape=square"],
     "K":      ["pos=K", "shape=round"],

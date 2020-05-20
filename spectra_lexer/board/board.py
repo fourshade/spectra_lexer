@@ -184,16 +184,16 @@ class BoardElementFactory:
 class GridLayoutEngine:
     """ Calculates dimensions and transforms for items arranged in a grid. """
 
-    def __init__(self, x:int, y:int, w:int, h:int) -> None:
-        self._x = x  # X offset for the full grid.
-        self._y = y  # Y offset for the full grid.
-        self._w = w  # Width of a single cell.
-        self._h = h  # Height of a single cell.
+    def __init__(self, left:int, top:int, width:int, height:int) -> None:
+        self._left = left      # X offset for the full grid.
+        self._top = top        # Y offset for the full grid.
+        self._width = width    # Width of a single cell.
+        self._height = height  # Height of a single cell.
 
     def arrange(self, count:int, aspect_ratio:float) -> Tuple[int, int]:
         """ Calculate the best arrangement of <count> cells in rows and columns
             for the best possible scale in a viewing area of <aspect_ratio>. """
-        diagram_ratio = self._w / self._h
+        diagram_ratio = self._width / self._height
         # rel_ratio is the aspect ratio of one cell divided by that of the viewing area.
         rel_ratio = diagram_ratio / aspect_ratio
         r = min(rel_ratio, 1 / rel_ratio)
@@ -205,8 +205,8 @@ class GridLayoutEngine:
 
     def _offset_tfrm(self, i:int, ncols:int) -> TransformData:
         """ Create a (dx, dy) translation for row-major cell <i> in a grid with <ncols> columns. """
-        dx = self._w * (i % ncols)
-        dy = self._h * (i // ncols)
+        dx = self._width * (i % ncols)
+        dy = self._height * (i // ncols)
         return TransformData.translation(dx, dy)
 
     def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
@@ -215,7 +215,7 @@ class GridLayoutEngine:
 
     def viewbox(self, rows:int, cols:int) -> Tuple[int, int, int, int]:
         """ Return the final offset and dimensions for a grid of size <rows, cols>. """
-        return (self._x, self._y, self._w * cols, self._h * rows)
+        return (self._left, self._top, self._width * cols, self._height * rows)
 
 
 class BoardDocumentFactory:

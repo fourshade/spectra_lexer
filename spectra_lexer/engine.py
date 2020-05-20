@@ -1,9 +1,7 @@
 from typing import Tuple
 
-from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
+from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardFactory, GraphFactory, RuleGraph
-from spectra_lexer.resource.board import StenoBoardDefinitions
-from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.resource.translations import RTFCREDict, RTFCREExamplesDict
 from spectra_lexer.search import MatchDict, SearchEngine
@@ -88,14 +86,3 @@ class StenoEngine:
 
     def generate_graph(self, rule:StenoRule, compressed=True, compat=False) -> RuleGraph:
         return self._graph_factory.build(rule, compressed=compressed, compat=compat)
-
-    @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout, rules:StenoRuleCollection,
-                       board_defs:StenoBoardDefinitions) -> "StenoEngine":
-        """ Build a complete engine from a set of required resources. """
-        key_parser = keymap.make_parser()
-        search_engine = SearchEngine()
-        analyzer = StenoAnalyzer.from_resources(key_parser, rules, keymap.sep, keymap.unordered)
-        graph_factory = GraphFactory(keymap.sep, keymap.split)
-        board_factory = BoardFactory.from_resources(key_parser, board_defs, keymap.unordered[-1:])
-        return cls(search_engine, analyzer, graph_factory, board_factory)

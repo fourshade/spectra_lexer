@@ -1,10 +1,20 @@
 {
+    # Stroke delimiter. Separates individual strokes of a multi-stroke action.
     "sep":    "/",
+    # RTFCRE board split delimiter. Separates ambiguous strokes into left+center and right sides of the board.
     "split":  "-",
+    # Unique characters for each key in steno order, moving left -> center -> right.
+    # Right-side keys may re-use letters (but not symbols) from the left or center.
     "left":   "#STKPWHR",
     "center": "AO*EU",
     "right":  "FRPBLGTSDZ",
-    "unordered": "*",
+    # A special key that may ignore steno order. This has a large performance and accuracy cost.
+    # Only the asterisk is typically used in such a way that this treatment is worth it.
+    "special": "*",
+    # Some keys can be designated as shift keys. They must be at the beginning of steno order when it matters.
+    # The number key is the main example. When held, keys mostly on the top row become numbers based on their position.
+    # These numbers are considered "aliases" for those keys in steno parsing. They are allowed to be present directly
+    # in RTFCRE key strings. This is a table of aliases mapped to strings with two characters: "shift_key, real_key".
     "aliases": {"0": "#O", "1": "#S", "2": "#T", "3": "#P", "4": "#H",
                 "5": "#A", "6": "#F", "7": "#P", "8": "#L", "9": "#T"}
 }

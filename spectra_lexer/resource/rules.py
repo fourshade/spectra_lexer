@@ -64,15 +64,15 @@ class StenoRule:
         """ The standard string representation of a rule is its keys -> letters mapping. """
         return f"{self.keys} → {self.letters}"
 
-    def verify(self, valid_keys:AbstractSet[str], delimiters:AbstractSet[str]) -> None:
+    def verify(self, valid_rtfcre:AbstractSet[str], delimiters:AbstractSet[str]) -> None:
         """ Perform integrity checks on this rule. """
         key_counter = Counter(self.keys)
         assert key_counter, f"Rule {self.id} is empty"
-        # All keys must be valid RTFCRE characters.
-        assert (key_counter.keys() <= valid_keys), f"Rule {self.id} has invalid keys"
+        # All key characters must be valid RTFCRE characters.
+        assert (key_counter.keys() <= valid_rtfcre), f"Rule {self.id} has invalid characters"
         if self:
             # Check that the rulemap positions all fall within our own letter bounds.
-            # Make sure the child rules contain all the keys of this rule between them, and no extras.
+            # Make sure the child rules contain all of our keys between them with no extras (except delimiters).
             for item in self:
                 assert item.start >= 0
                 assert item.length >= 0

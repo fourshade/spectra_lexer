@@ -10,7 +10,7 @@ from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors
 from spectra_lexer.graph.format import BaseHTMLFormatter, CompatHTMLFormatter, StandardHTMLFormatter
 from spectra_lexer.graph.layout import CascadedLayoutEngine, CompressedLayoutEngine
 from spectra_lexer.resource.board import StenoBoardDefinitions
-from spectra_lexer.resource.keys import StenoKeyConverter
+from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
 
@@ -32,15 +32,14 @@ class BoardFactory:
     FILL_BRIEF = "#FF7F00"
     FILL_ALT = "#00AFAF"
 
-    def __init__(self, converter:StenoKeyConverter, combo_key:str, elem_factory:BoardElementFactory,
-                 key_procs:Dict[str, List[str]], rule_procs:Dict[str, List[str]],
-                 doc_factory:BoardDocumentFactory) -> None:
-        self._to_skeys = converter.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
-        self._combo_key = combo_key                 # Key used with others without contributing to text.
+    def __init__(self, keymap:StenoKeyLayout, elem_factory:BoardElementFactory, doc_factory:BoardDocumentFactory,
+                 key_procs:Dict[str, List[str]], rule_procs:Dict[str, List[str]]) -> None:
+        self._to_skeys = keymap.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
+        self._combo_key = keymap.special_key()   # Key used with others without contributing to text.
         self._elem_factory = elem_factory
+        self._doc_factory = doc_factory
         self._key_procs = key_procs
         self._rule_procs = rule_procs
-        self._doc_factory = doc_factory
 
     @lru_cache(maxsize=None)
     def _elems_from_skeys(self, skeys:str, bg:str=None) -> List[BoardElementGroup]:
@@ -126,16 +125,15 @@ class BoardFactory:
         return self._make_svg(elems, aspect_ratio)
 
     @classmethod
-    def from_resources(cls, converter:StenoKeyConverter,
-                       board_defs:StenoBoardDefinitions, combo_key:str) -> "BoardFactory":
+    def from_resources(cls, keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> "BoardFactory":
         """ Generate board diagram elements with the background of every key to use as a diagram base. """
         svg_factory = SVGElementFactory()
         elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
         base_groups = [elem_factory.processed_group(procs[:-1], cls.FILL_BASE) for procs in board_defs.keys.values()]
         defs, base = elem_factory.base_pair(base_groups)
-        layout = GridLayoutEngine(*board_defs.bounds)
+        layout = GridLayoutEngine(**board_defs.bounds)
         doc_factory = BoardDocumentFactory(svg_factory, defs, base, layout)
-        return cls(converter, combo_key, elem_factory, board_defs.keys, board_defs.rules, doc_factory)
+        return cls(keymap, elem_factory, doc_factory, board_defs.keys, board_defs.rules)
 
 
 class RuleGraph:
@@ -221,3 +219,7 @@ class GraphFactory:
         grid = TextElementCanvas.from_layout(layout).to_grid()
         formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
         return RuleGraph(ref_dict, formatter)
+
+    @classmethod
+    def from_resources(cls, keymap:StenoKeyLayout) -> "GraphFactory":
+        return cls(keymap.separator_key(), keymap.divider_key())

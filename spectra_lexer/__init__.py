@@ -62,11 +62,13 @@
 import sys
 
 from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
+from spectra_lexer.display import BoardFactory, GraphFactory
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.plover import plover_info
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRuleParser
+from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.json import CSONDecoder
 from spectra_lexer.util.log import StreamLogger
@@ -140,29 +142,34 @@ class Spectra:
         return self._cson_decoder.decode(s)
 
     def _load_keymap(self) -> StenoKeyLayout:
-        """ Load a steno key constants structure. """
+        """ Load steno key layout constants from CSON. """
         d = self._read_cson_resource(self.LAYOUT_CSON)
-        return StenoKeyLayout.from_dict(d)
+        return StenoKeyLayout.from_json_dict(d)
 
     def _load_rules(self) -> StenoRuleCollection:
+        """ Load steno rules from CSON. """
         d = self._read_cson_resource(self.RULES_CSON)
         parser = StenoRuleParser()
         parser.add_json_dict(d)
         return parser.parse()
 
     def _load_board_defs(self) -> StenoBoardDefinitions:
-        """ Load a dict with steno board graphics definitions. """
+        """ Load steno board graphics definitions from CSON. """
         d = self._read_cson_resource(self.BOARD_CSON)
-        return StenoBoardDefinitions(d)
+        return StenoBoardDefinitions.from_json_dict(d)
 
     def build_engine(self) -> StenoEngine:
-        """ From the base directory, load and verify each steno resource component, then build the base engine. """
+        """ From the base directory, load and verify each steno resource component, then build the complete engine. """
         keymap = self._load_keymap()
         keymap.verify()
         rules = self._load_rules()
-        valid_keys = keymap.valid_rtfcre()
-        delimiters = keymap.dividers()
+        valid_rtfcre = keymap.valid_rtfcre()
+        delimiters = {keymap.separator_key(), keymap.divider_key()}
         for rule in rules:
-            rule.verify(valid_keys, delimiters)
+            rule.verify(valid_rtfcre, delimiters)
         board_defs = self._load_board_defs()
-        return StenoEngine.from_resources(keymap, rules, board_defs)
+        search_engine = SearchEngine()
+        analyzer = StenoAnalyzer.from_resources(keymap, rules)
+        graph_factory = GraphFactory.from_resources(keymap)
+        board_factory = BoardFactory.from_resources(keymap, board_defs)
+        return StenoEngine(search_engine, analyzer, graph_factory, board_factory)

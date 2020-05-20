@@ -1,40 +1,22 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 
 class StenoBoardDefinitions:
     """ Contains various graphical definitions required to draw steno board diagrams. """
 
-    def __init__(self, defs:Dict[str, dict]) -> None:
-        self._defs = defs
+    def __init__(self, *, bounds:Dict[str, int], offsets:Dict[str, List[int]], shapes:Dict[str, dict],
+                 glyphs:Dict[str, str], keys:Dict[str, List[str]], rules:Dict[str, List[str]], **unused) -> None:
+        self.bounds = bounds    # Coordinates of the bounding box for a single board diagram (before transforms).
+        self.offsets = offsets  # Dict of [x, y] offset coordinates for the upper-left corner of every key on the board.
+        self.shapes = shapes    # Dict of instructions for creating each key shape in SVG.
+        self.glyphs = glyphs    # Dict of single Unicode characters mapped to SVG path data strings with their outlines.
+        self.keys = keys        # Dict of single steno s-keys mapped to full definitions of their appearance.
+        self.rules = rules      # Dict of s-keys sequences mapped to compound key shapes with space for rule text.
 
-    @property
-    def offsets(self) -> Dict[str, List[int]]:
-        """ Return a dict of [x, y] offset coordinates for the upper-left corner of every key on the board. """
-        return self._defs["pos"]
-
-    @property
-    def shapes(self) -> Dict[str, dict]:
-        """ Return a dict of key shape attribute dicts. """
-        return self._defs["shape"]
-
-    @property
-    def glyphs(self) -> Dict[str, str]:
-        """ Return a dict of single Unicode characters mapped to SVG path data strings with their outlines. """
-        return self._defs["glyph"]
-
-    @property
-    def keys(self) -> Dict[str, List[str]]:
-        """ Return a dict of single steno s-keys mapped to full definitions of their appearance. """
-        return self._defs["key"]
-
-    @property
-    def rules(self) -> Dict[str, List[str]]:
-        """ Return a dict of s-keys sequences mapped to compound key shapes with space for rule text. """
-        return self._defs["rule"]
-
-    @property
-    def bounds(self) -> Tuple[int, int, int, int]:
-        """ Return the coordinates of the bounding box for a single board diagram (before transforms). """
-        x, y = self._defs["min_bounds"]
-        w, h = self._defs["max_bounds"]
-        return x, y, w, h
+    @classmethod
+    def from_json_dict(cls, d:dict) -> "StenoBoardDefinitions":
+        """ Create a definitions structure from a JSON dict unpacked as **kwargs. """
+        try:
+            return cls(**d)
+        except TypeError as e:
+            raise TypeError("Board graphics definitions are incomplete") from e
