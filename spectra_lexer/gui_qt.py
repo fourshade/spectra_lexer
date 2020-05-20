@@ -3,8 +3,9 @@ from typing import Callable
 
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from spectra_lexer import StenoEngine
+from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.console.qt import ConsoleDialog
+from spectra_lexer.engine import StenoEngine
 from spectra_lexer.gui import GUILayer, GUIOptions, GUIOutput
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
@@ -16,7 +17,6 @@ from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
-from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.util.config import ConfigFile
 from spectra_lexer.util.exception import ExceptionManager
 
@@ -78,23 +78,9 @@ class QtGUIApplication:
                         board_show_letters=self._display.get_board_letters())
         return GUIOptions(cfg_opts, gui_opts, ext_opts)
 
-    def on_search(self, pattern:str, pages:int, **options) -> None:
-        """ Run a translation search and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.search(pattern, pages, opts=opts)
-        self._update_gui(out)
-
-    def on_query(self, *args, **options) -> None:
-        """ Run a lexer query and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.query(*args, opts=opts)
-        self._update_gui(out)
-
-    def on_search_examples(self, link_ref:str, **options) -> None:
-        """ Run an example search and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.search_examples(link_ref, opts=opts)
-        self._update_gui(out)
+    def _update_gui_translation(self, keys:str, letters:str) -> None:
+        self._search.select_translation(keys, letters)
+        self._display.set_translation(keys, letters)
 
     def _update_gui(self, out:GUIOutput) -> None:
         """ Update each GUI component with anything it uses from <out>. """
@@ -116,9 +102,23 @@ class QtGUIApplication:
                 output_dict[ref] = DisplayPageData(graphs, page.caption, board_xml, page.rule_id)
             self._display.set_pages(output_dict)
 
-    def _update_gui_translation(self, keys:str, letters:str) -> None:
-        self._search.select_translation(keys, letters)
-        self._display.set_translation(keys, letters)
+    def on_search(self, pattern:str, pages:int, **options) -> None:
+        """ Run a translation search and update the GUI with any results. """
+        opts = self._get_options(options)
+        out = self._gui.search(pattern, pages, opts=opts)
+        self._update_gui(out)
+
+    def on_query(self, *args, **options) -> None:
+        """ Run a lexer query and update the GUI with any results. """
+        opts = self._get_options(options)
+        out = self._gui.query(*args, opts=opts)
+        self._update_gui(out)
+
+    def on_search_examples(self, link_ref:str, **options) -> None:
+        """ Run an example search and update the GUI with any results. """
+        opts = self._get_options(options)
+        out = self._gui.search_examples(link_ref, opts=opts)
+        self._update_gui(out)
 
     def run_async(self, func:Callable, *args, callback:Callable=None, msg_start:str=None, msg_done:str=None) -> None:
         """ Start a blocking async task. If <msg_start> is not None, show it and disable the window controls.
@@ -138,11 +138,6 @@ class QtGUIApplication:
                 callback(val)
         q_app.processEvents()
         self._async_dsp.dispatch(func, *args, on_start=on_task_start, on_finish=on_task_finish)
-
-    def load_user_files(self) -> None:
-        """ Load initial data asynchronously on a new thread to avoid blocking the GUI. """
-        self.run_async(self._load_user_files, callback=self._on_ready,
-                       msg_start="Loading...", msg_done="Loading complete.")
 
     def _load_user_files(self) -> bool:
         """ Load the examples index and config files. Ignore I/O errors since either may be missing.
@@ -167,6 +162,11 @@ class QtGUIApplication:
         if is_first_run:
             self.confirm_startup_index()
 
+    def load_user_files(self) -> None:
+        """ Load initial data asynchronously on a new thread to avoid blocking the GUI. """
+        self.run_async(self._load_user_files, callback=self._on_ready,
+                       msg_start="Loading...", msg_done="Loading complete.")
+
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self._window.open_files("Load Translations", ".", "json")
@@ -181,6 +181,9 @@ class QtGUIApplication:
             self.run_async(self._engine.load_examples, filename,
                            msg_start="Loading file...", msg_done="Loaded index from file dialog.")
 
+    def _update_config(self, options:dict) -> None:
+        self.run_async(self._config.update, options, msg_done="Configuration saved.")
+
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         dialog = self._window.open_dialog(ConfigDialog)
@@ -192,26 +195,23 @@ class QtGUIApplication:
                 dialog.call_on_options_accept(self._update_config)
             dialog.show()
 
-    def _update_config(self, options:dict) -> None:
-        self.run_async(self._config.update, options, msg_done="Configuration saved.")
+    def _make_index(self, size:int) -> None:
+        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
+        self.run_async(self._engine.compile_examples, size, self._examples_path,
+                       msg_start="Making new index...", msg_done="Successfully created index!")
 
     def confirm_startup_index(self) -> None:
         """ Present a modal dialog for the user to approve making a default-sized index on first start. """
         if self._window.yes_or_no("Make Index", INDEX_STARTUP_MESSAGE):
-            self._make_index(RTFCREDict.FSIZE_MEDIUM)
+            self._make_index(TranslationFilter.SIZE_MEDIUM)
 
     def custom_index(self) -> None:
         """ Create and show a dialog for the index size slider that submits a positive number on accept. """
         dialog = self._window.open_dialog(IndexSizeDialog)
         if dialog is not None:
-            dialog.setup(RTFCREDict.FILTER_SIZES)
+            dialog.setup(TranslationFilter.SIZES)
             dialog.call_on_size_accept(self._make_index)
             dialog.show()
-
-    def _make_index(self, size:int) -> None:
-        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self.run_async(self._engine.compile_examples, size, self._examples_path,
-                       msg_start="Making new index...", msg_done="Successfully created index!")
 
     def debug_console(self) -> None:
         """ Create and show an interpreter console dialog. """

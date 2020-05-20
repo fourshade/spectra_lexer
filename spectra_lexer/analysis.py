@@ -14,6 +14,36 @@ TranslationPairs = Iterable[Tuple[str, str]]  # Iterable collection of (keys, le
 StenoRuleCollection = Iterable[StenoRule]     # Iterable collection of complete rule objects.
 
 
+class TranslationFilter:
+    """ Size-based filter for RTFCRE steno translations. """
+
+    # Cutoffs for translation filters based on their size.
+    SIZE_MINIMUM = 1   # Below this size, the filter blocks everything.
+    SIZE_SMALL = 10
+    SIZE_MEDIUM = 12
+    SIZE_LARGE = 15
+    SIZE_MAXIMUM = 20  # At this size and above, the filter is disabled.
+    # Ordered list of all filter sizes for GUI display.
+    SIZES = [SIZE_MINIMUM, SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE, SIZE_MAXIMUM]
+
+    def __init__(self, size:int) -> None:
+        self._size = size
+
+    def filter(self, translations:TranslationPairs) -> TranslationPairs:
+        """ Return only translations where every string is below the maximum size. """
+        size = self._size
+        if size < self.SIZE_MINIMUM:
+            # If the size is below minimum, it could be a dummy run. Keep nothing.
+            return []
+        elif size >= self.SIZE_MAXIMUM:
+            # If the size is maximum, filtering is unnecessary. Keep everything.
+            return translations
+        else:
+            # Eliminate long translations depending on the size factor.
+            return [(keys, letters) for keys, letters in translations
+                    if len(keys) <= size and len(letters) <= size]
+
+
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 

@@ -1,6 +1,6 @@
 """ Module for matching rules by a prefix of steno keys. """
 
-from typing import Iterable, List, Sequence, TypeVar
+from typing import List, Sequence, TypeVar
 
 from .base import IRuleMatcher, LexerRule, RuleMatch
 
@@ -66,12 +66,12 @@ class UnorderedPrefixMatcher(IRuleMatcher):
         The performance is heavily dependent on the number of possible unordered keys.
         Unordered matching is required for the asterisk; other keys are usually not worth the slowdown. """
 
-    def __init__(self, key_sep:str, unordered_keys:Iterable[str]) -> None:
-        filter_unordered = frozenset(unordered_keys).intersection
+    def __init__(self, key_sep:str, unordered_keys:str) -> None:
+        assert len(key_sep) == 1
         self._key_sep = key_sep                    # Steno stroke delimiter.
+        self._unordered_set = set(unordered_keys)  # Set of keys in which to ignore steno order.
         self._tree = _PrefixTree()                 # Prefix tree for all rules.
         self._ordered_matcher = PrefixMatcher()    # Matches rules with only ordered keys.
-        self._filter_unordered = filter_unordered  # Filter for unordered keys.
 
     def add(self, rule:LexerRule) -> None:
         """ Index a rule, its skeys string, its letters, and its unordered keys under only the ordered keys.
@@ -81,30 +81,30 @@ class UnorderedPrefixMatcher(IRuleMatcher):
         letters = rule.letters.lower()
         # Unordered keys must be filtered from the first stroke in each string of keys.
         skeys_fs = skeys.split(self._key_sep, 1)[0]
-        unordered_set = self._filter_unordered(skeys_fs)
-        if not unordered_set:
+        unordered_fs = self._unordered_set.intersection(skeys_fs)
+        if not unordered_fs:
             # Add rules with only ordered keys to a separate tree for faster matching.
             self._ordered_matcher.add(rule)
         ordered_keys = skeys
-        for c in unordered_set:
+        for c in unordered_fs:
             ordered_keys = ordered_keys.replace(c, "", 1)
-        self._tree.add(ordered_keys, (rule, skeys, letters, unordered_set))
+        self._tree.add(ordered_keys, (rule, skeys, letters, unordered_fs))
 
     def match(self, skeys:str, letters:str, *_) -> List[RuleMatch]:
         """ Match all rules that contain a prefix of the ordered keys in <skeys>, a subset of <letters>,
             and a subset of unordered keys from the first stroke. This may yield a large number of rules. """
         skeys_fs = skeys.split(self._key_sep, 1)[0]
-        unordered_set = self._filter_unordered(skeys_fs)
-        if not unordered_set:
+        unordered_fs = self._unordered_set.intersection(skeys_fs)
+        if not unordered_fs:
             # Use the faster tree if only ordered keys are in the first stroke.
             return self._ordered_matcher.match(skeys, letters)
         letters = letters.lower()
         matches = []
         ordered_keys = skeys
-        for c in unordered_set:
+        for c in unordered_fs:
             ordered_keys = ordered_keys.replace(c, "", 1)
         for rule, r_skeys, r_letters, r_unordered in self._tree.match(ordered_keys):
-            if r_letters in letters and r_unordered <= unordered_set:
+            if r_letters in letters and r_unordered <= unordered_fs:
                 # Remove matched keys starting from the left and save the remainder.
                 # With no guaranteed order, each key must be removed individually.
                 skeys_left = skeys

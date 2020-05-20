@@ -6,13 +6,13 @@ from threading import Lock
 from typing import Callable
 
 from spectra_lexer import Spectra
+from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput, SearchResults
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
-from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.json import CustomJSONEncoder, RestrictedJSONDecoder
 
@@ -88,7 +88,7 @@ def main() -> int:
     except OSError:
         # If there's no index, we really need one, so make one (and make it big).
         spectra.log("Building new index...")
-        engine.compile_examples(RTFCREDict.FSIZE_LARGE, index_file)
+        engine.compile_examples(TranslationFilter.SIZE_LARGE, index_file)
     server = build_server(engine, opts.http_dir, spectra.log)
     spectra.log("Server started.")
     try:

@@ -13,14 +13,14 @@ def test_plover() -> None:
     assert dc_to_dict(dict_to_dc(TEST_TRANSLATIONS)) == TEST_TRANSLATIONS
 
 
-def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDictCollection:
-    steno_dc = IPlover.StenoDictCollection()
+def dict_to_dc(translations:Dict[str, str], split_count=3) -> IPlover.StenoDictionaryCollection:
+    steno_dc = IPlover.StenoDictionaryCollection()
     dicts = steno_dc.dicts = []
     tuples = [(*k.split("/"),) for k in translations]
     items = list(zip(tuples, translations.values()))
     for i in range(split_count):
         tuple_d = dict(items[i::split_count])
-        sd = IPlover.StenoDict()
+        sd = IPlover.StenoDictionary()
         sd.items = tuple_d.items
         sd.enabled = True
         dicts.append(sd)
@@ -31,7 +31,7 @@ class DummyEngine(IPlover.Engine):
     signal_connect = __enter__ = __exit__ = lambda *_: False
 
 
-def dc_to_dict(steno_dc:IPlover.StenoDictCollection) -> Dict[str, str]:
+def dc_to_dict(steno_dc:IPlover.StenoDictionaryCollection) -> Dict[str, str]:
     dummy_engine = DummyEngine()
     dummy_engine.dictionaries = steno_dc
     ext = PloverExtension(dummy_engine)

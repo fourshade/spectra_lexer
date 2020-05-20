@@ -121,7 +121,7 @@ class Spectra:
         filenames = []
         for f in self._opts.translations:
             if f == self.PLOVER_SENTINEL:
-                filenames += plover_info.user_dictionary_files(ignore_errors=True)
+                filenames += plover_info.dictionary_paths(ignore_errors=True)
             else:
                 filenames.append(self._convert_path(f))
         return filenames

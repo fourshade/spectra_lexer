@@ -4,14 +4,14 @@ import sys
 from time import time
 
 from spectra_lexer import Spectra
-from spectra_lexer.resource.translations import RTFCREDict
+from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.util.cmdline import CmdlineOptions
 
 
 def main() -> int:
     """ Analyze translations files and create an examples index from them. Time the execution. """
     opts = CmdlineOptions("Batch script for creating an examples index.")
-    opts.add("size", RTFCREDict.FSIZE_MEDIUM, "Relative size of generated index.")
+    opts.add("size", TranslationFilter.SIZE_MEDIUM, "Relative size of generated index.")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
     spectra = Spectra(opts)
     spectra.log("Operation started...")

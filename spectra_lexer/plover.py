@@ -6,14 +6,17 @@ import json
 import os
 from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
 
-from spectra_lexer.resource.translations import RTFCREDict
 from spectra_lexer.util.path import UserPathConverter
+
+StrokeTuple = Tuple[str, ...]            # Tuple of RTFCRE strokes.
+TupleStenoDict = Dict[StrokeTuple, str]  # Dict of tuple-keyed Plover translations.
+StringStenoDict = Dict[str, str]         # Dict of string-keyed Plover translations.
 
 
 class IPlover:
     """ Data types and interfaces containing only what is necessary for compatibility with Plover. """
 
-    Strokes = Tuple[str, ...]
+    VERSION = "4.0.0.dev8"  # Plover version for which these interfaces are known to be valid.
 
     class Action:
         prev_attach: bool
@@ -23,32 +26,29 @@ class IPlover:
     ActionSequence = Sequence[Action]
 
     class Translation:
-        rtfcre: "IPlover.Strokes"
+        rtfcre: StrokeTuple
         english: Optional[str]
 
     class TranslatorState:
         translations: Sequence["IPlover.Translation"]
 
-    class StenoDict:
-        items: Callable[[], Iterable[Tuple["IPlover.Strokes", str]]]
+    class StenoDictionary:
+        items: Callable[[], Iterable[Tuple[StrokeTuple, str]]]
         enabled: bool
 
-    class StenoDictCollection:
-        dicts: Sequence["IPlover.StenoDict"]
+    class StenoDictionaryCollection:
+        dicts: Sequence["IPlover.StenoDictionary"]
 
     class Engine:
-        dictionaries: "IPlover.StenoDictCollection"
+        dictionaries: "IPlover.StenoDictionaryCollection"
         translator_state: "IPlover.TranslatorState"
         signal_connect: Callable[[str, Callable], None]
         __enter__: Callable[[], None]
         __exit__: Callable[..., bool]
 
 
-RawStenoDict = Dict[IPlover.Strokes, str]  # Dict of tuple-keyed Plover translations.
-
-
-def steno_dc_to_raw(steno_dc:IPlover.StenoDictCollection) -> RawStenoDict:
-    """ Return a raw Python dict updated with items from <steno_dc> in reverse order of precedence.
+def steno_dc_to_dict(steno_dc:IPlover.StenoDictionaryCollection) -> TupleStenoDict:
+    """ Return a normal Python dict updated with items from <steno_dc> in reverse order of precedence.
         Plover dictionaries only have a subset of the normal dict methods. The fastest of these is .items(). """
     d = {}
     for steno_d in reversed(steno_dc.dicts):
@@ -68,15 +68,15 @@ class EngineWrapper:
             The callback must be wrapped in a partial for signals to reach it...no idea why. """
         self._engine.signal_connect(key, partial(callback))
 
-    def get_dictionaries(self) -> IPlover.StenoDictCollection:
+    def get_dictionaries(self) -> IPlover.StenoDictionaryCollection:
         """ Return the currently loaded set of dictionaries from the engine. """
         return self._engine.dictionaries
 
-    def compile_raw_dict(self, steno_dc:IPlover.StenoDictCollection) -> RawStenoDict:
+    def compile_dict(self, steno_dc:IPlover.StenoDictionaryCollection) -> TupleStenoDict:
         """ As a plugin, we lock the Plover engine just long enough to copy its steno dictionaries.
             The contents are strings and tuples of strings, so we are thread-safe after this point. """
         with self._engine:
-            return steno_dc_to_raw(steno_dc)
+            return steno_dc_to_dict(steno_dc)
 
     def get_last_strokes(self) -> Sequence[str]:
         """ Lock the Plover engine thread to access the Plover translator state and get the newest strokes. """
@@ -130,7 +130,7 @@ class PloverExtension:
         self._stroke_limit = stroke_limit     # Maximum number of strokes/actions to keep in memory, if any.
         self._state = None                    # Contains current user strokes and actions.
 
-    def call_on_dictionaries_loaded(self, callback:Callable[[IPlover.StenoDictCollection], None]) -> None:
+    def call_on_dictionaries_loaded(self, callback:Callable[[IPlover.StenoDictionaryCollection], None]) -> None:
         """ Set a callback to receive dictionaries when Plover loads them (happens on startup, reordering, etc.) """
         self._engine.signal_connect("dictionaries_loaded", callback)
 
@@ -138,19 +138,15 @@ class PloverExtension:
         """ Set a callback to receive user input actions. """
         self._engine.signal_connect("translated", callback)
 
-    def parse_dictionaries(self, steno_dc:IPlover.StenoDictCollection=None) -> RTFCREDict:
-        """ Convert and merge all translations in <steno_dc> into an RTFCREDict.
+    def parse_dictionaries(self, steno_dc:IPlover.StenoDictionaryCollection=None) -> StringStenoDict:
+        """ Convert and merge all translations in <steno_dc> into a string dict.
             If None, convert the current set of dictionaries from the engine. """
         if steno_dc is None:
             steno_dc = self._engine.get_dictionaries()
-        d_raw = self._engine.compile_raw_dict(steno_dc)
-        return self.convert_raw(d_raw)
-
-    def convert_raw(self, d_raw:RawStenoDict) -> RTFCREDict:
-        """ Convert <d_raw> into an RTFCREDict with string keys. """
-        keys_iter = map(self._stroke_delim.join, d_raw)
-        items_iter = zip(keys_iter, d_raw.values())
-        return RTFCREDict(items_iter)
+        d_tuple = self._engine.compile_dict(steno_dc)
+        keys_iter = map(self._stroke_delim.join, d_tuple)
+        items_iter = zip(keys_iter, d_tuple.values())
+        return dict(items_iter)
 
     def parse_actions(self, old_actions:IPlover.ActionSequence,
                       new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:
@@ -193,16 +189,6 @@ class PloverAppInfo:
         except pkg_resources.ResolutionError as e:
             raise IncompatibleError(f"Plover v{self._min_version} or greater required.") from e
 
-    def user_dictionary_files(self, *, ignore_errors=False) -> Sequence[str]:
-        """ Search the user's local app data for the Plover config file and find the dictionary files.
-            Return an empty list on a file or parsing error if <ignore_errors> is True. """
-        try:
-            return self._find_dictionaries()
-        except (IndexError, KeyError, OSError, ValueError):
-            if not ignore_errors:
-                raise
-            return []
-
     def _find_dictionaries(self) -> Sequence[str]:
         """ Search the user's local app data for the Plover config file.
             Parse the dictionaries section and return the filenames for all dictionaries in order. """
@@ -219,8 +205,18 @@ class PloverAppInfo:
         # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
         return [os.path.join(plover_dir, spec['path']) for spec in reversed(dictionary_specs)]
 
+    def dictionary_paths(self, *, ignore_errors=False) -> Sequence[str]:
+        """ Search the user's local app data for the Plover config file and find the file paths for the dictionaries.
+            Return an empty list on a file or parsing error if <ignore_errors> is True. """
+        try:
+            return self._find_dictionaries()
+        except (IndexError, KeyError, OSError, ValueError):
+            if not ignore_errors:
+                raise
+            return []
+
 
 # Global import for compatibility checks and user data.
 plover_info = PloverAppInfo(app_name="plover",
                             cfg_filename="plover.cfg",
-                            min_version="4.0.0.dev8")
+                            min_version=IPlover.VERSION)
