@@ -10,8 +10,9 @@ from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.util.parallel import ParallelMapper
 
-TranslationPairs = Iterable[Tuple[str, str]]  # Iterable collection of (keys, letters) steno translations.
-StenoRuleCollection = Iterable[StenoRule]     # Iterable collection of complete rule objects.
+Translation = Tuple[str, str]              # A steno translation as a pair of strings: (RTFCRE keys, letters).
+TranslationPairs = Iterable[Translation]   # Iterable collection of steno translations.
+StenoRuleCollection = Iterable[StenoRule]  # Iterable collection of complete rule objects.
 
 
 class TranslationFilter:
@@ -55,6 +56,17 @@ class StenoAnalyzer:
         self._refmap = refmap                     # Mapping of lexer rule objects to their original StenoRules.
         self._idmap = idmap                       # Mapping of lexer rule objects to valid example rule IDs.
 
+    @staticmethod
+    def _result_info(result:LexerResult) -> str:
+        """ Return an info string for this result. The output is nowhere near reliable if some keys are unmatched. """
+        if not result.unmatched_skeys:
+            info = "Found complete match."
+        elif result.rules:
+            info = "Incomplete match. Not reliable."
+        else:
+            info = "No matches found."
+        return info
+
     def query(self, keys:str, letters:str, *, strict_mode=False) -> StenoRule:
         """ Return a lexer analysis matching <keys> to <letters> in standard steno rule format.
             If <strict_mode> is True and the best result is missing keys, return a fully unmatched result instead. """
@@ -75,35 +87,12 @@ class StenoAnalyzer:
             rule.add_unmatched(unmatched_keys)
         return rule
 
-    @staticmethod
-    def _result_info(result:LexerResult) -> str:
-        """ Return an info string for this result. The output is nowhere near reliable if some keys are unmatched. """
-        if not result.unmatched_skeys:
-            info = "Found complete match."
-        elif result.rules:
-            info = "Incomplete match. Not reliable."
-        else:
-            info = "No matches found."
-        return info
-
-    def best_translation(self, translations:TranslationPairs) -> Tuple[str, str]:
+    def best_translation(self, translations:TranslationPairs) -> Translation:
         """ Return the best (most accurate) from a series of <translations> according to lexer ranking. """
         translations = list(translations)
         converted = [(self._to_skeys(keys), letters) for keys, letters in translations]
         best_index = self._lexer.find_best_translation(converted)
         return translations[best_index]
-
-    def compile_index(self, translations:TranslationPairs, *, process_count=0) -> Mapping[str, TranslationPairs]:
-        """ Run the lexer on all given <translations>. This is a big job; do it in parallel if possible.
-            Make a index containing each rule's ID mapped to a list of every translation that used it. """
-        mapper = ParallelMapper(self._query_rule_ids, process_count=process_count)
-        results = mapper.starmap(translations)
-        index = defaultdict(list)
-        for keys, letters, *rule_ids in results:
-            translation = keys, letters
-            for r_id in rule_ids:
-                index[r_id].append(translation)
-        return index
 
     def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.
@@ -118,6 +107,22 @@ class StenoAnalyzer:
                 if lr in self._idmap:
                     output.append(self._idmap[lr])
         return output
+
+    def compile_index(self, translations:TranslationPairs, *,
+                      size:int=None, process_count=0) -> Mapping[str, TranslationPairs]:
+        """ Run the lexer on all given <translations> with an optional <size> filter.
+            This is a big job; do it in parallel if possible using <process_count> processes at once.
+            Then make a index containing each rule's ID mapped to a list of every translation that used it. """
+        mapper = ParallelMapper(self._query_rule_ids, process_count=process_count)
+        if size is not None:
+            translations = TranslationFilter(size).filter(translations)
+        results = mapper.starmap(translations)
+        index = defaultdict(list)
+        for keys, letters, *rule_ids in results:
+            translation = keys, letters
+            for r_id in rule_ids:
+                index[r_id].append(translation)
+        return index
 
     @classmethod
     def from_resources(cls, keymap:StenoKeyLayout, rules:StenoRuleCollection) -> "StenoAnalyzer":

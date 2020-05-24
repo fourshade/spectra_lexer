@@ -24,8 +24,11 @@ class TextSubstitutionParser:
     """ Performs substitution on text patterns with nested references and returns flattened text and info.
         In order to recursively resolve references, all data should be added before any parsing is done. """
 
-    def __init__(self, *, ref_delims="()", alias_delim="|", allow_duplicates=False) -> None:
-        self._ref_delims = ref_delims       # Delimiters marking the start and end of a reference.
+    def __init__(self, ref_start="(", ref_end=")", alias_delim="|", *, allow_duplicates=False) -> None:
+        assert len(ref_start) == 1
+        assert len(ref_end) == 1
+        self._ref_start = ref_start         # Delimiter marking the start of a reference.
+        self._ref_end = ref_end             # Delimiter marking the end of a reference.
         self._alias_delim = alias_delim     # Delimiter between a reference and its alias text when different.
         self._allow_dup = allow_duplicates  # If True, allow references with duplicate names (only the last is kept).
         self._pattern_data = {}             # Dict of input pattern data by reference name.
@@ -60,43 +63,29 @@ class TextSubstitutionParser:
         pattern = self._pattern_data[ref]
         char_list = list(pattern)
         subs = []
-        lb, rb = self._ref_delims
-        # For every bracket match, strip the parentheses to get the reference (and the text for aliases).
-        while lb in char_list:
-            start = char_list.index(lb)
-            end = char_list.index(rb) + 1
+        # Find every pair of parentheses and parse the references.
+        while self._ref_start in char_list:
+            start = char_list.index(self._ref_start)
+            end = char_list.index(self._ref_end, start) + 1
             reference = "".join(char_list[start+1:end-1])
-            *alias, child_ref = reference.split(self._alias_delim, 1)
-            # Look up the child reference. If it is missing, parse its pattern first.
-            try:
-                text = alias[0] if alias else self.parse(child_ref).text
-            except KeyError as e:
-                raise KeyError(f"Illegal rule reference {child_ref} in pattern {pattern}") from e
-            except ValueError as e:
-                raise ValueError(f"Unmatched brackets in rule {child_ref}") from e
-            except RecursionError as e:
-                raise RecursionError(f"Circular reference descended from rule {child_ref}") from e
+            if self._alias_delim in reference:
+                # Aliases include the text substitution directly in the pattern itself.
+                # The reference still goes in the table, but no lookup is done.
+                text, reference = reference.split(self._alias_delim, 1)
+            else:
+                # Look up the reference and its text substitution. If missing, parse it first.
+                try:
+                    text = self.parse(reference).text
+                except KeyError as e:
+                    raise KeyError(f"Illegal rule reference {reference} in pattern {pattern}") from e
+                except ValueError as e:
+                    raise ValueError(f"Unmatched brackets in rule {reference}") from e
+                except RecursionError as e:
+                    raise RecursionError(f"Circular reference descended from rule {reference}") from e
             # Add the reference to the info map and substitute the text into the pattern.
-            item = TextSubstitution(child_ref, start, len(text))
+            item = TextSubstitution(reference, start, len(text))
             subs.append(item)
             char_list[start:end] = text
         full_text = "".join(char_list)
         result = self._results[ref] = TextSubstitutionResult(full_text, subs)
         return result
-
-    # XXX untested
-    # def inv_parse(self, result:TextSubstitutionResult) -> str:
-    #     """ Parse a result into pattern form by substituting references back in. """
-    #     lb, rb = self._ref_delims
-    #     # Convert the text string into a list to allow in-place modification.
-    #     char_list = [*result.text]
-    #     # Replace each reference's text with its parenthesized name. Go from right to left to preserve indexing.
-    #     for sub in result.subs[::-1]:
-    #         name = sub.ref
-    #         if name in self._results:
-    #             pattern_map = self._results[name]
-    #             length = len(pattern_map.text)
-    #             start = sub.start
-    #             end = start + length
-    #             char_list[start:end] = lb, name, rb
-    #     return "".join(char_list)

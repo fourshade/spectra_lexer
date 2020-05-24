@@ -1,7 +1,6 @@
 import json
-from typing import Tuple
 
-from spectra_lexer.analysis import StenoAnalyzer, TranslationFilter
+from spectra_lexer.analysis import StenoAnalyzer, Translation, TranslationFilter, TranslationPairs
 from spectra_lexer.display import BoardFactory, GraphFactory, RuleGraph
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.search import ExamplesMap, MatchDict, SearchEngine, TranslationsMap
@@ -70,13 +69,13 @@ class StenoEngine:
     def has_examples(self, rule_id:str) -> bool:
         return self._search_engine.has_examples(rule_id)
 
-    def random_example(self, rule_id:str) -> Tuple[str, str]:
+    def random_example(self, rule_id:str) -> Translation:
         return self._search_engine.random_example(rule_id)
 
     def analyze(self, keys:str, letters:str, strict_mode=False) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=strict_mode)
 
-    def best_translation(self, *translations:Tuple[str, str]) -> Tuple[str, str]:
+    def best_translation(self, translations:TranslationPairs) -> Translation:
         return self._analyzer.best_translation(translations)
 
     def compile_examples(self, size:int=None, filename:str=None, process_count=0) -> None:
@@ -84,9 +83,7 @@ class StenoEngine:
             Make a index with examples of every translation that used each built-in rule and set it as active.
             If a <filename> is given, save the index as JSON at the end. """
         translations = self._translations.items()
-        if size is not None:
-            translations = TranslationFilter(size).filter(translations)
-        index = self._analyzer.compile_index(translations, process_count=process_count)
+        index = self._analyzer.compile_index(translations, size=size, process_count=process_count)
         examples = {r_id: dict(pairs) for r_id, pairs in index.items()}
         self.set_examples(examples)
         if filename is not None:

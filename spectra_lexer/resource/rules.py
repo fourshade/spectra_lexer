@@ -109,20 +109,20 @@ class StenoRuleParser:
             keys:    RTFCRE formatted string of steno strokes.
             pattern: English text pattern string, consisting of raw letters as well as references to other rules.
             flags:   Optional sequence of flag strings.
-            info:    Optional info string for when the rule is displayed in the GUI. """
+            desc:    Optional description string for when the rule is displayed in the GUI. """
         try:
             keys, pattern, *optional = fields
         except ValueError as e:
             raise ValueError(f"Not enough data fields for rule {r_id}") from e
-        flags = optional.pop(0) if optional else ()
-        info = optional.pop(0) if optional else "No description"
+        flags = frozenset(optional.pop(0) if optional else ())
+        desc = optional.pop(0) if optional else "No description"
         if optional:
             raise ValueError(f"Too many data fields for rule {r_id}: extra = {optional}")
         alt = ""
         if "(" not in pattern and "|" in pattern:
             pattern, alt = pattern.split("|", 1)
         self._sub_parser.add_mapping(r_id, pattern)
-        self._rule_data[r_id] = [keys, flags, info, alt]
+        self._rule_data[r_id] = [keys, flags, desc, alt]
 
     def add_json_dict(self, d:dict) -> None:
         """ Add all rule data from a JSON dict. """
@@ -136,12 +136,19 @@ class StenoRuleParser:
         memo = self._rule_memo
         if r_id in memo:
             return memo[r_id]
-        keys, flags, info, alt = self._rule_data[r_id]
+        keys, flags, desc, alt = self._rule_data[r_id]
         sub_result = self._sub_parser.parse(r_id)
-        rule = self._rule_memo[r_id] = StenoRule(keys, sub_result.text, info, set(flags), r_id, alt)
-        for sub in sub_result.subs:
-            child = self._parse(sub.ref)
-            rule.add_connection(child, sub.start, sub.length)
+        connections = [(self._parse(sub.ref), sub.start, sub.length) for sub in sub_result.subs]
+        letters = sub_result.text
+        if connections and letters:
+            # Compound rule info includes the complete mapping of keys to letters.
+            info = f'{keys} → {letters}: {desc}'
+        else:
+            # Base rule info includes only the keys to the left of the description.
+            info = f"{keys}: {desc}"
+        rule = self._rule_memo[r_id] = StenoRule(keys, letters, info, flags, r_id, alt)
+        for c in connections:
+            rule.add_connection(*c)
         return rule
 
     def parse(self) -> List[StenoRule]:

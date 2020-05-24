@@ -1,5 +1,6 @@
-from typing import Any, Dict, Tuple
+from typing import Dict
 
+from spectra_lexer.analysis import Translation
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.search import MatchDict, SearchRegexError
 
@@ -62,7 +63,7 @@ class GUIOptions:
                    ("graph_compressed_layout", "Compressed Layout",
                     "Compress the graph layout vertically to save space.")]
 
-    def __init__(self, *opt_dicts:Dict[str, Any]) -> None:
+    def __init__(self, *opt_dicts:dict) -> None:
         """ Update option attributes from input dicts in order. """
         for d in opt_dicts:
             self.__dict__.update(d)
@@ -80,12 +81,12 @@ class GUILayer:
         mode_strokes = opts.search_mode_strokes
         if self._index_delim in pattern:
             link_ref, pattern = pattern.split(self._index_delim, 1)
-            matches = self._engine.search_examples(link_ref, pattern, count, mode_strokes)
+            matches = self._engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
             try:
                 method = self._engine.search_regex if opts.search_mode_regex else self._engine.search
-                matches = method(pattern, count, mode_strokes)
+                matches = method(pattern, count, mode_strokes=mode_strokes)
                 is_complete = len(matches) < count
             except SearchRegexError:
                 matches = {"REGEX ERROR": []}
@@ -93,47 +94,33 @@ class GUILayer:
         return SearchResults(matches, is_complete)
 
     def _analyze(self, keys:str, letters:str, opts:GUIOptions) -> DisplayData:
-        strict_mode = opts.lexer_strict_mode
-        analysis = self._engine.analyze(keys, letters, strict_mode)
-        compressed = opts.graph_compressed_layout
-        compat = opts.graph_compatibility_mode
-        graph = self._engine.generate_graph(analysis, compressed, compat)
-        aspect_ratio = opts.board_aspect_ratio
-        show_compound = opts.board_show_compound
-        show_letters = opts.board_show_letters
+        analysis = self._engine.analyze(keys, letters, strict_mode=opts.lexer_strict_mode)
+        graph = self._engine.generate_graph(analysis, compressed=opts.graph_compressed_layout,
+                                            compat=opts.graph_compatibility_mode)
         pages = {}
-        root_ref = None
+        default_page = None
         for ref in graph.refs():
             ngraph = graph.draw(ref)
             igraph = graph.draw(ref, intense=True)
             rule = graph.get_rule(ref)
-            # Make a caption to display above the board diagram for this rule.
-            if rule is analysis:
-                # The root translation is in the title bar. Show only the info string in its caption.
-                caption = rule.info
-                root_ref = ref
-            elif rule and rule.letters:
-                # Compound rules show the complete mapping of keys to letters in their caption.
-                caption = f'{rule}: {rule.info}'
-            else:
-                # Base rules display only their keys to the left of their descriptions.
-                caption = f"{rule.keys}: {rule.info}"
-            if show_compound:
-                board = self._engine.generate_board(rule, aspect_ratio, show_letters)
+            caption = rule.info
+            aspect_ratio = opts.board_aspect_ratio
+            if opts.board_show_compound:
+                board = self._engine.generate_board(rule, aspect_ratio, show_letters=opts.board_show_letters)
             else:
                 board = self._engine.generate_board_from_keys(rule.keys, aspect_ratio)
             # Remove links to any rules for which we don't have examples.
             r_id = rule.id if self._engine.has_examples(rule.id) else ""
             pages[ref] = DisplayPage(ngraph, igraph, caption, board, r_id)
-        # When nothing is selected, use the board and caption for the root node.
-        root_page = pages[root_ref]
-        default_graph = graph.draw()
-        default_page = DisplayPage(default_graph, default_graph, root_page.caption, root_page.board)
+            if rule is analysis:
+                # When nothing is selected, use the board and caption for the root node.
+                default_graph = graph.draw()
+                default_page = DisplayPage(default_graph, default_graph, caption, board)
         return DisplayData(keys, letters, pages, default_page)
 
-    def query(self, translation:Tuple[str, str], *others:Tuple[str, str], opts=GUIOptions()) -> GUIOutput:
+    def query(self, translation:Translation, *others:Translation, opts=GUIOptions()) -> GUIOutput:
         """ Execute and display a graph of a lexer query from search results or user strokes. """
-        keys, letters = self._engine.best_translation(translation, *others) if others else translation
+        keys, letters = self._engine.best_translation([translation, *others]) if others else translation
         output = GUIOutput()
         output.display_data = self._analyze(keys, letters, opts)
         return output
