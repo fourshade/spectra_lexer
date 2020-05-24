@@ -59,6 +59,7 @@
     __init__ - Anything using Spectra, including the built-in application objects, must start by calling one of the
     main factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
 
+import json
 import sys
 
 from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
@@ -70,7 +71,6 @@ from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRuleParser
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOptions
-from spectra_lexer.util.json import CSONDecoder
 from spectra_lexer.util.log import StreamLogger
 from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory
 
@@ -117,7 +117,6 @@ class Spectra:
         logger = StreamLogger(sys.stdout, log_stream)
         self.log = logger.log
         self._convert_path = converter.convert
-        self._cson_decoder = CSONDecoder(comment_prefix=self.CSON_COMMENT_PREFIX)
         self._opts = opts
 
     def translations_paths(self) -> list:
@@ -138,12 +137,22 @@ class Spectra:
         path = self._opts.config
         return self._convert_path(path, make_dirs=True)
 
+    def _cson_decode(self, s:str, *args, **kwargs) -> dict:
+        """ Decode a non-standard JSON string with full-line comments (CSON = commented JSON).
+            JSON doesn't care about leading or trailing whitespace, so strip every line first. """
+        lines = s.split("\n")
+        stripped_line_iter = map(str.strip, lines)
+        data_lines = [line for line in stripped_line_iter
+                      if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
+        s = "\n".join(data_lines)
+        return json.loads(s, *args, **kwargs)
+
     def _read_cson_resource(self, rel_path:str) -> dict:
         """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
         filename = self._convert_path(self._opts.resources, rel_path)
         with open(filename, 'r', encoding='utf-8') as fp:
             s = fp.read()
-        return self._cson_decoder.decode(s)
+        return self._cson_decode(s)
 
     def _load_keymap(self) -> StenoKeyLayout:
         """ Load steno key layout constants from CSON. """

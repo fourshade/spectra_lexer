@@ -76,7 +76,8 @@ class QtGUIApplication:
                         board_aspect_ratio=self._display.get_board_ratio(),
                         board_show_compound=self._display.get_board_compound(),
                         board_show_letters=self._display.get_board_letters())
-        return GUIOptions(cfg_opts, gui_opts, ext_opts)
+        all_opts = {**cfg_opts, **gui_opts, **ext_opts}
+        return GUIOptions(all_opts)
 
     def _update_gui_translation(self, keys:str, letters:str) -> None:
         self._search.select_translation(keys, letters)

@@ -10,52 +10,42 @@ from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput, SearchResults
 from spectra_lexer.http.connect import HTTPConnectionHandler
+from spectra_lexer.http.json import CustomJSONEncoder, JSONBinaryWrapper, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
 from spectra_lexer.util.cmdline import CmdlineOptions
-from spectra_lexer.util.json import CustomJSONEncoder, RestrictedJSONDecoder
+
 
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 JSON_DATA_CLASSES = [DisplayData, DisplayPage, SearchResults, GUIOutput]
 
 
-class StenoDataService(HTTPDataService):
-    """ Main HTTP service for handling JSON requests to the steno app. """
+class HTTPGUIApplication:
+    """ Main HTTP application. """
 
-    output_type = "application/json"
+    def __init__(self, gui:GUILayer) -> None:
+        self._gui = gui      # Main steno GUI.
+        self._lock = Lock()  # Lock to protect the main engine, which may not be thread-safe.
 
-    def __init__(self, gui:GUILayer, decoder:RestrictedJSONDecoder, encoder:CustomJSONEncoder) -> None:
-        self._gui = gui          # Main steno GUI.
-        self._decoder = decoder  # JSON decoder with client restrictions.
-        self._encoder = encoder  # JSON encoder with custom encoding methods for Python objects.
-        self._lock = Lock()      # Lock to protect the codecs and main app, which may not be thread-safe.
-
-    def process(self, data:bytes) -> bytes:
-        """ Decode JSON input data into a params dict, process it, and return the output in JSON form. """
-        str_in = data.decode('utf-8')
-        with self._lock:
-            params = self._decoder.decode(str_in)
-            output = self._app_call(**params)
-            str_out = self._encoder.encode(output)
-        data_out = str_out.encode('utf-8')
-        return data_out
-
-    def _app_call(self, *, action:str, args:list, options:dict) -> GUIOutput:
+    def gui_call(self, *, action:str, args:list, options:dict) -> GUIOutput:
         """ Process a GUI app call. Input data includes a GUI action, its arguments (if any), and all options. """
-        method = getattr(self._gui, action)
-        opts = GUIOptions(options)
-        return method(*args, opts=opts)
+        with self._lock:
+            method = getattr(self._gui, action)
+            opts = GUIOptions(options)
+            return method(*args, opts=opts)
 
 
 def build_server(engine:StenoEngine, root_dir:str, log:Callable[[str], None]) -> ThreadedTCPServer:
     """ Build an HTTP server object customized to Spectra's requirements. """
     gui = GUILayer(engine)
+    app = HTTPGUIApplication(gui)
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
     encoder = CustomJSONEncoder()
     for cls in JSON_DATA_CLASSES:
         encoder.add_data_class(cls)
-    data_service = StenoDataService(gui, decoder, encoder)
+    json_wrapper = JSONBinaryWrapper(app.gui_call, decoder=decoder, encoder=encoder)
+    data_service = HTTPDataService(json_wrapper, "application/json")
     compressed_service = HTTPGzipFilter(data_service, size_threshold=1000)
     file_service = HTTPFileService(root_dir)
     type_router = HTTPContentTypeRouter()

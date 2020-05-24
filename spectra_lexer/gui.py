@@ -37,9 +37,10 @@ class DisplayData:
 class GUIOutput:
     """ Data class that contains an entire GUI update. All fields are optional. """
 
-    search_input: str = None              # Product of an example search action.
-    search_results: SearchResults = None  # Product of a search action.
-    display_data: DisplayData = None      # Product of a query action.
+    def __init__(self, search_input:str=None, search_results:SearchResults=None, display_data:DisplayData=None) -> None:
+        self.search_input = search_input      # Product of an example search action.
+        self.search_results = search_results  # Product of a search action.
+        self.display_data = display_data      # Product of a query action.
 
 
 class GUIOptions:

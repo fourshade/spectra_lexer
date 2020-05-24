@@ -1,31 +1,13 @@
-""" Module for special JSON codecs. """
+""" Module for JSON codecs adapted for HTTP data transmission. """
 
 from json import JSONDecodeError, JSONDecoder, JSONEncoder
-from typing import Union
+from typing import Callable, Union
 
 JSONType = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
 
 
-class CSONDecoder(JSONDecoder):
-    """ Reads non-standard JSON with full-line comments (CSON = commented JSON). """
-
-    def __init__(self, *, comment_prefix="#", **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._comment_prefix = comment_prefix  # Prefix for comment lines.
-
-    def decode(self, s:str, *args, **kwargs) -> JSONType:
-        """ Decode a non-standard JSON string with full-line comments.
-            JSON doesn't care about leading or trailing whitespace, so strip every line first. """
-        lines = s.split("\n")
-        stripped_line_iter = map(str.strip, lines)
-        data_lines = [line for line in stripped_line_iter
-                      if line and not line.startswith(self._comment_prefix)]
-        s = "\n".join(data_lines)
-        return super().decode(s, *args, **kwargs)
-
-
 class JSONRestrictionError(JSONDecodeError):
-    """ Raised if user-provided JSON data is too large or complex. """
+    """ Raised if user-provided JSON data is too large or complex to decode. """
 
 
 class RestrictedJSONDecoder(JSONDecoder):
@@ -41,7 +23,7 @@ class RestrictedJSONDecoder(JSONDecoder):
         """ Validate and decode an untrusted JSON string. """
         if self._size_limit is not None and len(s) > self._size_limit:
             self._reject(s, "too large")
-        # The JSON parser is fast, but dumb. It does naive recursion on containers.
+        # The Python JSON parser is fast, but dumb. It does naive recursion on containers.
         # The stack can be overwhelmed by a long sequence of '{' and/or '[' characters. Do not let this happen.
         if self._obj_limit is not None and s.count("{") > self._obj_limit:
             self._reject(s, "too many objects")
@@ -54,10 +36,11 @@ class RestrictedJSONDecoder(JSONDecoder):
 
 
 class CustomJSONEncoder(JSONEncoder):
-    """ Encodes non-standard Python data types using specially-named conversion methods. """
+    """ Encodes arbitrary Python data types into JSON using specially-named conversion methods. """
 
     def default(self, obj:object) -> JSONType:
-        """ Convert an arbitrary Python object into a JSON-compatible type. """
+        """ Convert a non-standard Python object into a JSON-compatible type if possible.
+            There must be a conversion method that matches the object's exact type name. """
         type_name = type(obj).__name__
         try:
             meth = getattr(self, f"convert_{type_name}")
@@ -73,7 +56,29 @@ class CustomJSONEncoder(JSONEncoder):
         type_name = data_cls.__name__
         setattr(self, f"convert_{type_name}", vars)
 
-    # Convert ranges, sets, and frozensets into lists, which become JSON arrays.
+    # Ranges, sets, and frozensets can be converted into lists with no consequences.
     convert_range = list
     convert_set = list
     convert_frozenset = list
+
+
+class JSONBinaryWrapper:
+    """ Binary wrapper for a function that processes keyword arguments and returns a JSON-encodable type. """
+
+    def __init__(self, func:Callable, *, decoder:JSONDecoder=None, encoder:JSONEncoder=None, encoding='utf-8') -> None:
+        self._func = func                         # Wrapped function:  __call__(**kwargs) -> <output_type>
+        self._decoder = decoder or JSONDecoder()  # JSON decoder:      decode(str) -> dict.
+        self._encoder = encoder or JSONEncoder()  # JSON encoder:      encode(<output_type>) -> str.
+        self._encoding = encoding                 # Pretty much has to be UTF-8.
+
+    def __call__(self, data:bytes) -> bytes:
+        """ Decode raw input data as a JSON object and call the function with its properties as keyword arguments.
+            Encode the function's output as JSON and return the raw output data. """
+        str_in = data.decode(self._encoding)
+        obj_in = self._decoder.decode(str_in)
+        if not isinstance(obj_in, dict):
+            raise TypeError('Top level of JSON input data must be an object.')
+        obj_out = self._func(**obj_in)
+        str_out = self._encoder.encode(obj_out)
+        data_out = str_out.encode(self._encoding)
+        return data_out

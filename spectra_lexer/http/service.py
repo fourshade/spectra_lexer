@@ -155,20 +155,25 @@ class HTTPFileService(HTTPRequestHandler):
         return file_path
 
 
-class HTTPDataService(HTTPRequestHandler):
-    """ Abstract class; decodes binary data from HTTP content, processes it, and returns an encoded result. """
+class BinaryDataProcessor:
+    """ Interface for a callable that processes raw binary data. """
 
-    output_type: str  # Required - MIME type of output data.
+    def __call__(self, data:bytes) -> bytes:
+        raise NotImplementedError
+
+
+class HTTPDataService(HTTPRequestHandler):
+    """ Decodes binary data from HTTP content, processes it, and returns an encoded result. """
+
+    def __init__(self, processor:BinaryDataProcessor, output_type:str) -> None:
+        self._process = processor
+        self._output_type = output_type  # MIME type of output data.
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Process content obtained from a client. If successful, send the returned data back to the client. """
         data_in = request.content
-        data_out = self.process(data_in)
+        data_out = self._process(data_in)
         headers = HTTPResponseHeaders()
-        headers.set_content_type(self.output_type)
+        headers.set_content_type(self._output_type)
         headers.set_content_length(len(data_out))
         return HTTPResponse.OK(headers, data_out)
-
-    def process(self, data:bytes) -> bytes:
-        """ Subclass method to process binary data. """
-        raise NotImplementedError
