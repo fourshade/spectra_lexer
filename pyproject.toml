@@ -1,0 +1,6 @@
+[build-system]
+requires = [
+	"PyQt5>=5.14",
+	"setuptools>=42",
+	"wheel",
+]
