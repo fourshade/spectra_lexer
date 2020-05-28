@@ -14,7 +14,7 @@ from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
 
-class BoardFactory:
+class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules.
         The main dict contains of a list of strings for each shape of board element.
         Each of these strings defines a "proc": a process that positions and/or constructs SVG elements.
@@ -111,21 +111,21 @@ class BoardFactory:
     def _make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
         return self._doc_factory.make_svg(elems, aspect_ratio)
 
-    def board_from_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
+    def draw_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
         """ Generate a board diagram from a steno key string arranged according to <aspect ratio>.
             Copy the element list to avoid corrupting the caches. """
         skeys = self._to_skeys(keys)
         elems = self._elems_from_skeys(skeys)[:]
         return self._make_svg(elems, aspect_ratio)
 
-    def board_from_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
+    def draw_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
         """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>.
             Copy the element list to avoid corrupting the caches. """
         elems = self._elems_from_rule(rule, show_letters)[:]
         return self._make_svg(elems, aspect_ratio)
 
     @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> "BoardFactory":
+    def from_resources(cls, keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> "BoardEngine":
         """ Generate board diagram elements with the background of every key to use as a diagram base. """
         svg_factory = SVGElementFactory()
         elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
@@ -157,7 +157,7 @@ class RuleGraph:
         return self._formatter.format(ref, intense)
 
 
-class GraphFactory:
+class GraphEngine:
     """ Creates trees of displayable graph nodes out of steno rules. """
 
     def __init__(self, key_sep:str, ignored_chars="") -> None:
@@ -209,7 +209,7 @@ class GraphFactory:
         ref_dict[ref] = rule
         return self._build_node(ref, rule, start, length, children)
 
-    def build(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
+    def graph(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
         """ Generate a graph object for a steno rule.
             The root node's attach points are arbitrary, so start=0 and length=len(letters). """
         ref_dict = {}
@@ -221,5 +221,5 @@ class GraphFactory:
         return RuleGraph(ref_dict, formatter)
 
     @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout) -> "GraphFactory":
+    def from_resources(cls, keymap:StenoKeyLayout) -> "GraphEngine":
         return cls(keymap.separator_key(), keymap.divider_key())

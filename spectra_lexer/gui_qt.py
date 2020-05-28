@@ -17,36 +17,8 @@ from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
-from spectra_lexer.util.config import ConfigFile
+from spectra_lexer.util.config import SimpleConfigDict
 from spectra_lexer.util.exception import ExceptionManager
-
-
-class QtGUIConfig:
-    """ Keeps track of configuration options in a dict corresponding to one section of a CFG file. """
-
-    def __init__(self, file:ConfigFile, sect="app_qt") -> None:
-        self._file = file   # CFG file I/O wrapper.
-        self._sect = sect   # Name of the CFG file section.
-        self._options = {}  # Stores the current values of all loaded options.
-
-    def to_dict(self) -> dict:
-        """ Return a copy of all options in a dict. """
-        return self._options.copy()
-
-    def read(self) -> bool:
-        """ Try to read config options from the CFG file. Return True if successful. """
-        try:
-            cfg = self._file.read()
-            self._options = cfg.get(self._sect) or {}
-            return True
-        except (KeyError, OSError):
-            return False
-
-    def update(self, options:dict) -> None:
-        """ Update the config dict with <options> and save them back to the original CFG file. """
-        self._options.update(options)
-        cfg = {self._sect: self._options}
-        self._file.write(cfg)
 
 
 class QtGUIApplication:
@@ -54,7 +26,7 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:StenoEngine, gui:GUILayer, config:QtGUIConfig, async_dsp:QtAsyncDispatcher,
+    def __init__(self, engine:StenoEngine, gui:GUILayer, config:SimpleConfigDict, async_dsp:QtAsyncDispatcher,
                  window:WindowController, menu:MenuController, search:SearchController, display:DisplayController,
                  examples_path:str, sys_refs:list) -> None:
         self._engine = engine
@@ -68,16 +40,15 @@ class QtGUIApplication:
         self._examples_path = examples_path  # User examples index file path.
         self._sys_refs = sys_refs            # List of Qt system objects that must be retained until close.
 
-    def _get_options(self, ext_opts:dict) -> GUIOptions:
+    def _get_options(self) -> GUIOptions:
         """ Add all values that may be needed by the steno engine as options in precedence order. """
-        cfg_opts = self._config.to_dict()
-        gui_opts = dict(search_mode_strokes=self._search.get_mode_strokes(),
-                        search_mode_regex=self._search.get_mode_regex(),
-                        board_aspect_ratio=self._display.get_board_ratio(),
-                        board_show_compound=self._display.get_board_compound(),
-                        board_show_letters=self._display.get_board_letters())
-        all_opts = {**cfg_opts, **gui_opts, **ext_opts}
-        return GUIOptions(all_opts)
+        opts = GUIOptions(self._config)
+        opts.search_mode_strokes = self._search.get_mode_strokes()
+        opts.search_mode_regex = self._search.get_mode_regex()
+        opts.board_aspect_ratio = self._display.get_board_ratio()
+        opts.board_show_compound = self._display.get_board_compound()
+        opts.board_show_letters = self._display.get_board_letters()
+        return opts
 
     def _update_gui_translation(self, keys:str, letters:str) -> None:
         self._search.select_translation(keys, letters)
@@ -103,22 +74,27 @@ class QtGUIApplication:
                 output_dict[ref] = DisplayPageData(graphs, page.caption, board_xml, page.rule_id)
             self._display.set_pages(output_dict)
 
-    def on_search(self, pattern:str, pages:int, **options) -> None:
+    def on_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.search(pattern, pages, opts=opts)
+        opts = self._get_options()
+        self._gui.set_options(opts)
+        out = self._gui.search(pattern, pages)
         self._update_gui(out)
 
-    def on_query(self, *args, **options) -> None:
+    def on_query(self, *args, strict:bool=None) -> None:
         """ Run a lexer query and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.query(*args, opts=opts)
+        opts = self._get_options()
+        if strict is not None:
+            opts.lexer_strict_mode = strict
+        self._gui.set_options(opts)
+        out = self._gui.query(*args)
         self._update_gui(out)
 
-    def on_search_examples(self, link_ref:str, **options) -> None:
+    def on_search_examples(self, link_ref:str) -> None:
         """ Run an example search and update the GUI with any results. """
-        opts = self._get_options(options)
-        out = self._gui.search_examples(link_ref, opts=opts)
+        opts = self._get_options()
+        self._gui.set_options(opts)
+        out = self._gui.search_examples(link_ref)
         self._update_gui(out)
 
     def run_async(self, func:Callable, *args, callback:Callable=None, msg_start:str=None, msg_done:str=None) -> None:
@@ -140,6 +116,10 @@ class QtGUIApplication:
         q_app.processEvents()
         self._async_dsp.dispatch(func, *args, on_start=on_task_start, on_finish=on_task_finish)
 
+    def _update_config(self, options:dict) -> None:
+        self._config.update(options)
+        self._config.write()
+
     def _load_user_files(self) -> bool:
         """ Load the examples index and config files. Ignore I/O errors since either may be missing.
             If the config file is missing, create it with default values and return True. """
@@ -150,7 +130,7 @@ class QtGUIApplication:
         is_first_run = not self._config.read()
         if is_first_run:
             options = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
-            self._config.update(options)
+            self._update_config(options)
         return is_first_run
 
     def _on_ready(self, is_first_run:bool) -> None:
@@ -182,18 +162,18 @@ class QtGUIApplication:
             self.run_async(self._engine.load_examples, filename,
                            msg_start="Loading file...", msg_done="Loaded index from file dialog.")
 
-    def _update_config(self, options:dict) -> None:
-        self.run_async(self._config.update, options, msg_done="Configuration saved.")
+    def _config_edited(self, options:dict) -> None:
+        self.run_async(self._update_config, options, msg_done="Configuration saved.")
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         dialog = self._window.open_dialog(ConfigDialog)
         if dialog is not None:
-            opts = self._get_options({})
+            opts = self._get_options()
             for key, name, description in GUIOptions.CFG_OPTIONS:
                 value = getattr(opts, key)
                 dialog.add_option(key, value, "General", name, description)
-                dialog.call_on_options_accept(self._update_config)
+                dialog.call_on_options_accept(self._config_edited)
             dialog.show()
 
     def _make_index(self, size:int) -> None:
@@ -261,8 +241,7 @@ class QtGUIApplication:
         exc_hook = QtExceptionHook(chain_hooks=False)
         exc_hook.connect(exc_man.on_exception)
         gui = GUILayer(engine)
-        config_file = ConfigFile(cfg_path)
-        config = QtGUIConfig(config_file)
+        config = SimpleConfigDict(cfg_path, "app_qt")
         async_dsp = QtAsyncDispatcher()
         w_window = QMainWindow()
         ui = Ui_MainWindow()

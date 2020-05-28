@@ -12,7 +12,6 @@ from spectra_lexer.util.parallel import ParallelMapper
 
 Translation = Tuple[str, str]              # A steno translation as a pair of strings: (RTFCRE keys, letters).
 TranslationPairs = Iterable[Translation]   # Iterable collection of steno translations.
-StenoRuleCollection = Iterable[StenoRule]  # Iterable collection of complete rule objects.
 
 
 class TranslationFilter:
@@ -125,7 +124,7 @@ class StenoAnalyzer:
         return index
 
     @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout, rules:StenoRuleCollection) -> "StenoAnalyzer":
+    def from_resources(cls, keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> "StenoAnalyzer":
         """ Distribute rules and build the rule matcher, lexer and analyzer. """
         key_sep = keymap.separator_key()
         unordered_keys = keymap.special_key()

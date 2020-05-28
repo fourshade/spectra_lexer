@@ -64,10 +64,10 @@ class GUIOptions:
                    ("graph_compressed_layout", "Compressed Layout",
                     "Compress the graph layout vertically to save space.")]
 
-    def __init__(self, *opt_dicts:dict) -> None:
-        """ Update option attributes from input dicts in order. """
-        for d in opt_dicts:
-            self.__dict__.update(d)
+    def __init__(self, options:dict=None) -> None:
+        """ Update option attributes from an input dict. """
+        if options is not None:
+            self.__dict__.update(options)
 
 
 class GUILayer:
@@ -76,17 +76,21 @@ class GUILayer:
     def __init__(self, engine:StenoEngine, *, index_delim=";") -> None:
         self._engine = engine            # Main steno analysis engine.
         self._index_delim = index_delim  # Delimiter between rule name and query for example index searches.
+        self._opts = GUIOptions()        # Current user options.
 
-    def _search(self, pattern:str, pages:int, opts:GUIOptions) -> SearchResults:
-        count = pages * opts.search_match_limit
-        mode_strokes = opts.search_mode_strokes
+    def set_options(self, opts:GUIOptions) -> None:
+        self._opts = opts
+
+    def _search(self, pattern:str, pages:int) -> SearchResults:
+        count = pages * self._opts.search_match_limit
+        mode_strokes = self._opts.search_mode_strokes
         if self._index_delim in pattern:
             link_ref, pattern = pattern.split(self._index_delim, 1)
             matches = self._engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
             try:
-                method = self._engine.search_regex if opts.search_mode_regex else self._engine.search
+                method = self._engine.search_regex if self._opts.search_mode_regex else self._engine.search
                 matches = method(pattern, count, mode_strokes=mode_strokes)
                 is_complete = len(matches) < count
             except SearchRegexError:
@@ -94,7 +98,8 @@ class GUILayer:
                 is_complete = True
         return SearchResults(matches, is_complete)
 
-    def _analyze(self, keys:str, letters:str, opts:GUIOptions) -> DisplayData:
+    def _analyze(self, keys:str, letters:str) -> DisplayData:
+        opts = self._opts
         analysis = self._engine.analyze(keys, letters, strict_mode=opts.lexer_strict_mode)
         graph = self._engine.generate_graph(analysis, compressed=opts.graph_compressed_layout,
                                             compat=opts.graph_compatibility_mode)
@@ -119,29 +124,29 @@ class GUILayer:
                 default_page = DisplayPage(default_graph, default_graph, caption, board)
         return DisplayData(keys, letters, pages, default_page)
 
-    def query(self, translation:Translation, *others:Translation, opts=GUIOptions()) -> GUIOutput:
+    def query(self, translation:Translation, *others:Translation) -> GUIOutput:
         """ Execute and display a graph of a lexer query from search results or user strokes. """
         keys, letters = self._engine.best_translation([translation, *others]) if others else translation
         output = GUIOutput()
-        output.display_data = self._analyze(keys, letters, opts)
+        output.display_data = self._analyze(keys, letters)
         return output
 
-    def search(self, pattern:str, pages=1, *, opts=GUIOptions()) -> GUIOutput:
+    def search(self, pattern:str, pages=1) -> GUIOutput:
         """ Do a new search and return results unless the input is blank. """
         output = GUIOutput()
         if pattern.strip():
-            output.search_results = self._search(pattern, pages, opts)
+            output.search_results = self._search(pattern, pages)
         return output
 
-    def search_examples(self, link_ref:str, *, opts=GUIOptions()) -> GUIOutput:
+    def search_examples(self, link_ref:str) -> GUIOutput:
         """ When a link is clicked, search for examples of the named rule and select one at random.
             Overwrite the current search input with its pattern. """
         output = GUIOutput()
         keys, letters = self._engine.random_example(link_ref)
         if keys and letters:
-            match = keys if opts.search_mode_strokes else letters
+            match = keys if self._opts.search_mode_strokes else letters
             pattern = link_ref + self._index_delim + match
             output.search_input = pattern
-            output.search_results = self._search(pattern, 1, opts)
-            output.display_data = self._analyze(keys, letters, opts)
+            output.search_results = self._search(pattern, 1)
+            output.display_data = self._analyze(keys, letters)
         return output

@@ -33,7 +33,8 @@ class HTTPGUIApplication:
         with self._lock:
             method = getattr(self._gui, action)
             opts = GUIOptions(options)
-            return method(*args, opts=opts)
+            self._gui.set_options(opts)
+            return method(*args)
 
 
 def build_server(engine:StenoEngine, root_dir:str, log:Callable[[str], None]) -> ThreadedTCPServer:

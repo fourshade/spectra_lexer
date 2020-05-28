@@ -1,3 +1,4 @@
+import sys
 from threading import Lock
 from time import strftime
 from typing import TextIO
@@ -6,15 +7,15 @@ from typing import TextIO
 class StreamLogger:
     """ Basic logger class. Writes to pre-opened text streams. Implements basic thread-safety. """
 
-    def __init__(self, *streams:TextIO, time_fmt="%b %d %Y %H:%M:%S", repeat_mark="*") -> None:
+    def __init__(self, *streams:TextIO, time_fmt="[%b %d %Y %H:%M:%S]: ", repeat_mark="*") -> None:
         self._streams = streams          # One or more writable/appendable text streams for logging.
-        self._time_fmt = time_fmt        # Format string for timestamps using time.strftime.
-        self._repeat_mark = repeat_mark  # Mark for repeated messages (to save space).
+        self._time_fmt = time_fmt        # Format for timestamps using time.strftime. If None, do not add timestamps.
+        self._repeat_mark = repeat_mark  # Mark to replace repeated messages. If None, log all messages fully.
+        self._last_message = ""          # Most recent unique message string.
         self._lock = Lock()              # Lock to ensure only one thread writes to the streams at a time.
-        self._last_message = ""          # Most recently logged message string.
 
     def _replace_if_duplicate(self, message:str) -> str:
-        """ Replace <message> with a short 'repeat' mark if identical to the last message. """
+        """ Replace <message> with a short 'repeat' mark if identical to the last message to save space. """
         if message == self._last_message:
             message = self._repeat_mark
         else:
@@ -22,12 +23,11 @@ class StreamLogger:
         return message
 
     def _add_timestamp(self, message:str) -> str:
-        """ Add a timestamp before <message>. """
-        t_str = strftime(self._time_fmt)
-        return f'[{t_str}]: {message}\n'
+        """ Add a timestamp with the current time before <message>. """
+        return strftime(self._time_fmt) + message
 
     def _write_all(self, message:str) -> None:
-        """ Log a message with all registered streams. """
+        """ Write <message> to each stream in turn. """
         with self._lock:
             for stream in self._streams:
                 try:
@@ -40,7 +40,20 @@ class StreamLogger:
                     continue
 
     def log(self, message:str) -> None:
-        """ Filter, timestamp, and log a message with all streams. """
-        message = self._replace_if_duplicate(message)
-        message = self._add_timestamp(message)
-        self._write_all(message)
+        """ Filter, timestamp, and write <message> to all log streams with a trailing newline. """
+        if self._repeat_mark is not None:
+            message = self._replace_if_duplicate(message)
+        if self._time_fmt is not None:
+            message = self._add_timestamp(message)
+        self._write_all(message + '\n')
+
+
+def open_logger(*filenames:str, encoding='utf-8', to_stdout=False, to_stderr=False, **kwargs) -> StreamLogger:
+    """ Open a logger that appends to text files and/or prints to system streams.
+        Log files will remain open until the program is closed. """
+    streams = [open(f, 'a', encoding=encoding) for f in filenames]
+    if to_stdout:
+        streams.append(sys.stdout)
+    if to_stderr:
+        streams.append(sys.stderr)
+    return StreamLogger(*streams, **kwargs)

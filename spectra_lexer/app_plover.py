@@ -68,7 +68,7 @@ class PloverPlugin:
             User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
         translation = self._ext.parse_actions(*args)
         if translation is not None and not self._app.has_focus():
-            self._app.on_query(translation, lexer_strict_mode=False)
+            self._app.on_query(translation, strict=False)
 
     def __getattr__(self, name:str) -> Any:
         """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """

@@ -59,19 +59,15 @@
     __init__ - Anything using Spectra, including the built-in application objects, must start by calling one of the
     main factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
 
-import json
-import sys
-
-from spectra_lexer.analysis import StenoAnalyzer, StenoRuleCollection
-from spectra_lexer.display import BoardFactory, GraphFactory
+from spectra_lexer.analysis import StenoAnalyzer
+from spectra_lexer.display import BoardEngine, GraphEngine
 from spectra_lexer.engine import StenoEngine
 from spectra_lexer.plover.config import find_dictionaries
-from spectra_lexer.resource.board import StenoBoardDefinitions
-from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.rules import StenoRuleParser
+from spectra_lexer.resource.io import ResourceIO
 from spectra_lexer.search import SearchEngine
+from spectra_lexer.translations import TranslationsIO
 from spectra_lexer.util.cmdline import CmdlineOptions
-from spectra_lexer.util.log import StreamLogger
+from spectra_lexer.util.log import open_logger
 from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory
 
 # The name of the root package is used as a default path for built-in assets and user files.
@@ -85,15 +81,12 @@ class Spectra:
     ASSET_PATH_PREFIX = ":/"           # Prefix that indicates built-in assets.
     USER_PATH_PREFIX = "~/"            # Prefix that indicates local user app data.
     PLOVER_SENTINEL = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
-    CSON_COMMENT_PREFIX = "#"          # Prefix for comments allowed in non-standard JSON files.
     LAYOUT_CSON = "key_layout.cson"    # Filename for key layout inside resource directory.
     RULES_CSON = "rules.cson"          # Filename for rules inside resource directory.
     BOARD_CSON = "board_defs.cson"     # Filename for board layout inside resource directory.
 
     def __init__(self, opts:CmdlineOptions=None) -> None:
-        """ Parse any command-line options, then create the logger.
-            It will print messages to stdout and to a file (text mode, append to current contents.)
-            Create empty directories if necessary. Log files will remain open until program close. """
+        """ Parse any command-line options, then create the logger. Create empty directories if necessary. """
         if opts is None:
             opts = CmdlineOptions("Running Spectra as a library (should never be seen).")
         opts.add("log", self.USER_PATH_PREFIX + "status.log",
@@ -107,17 +100,17 @@ class Spectra:
         opts.add("config", self.USER_PATH_PREFIX + "config.cfg",
                  "Config CFG/INI file to load at start and/or write to.")
         opts.parse()
+        self._opts = opts
         converter = PrefixPathConverter()
         asset_path = module_directory(ROOT_PACKAGE)
         converter.add(self.ASSET_PATH_PREFIX, asset_path)
         user_path = user_data_directory(ROOT_PACKAGE)
         converter.add(self.USER_PATH_PREFIX, user_path)
-        log_path = converter.convert(opts.log, make_dirs=True)
-        log_stream = open(log_path, 'a', encoding='utf-8')
-        logger = StreamLogger(sys.stdout, log_stream)
-        self.log = logger.log
         self._convert_path = converter.convert
-        self._opts = opts
+        self._io = ResourceIO()
+        log_path = self._convert_path(opts.log, make_dirs=True)
+        logger = open_logger(log_path, to_stdout=True)
+        self.log = logger.log
 
     def translations_paths(self) -> list:
         filenames = []
@@ -137,52 +130,24 @@ class Spectra:
         path = self._opts.config
         return self._convert_path(path, make_dirs=True)
 
-    def _cson_decode(self, s:str, *args, **kwargs) -> dict:
-        """ Decode a non-standard JSON string with full-line comments (CSON = commented JSON).
-            JSON doesn't care about leading or trailing whitespace, so strip every line first. """
-        lines = s.split("\n")
-        stripped_line_iter = map(str.strip, lines)
-        data_lines = [line for line in stripped_line_iter
-                      if line and not line.startswith(self.CSON_COMMENT_PREFIX)]
-        s = "\n".join(data_lines)
-        return json.loads(s, *args, **kwargs)
-
-    def _read_cson_resource(self, rel_path:str) -> dict:
-        """ Read a resource from a non-standard JSON file under a file path relative to the resources directory. """
-        filename = self._convert_path(self._opts.resources, rel_path)
-        with open(filename, 'r', encoding='utf-8') as fp:
-            s = fp.read()
-        return self._cson_decode(s)
-
-    def _load_keymap(self) -> StenoKeyLayout:
-        """ Load steno key layout constants from CSON. """
-        d = self._read_cson_resource(self.LAYOUT_CSON)
-        return StenoKeyLayout.from_json_dict(d)
-
-    def _load_rules(self) -> StenoRuleCollection:
-        """ Load steno rules from CSON. """
-        d = self._read_cson_resource(self.RULES_CSON)
-        parser = StenoRuleParser()
-        parser.add_json_dict(d)
-        return parser.parse()
-
-    def _load_board_defs(self) -> StenoBoardDefinitions:
-        """ Load steno board graphics definitions from CSON. """
-        d = self._read_cson_resource(self.BOARD_CSON)
-        return StenoBoardDefinitions.from_json_dict(d)
+    def _resource_path(self, rel_path:str) -> str:
+        """ Get a file path relative to the resources directory. """
+        return self._convert_path(self._opts.resources, rel_path)
 
     def build_engine(self) -> StenoEngine:
         """ From the base directory, load and verify each steno resource component, then build the complete engine. """
-        keymap = self._load_keymap()
+        keymap = self._io.load_keymap(self._resource_path(self.LAYOUT_CSON))
         keymap.verify()
-        rules = self._load_rules()
+        rule_parser = self._io.load_rule_parser(self._resource_path(self.RULES_CSON))
+        rules = rule_parser.parse()
         valid_rtfcre = keymap.valid_rtfcre()
         delimiters = {keymap.separator_key(), keymap.divider_key()}
         for rule in rules:
             rule.verify(valid_rtfcre, delimiters)
-        board_defs = self._load_board_defs()
+        board_defs = self._io.load_board_defs(self._resource_path(self.BOARD_CSON))
+        t_io = TranslationsIO()
         search_engine = SearchEngine()
         analyzer = StenoAnalyzer.from_resources(keymap, rules)
-        graph_factory = GraphFactory.from_resources(keymap)
-        board_factory = BoardFactory.from_resources(keymap, board_defs)
-        return StenoEngine(search_engine, analyzer, graph_factory, board_factory)
+        graph_engine = GraphEngine.from_resources(keymap)
+        board_engine = BoardEngine.from_resources(keymap, board_defs)
+        return StenoEngine(t_io, search_engine, analyzer, graph_engine, board_engine)
