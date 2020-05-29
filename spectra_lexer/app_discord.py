@@ -1,10 +1,10 @@
 """ Main module for the Discord bot application. """
 
 import sys
-from typing import Iterable, Optional
+from typing import Optional
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.analysis import StenoAnalyzer
+from spectra_lexer.analysis import StenoAnalyzer, Translation
 from spectra_lexer.discord import BotMessage, DiscordBot
 from spectra_lexer.display import BoardEngine
 from spectra_lexer.qt.svg import SVGConverter
@@ -27,46 +27,27 @@ class DiscordApplication:
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
 
-    def _new_rule(self, word:str, matches:MatchDict) -> StenoRule:
-        """ Make a new rule from a word and its possible stroke matches. """
+    def _best_translation(self, word:str, matches:MatchDict) -> Translation:
+        """ Find the best pairing between a word and its possible stroke matches. """
         if not matches:
-            return StenoRule("?", "-" * len(word), "Skipped word.")
+            return ("?", "-" * len(word))
         if word in matches:
             pairs = [(s, word) for s in matches[word]]
         elif word.lower() in matches:
             pairs = [(s, word) for s in matches[word.lower()]]
         else:
             pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
-        translation = self._analyzer.best_translation(pairs)
-        return self._analyzer.query(*translation)
-
-    @staticmethod
-    def _join_rules(rules:Iterable[StenoRule]) -> StenoRule:
-        """ Join several rules into one for display purposes. """
-        analysis = StenoRule("", "", "Compound analysis.")
-        offset = 0
-        for r in rules:
-            analysis.keys += r.keys
-            analysis.letters += r.letters
-            length = len(r.letters)
-            analysis.add_connection(r, offset, length)
-            offset += length
-        return analysis
+        return self._analyzer.best_translation(pairs)
 
     def _analyze_words(self, query:str) -> Optional[StenoRule]:
         """ Do an advanced lookup to put together rules containing strokes for multiple words. """
-        letters = query.translate(self._query_trans)
+        letters = query.translate(self._query_trans).strip()
         words = letters.split()
         search_list = [self._search_engine.search(word, self._search_depth) for word in words]
         if not any(search_list):
             return None
-        rules = []
-        space_rule = StenoRule("/", " ", "")
-        for word, matches in zip(words, search_list):
-            rule = self._new_rule(word, matches)
-            rules += [rule, space_rule]
-        rules.pop()
-        return self._join_rules(rules)
+        translations = [self._best_translation(word + " ", matches) for word, matches in zip(words, search_list)]
+        return self._analyzer.compound_query(translations)
 
     def _board_png(self, rule:StenoRule) -> bytes:
         """ Generate a board diagram in PNG raster format with good dimensions. """

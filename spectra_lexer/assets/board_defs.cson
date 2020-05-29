@@ -147,7 +147,6 @@
 
   # Rendering info for standard keys in basic positions with text.
   "keys": {
-    "/":      ["sep=1"],
     "#":      ["pos=#", "shape=number", "text=   #   #   #   #   #   "],
     "S":      ["pos=S", "shape=tall",   "text=S"],
     "T":      ["pos=T", "shape=square", "text=T"],

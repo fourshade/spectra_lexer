@@ -1,13 +1,10 @@
 """ Module for generating steno board diagram elements. """
 
-from math import ceil
 from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
 
 from .path import ArrowPathGenerator, ChainPathGenerator
-from .svg import SVGElementFactory, TransformData, XMLElement
-
-# Marker type for an SVG steno board diagram.
-BoardDiagram = str
+from .svg import SVGElementFactory, XMLElement
+from .tfrm import GridLayoutEngine, TransformData
 
 
 class BoardElementGroup:
@@ -62,19 +59,19 @@ class LinkedOverlay:
         elems = []
         for g in stroke:
             elems += g
-        return self._factory.group(*elems, transform=tfrm)
+        return self._factory.group(*elems, transform=tfrm.to_string())
 
 
 class BoardElementFactory:
     """ Factory for steno board element groups.
         Elements are added by proc_* methods, which are executed in order according to an external file. """
 
-    def __init__(self, factory:SVGElementFactory, key_positions:Dict[str, List[int]],
-                 shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
-        self._factory = factory              # Standard SVG element factory.
+    def __init__(self, key_positions:Dict[str, List[int]], shape_defs:Dict[str, dict],
+                 glyph_table:Dict[str, str]) -> None:
         self._key_positions = key_positions  # Contains offsets of the board layout.
         self._shape_defs = shape_defs        # Defines paths forming the shape and inside area of steno keys.
         self._glyph_table = glyph_table      # Defines paths for each valid text glyph (and a default).
+        self._factory = SVGElementFactory()  # Standard SVG element factory.
 
     def processed_group(self, procs:Iterable[str], bg:str, text:str=None) -> BoardElementGroup:
         """ Each string in <procs> defines a `proc`ess that positions and/or constructs SVG elements.
@@ -104,7 +101,7 @@ class BoardElementFactory:
     def proc_shape(self, grp:BoardElementGroup, shape_id:str) -> None:
         """ Add an SVG path shape, then advance the offset to center any following text. """
         attrs = self._shape_defs[shape_id]
-        elem = self._factory.path(attrs["d"], fill=grp.bg, stroke="#000000", transform=grp.tfrm)
+        elem = self._factory.path(attrs["d"], transform=grp.tfrm.to_string(), fill=grp.bg, stroke="#000000")
         grp.append(elem)
         grp.tfrm.translate(*attrs["txtcenter"])
         grp.txtmaxarea = attrs["txtarea"]
@@ -133,10 +130,10 @@ class BoardElementFactory:
             tfrm.scale(font_scale, -font_scale)
             tfrm.translate(x, y)
             glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
-            char = self._factory.path(glyph, fill="#000000", transform=tfrm)
+            char = self._factory.path(glyph, transform=tfrm.to_string(), fill="#000000")
             elems.append(char)
             x += spacing
-        g = self._factory.group(*elems, transform=grp.tfrm)
+        g = self._factory.group(*elems, transform=grp.tfrm.to_string())
         grp.append(g)
 
     def inversion_group(self, strk:Sequence[BoardElementGroup]) -> BoardElementGroup:
@@ -169,9 +166,8 @@ class BoardElementFactory:
         grp.iter_overlays = LinkedOverlay(self._factory, strk1, strk2).iter_overlays
         return grp
 
-    def base_pair(self, base_groups:Sequence[BoardElementGroup]) -> Tuple[XMLElement, XMLElement]:
+    def base_pair(self, base_groups:Iterable[BoardElementGroup], base_id="_BASE") -> Tuple[XMLElement, XMLElement]:
         """ Make a <use> element for the base present in every stroke matching a <defs> element. """
-        base_id = "_BASE"
         items = []
         for grp in base_groups:
             items += grp
@@ -179,53 +175,6 @@ class BoardElementFactory:
         defs = self._factory.defs(g)
         base = self._factory.use(base_id)
         return defs, base
-
-
-class GridLayoutEngine:
-    """ Calculates dimensions and transforms for items arranged in a grid. """
-
-    def __init__(self, left:int, top:int, width:int, height:int) -> None:
-        self._left = left      # X offset for the full grid.
-        self._top = top        # Y offset for the full grid.
-        self._width = width    # Width of a single cell.
-        self._height = height  # Height of a single cell.
-
-    def arrange(self, count:int, aspect_ratio:float) -> Tuple[int, int]:
-        """ Calculate the best arrangement of <count> cells in rows and columns
-            for the best possible scale in a viewing area of <aspect_ratio>. """
-        diagram_ratio = self._width / self._height
-        # rel_ratio is the aspect ratio of one cell divided by that of the viewing area.
-        rel_ratio = diagram_ratio / aspect_ratio
-        r = min(rel_ratio, 1 / rel_ratio)
-        s = int((count * r) ** 0.5) or 1
-        if r * ceil(count / s) > (s + 1):
-            s += 1
-        t = ceil(count / s)
-        return (s, t) if rel_ratio < 1 else (t, s)
-
-    def _offset_tfrm(self, i:int, ncols:int) -> TransformData:
-        """ Create a (dx, dy) translation for row-major cell <i> in a grid with <ncols> columns. """
-        dx = self._width * (i % ncols)
-        dy = self._height * (i // ncols)
-        return TransformData.translation(dx, dy)
-
-    def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
-        """ Create evenly spaced offset transformations for a grid with <count> cells in <ncols> columns. """
-        return [self._offset_tfrm(i, ncols) for i in range(count)]
-
-    def viewbox(self, rows:int, cols:int) -> Tuple[int, int, int, int]:
-        """ Return the final offset and dimensions for a grid of size <rows, cols>. """
-        return (self._left, self._top, self._width * cols, self._height * rows)
-
-
-class BoardDocumentFactory:
-    """ Factory for SVG steno board documents corresponding to user input. """
-
-    def __init__(self, factory:SVGElementFactory, defs:XMLElement, base:XMLElement, layout:GridLayoutEngine) -> None:
-        self._factory = factory  # Standard SVG element factory.
-        self._defs = defs        # SVG defs element to include at the beginning of every document.
-        self._base = base        # Base SVG element that is shown under every stroke diagram.
-        self._layout = layout    # Layout engine to position each stroke diagram on the document.
 
     @staticmethod
     def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[XMLElement]]:
@@ -249,17 +198,19 @@ class BoardDocumentFactory:
                 i += 1
         return overlay_list
 
-    def make_svg(self, elems:Iterable[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
+    def make_svg(self, defs:XMLElement, base:XMLElement, elems:Iterable[BoardElementGroup],
+                 layout:GridLayoutEngine, aspect_ratio:float=None) -> str:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
             Transform each diagram to be tiled in a grid layout to match the aspect ratio.
             Add overlays (if any), put it all in a new SVG document, and return the final encoded string. """
         strokes = self._stroke_groups(elems)
         stroke_count = len(strokes)
         # If no aspect ratio is given, aspect_ratio=0.0001 ensures that all boards end up in one column.
-        rows, cols = self._layout.arrange(stroke_count, aspect_ratio or 0.0001)
-        tfrms = self._layout.transforms(stroke_count, cols)
-        viewbox = self._layout.viewbox(rows, cols)
-        diagrams = [self._factory.group(self._base, *stroke, transform=tfrm) for stroke, tfrm in zip(strokes, tfrms)]
+        rows, cols = layout.arrange(stroke_count, aspect_ratio or 0.0001)
+        tfrms = layout.transforms(stroke_count, cols)
+        viewbox = layout.viewbox(rows, cols)
+        diagrams = [self._factory.group(base, *stroke, transform=tfrm.to_string())
+                    for stroke, tfrm in zip(strokes, tfrms)]
         overlays = self._overlays(elems, tfrms)
-        document = self._factory.svg(self._defs, *diagrams, *overlays, viewbox=viewbox)
+        document = self._factory.svg(defs, *diagrams, *overlays, viewbox=viewbox)
         return document.serialize()

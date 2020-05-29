@@ -2,6 +2,7 @@
 
 """ cProfile benchmarks for each lexer component. Counts are tailored for a reasonable running time. """
 
+from random import Random
 import subprocess
 import sys
 
@@ -9,44 +10,81 @@ from .bench import MultiProfiler, ProfileTestRunner, RawTestRunner
 
 PROFILER_TYPES = [RawTestRunner, ProfileTestRunner]
 
+_translations = {}
+def load_translations() -> dict:
+    if not _translations:
+        from spectra_lexer import SpectraOptions
+        from spectra_lexer import TranslationsIO
+        opts = SpectraOptions()
+        paths = opts.translations_paths()
+        io = TranslationsIO()
+        _translations.update(io.load_json_translations(*paths))
+    return _translations
+
+
+def _random_translations(n) -> list:
+    items = load_translations().items()
+    return Random(n).sample(list(items), n)
+
+
+def app_start():
+    from spectra_lexer import SpectraOptions
+    from spectra_lexer.app_http import build_app
+    opts = SpectraOptions()
+    return build_app(opts)
+
+
+def app_index() -> None:
+    from spectra_lexer.app_index import main as index_main
+    sys.argv += ["--index=NUL", "--processes=1"]
+    index_main()
+
 
 class ComponentBench:
 
-    def __init__(self, engine, profiler) -> None:
-        self._engine = engine
+    def __init__(self, profiler) -> None:
         self._profiler = profiler
-
-    def _translations(self) -> dict:
-        return self._engine._translations
 
     def init_plover(self) -> None:
         from test import test_plover
-        steno_dc = test_plover.dict_to_dc(self._translations(), split_count=1)
+        translations = load_translations()
+        steno_dc = test_plover.dict_to_dc(translations, split_count=1)
         self._profiler.run(test_plover.dc_to_dict, [(steno_dc,)] * 10)
 
-    def _spaced_translations(self, n:int) -> list:
-        items = [*self._translations().items()]
-        step = len(items) // n
-        return items[:step*n:step]
-
     def run_search(self, n=50000) -> None:
-        import random
-        random.seed(n)
-        prefixes = [w[:random.randint(1, len(w))] for k, w in self._spaced_translations(n)]
+        from random import Random
+        from spectra_lexer import SpectraOptions
+        opts = SpectraOptions()
+        spectra = opts.compile()
+        translations = load_translations()
+        spectra.search_engine.set_translations(translations)
+        samples = _random_translations(n)
+        rnd = Random(n)
+        prefixes = [w[:rnd.randint(1, len(w))] for k, w in samples]
         counts = [100] * n
-        self._profiler.run(self._engine.search, zip(prefixes, counts))
+        self._profiler.run(spectra.search_engine.search, zip(prefixes, counts))
 
     def run_lexer(self, n=5000) -> None:
-        self._profiler.run(self._engine.analyze, self._spaced_translations(n))
+        from spectra_lexer import SpectraOptions
+        opts = SpectraOptions()
+        spectra = opts.compile()
+        samples = _random_translations(n)
+        self._profiler.run(spectra.analyzer.query, samples)
+
+    def run_gui(self, n=500) -> None:
+        samples = _random_translations(n)
+        app = app_start()
+        self._profiler.run(app._gui.query, zip(samples))
 
     def run_http(self, n=500) -> None:
-        from spectra_lexer.app_http import build_server
         from spectra_lexer.http.tcp import TCPConnection, TCPServer
         import io, json
-        obj = {"action": "query", "options": {}}
         args_list = []
-        for item in self._spaced_translations(n):
-            obj["args"] = [item]
+        samples = _random_translations(n)
+        for item in samples:
+            obj = {"action": "query",
+                   "args": [item],
+                   "options": {}}
             content = json.dumps(obj).encode('utf8')
             length = str(len(content)).encode('utf8')
             request = [b"POST /request HTTP/1.1",
@@ -56,36 +94,15 @@ class ComponentBench:
                        b"",
                        content]
             args_list.append((b"\r\n".join(request),))
-        server = build_server(self._engine, ".", lambda s: None)
+        app = app_start()
+        app._log = lambda s: None
+        server = app.build_server(".")
         def dispatch(data):
             stream = io.BytesIO(data)
             conn = TCPConnection(stream, "127.0.0.1", 80)
             # Avoid threading issues by connecting with the base class.
             TCPServer.connect(server, conn)
         self._profiler.run(dispatch, args_list)
-
-
-def test_engine():
-    from spectra_lexer import Spectra
-    spectra = Spectra()
-    engine = spectra.build_engine()
-    translations_files = spectra.translations_paths()
-    engine.load_translations(*translations_files)
-    index_file = spectra.index_path()
-    engine.load_examples(index_file)
-    return engine
-
-
-def app_start():
-    from spectra_lexer.app_http import build_server
-    engine = test_engine()
-    build_server(engine, ".", lambda s: None)
-
-
-def app_index() -> None:
-    from spectra_lexer.app_index import main as index_main
-    sys.argv += ["--index=NUL", "--processes=1"]
-    index_main()
 
 
 def main(script="", operation="run_lexer", *argv:str) -> int:
@@ -103,10 +120,8 @@ def main(script="", operation="run_lexer", *argv:str) -> int:
             cmd = (sys.executable, '-m', 'benchmarks.run', f'sub|{i}|{operation}')
             subprocess.run(cmd, check=True)
     else:
-        # Other benchmarks require an already-started engine.
-        engine = test_engine()
         profiler = MultiProfiler(*PROFILER_TYPES)
-        b = ComponentBench(engine, profiler)
+        b = ComponentBench(profiler)
         getattr(b, operation)()
     return 0
 

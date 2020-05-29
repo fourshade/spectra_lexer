@@ -1,18 +1,4 @@
 {
-  # Special rules with hard-coded behavior in the lexer to match the separator and special case uses of the asterisk.
-  "~/~":    ["/", "",    ["SPEC"], "stroke separator"],
-  "~ABBR":  ["*", "|.",  ["SPEC"], "may indicate an abbreviation"],
-  "~PROP":  ["*", "|↑",  ["SPEC"], "may indicate a proper noun\n(names, places, etc.)"],
-  "~PFSF":  ["*", "|+",  ["SPEC"], "may indicate a prefix or suffix stroke"],
-  "~????":  ["*", "|?",  ["SPEC"], "purpose unknown\nPossibly resolves a conflict"],
-
-  # Other modifiers
-  "SKWR:PS": ["SKWR",  "|...",  ["RARE"], "uncommon prefix/suffix modifier"],
-  "-RBGS:PS":["-RBGS", "|...",  ["RARE"], "uncommon prefix modifier"],
-  "KWR:PS":  ["KWR",   "|...",  ["RARE"], "connects multiple strokes"],
-  "A*U:PS":  ["A*U",   "|SP",   ["STRK"], "suffix stroke to indicate international spelling variant"],
-  "TK-LS:PS":["TK-LS", "",      ["STRK"], "infix stroke to connect words (Don't Leave Space)"],
-
   # Standard rules - left side
   "s.":   ["S",    "s",      [],       "left side S"],
   "ss.":  ["S",    "ss",     [],       "left side S"],
@@ -381,6 +367,7 @@
   ".ry+":  ["EUR",  "(.r)(y)",     ["INV"], "-y suffix fold"],
 
   # Rules for letters that are split or slurred between multiple strokes
+  "~/~":    ["/",                        "",  ["REF"], "split stroke separator"],
   "b/b":    ["-B/PW",      "(.b)(~/~)(|b.)", ["LINK"], "consonant `b` split between strokes"],
   "c/c":    ["-BG/K",      "(.c)(~/~)(|c.)", ["LINK"], "hard `c` split between strokes"],
   "!c/c!":  ["-S/S",       "(!c)(~/~)(|c!)", ["LINK"], "soft `c` split between strokes"],
@@ -415,6 +402,13 @@
   "z/z":    ["-Z/S*",      "(.z)(~/~)(|z.)", ["LINK"], "consonant `z` split between strokes"],
   "~Tz":    ["-T",                      "z",  ["REF"], "T sound in Italian `zz`"],
   "zz+":    ["-T/S",       "(~Tz)(~/~)(z+)", ["LINK"], "Italian `zz` split between strokes"],
+
+  # Modifier combos
+  "SKWR:PS":  ["SKWR",     "|...",   ["RARE"], "uncommon prefix/suffix modifier"],
+  "-RBGS:PS": ["-RBGS",    "|...",   ["RARE"], "uncommon prefix modifier"],
+  "KWR:PS":   ["KWR",      "|...",   ["RARE"], "connects multiple strokes"],
+  "A*U:PS":   ["A*U",      "|SP",    ["STRK"], "suffix stroke to indicate international spelling variant"],
+  "TK-LS:PS": ["TK-LS",    "",       ["STRK"], "infix stroke to connect words (Don't Leave Space)"],
 
   # Miscellaneous special cases
   "uY~":    ["KWR",    "u|Y",         ["REF"], "phonetic Y"],

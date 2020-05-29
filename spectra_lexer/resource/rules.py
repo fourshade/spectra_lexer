@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import AbstractSet, Iterator, List
+from typing import AbstractSet, Iterable, Iterator, List
 
 from .sub import TextSubstitutionParser
 
@@ -27,7 +27,6 @@ class StenoRule:
             return self in instance._flags
 
     # Acceptable string values for lexer flags, as read from JSON.
-    is_special = Flag("SPEC")   # Special rule with hard-coded behavior. Only referenced by ID.
     is_reference = Flag("REF")  # Rule used internally in other rules as a reference. Should not be matched directly.
     is_stroke = Flag("STRK")    # Exact match for a single stroke, not part of one. Handled by exact dict lookup.
     is_word = Flag("WORD")      # Exact match for a single word. These rules do not adversely affect lexer performance.
@@ -52,6 +51,24 @@ class StenoRule:
         item = self.Connection(child, start, length)
         self._rulemap.append(item)
 
+    @classmethod
+    def join(cls, rules:Iterable["StenoRule"], info="Compound rule.") -> "StenoRule":
+        """ Join several rules into one. """
+        self = cls("", "", info)
+        offset = 0
+        for r in rules:
+            self.keys += r.keys
+            self.letters += r.letters
+            length = len(r.letters)
+            self.add_connection(r, offset, length)
+            offset += length
+        return self
+
+    @classmethod
+    def unmatched(cls, unmatched_keys:str) -> None:
+        """ Placeholder rule mapping leftover keys to an empty string of letters. """
+        return cls(unmatched_keys, "", "unmatched keys", {cls.is_unmatched})
+
     def add_unmatched(self, unmatched_keys:str) -> None:
         """ Add a placeholder child rule mapping leftover keys to an empty string of letters. """
         if self._rulemap:
@@ -60,7 +77,7 @@ class StenoRule:
         else:
             last_child_end = 0
         remaining_length = len(self.letters) - last_child_end
-        child = StenoRule(unmatched_keys, "", "unmatched keys", {StenoRule.is_unmatched})
+        child = self.unmatched(unmatched_keys)
         self.add_connection(child, last_child_end, remaining_length)
 
     def __bool__(self) -> bool:

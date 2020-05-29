@@ -1,8 +1,8 @@
-from functools import lru_cache
 from typing import Dict, List, Sequence
 
-from spectra_lexer.board import BoardDiagram, GridLayoutEngine, BoardDocumentFactory, BoardElementFactory, \
-    BoardElementGroup, SVGElementFactory
+from spectra_lexer.board.element import BoardElementFactory
+from spectra_lexer.board.factory import BoardDiagram, BoardFactory, BoardRule
+from spectra_lexer.board.tfrm import GridLayoutEngine
 from spectra_lexer.graph import GraphNode, IBody, IConnectors, TextElementCanvas
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
 from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors, NullConnectors, \
@@ -15,125 +15,54 @@ from spectra_lexer.resource.rules import StenoRule
 
 
 class BoardEngine:
-    """ Returns steno board diagrams corresponding to key strings and/or steno rules.
-        The main dict contains of a list of strings for each shape of board element.
-        Each of these strings defines a "proc": a process that positions and/or constructs SVG elements.
-        Execution involves running every proc in the list, in order. """
+    """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
-    FILL_BASE = "#7F7F7F"
-    FILL_MATCHED = "#007FFF"
-    FILL_UNMATCHED = "#DFDFDF"
-    FILL_RULE = "#00AFFF"
-    FILL_RARE = "#9FCFFF"
-    FILL_COMBO = "#7F7FFF"
-    FILL_NUMBER = "#3F9F00"
-    FILL_SYMBOL = "#AFAF00"
-    FILL_SPELLING = "#7F7FFF"
-    FILL_BRIEF = "#FF7F00"
-    FILL_ALT = "#00AFAF"
-
-    def __init__(self, keymap:StenoKeyLayout, elem_factory:BoardElementFactory, doc_factory:BoardDocumentFactory,
-                 key_procs:Dict[str, List[str]], rule_procs:Dict[str, List[str]]) -> None:
+    def __init__(self, keymap:StenoKeyLayout, factory:BoardFactory) -> None:
         self._to_skeys = keymap.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
-        self._combo_key = keymap.special_key()   # Key used with others without contributing to text.
-        self._elem_factory = elem_factory
-        self._doc_factory = doc_factory
-        self._key_procs = key_procs
-        self._rule_procs = rule_procs
+        self._factory = factory
+        self._id_cache = {}
 
-    @lru_cache(maxsize=None)
-    def _elems_from_skeys(self, skeys:str, bg:str=None) -> List[BoardElementGroup]:
-        """ Generate board diagram elements from a set of steno s-keys. """
-        return [self._elem_factory.processed_group(self._key_procs[s], bg or self.FILL_MATCHED)
-                for s in skeys if s in self._key_procs]
-
-    @lru_cache(maxsize=None)
-    def _elems_from_rule_info(self, skeys:str, letters:str, alt_text:str, bg:str=None) -> List[BoardElementGroup]:
-        """ Generate board diagram elements from a rule's properties if procs using its s-keys exist. """
-        elems = []
-        procs = self._rule_procs.get(skeys)
-        ck = self._combo_key
-        if procs is None and ck in skeys and ck != skeys:
-            # Rules using the star should have that key separate from their text.
-            leftover = skeys.replace(ck, "")
-            bg = self.FILL_COMBO
-            elems += self._elems_from_skeys(ck, bg)
-            procs = self._rule_procs.get(leftover)
-        if procs is not None:
-            if letters:
-                return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_RULE, letters)]
-            elif alt_text:
-                return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_ALT, alt_text)]
-        return []
-
-    def _elems_from_linked(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
-        """ A rule using linked strokes must follow this pattern: (.first)(~/~)(last.) """
-        strokes = [self._elems_from_rule(item.child, show_letters, bg) for item in rule]
-        return [self._elem_factory.linked_group(strokes[0], strokes[-1])]
-
-    def _elems_from_inversion(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
-        """ A rule using inversion connects the first two elements with arrows. """
-        grps = []
-        for item in rule:
-            grps += self._elems_from_rule(item.child, show_letters, bg)
-        return [self._elem_factory.inversion_group(grps)]
-
-    def _elems_from_rule(self, rule:StenoRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
-        """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
+    def _to_board_rule(self, rule:StenoRule) -> BoardRule:
+        r_id = rule.id
+        if r_id and r_id in self._id_cache:
+            return self._id_cache[r_id]
         skeys = self._to_skeys(rule.keys)
         letters = rule.letters
         alt_text = rule.alt
-        if letters and not any(map(str.isalpha, letters)):
-            bg = self.FILL_SYMBOL if not any(map(str.isdigit, letters)) else self.FILL_NUMBER
-            if not alt_text:
-                alt_text = letters
-        if rule.is_linked:
-            return self._elems_from_linked(rule, show_letters, bg)
-        elif rule.is_inversion:
-            return self._elems_from_inversion(rule, show_letters, bg)
-        elif rule.is_unmatched:
-            return self._elems_from_skeys(skeys, self.FILL_UNMATCHED)
-        elif rule.is_rare:
-            bg = self.FILL_RARE
-        elif rule.is_stroke:
-            bg = self.FILL_SPELLING
-        elif rule.is_word:
-            bg = self.FILL_BRIEF
-        elems = self._elems_from_rule_info(skeys, letters if show_letters else "", alt_text, bg)
-        if elems:
-            return elems
-        elif rule:
-            # Add elements recursively from all child rules.
-            return [elem for item in rule for elem in self._elems_from_rule(item.child, show_letters, bg)]
-        # There may not be compound elements for everything; in that case, use elements for each raw key.
-        return self._elems_from_skeys(skeys)
-
-    def _make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
-        return self._doc_factory.make_svg(elems, aspect_ratio)
+        children = [self._to_board_rule(item.child) for item in rule]
+        br = BoardRule(skeys, letters, alt_text, children)
+        br.is_linked = rule.is_linked
+        br.is_inversion = rule.is_inversion
+        br.is_unmatched = rule.is_unmatched
+        br.is_rare = rule.is_rare
+        br.is_stroke = rule.is_stroke
+        br.is_word = rule.is_word
+        if r_id:
+            self._id_cache[r_id] = br
+        return br
 
     def draw_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
-        """ Generate a board diagram from a steno key string arranged according to <aspect ratio>.
-            Copy the element list to avoid corrupting the caches. """
+        """ Generate a board diagram from a steno key string arranged according to <aspect ratio>. """
         skeys = self._to_skeys(keys)
-        elems = self._elems_from_skeys(skeys)[:]
-        return self._make_svg(elems, aspect_ratio)
+        return self._factory.draw_keys(skeys, aspect_ratio)
 
     def draw_rule(self, rule:StenoRule, aspect_ratio:float=None, *, show_letters=True) -> BoardDiagram:
-        """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>.
-            Copy the element list to avoid corrupting the caches. """
-        elems = self._elems_from_rule(rule, show_letters)[:]
-        return self._make_svg(elems, aspect_ratio)
+        """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>. """
+        br = self._to_board_rule(rule)
+        return self._factory.draw_rule(br, aspect_ratio, show_letters=show_letters)
 
-    @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> "BoardEngine":
-        """ Generate board diagram elements with the background of every key to use as a diagram base. """
-        svg_factory = SVGElementFactory()
-        elem_factory = BoardElementFactory(svg_factory, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
-        base_groups = [elem_factory.processed_group(procs[:-1], cls.FILL_BASE) for procs in board_defs.keys.values()]
-        defs, base = elem_factory.base_pair(base_groups)
-        layout = GridLayoutEngine(**board_defs.bounds)
-        doc_factory = BoardDocumentFactory(svg_factory, defs, base, layout)
-        return cls(keymap, elem_factory, doc_factory, board_defs.keys, board_defs.rules)
+
+def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> BoardEngine:
+    """ Generate board diagram elements with the background of every key to use as a diagram base. """
+    elem_factory = BoardElementFactory(board_defs.offsets, board_defs.shapes, board_defs.glyphs)
+    layout = GridLayoutEngine(**board_defs.bounds)
+    key_sep = keymap.separator_key()
+    key_special = keymap.special_key()
+    key_procs = board_defs.keys
+    key_procs[key_sep] = ["sep=1"]
+    rule_procs = board_defs.rules
+    factory = BoardFactory(elem_factory, layout, key_special, key_procs, rule_procs)
+    return BoardEngine(keymap, factory)
 
 
 class RuleGraph:
@@ -219,7 +148,3 @@ class GraphEngine:
         grid = TextElementCanvas.from_layout(layout).to_grid()
         formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
         return RuleGraph(ref_dict, formatter)
-
-    @classmethod
-    def from_resources(cls, keymap:StenoKeyLayout) -> "GraphEngine":
-        return cls(keymap.separator_key(), keymap.divider_key())

@@ -76,7 +76,6 @@ alt       ::=  s_chars
 
 flag      ::=  string
 ; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
-; "SPEC" = special rule with custom matching code corresponding to its ID.
 ; "REF"  = rule used internally by other rules as a reference, do not match directly using lexer
 ; "STRK" = only matches a full stroke (e.g. fingerspelling)
 ; "WORD" = only matches a full word (e.g. common briefs)

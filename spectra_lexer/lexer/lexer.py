@@ -61,10 +61,7 @@ class StenoLexer:
 
     def find_best_translation(self, translations:Sequence[Tuple[str, str]]) -> int:
         """ Return the index of the best (most accurate) from a sequence of (skeys, letters) <translations>. """
-        if not translations:
-            raise ValueError("Cannot find the best of 0 translations.")
-        if len(translations) == 1:
-            return 0
+        assert translations
         best_of_each = []
         for skeys, letters in translations:
             # If nothing has a complete match, the ranking will end up choosing shorter key sequences

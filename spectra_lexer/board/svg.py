@@ -1,4 +1,3 @@
-from math import cos, pi, sin
 from typing import List, Sequence
 
 
@@ -39,68 +38,13 @@ class XMLElement:
             s_list += '/>',
 
 
-class TransformData:
-    """ Data for a 2D affine transformation. """
-
-    def __init__(self) -> None:
-        self._scale_x = 1.0
-        self._shear_y = 0.0
-        self._shear_x = 0.0
-        self._scale_y = 1.0
-        self._dx = 0.0
-        self._dy = 0.0
-        self._simple = True
-
-    @classmethod
-    def translation(cls, dx:float, dy:float) -> "TransformData":
-        """ Shortcut for creating a blank transform and translating it. """
-        self = cls()
-        self.translate(dx, dy)
-        return self
-
-    def offset(self) -> complex:
-        """ Return the current translation offset in complex form. """
-        return self._dx + self._dy * 1j
-
-    def rotate(self, degrees:float) -> None:
-        """ Rotate the system <degrees> counterclockwise. """
-        theta = degrees * pi / 180
-        self._scale_x = cos(theta)
-        self._shear_y = -sin(theta)
-        self._shear_x = sin(theta)
-        self._scale_y = cos(theta)
-        self._simple = False
-
-    def scale(self, scale_x:float, scale_y:float) -> None:
-        """ Scale the system by a decimal amount. """
-        self._scale_x *= scale_x
-        self._scale_y *= scale_y
-        self._simple = False
-
-    def translate(self, dx:float, dy:float) -> None:
-        """ Translate (move) the system by an additional offset of <dx, dy>. """
-        self._dx += dx
-        self._dy += dy
-
-    def to_string(self) -> str:
-        """ A linear transform with scaling, rotation, translation, etc. can be done in one step with a matrix. """
-        dx = self._dx
-        dy = self._dy
-        if self._simple:
-            # If only one type of transformation is involved, use the simpler attributes.
-            if not dx and not dy:
-                return ''
-            return f'translate({dx}, {dy})'
-        return f'matrix({self._scale_x}, {self._shear_y}, {self._shear_x}, {self._scale_y}, {dx}, {dy})'
-
-
 class SVGElementFactory:
     """ Factory for XML elements formatted as necessary for SVG. """
 
     def __init__(self, elem_cls=XMLElement) -> None:
         self._elem_cls = elem_cls
 
-    def path(self, path_data:str, transform:TransformData=None, **style:str) -> XMLElement:
+    def path(self, path_data:str, transform:str=None, **style:str) -> XMLElement:
         """ A path element may not have children, but it must have a path data string. """
         attrib = {"d": path_data}
         if style:
@@ -109,13 +53,11 @@ class SVGElementFactory:
                 style_attrs += k, ":", v, ";"
             attrib["style"] = "".join(style_attrs).replace("_", "-")
         if transform is not None:
-            attrib["transform"] = transform.to_string()
+            attrib["transform"] = transform
         return self._elem_cls("path", **attrib)
 
-    def group(self, *children:XMLElement, transform:TransformData=None, **attrib:str) -> XMLElement:
+    def group(self, *children:XMLElement, **attrib:str) -> XMLElement:
         """ Generic SVG group element. """
-        if transform is not None:
-            attrib["transform"] = transform.to_string()
         return self._elem_cls("g", *children, **attrib)
 
     def defs(self, *children:XMLElement) -> XMLElement:

@@ -59,8 +59,8 @@
     __init__ - Anything using Spectra, including the built-in application objects, must start by calling one of the
     main factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
 
-from spectra_lexer.analysis import StenoAnalyzer
-from spectra_lexer.display import BoardEngine, GraphEngine
+from spectra_lexer.analysis import build_analyzer, StenoAnalyzer
+from spectra_lexer.display import build_board_engine, BoardEngine, GraphEngine
 from spectra_lexer.plover.config import find_dictionaries
 from spectra_lexer.resource.io import ResourceIO
 from spectra_lexer.search import SearchEngine
@@ -165,7 +165,7 @@ class SpectraOptions(CmdlineOptions):
         logger = open_logger(log_path, to_stdout=True)
         t_io = TranslationsIO()
         search_engine = SearchEngine()
-        analyzer = StenoAnalyzer.from_resources(keymap, rules)
-        graph_engine = GraphEngine.from_resources(keymap)
-        board_engine = BoardEngine.from_resources(keymap, board_defs)
+        analyzer = build_analyzer(keymap, rules)
+        graph_engine = GraphEngine(keymap.separator_key(), keymap.divider_key())
+        board_engine = build_board_engine(keymap, board_defs)
         return Spectra(logger, t_io, search_engine, analyzer, graph_engine, board_engine)
