@@ -61,13 +61,12 @@
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardEngine, GraphEngine
-from spectra_lexer.engine import StenoEngine
 from spectra_lexer.plover.config import find_dictionaries
 from spectra_lexer.resource.io import ResourceIO
 from spectra_lexer.search import SearchEngine
 from spectra_lexer.translations import TranslationsIO
 from spectra_lexer.util.cmdline import CmdlineOptions
-from spectra_lexer.util.log import open_logger
+from spectra_lexer.util.log import open_logger, StreamLogger
 from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory
 
 # The name of the root package is used as a default path for built-in assets and user files.
@@ -76,45 +75,65 @@ PLOVER_APP_NAME = "plover"
 
 
 class Spectra:
-    """ Main factory class. Contains all command-line options necessary to build a functioning engine and app. """
+    """ Container for all common components, and the basis for using Spectra as a library. """
+
+    def __init__(self, logger:StreamLogger, translations_io:TranslationsIO, search_engine:SearchEngine,
+                 analyzer:StenoAnalyzer, graph_engine:GraphEngine, board_engine:BoardEngine) -> None:
+        self.log = logger.log
+        self.translations_io = translations_io
+        self.search_engine = search_engine
+        self.analyzer = analyzer
+        self.graph_engine = graph_engine
+        self.board_engine = board_engine
+
+
+class SpectraOptions(CmdlineOptions):
+    """ Main factory class. Contains all command-line options necessary to build essential components. """
 
     ASSET_PATH_PREFIX = ":/"           # Prefix that indicates built-in assets.
     USER_PATH_PREFIX = "~/"            # Prefix that indicates local user app data.
     PLOVER_SENTINEL = "$PLOVER_DICTS"  # Sentinel pattern to load the user's Plover dictionaries.
-    LAYOUT_CSON = "key_layout.cson"    # Filename for key layout inside resource directory.
-    RULES_CSON = "rules.cson"          # Filename for rules inside resource directory.
-    BOARD_CSON = "board_defs.cson"     # Filename for board layout inside resource directory.
 
-    def __init__(self, opts:CmdlineOptions=None) -> None:
+    def __init__(self, app_description="Running Spectra as a library (should never be seen).") -> None:
         """ Parse any command-line options, then create the logger. Create empty directories if necessary. """
-        if opts is None:
-            opts = CmdlineOptions("Running Spectra as a library (should never be seen).")
-        opts.add("log", self.USER_PATH_PREFIX + "status.log",
+        super().__init__(app_description)
+        self.add("log", self.USER_PATH_PREFIX + "status.log",
                  "Text file to log status and exceptions.")
-        opts.add("resources", self.ASSET_PATH_PREFIX + "assets/",
-                 "Directory with static steno resources.")
-        opts.add("translations", [self.PLOVER_SENTINEL],
+        self.add("keymap", self.ASSET_PATH_PREFIX + "assets/key_layout.cson",
+                 "CSON file with static steno key layout data.")
+        self.add("rules", self.ASSET_PATH_PREFIX + "assets/rules.cson",
+                 "CSON file with static steno rule data.")
+        self.add("board-defs", self.ASSET_PATH_PREFIX + "assets/board_defs.cson",
+                 "CSON file with static steno board definition data.")
+        self.add("translations", [self.PLOVER_SENTINEL],
                  "JSON translation files to load on start.")
-        opts.add("index", self.USER_PATH_PREFIX + "index.json",
+        self.add("index", self.USER_PATH_PREFIX + "index.json",
                  "JSON index file to load on start and/or write to.")
-        opts.add("config", self.USER_PATH_PREFIX + "config.cfg",
+        self.add("config", self.USER_PATH_PREFIX + "config.cfg",
                  "Config CFG/INI file to load at start and/or write to.")
-        opts.parse()
-        self._opts = opts
         converter = PrefixPathConverter()
         asset_path = module_directory(ROOT_PACKAGE)
         converter.add(self.ASSET_PATH_PREFIX, asset_path)
         user_path = user_data_directory(ROOT_PACKAGE)
         converter.add(self.USER_PATH_PREFIX, user_path)
         self._convert_path = converter.convert
-        self._io = ResourceIO()
-        log_path = self._convert_path(opts.log, make_dirs=True)
-        logger = open_logger(log_path, to_stdout=True)
-        self.log = logger.log
+
+    def log_path(self) -> str:
+        """ Return the path for the log file, creating empty directories to its location if necessary. """
+        return self._convert_path(self.log, make_dirs=True)
+
+    def keymap_path(self) -> str:
+        return self._convert_path(self.keymap)
+
+    def rules_path(self) -> str:
+        return self._convert_path(self.rules)
+
+    def board_defs_path(self) -> str:
+        return self._convert_path(self.board_defs)
 
     def translations_paths(self) -> list:
         filenames = []
-        for f in self._opts.translations:
+        for f in self.translations:
             if f == self.PLOVER_SENTINEL:
                 plover_user_path = user_data_directory(PLOVER_APP_NAME)
                 filenames += find_dictionaries(plover_user_path, ignore_errors=True)
@@ -123,31 +142,30 @@ class Spectra:
         return filenames
 
     def index_path(self) -> str:
-        path = self._opts.index
-        return self._convert_path(path, make_dirs=True)
+        return self._convert_path(self.index, make_dirs=True)
 
     def config_path(self) -> str:
-        path = self._opts.config
-        return self._convert_path(path, make_dirs=True)
+        return self._convert_path(self.config, make_dirs=True)
 
-    def _resource_path(self, rel_path:str) -> str:
-        """ Get a file path relative to the resources directory. """
-        return self._convert_path(self._opts.resources, rel_path)
-
-    def build_engine(self) -> StenoEngine:
-        """ From the base directory, load and verify each steno resource component, then build the complete engine. """
-        keymap = self._io.load_keymap(self._resource_path(self.LAYOUT_CSON))
+    def compile(self, *, parse_args=True) -> Spectra:
+        """ From the base directory, load and verify each resource component, then return the complete collection. """
+        if parse_args:
+            self.parse()
+        r_io = ResourceIO()
+        keymap = r_io.load_keymap(self.keymap_path())
         keymap.verify()
-        rule_parser = self._io.load_rule_parser(self._resource_path(self.RULES_CSON))
+        rule_parser = r_io.load_rule_parser(self.rules_path())
         rules = rule_parser.parse()
         valid_rtfcre = keymap.valid_rtfcre()
         delimiters = {keymap.separator_key(), keymap.divider_key()}
         for rule in rules:
             rule.verify(valid_rtfcre, delimiters)
-        board_defs = self._io.load_board_defs(self._resource_path(self.BOARD_CSON))
+        board_defs = r_io.load_board_defs(self.board_defs_path())
+        log_path = self.log_path()
+        logger = open_logger(log_path, to_stdout=True)
         t_io = TranslationsIO()
         search_engine = SearchEngine()
         analyzer = StenoAnalyzer.from_resources(keymap, rules)
         graph_engine = GraphEngine.from_resources(keymap)
         board_engine = BoardEngine.from_resources(keymap, board_defs)
-        return StenoEngine(t_io, search_engine, analyzer, graph_engine, board_engine)
+        return Spectra(logger, t_io, search_engine, analyzer, graph_engine, board_engine)

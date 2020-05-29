@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.engine import StenoEngine
 from spectra_lexer.gui import GUILayer, GUIOptions, GUIOutput
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
@@ -17,8 +16,71 @@ from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
 from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
+from spectra_lexer.translations import ExamplesDict, TranslationsDict, TranslationsIO
 from spectra_lexer.util.config import SimpleConfigDict
 from spectra_lexer.util.exception import ExceptionManager
+
+
+class GUILayerExtended(GUILayer):
+    """ User GUI actions that may require higher permissions."""
+
+    def __init__(self, io:TranslationsIO, examples_path:str, cfg_path:str, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._io = io
+        self._examples_path = examples_path  # User examples index file path.
+        self._config = SimpleConfigDict(cfg_path, "app_qt")
+        self._last_translations = {}
+
+    def set_translations(self, translations:TranslationsDict) -> None:
+        """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
+        self._last_translations = translations
+        self._search_engine.set_translations(translations)
+
+    def load_translations(self, *filenames:str) -> None:
+        """ Load and merge RTFCRE steno translations from JSON files. """
+        translations = self._io.load_json_translations(*filenames)
+        self.set_translations(translations)
+
+    def set_examples(self, examples:ExamplesDict) -> None:
+        """ Send a new examples index dict to the search engine. """
+        self._search_engine.set_examples(examples)
+
+    def load_examples(self, filename:str=None) -> None:
+        """ Load an examples index from a JSON file. """
+        examples = self._io.load_json_examples(filename or self._examples_path)
+        self.set_examples(examples)
+
+    def compile_examples(self, size:int) -> None:
+        """ Run the lexer on all translations with an optional <size> filter and look at the top-level rule IDs.
+            Make a index with examples of every translation that used each built-in rule and set it as active.
+            If a <filename> is given, save the index as JSON at the end. """
+        index = self._analyzer.compile_index(self._last_translations.items(), size=size)
+        examples = {r_id: dict(pairs) for r_id, pairs in index.items()}
+        self.set_examples(examples)
+        self._io.save_json_examples(self._examples_path, examples)
+
+    def options(self) -> GUIOptions:
+        return GUIOptions(self._config)
+
+    def update_config(self, options:dict) -> None:
+        self._config.update(options)
+        self._config.write()
+
+    def load_config(self) -> bool:
+        """ Load the config file. If missing, create it with default values and return True. """
+        is_first_run = not self._config.read()
+        if is_first_run:
+            options = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
+            self.update_config(options)
+        return is_first_run
+
+    def load_user_files(self) -> bool:
+        """ Load the examples index and config files. Ignore I/O errors since either may be missing. """
+        try:
+            self.load_examples()
+        except OSError:
+            pass
+        return self.load_config()
 
 
 class QtGUIApplication:
@@ -26,23 +88,18 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:StenoEngine, gui:GUILayer, config:SimpleConfigDict, async_dsp:QtAsyncDispatcher,
-                 window:WindowController, menu:MenuController, search:SearchController, display:DisplayController,
-                 examples_path:str, sys_refs:list) -> None:
-        self._engine = engine
+    def __init__(self, gui:GUILayerExtended, async_dsp:QtAsyncDispatcher, window:WindowController,
+                 menu:MenuController, search:SearchController, display:DisplayController) -> None:
         self._gui = gui
-        self._config = config
         self._async_dsp = async_dsp
         self._window = window
         self._menu = menu
         self._search = search
         self._display = display
-        self._examples_path = examples_path  # User examples index file path.
-        self._sys_refs = sys_refs            # List of Qt system objects that must be retained until close.
 
     def _get_options(self) -> GUIOptions:
         """ Add all values that may be needed by the steno engine as options in precedence order. """
-        opts = GUIOptions(self._config)
+        opts = self._gui.options()
         opts.search_mode_strokes = self._search.get_mode_strokes()
         opts.search_mode_regex = self._search.get_mode_regex()
         opts.board_aspect_ratio = self._display.get_board_ratio()
@@ -116,23 +173,6 @@ class QtGUIApplication:
         q_app.processEvents()
         self._async_dsp.dispatch(func, *args, on_start=on_task_start, on_finish=on_task_finish)
 
-    def _update_config(self, options:dict) -> None:
-        self._config.update(options)
-        self._config.write()
-
-    def _load_user_files(self) -> bool:
-        """ Load the examples index and config files. Ignore I/O errors since either may be missing.
-            If the config file is missing, create it with default values and return True. """
-        try:
-            self._engine.load_examples(self._examples_path)
-        except OSError:
-            pass
-        is_first_run = not self._config.read()
-        if is_first_run:
-            options = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
-            self._update_config(options)
-        return is_first_run
-
     def _on_ready(self, is_first_run:bool) -> None:
         """ When all resources are ready, connect the GUI callbacks.
             Present an index generation dialog if this is the first time the program has been run. """
@@ -145,31 +185,31 @@ class QtGUIApplication:
 
     def load_user_files(self) -> None:
         """ Load initial data asynchronously on a new thread to avoid blocking the GUI. """
-        self.run_async(self._load_user_files, callback=self._on_ready,
+        self.run_async(self._gui.load_user_files, callback=self._on_ready,
                        msg_start="Loading...", msg_done="Loading complete.")
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self._window.open_files("Load Translations", ".", "json")
         if filenames:
-            self.run_async(self._engine.load_translations, *filenames,
+            self.run_async(self._gui.load_translations, *filenames,
                            msg_start="Loading files...", msg_done="Loaded translations from file dialog.")
 
     def open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
         filename = self._window.open_file("Load Index", ".", "json")
         if filename:
-            self.run_async(self._engine.load_examples, filename,
+            self.run_async(self._gui.load_examples, filename,
                            msg_start="Loading file...", msg_done="Loaded index from file dialog.")
 
     def _config_edited(self, options:dict) -> None:
-        self.run_async(self._update_config, options, msg_done="Configuration saved.")
+        self.run_async(self._gui.update_config, options, msg_done="Configuration saved.")
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         dialog = self._window.open_dialog(ConfigDialog)
         if dialog is not None:
-            opts = self._get_options()
+            opts = self._gui.options()
             for key, name, description in GUIOptions.CFG_OPTIONS:
                 value = getattr(opts, key)
                 dialog.add_option(key, value, "General", name, description)
@@ -178,7 +218,7 @@ class QtGUIApplication:
 
     def _make_index(self, size:int) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self.run_async(self._engine.compile_examples, size, self._examples_path,
+        self.run_async(self._gui.compile_examples, size,
                        msg_start="Making new index...", msg_done="Successfully created index!")
 
     def confirm_startup_index(self) -> None:
@@ -232,39 +272,36 @@ class QtGUIApplication:
         self.last_exception = exc
         self.set_enabled(True)
 
-    @classmethod
-    def build(cls, engine:StenoEngine, logger:Callable[[str], None],
-              examples_path:str, cfg_path:str) -> "QtGUIApplication":
-        """ Build the interactive Qt GUI application with all necessary components. """
-        exc_man = ExceptionManager()
-        exc_man.add_logger(logger)
-        exc_hook = QtExceptionHook(chain_hooks=False)
-        exc_hook.connect(exc_man.on_exception)
-        gui = GUILayer(engine)
-        config = SimpleConfigDict(cfg_path, "app_qt")
-        async_dsp = QtAsyncDispatcher()
-        w_window = QMainWindow()
-        ui = Ui_MainWindow()
-        ui.setupUi(w_window)
-        window = WindowController(w_window)
-        icon_data = pkgutil.get_data(*WINDOW_ICON_PATH)
-        window.set_icon(icon_data)
-        menu = MenuController(ui.w_menubar)
-        search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
-        display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
-        # Some object references must be saved in an attribute or else Qt will disconnect the signals upon scope exit.
-        sys_refs = [exc_man, exc_hook]
-        self = cls(engine, gui, config, async_dsp, window, menu, search, display, examples_path, sys_refs)
-        exc_man.add_logger(display.show_traceback)
-        exc_man.add_handler(self.on_exception)
-        menu.add(self.open_translations, "File", "Load Translations...")
-        menu.add(self.open_index, "File", "Load Index...")
-        menu.add(self.close, "File", "Close", after_sep=True)
-        menu.add(self.config_editor, "Tools", "Edit Configuration...")
-        menu.add(self.custom_index, "Tools", "Make Index...")
-        menu.add(self.debug_console, "Debug", "Open Console...")
-        menu.add(self.debug_tree, "Debug", "View Object Tree...")
-        self.set_enabled(False)
-        self.set_status("Loading...")
-        self.show()
-        return self
+
+def build_app(gui:GUILayerExtended, logger:Callable[[str], None]) -> QtGUIApplication:
+    """ Build the interactive Qt GUI application with all necessary components. """
+    exc_man = ExceptionManager()
+    exc_man.add_logger(logger)
+    exc_hook = QtExceptionHook(chain_hooks=False)
+    exc_hook.connect(exc_man.on_exception)
+    async_dsp = QtAsyncDispatcher()
+    w_window = QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(w_window)
+    window = WindowController(w_window)
+    icon_data = pkgutil.get_data(*WINDOW_ICON_PATH)
+    window.set_icon(icon_data)
+    menu = MenuController(ui.w_menubar)
+    search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
+    display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
+    app = QtGUIApplication(gui, async_dsp, window, menu, search, display)
+    exc_man.add_logger(display.show_traceback)
+    exc_man.add_handler(app.on_exception)
+    menu.add(app.open_translations, "File", "Load Translations...")
+    menu.add(app.open_index, "File", "Load Index...")
+    menu.add(app.close, "File", "Close", after_sep=True)
+    menu.add(app.config_editor, "Tools", "Edit Configuration...")
+    menu.add(app.custom_index, "Tools", "Make Index...")
+    menu.add(app.debug_console, "Debug", "Open Console...")
+    menu.add(app.debug_tree, "Debug", "View Object Tree...")
+    app.set_enabled(False)
+    app.set_status("Loading...")
+    app.show()
+    # Some object references must be saved in an attribute or else Qt will disconnect the signals upon scope exit.
+    app.sys_refs = [exc_man, exc_hook]
+    return app

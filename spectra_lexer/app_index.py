@@ -3,26 +3,30 @@
 import sys
 from time import time
 
-from spectra_lexer import Spectra
+from spectra_lexer import SpectraOptions
 from spectra_lexer.analysis import TranslationFilter
-from spectra_lexer.util.cmdline import CmdlineOptions
 
 
 def main() -> int:
     """ Analyze translations files and create an examples index from them. Time the execution. """
-    opts = CmdlineOptions("Batch script for creating an examples index.")
+    opts = SpectraOptions("Batch script for creating an examples index.")
     opts.add("size", TranslationFilter.SIZE_MEDIUM, "Relative size of generated index.")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
-    spectra = Spectra(opts)
-    spectra.log("Operation started...")
+    spectra = opts.compile()
+    files_in = opts.translations_paths()
+    file_out = opts.index_path()
+    log = spectra.log
+    io = spectra.translations_io
+    analyzer = spectra.analyzer
+    log("Operation started...")
     start_time = time()
-    engine = spectra.build_engine()
-    files_in = spectra.translations_paths()
-    engine.load_translations(*files_in)
-    file_out = spectra.index_path()
-    engine.compile_examples(opts.size, file_out, process_count=opts.processes)
+    translations = io.load_json_translations(*files_in)
+    pairs = translations.items()
+    index = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)
+    examples = {r_id: dict(pairs_out) for r_id, pairs_out in index.items()}
+    io.save_json_examples(file_out, examples)
     total_time = time() - start_time
-    spectra.log(f"Operation done in {total_time:.1f} seconds.")
+    log(f"Operation done in {total_time:.1f} seconds.")
     return 0
 
 

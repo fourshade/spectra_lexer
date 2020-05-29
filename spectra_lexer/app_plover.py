@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from spectra_lexer import Spectra
-from spectra_lexer.gui_qt import QtGUIApplication
+from spectra_lexer import SpectraOptions
+from spectra_lexer.gui_qt import build_app, GUILayerExtended
 from spectra_lexer.plover.plugin import EngineWrapper, IPlover, PloverExtension
 from spectra_lexer.qt import WINDOW_ICON_PATH
 
@@ -35,11 +35,13 @@ class PloverPlugin:
         """ Main entry point for Spectra's Plover plugin. Create the extension and connect it only if compatible.
             The Plover engine is our only argument. Command-line arguments are not used (sys.argv belongs to Plover).
             We create the main application object, but do not directly expose it. This proxy is returned instead. """
-        spectra = Spectra()
-        index_path = spectra.index_path()
-        cfg_path = spectra.config_path()
-        self._engine = engine = spectra.build_engine()
-        self._app = app = QtGUIApplication.build(engine, spectra.log, index_path, cfg_path)
+        opts = SpectraOptions()
+        spectra = opts.compile(parse_args=False)
+        index_path = opts.index_path()
+        cfg_path = opts.config_path()
+        self._gui = gui = GUILayerExtended(spectra.translations_io, index_path, cfg_path, spectra.search_engine,
+                                           spectra.analyzer, spectra.graph_engine, spectra.board_engine)
+        self._app = app = build_app(gui, spectra.log)
         # Add the extension as an app attribute so it is viewable by app debug tools.
         self._ext = app.plover = ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=STROKE_LIMIT)
         try:
@@ -56,7 +58,7 @@ class PloverPlugin:
     def _set_translations(self, *args) -> None:
         """ Convert Plover translation dictionaries to string-key format and send the result to the main engine. """
         translations = self._ext.parse_dictionaries(*args)
-        self._engine.set_translations(translations)
+        self._gui.set_translations(translations)
 
     def on_dictionaries_loaded(self, *args) -> None:
         """ Load translation dictionaries in async mode to keep the GUI responsive. """

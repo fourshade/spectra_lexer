@@ -3,21 +3,24 @@
 import sys
 from typing import Iterable, Optional
 
-from spectra_lexer import Spectra
+from spectra_lexer import SpectraOptions
+from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.discord import BotMessage, DiscordBot
-from spectra_lexer.engine import StenoEngine
+from spectra_lexer.display import BoardEngine
 from spectra_lexer.qt.svg import SVGConverter
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search import MatchDict
-from spectra_lexer.util.cmdline import CmdlineOptions
+from spectra_lexer.search import MatchDict, SearchEngine
 
 
 class DiscordApplication:
     """ Spectra engine application that accepts string input from Discord users. """
 
-    def __init__(self, engine:StenoEngine, svg_converter:SVGConverter, *,
+    def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
+                 board_engine:BoardEngine, svg_converter:SVGConverter, *,
                  query_max_chars:int=None, query_trans:dict=None, search_depth=1, board_AR:float=None) -> None:
-        self._engine = engine                    # Main query engine.
+        self._search_engine = search_engine
+        self._analyzer = analyzer
+        self._board_engine = board_engine
         self._svg_converter = svg_converter      # Converter for SVG data to PNG (Discord will not embed SVGs.)
         self._query_max_chars = query_max_chars  # Optional limit for # of characters allowed in a user query string.
         self._query_trans = query_trans or {}    # Translation table to remove characters before searching for words.
@@ -34,8 +37,8 @@ class DiscordApplication:
             pairs = [(s, word) for s in matches[word.lower()]]
         else:
             pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
-        translation = self._engine.best_translation(pairs)
-        return self._engine.analyze(*translation)
+        translation = self._analyzer.best_translation(pairs)
+        return self._analyzer.query(*translation)
 
     @staticmethod
     def _join_rules(rules:Iterable[StenoRule]) -> StenoRule:
@@ -54,7 +57,7 @@ class DiscordApplication:
         """ Do an advanced lookup to put together rules containing strokes for multiple words. """
         letters = query.translate(self._query_trans)
         words = letters.split()
-        search_list = [self._engine.search(word, self._search_depth) for word in words]
+        search_list = [self._search_engine.search(word, self._search_depth) for word in words]
         if not any(search_list):
             return None
         rules = []
@@ -67,7 +70,7 @@ class DiscordApplication:
 
     def _board_png(self, rule:StenoRule) -> bytes:
         """ Generate a board diagram in PNG raster format with good dimensions. """
-        board = self._engine.generate_board(rule, aspect_ratio=self._board_AR)
+        board = self._board_engine.draw_rule(rule, aspect_ratio=self._board_AR)
         svg_data = board.encode('utf-8')
         return self._svg_converter.to_png(svg_data)
 
@@ -85,19 +88,24 @@ class DiscordApplication:
 
 
 def main() -> int:
-    opts = CmdlineOptions("Run Spectra as a Discord bot.")
+    opts = SpectraOptions("Run Spectra as a Discord bot.")
     opts.add("token", "", "Discord bot token (REQUIRED).")
-    spectra = Spectra(opts)
-    spectra.log("Loading...")
-    engine = spectra.build_engine()
-    translations_files = spectra.translations_paths()
-    engine.load_translations(*translations_files)
+    spectra = opts.compile()
+    translations_files = opts.translations_paths()
+    log = spectra.log
+    io = spectra.translations_io
+    search_engine = spectra.search_engine
+    analyzer = spectra.analyzer
+    board_engine = spectra.board_engine
+    log("Loading...")
+    translations = io.load_json_translations(*translations_files)
+    search_engine.set_translations(translations)
     svg_converter = SVGConverter(background_rgba=(0, 0, 0, 0))
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')
-    app = DiscordApplication(engine, svg_converter,
+    app = DiscordApplication(search_engine, analyzer, board_engine, svg_converter,
                              query_max_chars=100, query_trans=map_to_space, search_depth=3, board_AR=1.5)
-    bot = DiscordBot(opts.token, spectra.log)
+    bot = DiscordBot(opts.token, log)
     bot.add_command("spectra", app.exec)
     return bot.run()
 

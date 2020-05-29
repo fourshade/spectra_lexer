@@ -1,8 +1,8 @@
 from typing import Dict
 
-from spectra_lexer.analysis import Translation
-from spectra_lexer.engine import StenoEngine
-from spectra_lexer.search import MatchDict, SearchRegexError
+from spectra_lexer.analysis import StenoAnalyzer, Translation
+from spectra_lexer.display import BoardEngine, GraphEngine
+from spectra_lexer.search import MatchDict, SearchRegexError, SearchEngine
 
 
 class SearchResults:
@@ -73,8 +73,12 @@ class GUIOptions:
 class GUILayer:
     """ Layer for common user GUI actions. """
 
-    def __init__(self, engine:StenoEngine, *, index_delim=";") -> None:
-        self._engine = engine            # Main steno analysis engine.
+    def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
+                 graph_engine:GraphEngine, board_engine:BoardEngine, *, index_delim=";") -> None:
+        self._search_engine = search_engine
+        self._analyzer = analyzer
+        self._graph_engine = graph_engine
+        self._board_engine = board_engine
         self._index_delim = index_delim  # Delimiter between rule name and query for example index searches.
         self._opts = GUIOptions()        # Current user options.
 
@@ -84,13 +88,14 @@ class GUILayer:
     def _search(self, pattern:str, pages:int) -> SearchResults:
         count = pages * self._opts.search_match_limit
         mode_strokes = self._opts.search_mode_strokes
+        se = self._search_engine
         if self._index_delim in pattern:
             link_ref, pattern = pattern.split(self._index_delim, 1)
-            matches = self._engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
+            matches = se.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
             try:
-                method = self._engine.search_regex if self._opts.search_mode_regex else self._engine.search
+                method = se.search_regex if self._opts.search_mode_regex else se.search
                 matches = method(pattern, count, mode_strokes=mode_strokes)
                 is_complete = len(matches) < count
             except SearchRegexError:
@@ -100,9 +105,9 @@ class GUILayer:
 
     def _analyze(self, keys:str, letters:str) -> DisplayData:
         opts = self._opts
-        analysis = self._engine.analyze(keys, letters, strict_mode=opts.lexer_strict_mode)
-        graph = self._engine.generate_graph(analysis, compressed=opts.graph_compressed_layout,
-                                            compat=opts.graph_compatibility_mode)
+        analysis = self._analyzer.query(keys, letters, strict_mode=opts.lexer_strict_mode)
+        graph = self._graph_engine.graph(analysis, compressed=opts.graph_compressed_layout,
+                                         compat=opts.graph_compatibility_mode)
         pages = {}
         default_page = None
         for ref in graph.refs():
@@ -112,11 +117,11 @@ class GUILayer:
             caption = rule.info
             aspect_ratio = opts.board_aspect_ratio
             if opts.board_show_compound:
-                board = self._engine.generate_board(rule, aspect_ratio, show_letters=opts.board_show_letters)
+                board = self._board_engine.draw_rule(rule, aspect_ratio, show_letters=opts.board_show_letters)
             else:
-                board = self._engine.generate_board_from_keys(rule.keys, aspect_ratio)
+                board = self._board_engine.draw_keys(rule.keys, aspect_ratio)
             # Remove links to any rules for which we don't have examples.
-            r_id = rule.id if self._engine.has_examples(rule.id) else ""
+            r_id = rule.id if self._search_engine.has_examples(rule.id) else ""
             pages[ref] = DisplayPage(ngraph, igraph, caption, board, r_id)
             if rule is analysis:
                 # When nothing is selected, use the board and caption for the root node.
@@ -126,7 +131,7 @@ class GUILayer:
 
     def query(self, translation:Translation, *others:Translation) -> GUIOutput:
         """ Execute and display a graph of a lexer query from search results or user strokes. """
-        keys, letters = self._engine.best_translation([translation, *others]) if others else translation
+        keys, letters = self._analyzer.best_translation([translation, *others]) if others else translation
         output = GUIOutput()
         output.display_data = self._analyze(keys, letters)
         return output
@@ -142,7 +147,7 @@ class GUILayer:
         """ When a link is clicked, search for examples of the named rule and select one at random.
             Overwrite the current search input with its pattern. """
         output = GUIOutput()
-        keys, letters = self._engine.random_example(link_ref)
+        keys, letters = self._search_engine.random_example(link_ref)
         if keys and letters:
             match = keys if self._opts.search_mode_strokes else letters
             pattern = link_ref + self._index_delim + match
