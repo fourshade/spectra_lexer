@@ -1,7 +1,4 @@
 {
-  "KW*P": "Q",
-  "2EU7": "72",
-  "#T*PBD": "2nd",
   "A*BGS": "action",
   "PHAFRT": "master",
   "PHO*PBT": "month",
@@ -20,5 +17,9 @@
   "RAEURBL/SKUGS/TPA/TAOEG/STKROEPL": "Racial Discussion Fatigue Syndrome",
   "PHAG/TAOEUZ/A*U": "magnetise",
   "PHEPL/PHORL": "memorial",
-  "eX EUPB/SRALD +$": "invalid"
+  "KW*P": "Q",
+  "#T*PBD": "2nd",
+  "2EU7": "72",
+  "VALD/AEUL/YASZ": "valid aliases",
+  "DSORD/ERD": "disordered"
 }

@@ -1,20 +1,30 @@
 {
-    # Stroke delimiter. Separates individual strokes of a multi-stroke action.
-    "sep":    "/",
-    # RTFCRE board split delimiter. Separates ambiguous strokes into left+center and right sides of the board.
-    "split":  "-",
-    # Unique characters for each key in steno order, moving left -> center -> right.
-    # Right-side keys may re-use letters (but not symbols) from the left.
-    "left":   "#STKPWHR",
-    "center": "AO*EU",
-    "right":  "FRPBLGTSDZ",
-    # A special key that may ignore steno order. This has a large performance and accuracy cost.
-    # Only the asterisk is typically used in such a way that this treatment is worth it.
-    "special": "*",
-    # Some keys can be designated as shift keys. They must be at the beginning of steno order when it matters.
-    # The number key is the main example. When held, keys mostly on the top row become numbers based on their position.
-    # These numbers are considered "aliases" for those keys in steno parsing. They are allowed to be present directly
-    # in RTFCRE key strings. This is a table of aliases mapped to strings with two characters: "shift_key, real_key".
-    "aliases": {"0": "#O", "1": "#S", "2": "#T", "3": "#P", "4": "#H",
-                "5": "#A", "6": "#F", "7": "#P", "8": "#L", "9": "#T"}
+  # Stroke delimiter. Separates individual strokes of a multi-stroke action.
+  "sep":    "/",
+  # RTFCRE board split delimiter. Separates ambiguous strokes into left+center and right sides of the board.
+  "split":  "-",
+  # Unique characters for each key in steno order, moving left -> center -> right.
+  # Right-side keys may re-use letters (but not symbols) from the left side.
+  "left":   "#STKPWHR",
+  "center": "AO*EU",
+  "right":  "FRPBLGTSDZ",
+  # A special key that may ignore steno order. This has a large performance and accuracy cost.
+  # Only the asterisk is typically used in such a way that this treatment is worth it.
+  "special": "*",
+  # Some steno sounds are combinations of keys.
+  # We can designate some characters as 'aliases' for these combinations on each side
+  # so long as those characters are not used as real steno keys on that side.
+  # After s-keys casing, each character in this table is replaced with its value.
+  "aliases": {
+    "1": "#S",   "2": "#T",   "3": "#P",   "4": "#H",   "5": "#A",
+    "0": "#O",   "6": "#f",   "7": "#p",   "8": "#l",   "9": "#t",
+    "I": "EU",   "B": "PW",   "C": "K",    "D": "TK",   "F": "TP",
+    "G": "TKPW", "J": "SKWR", "L": "HR",   "M": "PH",   "N": "TPH",
+    "V": "SR",   "X": "KP",   "Y": "KWR",  "c": "bg",   "j": "pblg",
+    "k": "bg",   "m": "pl",   "n": "pb",   "v": "f",    "x": "bgs"
+  }
+  # XXX multi-character aliases would be nice, but that requires more
+  # than a call to str.translate(). *one* lexer is enough for now.
+  # "AA": "AEU", "OO": "AO",  "EE": "AOE", "UU": "AOU", "II": "AOEU",
+  # "QU": "KW",  "ch": "fp",  "sh": "rb"
 }

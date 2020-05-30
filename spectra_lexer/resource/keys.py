@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Callable, Dict, Set
 
 
@@ -20,13 +21,17 @@ class StenoKeyLayout:
         self._sep = sep          # Stroke delimiter. This is the same in either format.
         self._split = split      # RTFCRE board split delimiter.
         self._special = special  # A single special-cased s-key (the asterisk).
-        self._aliases = aliases  # Table of aliases mapped to two-character strings: "shift_key, real_key".
         # Save some fields as pre-computed sets for fast membership tests and string conversion.
-        self._left_set = set(left)              # Left-side keys. These are the same in either format.
-        self._center_set = set(center)          # Center keys. These are the same in either format.
-        self._right_set = set(right)            # Right-side RTFCRE keys.
-        self._right_skeys = set(right.lower())  # Right-side s-keys.
+        self._left_set = set(left)      # Left-side keys. These are the same in either format.
+        self._center_set = set(center)  # Center keys. These are the same in either format.
+        self._right_set = set(right)    # Right-side RTFCRE keys.
+        right_skeys = right.lower()
+        self._right_skeys = set(right_skeys)  # Right-side s-keys.
         self._valid_rtfcre = {sep, split, *left, *center, *right}
+        skeys = [*left, *center, *right_skeys]
+        aliases.update(zip(skeys, skeys))
+        self._alias_trans = defaultdict(type(None), str.maketrans(aliases))
+        self._sk_order = {sk: i for i, sk in enumerate(skeys)}
 
     def separator_key(self) -> str:
         return self._sep
@@ -57,12 +62,8 @@ class StenoKeyLayout:
             return sep.join(map(fn, s.split(sep)))
         return fn(s)
 
-    def _stroke_rtfcre_to_skeys(self, s:str) -> str:
-        """ Translate an RTFCRE stroke into s-keys format. """
-        for k in s:
-            if k not in self._valid_rtfcre:
-                s = self._replace_rtfcre(s, k)
-        # Attempt to split each stroke into LC/R keys.
+    def _split_case(self, s:str) -> str:
+        """ Attempt to split an RTFCRE stroke into LC/r s-keys. """
         # If there's a hyphen, split the string there and rejoin with right side lowercase.
         if self._split in s:
             left, right = s.rsplit(self._split, 1)
@@ -77,17 +78,13 @@ class StenoKeyLayout:
         # If there are no center keys, it is narrowed to L (left side only). No modifications are necessary.
         return s
 
-    def _replace_rtfcre(self, s:str, alias_key:str) -> str:
-        """ Translate a literal number or other alias by replacing it with its raw key equivalent.
-            If it requires a shift key/number key, add it to the start of the string if not present. """
-        try:
-            shift_key, real_key = self._aliases[alias_key]
-            if shift_key not in s:
-                s = shift_key + s
-        except KeyError:
-            # If the character is completely invalid, remove it.
-            real_key = ""
-        return s.replace(alias_key, real_key)
+    def _stroke_rtfcre_to_skeys(self, s:str) -> str:
+        """ Translate an RTFCRE stroke into s-keys format. This involves lowercasing the right side,
+            replacing aliases, filtering duplicates, and sorting by steno order. """
+        skeys = self._split_case(s)
+        skeys = skeys.translate(self._alias_trans)
+        unique_skeys = set(skeys)
+        return "".join(sorted(unique_skeys, key=self._sk_order.__getitem__))
 
     def _stroke_skeys_to_rtfcre(self, s:str) -> str:
         """ Find the first right-side key in the stroke (if there is one).
@@ -106,23 +103,22 @@ class StenoKeyLayout:
         left = self._left_set
         center = self._center_set
         right = self._right_set
-        right_skeys = self._right_skeys
         normal_key_set = left | center | right
         # The center keys must not share any characters with the sides.
         assert not center & left
         assert not center & right
         # The left and right sides must not share characters after casing.
-        assert not left & right_skeys
+        assert not left & self._right_skeys
         # The special key must be a normal key previously defined.
         assert self._special in normal_key_set
         # The delimiters must *not* be previously defined keys.
         assert self._sep not in normal_key_set
         assert self._split not in normal_key_set
-        # Aliases must consist of single keys mapped to pairs of normal keys.
-        for k, v in self._aliases.items():
-            assert len(k) == 1
-            assert len(v) == 2
-            assert set(v) <= normal_key_set
+        # Each alias must map to one or more valid s-keys.
+        s_keys_set = set(self._sk_order)
+        for v in self._alias_trans.values():
+            assert v
+            assert set(v) <= s_keys_set
 
     @classmethod
     def from_json_dict(cls, d:dict) -> "StenoKeyLayout":
