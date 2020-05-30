@@ -71,7 +71,7 @@ class ComponentBench:
         samples = _random_translations(n)
         self._profiler.run(spectra.analyzer.query, samples)
 
-    def run_gui(self, n=500) -> None:
+    def run_gui(self, n=1000) -> None:
         samples = _random_translations(n)
         app = app_start()
         self._profiler.run(app._gui.query, zip(samples))

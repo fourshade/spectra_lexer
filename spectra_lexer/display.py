@@ -7,7 +7,7 @@ from spectra_lexer.graph import GraphNode, IBody, IConnectors, TextElementCanvas
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
 from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors, NullConnectors, \
                                            SimpleConnectors, ThickConnectors, UnmatchedConnectors
-from spectra_lexer.graph.format import BaseHTMLFormatter, CompatHTMLFormatter, StandardHTMLFormatter
+from spectra_lexer.graph.format import HTMLFormatter
 from spectra_lexer.graph.layout import CascadedLayoutEngine, CompressedLayoutEngine
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
@@ -68,7 +68,7 @@ def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) 
 class RuleGraph:
     """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant. """
 
-    def __init__(self, ref_map:Dict[str, StenoRule], formatter:BaseHTMLFormatter) -> None:
+    def __init__(self, ref_map:Dict[str, StenoRule], formatter:HTMLFormatter) -> None:
         self._ref_map = ref_map
         self._formatter = formatter
 
@@ -146,5 +146,5 @@ class GraphEngine:
         layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
         layout = layout_engine.layout(root)
         grid = TextElementCanvas.from_layout(layout).to_grid()
-        formatter = CompatHTMLFormatter(grid) if compat else StandardHTMLFormatter(grid)
+        formatter = HTMLFormatter(grid, compat=compat)
         return RuleGraph(ref_dict, formatter)

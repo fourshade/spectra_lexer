@@ -2,7 +2,7 @@ from typing import List, Sequence
 
 
 class XMLElement:
-    """ Simple XML element with no character data or namespace support. """
+    """ Simple XML element with no character data or namespace support. Should be treated as immutable. """
 
     def __init__(self, tag:str, *children:"XMLElement", **attrib:str) -> None:
         """ Positional args are children, keyword args are attributes. """
@@ -10,32 +10,44 @@ class XMLElement:
         self._children = children  # All child elements in order.
         self._attrib = attrib      # Dict of XML attributes.
 
-    def encode(self, encoding='utf-8') -> bytes:
-        """ Encode this element into an XML byte string starting with the standard XML header. """
-        s = f'<?xml version="1.0" encoding="{encoding}"?>\n{self.serialize()}'
-        return s.encode(encoding)
-
-    def serialize(self) -> str:
-        """ Serialize this element and its children recursively into a string.
-            The stdlib uses an I/O stream for this, but adding strings to a list and joining them is faster. """
-        s_list = []
-        self._serialize(s_list)
-        return "".join(s_list)
-
-    def _serialize(self, s_list:List[str]) -> None:
+    def _serialize_to(self, s_list:List[str]) -> None:
         """ Recursively write strings representing this object to a list (which will be joined at the end).
             Use += when possible to avoid method call overhead. This is even faster than using f-strings. """
         s_list += '<', self._tag
         for k, v in self._attrib.items():
             s_list += ' ', k, '="', v, '"'
-        children = self._children
-        if children:
+        if self._children:
             s_list += '>',
-            for child in children:
-                child._serialize(s_list)
+            for child in self._children:
+                child._serialize_to(s_list)
             s_list += '</', self._tag, '>'
         else:
             s_list += '/>',
+
+    def serialize(self) -> str:
+        """ Serialize this element and its children recursively into a string.
+            The stdlib uses an I/O stream for this, but adding strings to a list and joining them is faster. """
+        s_list = []
+        self._serialize_to(s_list)
+        return "".join(s_list)
+
+    def __str__(self) -> str:
+        """ Encode this element into an XML string starting with the standard XML header. """
+        return f'<?xml version="1.0" encoding="utf-8"?>\n{self.serialize()}'
+
+
+class SVGStyle:
+    """ Container for any valid combination of SVG style attributes (e.g. fill, stroke, stroke-width).
+        Due to Python keyword argument rules, attributes with hyphens must be passed using underscores instead. """
+
+    def __init__(self, **attrs) -> None:
+        self._attrs = attrs
+
+    def to_string(self) -> str:
+        sections = []
+        for k, v in self._attrs.items():
+            sections += [k.replace("_", "-"), ":", v, ";"]
+        return "".join(sections)
 
 
 class SVGElementFactory:
@@ -44,16 +56,11 @@ class SVGElementFactory:
     def __init__(self, elem_cls=XMLElement) -> None:
         self._elem_cls = elem_cls
 
-    def path(self, path_data:str, transform:str=None, **style:str) -> XMLElement:
+    def path(self, path_data:str, style:SVGStyle=None, **attrib:str) -> XMLElement:
         """ A path element may not have children, but it must have a path data string. """
-        attrib = {"d": path_data}
-        if style:
-            style_attrs = []
-            for k, v in style.items():
-                style_attrs += k, ":", v, ";"
-            attrib["style"] = "".join(style_attrs).replace("_", "-")
-        if transform is not None:
-            attrib["transform"] = transform
+        attrib["d"] = path_data
+        if style is not None:
+            attrib["style"] = style.to_string()
         return self._elem_cls("path", **attrib)
 
     def group(self, *children:XMLElement, **attrib:str) -> XMLElement:

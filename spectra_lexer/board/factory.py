@@ -2,7 +2,6 @@ from functools import lru_cache
 from typing import Dict, List, Sequence
 
 from .element import BoardElementFactory, BoardElementGroup
-from .svg import XMLElement
 from .tfrm import GridLayoutEngine
 
 # Marker type for an SVG steno board diagram.
@@ -52,13 +51,10 @@ class BoardFactory:
         self._special_key = special_key    # Key combined with others without contributing to text.
         self._key_procs = key_procs        # Procedures for constructing and positioning single keys.
         self._rule_procs = rule_procs      # Procedures for constructing and positioning key combos.
-
-    @lru_cache(maxsize=None)
-    def _base_pair(self) -> Sequence[XMLElement]:
-        """ Generate a pair of XML elements for a board diagram base with all keys. """
-        base_groups = [self._elem_factory.processed_group(procs[:-1], self.FILL_BASE)
-                       for procs in self._key_procs.values()]
-        return self._elem_factory.base_pair(base_groups)
+        # Generate an XML element for a board diagram base with all keys.
+        base_groups = [elem_factory.processed_group(procs[:-1], self.FILL_BASE)
+                       for procs in key_procs.values()]
+        self._base = elem_factory.collapse(*base_groups)
 
     @lru_cache(maxsize=None)
     def _elems_from_skeys(self, skeys:str, bg:str=None) -> List[BoardElementGroup]:
@@ -128,8 +124,7 @@ class BoardFactory:
         return self._elems_from_skeys(skeys)
 
     def _make_svg(self, elems:Sequence[BoardElementGroup], aspect_ratio:float=None) -> BoardDiagram:
-        defs, base = self._base_pair()
-        return self._elem_factory.make_svg(defs, base, elems, self._layout, aspect_ratio)
+        return self._elem_factory.make_svg(self._base, elems, self._layout, aspect_ratio)
 
     def draw_keys(self, skeys:str, aspect_ratio:float=None) -> BoardDiagram:
         """ Generate a board diagram from a key string arranged according to <aspect ratio>.

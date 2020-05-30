@@ -1,10 +1,17 @@
 """ Module for generating steno board diagram elements. """
 
-from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import Dict, Iterable, Iterator, List, Sequence
 
-from .path import ArrowPathGenerator, ChainPathGenerator
-from .svg import SVGElementFactory, XMLElement
+from .path import ArrowPathGenerator, ChainPathGenerator, PathCommands
+from .svg import SVGElementFactory, SVGStyle, XMLElement
 from .tfrm import GridLayoutEngine, TransformData
+
+
+class Overlay:
+    """ Contains elements which are shifted independently of the main stroke groupings. """
+
+    def iter_elements(self, *tfrms:TransformData) -> Iterator[XMLElement]:
+        raise NotImplementedError
 
 
 class BoardElementGroup:
@@ -14,7 +21,7 @@ class BoardElementGroup:
     txtmaxarea = [20.0, 20.0]  # Maximum available area for text. Determines text scale and orientation.
     altangle = 0.0             # Alternate text orientation in degrees.
     ends_stroke = False        # If True, this element group is the last in the current stroke.
-    iter_overlays = None       # Reserved for special elements that add overlays covering multiple strokes.
+    overlay: Overlay = None    # Reserved for special elements that add overlays covering multiple strokes.
 
     def __init__(self, *elems:XMLElement) -> None:
         self.tfrm = TransformData()  # Contains the approximate center of this element in the current stroke.
@@ -31,15 +38,19 @@ class BoardElementGroup:
         return iter(self._elems)
 
 
-class LinkedOverlay:
+class LinkedOverlay(Overlay):
     """ Contains a chain connecting two strokes, which are shifted independently of the main stroke groupings. """
+
+    PATH_GENERATOR = ChainPathGenerator()
+    LAYER_STYLES = [SVGStyle(fill="none", stroke="#000000", stroke_width="5.0px"),
+                    SVGStyle(fill="none", stroke="#B0B0B0", stroke_width="2.0px")]
 
     def __init__(self, factory:SVGElementFactory, s_stroke:Sequence[BoardElementGroup],
                  e_stroke:Sequence[BoardElementGroup]) -> None:
         self._factory = factory
         self._strokes = s_stroke, e_stroke  # Element groups with the ending of one stroke and the start of another.
 
-    def iter_overlays(self, first_tfrm:TransformData, last_tfrm:TransformData) -> Iterator[XMLElement]:
+    def iter_elements(self, first_tfrm:TransformData, last_tfrm:TransformData, *_) -> Iterator[XMLElement]:
         """ For multi-element rules, connect the last element in the first stroke to the first element in the next. """
         s_stroke, e_stroke = self._strokes
         first_offset = s_stroke[-1].get_offset() + first_tfrm.offset()
@@ -50,9 +61,12 @@ class LinkedOverlay:
 
     def _iter_layers(self, p1:complex, p2:complex) -> Iterator[XMLElement]:
         """ Yield SVG paths that compose a chain between the endpoints. """
-        for path_data in ChainPathGenerator().iter_halves(p1, p2):
-            yield self._factory.path(path_data, fill="none", stroke="#000000", stroke_width="5.0px")
-            yield self._factory.path(path_data, fill="none", stroke="#B0B0B0", stroke_width="2.0px")
+        halves = [PathCommands(), PathCommands()]
+        self.PATH_GENERATOR.connect(p1, p2, *halves)
+        for cmds in halves:
+            path_data = cmds.to_string()
+            for style in self.LAYER_STYLES:
+                yield self._factory.path(path_data, style)
 
     def _stroke_group(self, stroke:Iterable[BoardElementGroup], tfrm:TransformData) -> XMLElement:
         """ Create a new SVG group with every element in <stroke> and translate it by <dx, dy>. """
@@ -65,6 +79,18 @@ class LinkedOverlay:
 class BoardElementFactory:
     """ Factory for steno board element groups.
         Elements are added by proc_* methods, which are executed in order according to an external file. """
+
+    # Max font size is 24 px. Text paths are defined with an em box of 1000 units.
+    # 600 units (or 14.4 px) is the horizontal spacing of text.
+    _FONT_SIZE = 24
+    _EM_SIZE = 1000
+    _FONT_SPACING = 600
+    FONT_PX_PER_UNIT = _FONT_SIZE / _EM_SIZE
+    FONT_SPACING_PX = _FONT_SPACING * FONT_PX_PER_UNIT
+    FONT_STYLE = SVGStyle(fill="#000000")
+    ARROW_GENERATOR = ArrowPathGenerator()
+    ARROW_STYLES = [SVGStyle(fill="none", stroke="#800000", stroke_width="1.5px"),
+                    SVGStyle(fill="none", stroke="#FF0000", stroke_width="1.5px")]
 
     def __init__(self, key_positions:Dict[str, List[int]], shape_defs:Dict[str, dict],
                  glyph_table:Dict[str, str]) -> None:
@@ -101,19 +127,18 @@ class BoardElementFactory:
     def proc_shape(self, grp:BoardElementGroup, shape_id:str) -> None:
         """ Add an SVG path shape, then advance the offset to center any following text. """
         attrs = self._shape_defs[shape_id]
-        elem = self._factory.path(attrs["d"], transform=grp.tfrm.to_string(), fill=grp.bg, stroke="#000000")
+        path_data = attrs["d"]
+        style = SVGStyle(fill=grp.bg, stroke="#000000")
+        elem = self._factory.path(path_data, style, transform=grp.tfrm.to_string())
         grp.append(elem)
         grp.tfrm.translate(*attrs["txtcenter"])
         grp.txtmaxarea = attrs["txtarea"]
         grp.altangle = attrs["altangle"]
 
-    def proc_text(self, grp:BoardElementGroup, text:str, _FONT_SIZE=24, _EM_SIZE=1000, _SPACING=600) -> None:
-        """ SVG fonts are not supported on any major browsers, so we must draw them as paths.
-            Max font size is 24 px. Text paths are defined with an em box of 1000 units.
-            600 units (or 14.4 px) is the horizontal spacing of text. """
+    def proc_text(self, grp:BoardElementGroup, text:str) -> None:
+        """ SVG fonts are not supported on any major browsers, so we must draw them as paths. """
         n = len(text) or 1
-        px_per_unit = _FONT_SIZE / _EM_SIZE
-        spacing = _SPACING * px_per_unit
+        spacing = self.FONT_SPACING_PX
         w, h = grp.txtmaxarea
         scale = min(1.0, w / (n * spacing))
         # If there is little horizontal space and plenty in another direction, rotate the text.
@@ -121,16 +146,17 @@ class BoardElementFactory:
             scale = min(1.0, h / (n * spacing))
             grp.tfrm.rotate(grp.altangle)
         spacing *= scale
-        font_scale = scale * px_per_unit
+        font_scale = scale * self.FONT_PX_PER_UNIT
         x = - n * spacing / 2
         y = (10 * scale) - 3
         elems = []
+        style = self.FONT_STYLE
         for k in text:
             tfrm = TransformData()
             tfrm.scale(font_scale, -font_scale)
             tfrm.translate(x, y)
             glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
-            char = self._factory.path(glyph, transform=tfrm.to_string(), fill="#000000")
+            char = self._factory.path(glyph, style, transform=tfrm.to_string())
             elems.append(char)
             x += spacing
         g = self._factory.group(*elems, transform=grp.tfrm.to_string())
@@ -141,21 +167,20 @@ class BoardElementFactory:
         items = []
         for grp in strk:
             items += grp
-        grp = BoardElementGroup(*items)
         p1 = strk[0].get_offset()
         p2 = strk[1].get_offset()
-        self._add_layers(grp, p1, p2)
-        self._add_layers(grp, p2, p1)
-        return grp
+        items += self._arrow_layers(p1, p2)
+        items += self._arrow_layers(p2, p1)
+        return BoardElementGroup(*items)
 
-    def _add_layers(self, grp:BoardElementGroup, start:complex, end:complex) -> None:
-        """ Add SVG path elements that compose an arrow pointing between <start> and <end>.
+    def _arrow_layers(self, start:complex, end:complex) -> Iterator[XMLElement]:
+        """ Yield SVG path elements that compose an arrow pointing between <start> and <end>.
             Layers are shifted by an incremental offset to create a drop shadow appearance. """
-        gen = ArrowPathGenerator()
-        for color in "#800000", "#FF0000":
-            path_data = gen.connect(start, end)
-            elem = self._factory.path(path_data, fill="none", stroke=color, stroke_width="1.5px")
-            grp.append(elem)
+        for style in self.ARROW_STYLES:
+            cmds = PathCommands()
+            self.ARROW_GENERATOR.connect(start, end, cmds)
+            path_data = cmds.to_string()
+            yield self._factory.path(path_data, style)
             start -= 1j
             end -= 1j
 
@@ -163,18 +188,14 @@ class BoardElementFactory:
         """ Make a chain connecting two strokes, which are shifted independently of the main stroke groupings. """
         grp = BoardElementGroup()
         grp.ends_stroke = True
-        grp.iter_overlays = LinkedOverlay(self._factory, strk1, strk2).iter_overlays
+        grp.overlay = LinkedOverlay(self._factory, strk1, strk2)
         return grp
 
-    def base_pair(self, base_groups:Iterable[BoardElementGroup], base_id="_BASE") -> Tuple[XMLElement, XMLElement]:
-        """ Make a <use> element for the base present in every stroke matching a <defs> element. """
+    def collapse(self, *groups:BoardElementGroup) -> XMLElement:
         items = []
-        for grp in base_groups:
+        for grp in groups:
             items += grp
-        g = self._factory.group(*items, id=base_id)
-        defs = self._factory.defs(g)
-        base = self._factory.use(base_id)
-        return defs, base
+        return self._factory.group(*items)
 
     @staticmethod
     def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[XMLElement]]:
@@ -192,13 +213,13 @@ class BoardElementFactory:
         overlay_list = []
         i = 0
         for el in elems:
-            if el.iter_overlays is not None:
-                overlay_list += el.iter_overlays(tfrms[i], tfrms[i + 1])
+            if el.overlay is not None:
+                overlay_list += el.overlay.iter_elements(*tfrms[i:])
             if el.ends_stroke:
                 i += 1
         return overlay_list
 
-    def make_svg(self, defs:XMLElement, base:XMLElement, elems:Iterable[BoardElementGroup],
+    def make_svg(self, base:XMLElement, elems:Iterable[BoardElementGroup],
                  layout:GridLayoutEngine, aspect_ratio:float=None) -> str:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
             Transform each diagram to be tiled in a grid layout to match the aspect ratio.
@@ -212,5 +233,5 @@ class BoardElementFactory:
         diagrams = [self._factory.group(base, *stroke, transform=tfrm.to_string())
                     for stroke, tfrm in zip(strokes, tfrms)]
         overlays = self._overlays(elems, tfrms)
-        document = self._factory.svg(defs, *diagrams, *overlays, viewbox=viewbox)
+        document = self._factory.svg(*diagrams, *overlays, viewbox=viewbox)
         return document.serialize()
