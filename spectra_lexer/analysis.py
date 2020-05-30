@@ -100,17 +100,17 @@ class StenoAnalyzer:
         delimited_seq[::2] = rules
         return StenoRule.join(delimited_seq)
 
-    def best_translation(self, translations:TranslationPairs) -> Translation:
-        """ Return the best (most accurate) from a series of <translations> according to lexer ranking. """
-        translations = list(translations)
-        if not translations:
+    def best_translation(self, keys_iter:Iterable[str], letters:str) -> str:
+        """ Return the best (most accurate) match to <letters> out of <keys_iter> according to lexer ranking. """
+        keys_list = list(keys_iter)
+        if not keys_list:
             raise ValueError("Cannot find the best of 0 translations.")
-        if len(translations) == 1:
+        if len(keys_list) == 1:
             best_index = 0
         else:
-            converted = [(self._to_skeys(keys), letters) for keys, letters in translations]
-            best_index = self._lexer.find_best_translation(converted)
-        return translations[best_index]
+            skeys_list = [self._to_skeys(keys) for keys in keys_list]
+            best_index = self._lexer.best_translation(skeys_list, letters)
+        return keys_list[best_index]
 
     def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.

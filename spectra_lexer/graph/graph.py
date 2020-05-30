@@ -11,7 +11,7 @@ class GridCanvas:
 
     def __init__(self, nrows:int, ncols:int, empty:_ELEMENT) -> None:
         """ Make a new, blank grid by copying a single list repeatedly. """
-        assert nrows > 0 and ncols > 0
+        assert nrows >= 0 and ncols >= 0
         self._grid = [*map(list.copy, [[empty] * ncols] * nrows)]  # String data grid; a list of lists.
         self._empty = empty   # Empty grid element. Used for initialization and padding.
         self._row_offset = 0  # Offset in rows to add to every write command.

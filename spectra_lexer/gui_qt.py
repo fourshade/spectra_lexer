@@ -1,5 +1,5 @@
 import pkgutil
-from typing import Callable
+from typing import Callable, Sequence
 
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
@@ -9,7 +9,7 @@ from spectra_lexer.gui import GUILayer, GUIOptions, GUIOutput
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
 from spectra_lexer.qt.config import ConfigDialog
-from spectra_lexer.qt.display import DisplayController, DisplayPageDict, DisplayPageData
+from spectra_lexer.qt.display import DisplayController, DisplayPageData
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
@@ -122,32 +122,33 @@ class QtGUIApplication:
         display_data = out.display_data
         if display_data is not None:
             self._update_gui_translation(display_data.keys, display_data.letters)
-            default_item = (DisplayPageDict.DEFAULT_KEY, display_data.default_page)
+            default_item = ("__DEFAULT__", display_data.default_page)
             input_items = [default_item, *display_data.pages_by_ref.items()]
-            output_dict = DisplayPageDict()
+            output_dict = {}
             for ref, page in input_items:
                 graphs = [page.graph, page.intense_graph]
                 board_xml = page.board.encode('utf-8')
                 output_dict[ref] = DisplayPageData(graphs, page.caption, board_xml, page.rule_id)
-            self._display.set_pages(output_dict)
+            default = output_dict.pop("__DEFAULT__")
+            self._display.set_pages(output_dict, default)
 
-    def on_search(self, pattern:str, pages:int) -> None:
+    def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
         opts = self._get_options()
         self._gui.set_options(opts)
         out = self._gui.search(pattern, pages)
         self._update_gui(out)
 
-    def on_query(self, *args, strict:bool=None) -> None:
+    def gui_query(self, keys_or_seq:Sequence[str], letters:str, strict:bool=None) -> None:
         """ Run a lexer query and update the GUI with any results. """
         opts = self._get_options()
         if strict is not None:
             opts.lexer_strict_mode = strict
         self._gui.set_options(opts)
-        out = self._gui.query(*args)
+        out = self._gui.query(keys_or_seq, letters)
         self._update_gui(out)
 
-    def on_search_examples(self, link_ref:str) -> None:
+    def gui_search_examples(self, link_ref:str) -> None:
         """ Run an example search and update the GUI with any results. """
         opts = self._get_options()
         self._gui.set_options(opts)
@@ -176,10 +177,8 @@ class QtGUIApplication:
     def _on_ready(self, is_first_run:bool) -> None:
         """ When all resources are ready, connect the GUI callbacks.
             Present an index generation dialog if this is the first time the program has been run. """
-        self._search.call_on_search(self.on_search)
-        self._search.call_on_query(self.on_query)
-        self._display.call_on_query(self.on_query)
-        self._display.call_on_example_search(self.on_search_examples)
+        self._search.connect_signals(self.gui_search, self.gui_query)
+        self._display.connect_signals(self.gui_search_examples, self.gui_query)
         if is_first_run:
             self.confirm_startup_index()
 
@@ -287,8 +286,8 @@ def build_app(gui:GUILayerExtended, logger:Callable[[str], None]) -> QtGUIApplic
     icon_data = pkgutil.get_data(*WINDOW_ICON_PATH)
     window.set_icon(icon_data)
     menu = MenuController(ui.w_menubar)
-    search = SearchController.from_widgets(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
-    display = DisplayController.from_widgets(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
+    search = SearchController(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
+    display = DisplayController(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
     app = QtGUIApplication(gui, async_dsp, window, menu, search, display)
     exc_man.add_logger(display.show_traceback)
     exc_man.add_handler(app.on_exception)

@@ -34,6 +34,8 @@
                  width: 100%;
                  background: #F7F7F7;
                  border: none;}
+#gTitle > input:focus {background: #FFFFFF;
+                       border: 1px inset;}
 
 #gGraph {grid-area: 2 / 2;
          padding: 6px;}

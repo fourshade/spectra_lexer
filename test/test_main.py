@@ -10,14 +10,14 @@ from .base import TEST_TRANSLATIONS
 
 SPECTRA = SpectraOptions().compile()
 TEST_TRANSLATION_PAIRS = list(TEST_TRANSLATIONS.items())
-ALL_KEYS = set().union(*TEST_TRANSLATIONS)
+RTFCRE_CHARS = set("/-#STKPWHRAO*EUFRPBLGTSDZ")
 DELIMS = '/-'
 
 
 def _verify_analysis(analysis) -> None:
     """ An analysis test fails if the output rule is malformed or the lexer can't match all the keys. """
     assert analysis
-    analysis.verify(ALL_KEYS, DELIMS)
+    analysis.verify(RTFCRE_CHARS, DELIMS)
     for item in analysis:
         assert not item.child.is_unmatched, f"Lexer failed to match all keys on {analysis.keys} -> {analysis.letters}."
 

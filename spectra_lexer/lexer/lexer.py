@@ -1,7 +1,7 @@
 """ Module for the lexer itself. Much of the code is inlined for performance reasons. """
 
 from operator import attrgetter
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Union
 
 from .base import IRuleMatcher, LexerRule
 
@@ -59,11 +59,11 @@ class StenoLexer:
         states = self._process(skeys, letters)
         return states.best_result()
 
-    def find_best_translation(self, translations:Sequence[Tuple[str, str]]) -> int:
-        """ Return the index of the best (most accurate) from a sequence of (skeys, letters) <translations>. """
-        assert translations
+    def best_translation(self, skeys_seq:Sequence[str], letters:str) -> int:
+        """ Return the index of the best (most accurate) set of keys in <skeys_seq> that maps to <letters>. """
+        assert skeys_seq
         best_of_each = []
-        for skeys, letters in translations:
+        for skeys in skeys_seq:
             # If nothing has a complete match, the ranking will end up choosing shorter key sequences
             # over longer ones, even if longer ones matched a higher percentage of keys overall.
             # To get a better result, equalize anything with unmatched keys to have only one.

@@ -27,26 +27,38 @@ class DiscordApplication:
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
 
+    def _best_match(self, word:str, matches:MatchDict) -> Optional[str]:
+        if not matches:
+            return None
+        if word in matches:
+            return word
+        key = word.lower()
+        if key in matches:
+            return key
+        for m in matches:
+            if key == m.lower():
+                return m
+        return None
+
     def _best_translation(self, word:str, matches:MatchDict) -> Translation:
         """ Find the best pairing between a word and its possible stroke matches. """
-        if not matches:
-            return ("?", "-" * len(word))
-        if word in matches:
-            pairs = [(s, word) for s in matches[word]]
-        elif word.lower() in matches:
-            pairs = [(s, word) for s in matches[word.lower()]]
+        match = self._best_match(word, matches)
+        if match is None:
+            keys = "?"
+            word = "-" * len(word)
         else:
-            pairs = [(s, match) for match, strokes_list in matches.items() for s in strokes_list]
-        return self._analyzer.best_translation(pairs)
+            keys_seq = matches[match]
+            keys = self._analyzer.best_translation(keys_seq, word)
+        return keys, word + " "
 
     def _analyze_words(self, query:str) -> Optional[StenoRule]:
         """ Do an advanced lookup to put together rules containing strokes for multiple words. """
-        letters = query.translate(self._query_trans).strip()
+        letters = query.translate(self._query_trans)
         words = letters.split()
         search_list = [self._search_engine.search(word, self._search_depth) for word in words]
         if not any(search_list):
             return None
-        translations = [self._best_translation(word + " ", matches) for word, matches in zip(words, search_list)]
+        translations = [self._best_translation(word, matches) for word, matches in zip(words, search_list)]
         return self._analyzer.compound_query(translations)
 
     def _board_png(self, rule:StenoRule) -> bytes:

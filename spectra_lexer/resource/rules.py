@@ -67,7 +67,7 @@ class StenoRule:
     @classmethod
     def unmatched(cls, unmatched_keys:str) -> None:
         """ Placeholder rule mapping leftover keys to an empty string of letters. """
-        return cls(unmatched_keys, "", "unmatched keys", {cls.is_unmatched})
+        return cls(unmatched_keys, "", unmatched_keys + ": unmatched keys", {cls.is_unmatched})
 
     def add_unmatched(self, unmatched_keys:str) -> None:
         """ Add a placeholder child rule mapping leftover keys to an empty string of letters. """

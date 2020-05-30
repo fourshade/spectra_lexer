@@ -1,6 +1,6 @@
-from typing import Dict
+from typing import Dict, Iterable, Optional, Sequence
 
-from spectra_lexer.analysis import StenoAnalyzer, Translation
+from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.search import MatchDict, SearchRegexError, SearchEngine
@@ -145,12 +145,19 @@ class GUILayer:
         default_page = self._build_page(default_graph, default_graph, analysis)
         return DisplayData(analysis.keys, analysis.letters, pages, default_page)
 
-    def query(self, translation:Translation, *others:Translation) -> GUIOutput:
-        """ Execute and return a full display of a lexer query from search results or user strokes. """
-        keys, letters = self._analyzer.best_translation([translation, *others]) if others else translation
-        analysis = self._analyze(keys, letters)
-        display_data = self._display(analysis)
-        return GUIOutput(display_data=display_data)
+    def _check_query(self, keys:str, letters:str) -> Optional[DisplayData]:
+        if keys and letters:
+            analysis = self._analyze(keys, letters)
+            return self._display(analysis)
+
+    def query(self, keys:Iterable[str], letters:str) -> GUIOutput:
+        """ Execute and return a full display of a lexer query.
+            <keys> may be either a single string or an iterable of strings. """
+        if not isinstance(keys, str):
+            keys_seq = list(filter(None, keys))
+            keys = self._analyzer.best_translation(keys_seq, letters) if keys_seq else ""
+        display = self._check_query(keys, letters)
+        return GUIOutput(display_data=display)
 
     def search(self, pattern:str, pages=1) -> GUIOutput:
         """ Do a new search and return results (unless the pattern is just whitespace). """
@@ -161,11 +168,10 @@ class GUILayer:
         """ When a link is clicked, search for examples of the named rule and select one at random.
             Overwrite the current search input with its pattern. """
         keys, letters = self._search_engine.random_example(link_ref)
-        if not (keys and letters):
+        display = self._check_query(keys, letters)
+        if display is None:
             return GUIOutput()
-        analysis = self._analyze(keys, letters)
         match = keys if self._opts.search_mode_strokes else letters
         pattern = link_ref + self._index_delim + match
-        return GUIOutput(search_input=pattern,
-                         search_results=self._search(pattern, 1),
-                         display_data=self._display(analysis))
+        results = self._search(pattern, 1)
+        return GUIOutput(search_input=pattern, search_results=results, display_data=display)

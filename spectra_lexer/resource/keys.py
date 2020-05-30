@@ -46,24 +46,9 @@ class StenoKeyLayout:
         """ Return the set of all characters that are valid in a standard RTFCRE string. """
         return self._valid_rtfcre.copy()
 
-    def rtfcre_to_skeys(self, s:str) -> str:
-        """ Transform an RTFCRE steno key string to s-keys. """
-        return self._stroke_map(s, self._stroke_rtfcre_to_skeys)
-
-    def skeys_to_rtfcre(self, s:str) -> str:
-        """ Transform an s-keys string back to RTFCRE. """
-        return self._stroke_map(s, self._stroke_skeys_to_rtfcre)
-
-    def _stroke_map(self, s:str, fn:Callable[[str], str]) -> str:
-        """ Split a set of keys, apply a string function to every stroke, and join them back together.
-            If there is only one stroke, skip the string carving and apply the function directly. """
-        sep = self._sep
-        if sep in s:
-            return sep.join(map(fn, s.split(sep)))
-        return fn(s)
-
-    def _split_case(self, s:str) -> str:
-        """ Attempt to split an RTFCRE stroke into LC/r s-keys. """
+    def _stroke_convert_case(self, s:str) -> str:
+        """ Convert a case-insensitive RTFCRE stroke into case-sensitive LC/r s-keys. """
+        s = s.upper()
         # If there's a hyphen, split the string there and rejoin with right side lowercase.
         if self._split in s:
             left, right = s.rsplit(self._split, 1)
@@ -81,7 +66,7 @@ class StenoKeyLayout:
     def _stroke_rtfcre_to_skeys(self, s:str) -> str:
         """ Translate an RTFCRE stroke into s-keys format. This involves lowercasing the right side,
             replacing aliases, filtering duplicates, and sorting by steno order. """
-        skeys = self._split_case(s)
+        skeys = self._stroke_convert_case(s)
         skeys = skeys.translate(self._alias_trans)
         unique_skeys = set(skeys)
         return "".join(sorted(unique_skeys, key=self._sk_order.__getitem__))
@@ -97,6 +82,22 @@ class StenoKeyLayout:
                     s = s[:i] + self._split + s[i:]
                 return s.upper()
         return s
+
+    def _stroke_map(self, s:str, fn:Callable[[str], str]) -> str:
+        """ Split a set of keys, apply a string function to every stroke, and join them back together.
+            If there is only one stroke, skip the string carving and apply the function directly. """
+        sep = self._sep
+        if sep in s:
+            return sep.join(map(fn, s.split(sep)))
+        return fn(s)
+
+    def rtfcre_to_skeys(self, s:str) -> str:
+        """ Transform an RTFCRE steno key string to s-keys. """
+        return self._stroke_map(s, self._stroke_rtfcre_to_skeys)
+
+    def skeys_to_rtfcre(self, s:str) -> str:
+        """ Transform an s-keys string back to RTFCRE. """
+        return self._stroke_map(s, self._stroke_skeys_to_rtfcre)
 
     def verify(self) -> None:
         """ Test various properties of the layout for correctness. """

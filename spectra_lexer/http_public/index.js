@@ -1,6 +1,6 @@
 function SpectraClient() {
 
-    const TITLE_DELIM = ' -> ';     // Delimiter between keys and letters of translations shown in title bar.
+    const TR_DELIM = '->';          // Delimiter between keys and letters of translations shown in title bar.
     const MORE_TEXT = '(more...)';  // Text displayed as the final match, allowing the user to expand the search.
 
     const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
@@ -80,26 +80,30 @@ function SpectraClient() {
 
     var lastMatches = {};
     var lastPageCount = 1;
-    function onSelectMatch(text) {
-        if(text == MORE_TEXT) {
+    function onSelectMatch(match) {
+        if(match == MORE_TEXT) {
             lastPageCount++;
             doSearch();
         } else {
-            let mappings = lastMatches[text];
+            let mappings = lastMatches[match];
             mappingSelector.update(mappings);
-            onSelectMapping();
+            if(mappings.length) {
+                querySelection(match, mappings);
+            }
         }
     }
-    function onSelectMapping(text) {
-        let strokes = searchModeStrokes.checked;
-        let match = matchSelector.value;
-        let mappings = text ? [text] : lastMatches[match];
-        if(mappings.length) {
-            // The order of lexer parameters must be reversed for strokes mode.
-            let translations = mappings.map(m => (strokes ? [match, m] : [m, match]));
-            sendRequest({action: "query",
-                         args: translations});
+    function onSelectMapping(mapping) {
+        if(mapping) {
+            let match = matchSelector.value;
+            querySelection(match, [mapping]);
         }
+    }
+    function querySelection(match, mappings) {
+        // The order of lexer parameters depends on the strokes mode.
+        // Currently, strokes can never have more than one mapping.
+        let strokes = searchModeStrokes.checked;
+        sendRequest({action: "query",
+                     args: strokes ? [match, mappings[0]]: [mappings, match]});
     }
 
     function newSearch() {
@@ -116,11 +120,10 @@ function SpectraClient() {
     searchInput.addEventListener("input", newSearch);
 
     function doQuery() {
-        let params = displayTitle.value.split(TITLE_DELIM);
-        if(params.length == 2) {
-            let translation = params.map(s => s.trim());
+        let translation = displayTitle.value.split(TR_DELIM).map(s => s.trim()).filter(s => s);
+        if(translation.length == 2) {
             sendRequest({action: "query",
-                         args: [translation]});
+                         args: translation});
         }
     }
     displayTitle.addEventListener("input", doQuery);
@@ -196,7 +199,7 @@ function SpectraClient() {
         if(display_data) {  // New graphical objects.
             currentDisplay = display_data;
             let {keys, letters, pages_by_ref, default_page} = display_data;
-            displayTitle.value = keys + TITLE_DELIM + letters;
+            displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
             // Set the current selections to match the translation if possible.
             let strokes = searchModeStrokes.checked;
             let match = strokes ? keys : letters;
