@@ -1,7 +1,7 @@
-from typing import Dict, List, Sequence
+from typing import Iterator, List, Sequence, Tuple
 
-from spectra_lexer.board.element import BoardElementFactory
-from spectra_lexer.board.factory import BoardDiagram, BoardFactory, BoardRule
+from spectra_lexer.board.factory import BoardElementFactory, BoardFactory
+from spectra_lexer.board.rule import BoardRule
 from spectra_lexer.board.tfrm import GridLayoutEngine
 from spectra_lexer.graph import GraphNode, IBody, IConnectors, TextElementCanvas
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
@@ -12,6 +12,11 @@ from spectra_lexer.graph.layout import CascadedLayoutEngine, CompressedLayoutEng
 from spectra_lexer.resource.board import StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
+
+# Marker type for an SVG steno board diagram.
+BoardDiagram = str
+# Marker type for an HTML text graph.
+HTMLGraph = str
 
 
 class BoardEngine:
@@ -35,8 +40,8 @@ class BoardEngine:
         br.is_inversion = rule.is_inversion
         br.is_unmatched = rule.is_unmatched
         br.is_rare = rule.is_rare
-        br.is_stroke = rule.is_stroke
-        br.is_word = rule.is_word
+        br.is_fingerspelling = rule.is_stroke
+        br.is_brief = rule.is_word
         if r_id:
             self._id_cache[r_id] = br
         return br
@@ -65,22 +70,19 @@ def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) 
     return BoardEngine(keymap, factory)
 
 
-class RuleGraph:
+class GraphTree:
     """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant. """
 
-    def __init__(self, ref_map:Dict[str, StenoRule], formatter:HTMLFormatter) -> None:
-        self._ref_map = ref_map
+    def __init__(self, tree_listing:Sequence[StenoRule], formatter:HTMLFormatter) -> None:
+        self._tree_listing = tree_listing
         self._formatter = formatter
 
-    def refs(self) -> List[str]:
-        """ Return a list of ref strings for each descendant. """
-        return list(self._ref_map)
+    def iter_mappings(self) -> Iterator[Tuple[str, StenoRule]]:
+        """ Yield all mappings of ref strings to steno rules in depth-first order. """
+        for i, rule in enumerate(self._tree_listing):
+            yield str(i), rule
 
-    def get_rule(self, ref:str) -> StenoRule:
-        """ Return the rule mapped to this ref string. """
-        return self._ref_map[ref]
-
-    def draw(self, ref="", *, intense=False) -> str:
+    def draw(self, ref="", *, intense=False) -> HTMLGraph:
         """ Return an HTML text graph with <ref> highlighted.
             Highlight nothing if <ref> is blank. Use brighter highlighting colors if <intense> is True. """
         return self._formatter.format(ref, intense)
@@ -131,20 +133,20 @@ class GraphEngine:
         connectors = self._build_connectors(rule, length, width)
         return GraphNode(ref, body, connectors, start, length, children)
 
-    def _build_tree(self, ref_dict:Dict[str, StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
+    def _build_tree(self, tree_listing:List[StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
         """ Build a display node tree recursively. """
-        children = [self._build_tree(ref_dict, c.child, c.start, c.length) for c in rule]
-        ref = str(len(ref_dict))
-        ref_dict[ref] = rule
+        children = [self._build_tree(tree_listing, c.child, c.start, c.length) for c in rule]
+        ref = str(len(tree_listing))
+        tree_listing.append(rule)
         return self._build_node(ref, rule, start, length, children)
 
-    def graph(self, rule:StenoRule, *, compressed=True, compat=False) -> RuleGraph:
+    def graph(self, rule:StenoRule, *, compressed=True, compat=False) -> GraphTree:
         """ Generate a graph object for a steno rule.
             The root node's attach points are arbitrary, so start=0 and length=len(letters). """
-        ref_dict = {}
-        root = self._build_tree(ref_dict, rule, 0, len(rule.letters))
+        tree_listing = []
+        root = self._build_tree(tree_listing, rule, 0, len(rule.letters))
         layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
         layout = layout_engine.layout(root)
         grid = TextElementCanvas.from_layout(layout).to_grid()
         formatter = HTMLFormatter(grid, compat=compat)
-        return RuleGraph(ref_dict, formatter)
+        return GraphTree(tree_listing, formatter)

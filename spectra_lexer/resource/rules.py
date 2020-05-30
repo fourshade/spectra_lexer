@@ -92,22 +92,31 @@ class StenoRule:
         """ The standard string representation of a rule is its keys -> letters mapping. """
         return f"{self.keys} → {self.letters}"
 
-    def verify(self, valid_rtfcre:AbstractSet[str], delimiters:AbstractSet[str]) -> None:
+    def verify(self, valid_rtfcre:Iterable[str], delimiters:Iterable[str]) -> None:
         """ Perform integrity checks on this rule. """
-        key_counter = Counter(self.keys)
-        assert key_counter, f"Rule {self.id} is empty"
+        key_set = set(self.keys)
+        assert key_set, f"Rule {self.id} is empty"
         # All key characters must be valid RTFCRE characters.
-        assert (key_counter.keys() <= valid_rtfcre), f"Rule {self.id} has invalid characters"
+        invalid = key_set.difference(valid_rtfcre)
+        assert not invalid, f"Rule {self.id} has invalid characters: {invalid}"
         if self:
             # Check that the rulemap positions all fall within our own letter bounds.
-            # Make sure the child rules contain all of our keys between them with no extras (except delimiters).
+            # Start positions must be non-negative and increasing monotonic.
+            counter = Counter(self.keys)
+            last_start = 0
             for item in self:
-                assert item.start >= 0
-                assert item.length >= 0
-                assert item.start + item.length <= len(self.letters)
-                key_counter.subtract(item.child.keys)
-            mismatched = [k for k in key_counter if key_counter[k] and k not in delimiters]
-            assert not mismatched, f"Rule {self.id} has mismatched keys vs. its child rules: {mismatched}"
+                start = item.start
+                assert start >= last_start
+                last_start = start
+                length = item.length
+                assert length >= 0
+                assert start + length <= len(self.letters)
+                counter.subtract(item.child.keys)
+            # Make sure the child rules contain all of our keys between them with no extras (except delimiters).
+            for k in delimiters:
+                del counter[k]
+            assert not +counter, f"Rule {self.id} has more keys than its child rules: {+counter}"
+            assert not -counter, f"Rule {self.id} has fewer keys than its child rules: {-counter}"
 
 
 class StenoRuleParser:

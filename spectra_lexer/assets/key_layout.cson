@@ -4,7 +4,7 @@
     # RTFCRE board split delimiter. Separates ambiguous strokes into left+center and right sides of the board.
     "split":  "-",
     # Unique characters for each key in steno order, moving left -> center -> right.
-    # Right-side keys may re-use letters (but not symbols) from the left or center.
+    # Right-side keys may re-use letters (but not symbols) from the left.
     "left":   "#STKPWHR",
     "center": "AO*EU",
     "right":  "FRPBLGTSDZ",

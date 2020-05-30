@@ -72,6 +72,7 @@ class StenoAnalyzer:
             If <strict_mode> is True and the best result is missing keys, return a fully unmatched result instead. """
         skeys = self._to_skeys(keys)
         result = self._lexer.query(skeys, letters)
+        keys = self._to_rtfcre(skeys)
         info = self._result_info(result)
         rule = StenoRule(keys, letters, info)
         unmatched_skeys = result.unmatched_skeys
@@ -89,17 +90,15 @@ class StenoAnalyzer:
 
     def compound_query(self, translations:TranslationPairs, **kwargs) -> StenoRule:
         """ Return a compound lexer analysis of several translations joined together. """
-        translations = list(translations)
-        if not translations:
-            raise ValueError("Cannot analyze 0 translations.")
-        if len(translations) == 1:
-            return self.query(*translations[0], **kwargs)
-        rules = []
-        for keys, letters in translations:
-            rule = self.query(keys, letters, **kwargs)
-            rules += [rule, self._rule_sep]
-        rules.pop()
-        return StenoRule.join(rules)
+        rules = [self.query(keys, letters, **kwargs) for keys, letters in translations]
+        n = len(rules)
+        if not n:
+            raise ValueError("Need at least 1 translation, got 0.")
+        if n == 1:
+            return rules[0]
+        delimited_seq = [self._rule_sep] * (2 * n - 1)
+        delimited_seq[::2] = rules
+        return StenoRule.join(delimited_seq)
 
     def best_translation(self, translations:TranslationPairs) -> Translation:
         """ Return the best (most accurate) from a series of <translations> according to lexer ranking. """

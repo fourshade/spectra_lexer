@@ -1,4 +1,4 @@
-from typing import AbstractSet, Callable, Dict
+from typing import Callable, Dict, Set
 
 
 class StenoKeyLayout:
@@ -21,12 +21,12 @@ class StenoKeyLayout:
         self._split = split      # RTFCRE board split delimiter.
         self._special = special  # A single special-cased s-key (the asterisk).
         self._aliases = aliases  # Table of aliases mapped to two-character strings: "shift_key, real_key".
-        # Save some fields as pre-computed (immutable) sets for fast membership tests and string conversion.
-        self._left_set = frozenset(left)              # Left-side keys. These are the same in either format.
-        self._center_set = frozenset(center)          # Center keys. These are the same in either format.
-        self._right_set = frozenset(right)            # Right-side RTFCRE keys.
-        self._right_skeys = frozenset(right.lower())  # Right-side s-keys.
-        self._valid_rtfcre = frozenset({sep, split, *left, *center, *right})
+        # Save some fields as pre-computed sets for fast membership tests and string conversion.
+        self._left_set = set(left)              # Left-side keys. These are the same in either format.
+        self._center_set = set(center)          # Center keys. These are the same in either format.
+        self._right_set = set(right)            # Right-side RTFCRE keys.
+        self._right_skeys = set(right.lower())  # Right-side s-keys.
+        self._valid_rtfcre = {sep, split, *left, *center, *right}
 
     def separator_key(self) -> str:
         return self._sep
@@ -37,9 +37,9 @@ class StenoKeyLayout:
     def special_key(self) -> str:
         return self._special
 
-    def valid_rtfcre(self) -> AbstractSet[str]:
+    def valid_rtfcre(self) -> Set[str]:
         """ Return the set of all characters that are valid in a standard RTFCRE string. """
-        return self._valid_rtfcre
+        return self._valid_rtfcre.copy()
 
     def rtfcre_to_skeys(self, s:str) -> str:
         """ Transform an RTFCRE steno key string to s-keys. """
@@ -106,12 +106,13 @@ class StenoKeyLayout:
         left = self._left_set
         center = self._center_set
         right = self._right_set
+        right_skeys = self._right_skeys
         normal_key_set = left | center | right
         # The center keys must not share any characters with the sides.
         assert not center & left
         assert not center & right
         # The left and right sides must not share characters after casing.
-        assert not left & self._right_skeys
+        assert not left & right_skeys
         # The special key must be a normal key previously defined.
         assert self._special in normal_key_set
         # The delimiters must *not* be previously defined keys.

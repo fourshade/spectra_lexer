@@ -1,7 +1,8 @@
 from typing import Dict
 
 from spectra_lexer.analysis import StenoAnalyzer, Translation
-from spectra_lexer.display import BoardEngine, GraphEngine
+from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph
+from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.search import MatchDict, SearchRegexError, SearchEngine
 
 
@@ -16,7 +17,7 @@ class SearchResults:
 class DisplayPage:
     """ Data class that contains an HTML formatted graph, a caption, an SVG board, and a rule ID reference. """
 
-    def __init__(self, graph:str, intense_graph:str, caption:str, board:str, rule_id="") -> None:
+    def __init__(self, graph:HTMLGraph, intense_graph:HTMLGraph, caption:str, board:BoardDiagram, rule_id="") -> None:
         self.graph = graph                  # HTML graph text for this selection.
         self.intense_graph = intense_graph  # Brighter HTML text graph for this selection.
         self.caption = caption              # Text characters drawn as a caption (possibly on a tooltip).
@@ -86,12 +87,16 @@ class GUILayer:
         self._opts = opts
 
     def _search(self, pattern:str, pages:int) -> SearchResults:
+        """ Perform a search based on the current options and/or presence of the index delimiter. """
         count = pages * self._opts.search_match_limit
         mode_strokes = self._opts.search_mode_strokes
         se = self._search_engine
-        if self._index_delim in pattern:
-            link_ref, pattern = pattern.split(self._index_delim, 1)
-            matches = se.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
+        if not pattern or pattern.isspace():
+            matches = {}
+            is_complete = True
+        elif self._index_delim in pattern:
+            link_ref, rule_pattern = pattern.split(self._index_delim, 1)
+            matches = se.search_examples(link_ref, rule_pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
             try:
@@ -103,55 +108,64 @@ class GUILayer:
                 is_complete = True
         return SearchResults(matches, is_complete)
 
-    def _analyze(self, keys:str, letters:str) -> DisplayData:
-        opts = self._opts
-        analysis = self._analyzer.query(keys, letters, strict_mode=opts.lexer_strict_mode)
-        graph = self._graph_engine.graph(analysis, compressed=opts.graph_compressed_layout,
-                                         compat=opts.graph_compatibility_mode)
+    def _analyze(self, keys:str, letters:str) -> StenoRule:
+        return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
+
+    def _build_graph(self, analysis:StenoRule) -> GraphTree:
+        return self._graph_engine.graph(analysis, compressed=self._opts.graph_compressed_layout,
+                                        compat=self._opts.graph_compatibility_mode)
+
+    def _draw_board(self, rule:StenoRule) -> BoardDiagram:
+        aspect_ratio = self._opts.board_aspect_ratio
+        if self._opts.board_show_compound:
+            board = self._board_engine.draw_rule(rule, aspect_ratio, show_letters=self._opts.board_show_letters)
+        else:
+            board = self._board_engine.draw_keys(rule.keys, aspect_ratio)
+        return board
+
+    def _build_page(self, ngraph:HTMLGraph, igraph:HTMLGraph, rule:StenoRule) -> DisplayPage:
+        """ Create a display page for a rule selection. Do not add links to rules for which we don't have examples. """
+        caption = rule.info
+        board = self._draw_board(rule)
+        r_id = rule.id
+        if not self._search_engine.has_examples(r_id):
+            r_id = ""
+        return DisplayPage(ngraph, igraph, caption, board, r_id)
+
+    def _display(self, analysis:StenoRule) -> DisplayData:
+        """ Return a full set of display data for a steno analysis, including all possible selections. """
+        graph = self._build_graph(analysis)
         pages = {}
-        default_page = None
-        for ref in graph.refs():
+        for ref, rule in graph.iter_mappings():
             ngraph = graph.draw(ref)
             igraph = graph.draw(ref, intense=True)
-            rule = graph.get_rule(ref)
-            caption = rule.info
-            aspect_ratio = opts.board_aspect_ratio
-            if opts.board_show_compound:
-                board = self._board_engine.draw_rule(rule, aspect_ratio, show_letters=opts.board_show_letters)
-            else:
-                board = self._board_engine.draw_keys(rule.keys, aspect_ratio)
-            # Remove links to any rules for which we don't have examples.
-            r_id = rule.id if self._search_engine.has_examples(rule.id) else ""
-            pages[ref] = DisplayPage(ngraph, igraph, caption, board, r_id)
-            if rule is analysis:
-                # When nothing is selected, use the board and caption for the root node.
-                default_graph = graph.draw()
-                default_page = DisplayPage(default_graph, default_graph, caption, board)
-        return DisplayData(keys, letters, pages, default_page)
+            pages[ref] = self._build_page(ngraph, igraph, rule)
+        # When nothing is selected, use the board and caption for the root node.
+        default_graph = graph.draw()
+        default_page = self._build_page(default_graph, default_graph, analysis)
+        return DisplayData(analysis.keys, analysis.letters, pages, default_page)
 
     def query(self, translation:Translation, *others:Translation) -> GUIOutput:
-        """ Execute and display a graph of a lexer query from search results or user strokes. """
+        """ Execute and return a full display of a lexer query from search results or user strokes. """
         keys, letters = self._analyzer.best_translation([translation, *others]) if others else translation
-        output = GUIOutput()
-        output.display_data = self._analyze(keys, letters)
-        return output
+        analysis = self._analyze(keys, letters)
+        display_data = self._display(analysis)
+        return GUIOutput(display_data=display_data)
 
     def search(self, pattern:str, pages=1) -> GUIOutput:
-        """ Do a new search and return results unless the input is blank. """
-        output = GUIOutput()
-        if pattern.strip():
-            output.search_results = self._search(pattern, pages)
-        return output
+        """ Do a new search and return results (unless the pattern is just whitespace). """
+        results = self._search(pattern, pages)
+        return GUIOutput(search_results=results)
 
     def search_examples(self, link_ref:str) -> GUIOutput:
         """ When a link is clicked, search for examples of the named rule and select one at random.
             Overwrite the current search input with its pattern. """
-        output = GUIOutput()
         keys, letters = self._search_engine.random_example(link_ref)
-        if keys and letters:
-            match = keys if self._opts.search_mode_strokes else letters
-            pattern = link_ref + self._index_delim + match
-            output.search_input = pattern
-            output.search_results = self._search(pattern, 1)
-            output.display_data = self._analyze(keys, letters)
-        return output
+        if not (keys and letters):
+            return GUIOutput()
+        analysis = self._analyze(keys, letters)
+        match = keys if self._opts.search_mode_strokes else letters
+        pattern = link_ref + self._index_delim + match
+        return GUIOutput(search_input=pattern,
+                         search_results=self._search(pattern, 1),
+                         display_data=self._display(analysis))

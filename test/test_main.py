@@ -4,26 +4,40 @@
 
 import pytest
 
-from spectra_lexer import Spectra
+from spectra_lexer import SpectraOptions
 
 from .base import TEST_TRANSLATIONS
 
-ENGINE = Spectra().build_engine()
+SPECTRA = SpectraOptions().compile()
+TEST_TRANSLATION_PAIRS = list(TEST_TRANSLATIONS.items())
+ALL_KEYS = set().union(*TEST_TRANSLATIONS)
+DELIMS = '/-'
 
 
-@pytest.mark.parametrize("keys, letters", TEST_TRANSLATIONS.items())
-def test_analysis(keys, letters) -> None:
-    """ The parsing tests fail if the lexer can't match all the keys. """
-    analysis = ENGINE.analyze(keys, letters)
+def _verify_analysis(analysis) -> None:
+    """ An analysis test fails if the output rule is malformed or the lexer can't match all the keys. """
     assert analysis
+    analysis.verify(ALL_KEYS, DELIMS)
     for item in analysis:
-        assert not item.child.is_unmatched, f"Lexer failed to match all keys on {keys} -> {letters}."
-    # Rule start positions must be non-negative and increasing monotonic.
-    positions = [c.start for c in analysis]
-    assert positions == sorted(map(abs, positions))
-    # Perform tests for analysis output. Currently only checks that the output doesn't raise.
-    graph = ENGINE.generate_graph(analysis)
-    for ref in graph.refs():
+        assert not item.child.is_unmatched, f"Lexer failed to match all keys on {analysis.keys} -> {analysis.letters}."
+
+
+@pytest.mark.parametrize("keys, letters", TEST_TRANSLATION_PAIRS)
+def test_analysis(keys, letters) -> None:
+    """ Perform tests for analysis and output. """
+    analysis = SPECTRA.analyzer.query(keys, letters)
+    _verify_analysis(analysis)
+    # The graph and board tests currently pass as long as they don't raise.
+    graph = SPECTRA.graph_engine.graph(analysis)
+    for ref, rule in graph.iter_mappings():
         assert graph.draw(ref)
-        rule = graph.get_rule(ref)
-        assert ENGINE.generate_board(rule)
+        assert SPECTRA.board_engine.draw_rule(rule)
+
+
+def test_compound() -> None:
+    """ Make sure compound analysis works on full sequences of translations. """
+    for i in range(2, len(TEST_TRANSLATION_PAIRS)+1):
+        seq = TEST_TRANSLATION_PAIRS[:i]
+        compound_rule = SPECTRA.analyzer.compound_query(seq)
+        _verify_analysis(compound_rule)
+        assert len(list(compound_rule)) == (2 * len(seq) - 1)
