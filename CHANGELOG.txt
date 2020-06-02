@@ -1,3 +1,10 @@
+12.0.0
+-----
+* Added more aliases for steno key combinations
+* Improved usability of the core API
+* Manual translation edits in the title bar are now easier
+* Discord bot now makes smarter search choices
+
 11.2.0
 -----
 * Fixed several Discord bot issues

@@ -591,7 +591,7 @@
   "-":   ["H-PB",   "-",       [], "- (hyphen)"],
   ".":   ["-FPLT",  ".",       [], ". (period)"],
   ",":   ["-RBGS",  ",",       [], ", (comma)"],
-  " ":   ["SP-S",   "",        [], "explicit space (usually in dictionary by mistake)"],
+  " ":   ["SP-S",   "",  ["RARE"], "explicit space (usually in dictionary by mistake)"],
 
   # number reference rules
   "~#":  ["#",  "|   #   #   #   #   #   ", ["REF"], "shifts to number mode"],

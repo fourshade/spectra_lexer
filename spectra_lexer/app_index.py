@@ -10,7 +10,8 @@ from spectra_lexer.analysis import TranslationFilter
 def main() -> int:
     """ Analyze translations files and create an examples index from them. Time the execution. """
     opts = SpectraOptions("Batch script for creating an examples index.")
-    opts.add("size", TranslationFilter.SIZE_MEDIUM, "Relative size of generated index.")
+    fcls = TranslationFilter
+    opts.add("size", fcls.SIZE_MEDIUM, f"Relative size of generated index ({fcls.SIZE_MINIMUM}-{fcls.SIZE_MAXIMUM}).")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
     spectra = opts.compile()
     files_in = opts.translations_paths()

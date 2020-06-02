@@ -7,8 +7,8 @@ from typing import Callable, Optional
 import discord
 
 
-class BotMessage:
-    """ Contains all data that makes up a Discord bot's response. """
+class DiscordMessage:
+    """ Contains all data that makes up a Discord text channel message. """
 
     def __init__(self, content:str) -> None:
         self._content = content
@@ -38,7 +38,7 @@ class DiscordBot:
         self._client.event(self.on_ready)
         self._client.event(self.on_message)
 
-    def add_command(self, name:str, func:Callable[[str], Optional[BotMessage]]) -> None:
+    def add_command(self, name:str, func:Callable[[str], Optional[DiscordMessage]]) -> None:
         """ Add a named ! command with a callable that will be executed with the remainder of the user's input. """
         self._cmds[name] = func
 
@@ -69,7 +69,7 @@ class DiscordBot:
             reply = cmd_func(arg_string)
             self._log(f"Reply: {reply}")
         except Exception:
-            reply = BotMessage('Command parse error.')
+            reply = DiscordMessage('Command parse error.')
             self._log(format_exc())
         if reply is None:
             return
