@@ -1,8 +1,18 @@
 """ Module for SVG operations using QtSvg. """
 
+from typing import Union
+
 from PyQt5.QtCore import QRectF, QIODevice, QBuffer
 from PyQt5.QtGui import QColor, QImage, QPainter, QPicture
 from PyQt5.QtSvg import QSvgRenderer
+
+QtSVGData = Union[bytes, str]  # Valid formats for an SVG data string. The XML header is not required.
+
+
+def _ensure_bytes(data:QtSVGData) -> bytes:
+    if isinstance(data, str):
+        return data.encode('utf-8')
+    return data
 
 
 class SVGConverter:
@@ -11,9 +21,10 @@ class SVGConverter:
     def __init__(self, *, background_rgba=(255, 255, 255, 0)) -> None:
         self._bg_color = QColor(*background_rgba)  # Color to use for background from RGBA 0-255 format.
 
-    def to_png(self, svg_data:bytes) -> bytes:
-        """ Render SVG bytes on a transparent bitmap image and convert it to a PNG stream.
+    def to_png(self, data:QtSVGData) -> bytes:
+        """ Render SVG character data on a transparent bitmap image and convert it to a PNG stream.
             Use the viewbox dimensions as pixel sizes. """
+        svg_data = _ensure_bytes(data)
         svg = QSvgRenderer(svg_data)
         viewbox = svg.viewBox().size()
         im = QImage(viewbox, QImage.Format_ARGB32)
@@ -33,8 +44,9 @@ class SVGPictureRenderer:
         self._renderer = QSvgRenderer()    # XML SVG renderer.
         self._render_hints = render_hints  # SVG rendering quality hints (such as anti-aliasing).
 
-    def set_data(self, svg_data:bytes) -> None:
-        """ Load the renderer with raw XML data containing the SVG elements to draw. """
+    def set_data(self, data:QtSVGData) -> None:
+        """ Load the renderer with XML data containing the SVG elements to draw. """
+        svg_data = _ensure_bytes(data)
         self._renderer.load(svg_data)
 
     def render_fit(self, width:float, height:float) -> QPicture:

@@ -5,7 +5,7 @@ from PyQt5.QtCore import QTimer, QUrl
 from PyQt5.QtGui import QTextCharFormat
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
-from .svg import SVGPictureRenderer
+from .svg import QtSVGData, SVGPictureRenderer
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 ExamplesCallback = Callable[[str], None]
@@ -15,11 +15,14 @@ QueryCallback = Callable[[str, str], None]
 class DisplayPageData:
     """ Data class that contains HTML formatted graphs, a caption, an SVG board, and a link reference. """
 
-    def __init__(self, html_graphs:Sequence[str]=("", ""), board_caption="", board_xml=b"", link_ref="") -> None:
+    def __init__(self, html_graphs:Tuple[str, str], board_caption:str, board_data:QtSVGData, link_ref:str) -> None:
         self.html_graphs = html_graphs      # Sequence of 2 HTML text graphs for this rule: [normal, bright].
         self.board_caption = board_caption  # Text caption for this rule, drawn above the board.
-        self.board_xml = board_xml          # XML byte string containing this rule's SVG board diagram.
+        self.board_data = board_data        # XML containing this rule's SVG board diagram.
         self.link_ref = link_ref            # Target ref for a link to find examples of this rule (empty if none).
+
+
+EMPTY_PAGE_DATA = DisplayPageData(("", ""), "", "", "")
 
 
 class _TitleWrapper:
@@ -153,9 +156,9 @@ class _BoardWrapper:
         width, height = self._get_size()
         return width / height
 
-    def set_data(self, xml_data:bytes) -> None:
+    def set_data(self, data:QtSVGData) -> None:
         """ Load the renderer with new SVG data and redraw the board. """
-        self._renderer.set_data(xml_data)
+        self._renderer.set_data(data)
         self._draw_board()
 
     def set_link_visible(self, visible:bool) -> None:
@@ -215,15 +218,14 @@ class DisplayController:
         self._graph.set_graph_text(page.html_graphs[focused])
         self._graph.set_focus(focused)
         self._set_caption(page.board_caption)
-        self._board.set_data(page.board_xml)
+        self._board.set_data(page.board_data)
         self._board.set_link_visible(bool(page.link_ref))
         self._last_link_ref = page.link_ref
 
     def _clear_page(self) -> None:
         """ Clear the current translation and analysis page and turn off graph interaction. """
         self._last_translation = None
-        empty_page = DisplayPageData()
-        self._set_page(empty_page)
+        self._set_page(EMPTY_PAGE_DATA)
         self._graph.set_plaintext("")
 
     def _graph_action(self, node_ref:str, focused:bool) -> None:

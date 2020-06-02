@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Optional, Sequence
+from typing import Dict, Iterable, Optional
 
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph

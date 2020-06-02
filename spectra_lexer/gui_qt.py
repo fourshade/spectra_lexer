@@ -122,15 +122,11 @@ class QtGUIApplication:
         display_data = out.display_data
         if display_data is not None:
             self._update_gui_translation(display_data.keys, display_data.letters)
-            default_item = ("__DEFAULT__", display_data.default_page)
-            input_items = [default_item, *display_data.pages_by_ref.items()]
-            output_dict = {}
-            for ref, page in input_items:
-                graphs = [page.graph, page.intense_graph]
-                board_xml = page.board.encode('utf-8')
-                output_dict[ref] = DisplayPageData(graphs, page.caption, board_xml, page.rule_id)
-            default = output_dict.pop("__DEFAULT__")
-            self._display.set_pages(output_dict, default)
+            d = display_data.pages_by_ref
+            in_pages = [*d.values(), display_data.default_page]
+            out_pages = [DisplayPageData((p.graph, p.intense_graph), p.caption, p.board, p.rule_id) for p in in_pages]
+            default = out_pages.pop()
+            self._display.set_pages(dict(zip(d, out_pages)), default)
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
