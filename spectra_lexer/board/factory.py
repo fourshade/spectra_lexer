@@ -252,14 +252,14 @@ class BoardFactory:
     FILL_BASE = "#7F7F7F"
     FILL_MATCHED = "#007FFF"
     FILL_UNMATCHED = "#DFDFDF"
-    FILL_RULE = "#00AFFF"
-    FILL_RARE = "#9FCFFF"
-    FILL_COMBO = "#7F7FFF"
-    FILL_NUMBER = "#3F9F00"
-    FILL_SYMBOL = "#AFAF00"
-    FILL_SPELLING = "#7F7FFF"
-    FILL_BRIEF = "#FF7F00"
+    FILL_LETTERS = "#00AFFF"
     FILL_ALT = "#00AFAF"
+    FILL_RARE = "#9FCFFF"
+    FILL_COMBO = "#8F8FFF"
+    FILL_NUMBER = "#3F7F00"
+    FILL_SYMBOL = "#AFAF00"
+    FILL_SPELLING = "#7FFFFF"
+    FILL_BRIEF = "#FF7F00"
 
     def __init__(self, elem_factory:BoardElementFactory, layout:GridLayoutEngine, special_key:str,
                  key_procs:Dict[str, List[str]], rule_procs:Dict[str, List[str]]) -> None:
@@ -290,12 +290,13 @@ class BoardFactory:
         if procs is None and star in skeys and star != skeys:
             # Rules using the star should have that key separate from their text.
             leftover = skeys.replace(star, "")
-            bg = self.FILL_COMBO
+            if bg is None:
+                bg = self.FILL_COMBO
             elems += self._elems_from_skeys(star, bg)
             procs = self._rule_procs.get(leftover)
         if procs is not None:
             if letters:
-                return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_RULE, letters)]
+                return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_LETTERS, letters)]
             elif alt_text:
                 return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_ALT, alt_text)]
         return []
@@ -317,6 +318,7 @@ class BoardFactory:
         skeys = rule.skeys
         letters = rule.letters
         alt_text = rule.alt_text
+        children = rule.children
         if letters and not any(map(str.isalpha, letters)):
             bg = self.FILL_SYMBOL if not any(map(str.isdigit, letters)) else self.FILL_NUMBER
             if not alt_text:
@@ -333,12 +335,18 @@ class BoardFactory:
             bg = self.FILL_SPELLING
         elif rule.is_brief:
             bg = self.FILL_BRIEF
+        # A rule with one child using the same letters is usually an analysis. It should be unwrapped.
+        if len(children) == 1:
+            child = children[0]
+            if letters == child.letters:
+                return self._elems_from_rule(child, show_letters, bg)
+        # Try to find an existing key shape for this rule. If we find one, we're done.
         elems = self._elems_from_rule_info(skeys, letters if show_letters else "", alt_text, bg)
         if elems:
             return elems
-        elif rule.children:
-            # Add elements recursively from all child rules.
-            return [elem for child in rule.children for elem in self._elems_from_rule(child, show_letters, bg)]
+        # If there are children, add elements recursively from each one.
+        if children:
+            return [elem for child in children for elem in self._elems_from_rule(child, show_letters, bg)]
         # There may not be compound elements for everything; in that case, use elements for each raw key.
         return self._elems_from_skeys(skeys)
 

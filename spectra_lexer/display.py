@@ -32,7 +32,7 @@ class BoardEngine:
         if r_id and r_id in self._id_cache:
             return self._id_cache[r_id]
         skeys = self._to_skeys(rule.keys)
-        letters = rule.letters
+        letters = rule.letters.strip()
         alt_text = rule.alt
         children = [self._to_board_rule(item.child) for item in rule]
         br = BoardRule(skeys, letters, alt_text, children)

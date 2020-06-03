@@ -1,16 +1,16 @@
 """ Main module for the Discord bot application. """
 
 import sys
-from typing import Callable, Optional, Type
+from typing import Callable, List, Optional, Type
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.analysis import StenoAnalyzer, Translation, TranslationPairs
+from spectra_lexer.analysis import StenoAnalyzer, TranslationPairs
 from spectra_lexer.console.system import SystemConsole
 from spectra_lexer.discord import DiscordMessage, DiscordBot
 from spectra_lexer.display import BoardDiagram, BoardEngine
 from spectra_lexer.qt.svg import SVGConverter
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search import MatchDict, SearchEngine
+from spectra_lexer.search import SearchEngine
 
 
 class MessageFactory:
@@ -50,38 +50,39 @@ class DiscordApplication:
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
 
-    @staticmethod
-    def _best_match(word:str, matches:MatchDict) -> Optional[str]:
+    def _find_matches(self, word:str) -> List[str]:
+        """ Search for possible stroke matches for a <word>. """
+        matches = self._search_engine.search(word, self._search_depth)
         if not matches:
-            return None
+            return []
         if word in matches:
-            return word
+            return matches[word]
         key = word.lower()
         if key in matches:
-            return key
+            return matches[key]
         for m in matches:
             if key == m.lower():
-                return m
-        return None
+                return matches[m]
+        return []
 
-    def _best_translation(self, word:str, matches:MatchDict) -> Translation:
+    def _best_translation(self, word:str) -> str:
         """ Find the best pairing between a word and its possible stroke matches. """
-        match = self._best_match(word, matches)
-        if match is None:
+        matches = self._find_matches(word)
+        if not matches:
             keys = ""
-            word = "-" * len(word)
+        elif len(matches) == 1:
+            keys = matches[0]
         else:
-            keys_seq = matches[match]
-            keys = self._analyzer.best_translation(keys_seq, word)
-        return keys, word + " "
+            keys = self._analyzer.best_translation(matches, word)
+        return keys
 
     def _search_words(self, letters:str) -> TranslationPairs:
-        """ Do an advanced lookup to get the best strokes for each word in <letters>. """
-        words = letters.split()
-        search_list = [self._search_engine.search(word, self._search_depth) for word in words]
-        if not any(search_list):
-            return []
-        return [self._best_translation(word, matches) for word, matches in zip(words, search_list)]
+        """ Do an advanced lookup to yield the best strokes for each word in <letters>. """
+        for word in letters.split():
+            keys = self._best_translation(word)
+            if not keys:
+                word = "-" * len(word)
+            yield keys, word + " "
 
     def _analyze_all(self, translations:TranslationPairs) -> StenoRule:
         """ Create a compound rule from each strokes/word pair we found. """
@@ -91,8 +92,8 @@ class DiscordApplication:
         """ Parse a user query string as English text. """
         show_letters = not text.startswith('+')
         letters = text.translate(self._query_trans)
-        translations = self._search_words(letters)
-        if not translations:
+        translations = list(self._search_words(letters))
+        if not any([k for k, w in translations]):
             return self._text_message('No suggestions.')
         analysis = self._analyze_all(translations)
         caption = str(analysis)
@@ -101,8 +102,7 @@ class DiscordApplication:
 
     def _query_keys(self, keys:str) -> DiscordMessage:
         """ Parse a user query string as a set of RTFCRE steno keys. """
-        # FIXME using internals to clean up strokes.
-        keys = self._analyzer._to_rtfcre(self._analyzer._to_skeys(keys))
+        keys = self._analyzer.normalize_keys(keys)
         if not keys:
             return self._text_message('Invalid key sequence.')
         board_data = self._board_engine.draw_keys(keys, aspect_ratio=self._board_AR)

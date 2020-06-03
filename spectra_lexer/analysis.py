@@ -142,6 +142,11 @@ class StenoAnalyzer:
                 index[r_id].append(translation)
         return index
 
+    def normalize_keys(self, keys:str) -> str:
+        """ Normalize a set of RTFCRE keys by converting back and forth. """
+        skeys = self._to_skeys(keys)
+        return self._to_rtfcre(skeys)
+
 
 def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAnalyzer:
     """ Distribute rules and build the rule matcher, lexer and analyzer. """
