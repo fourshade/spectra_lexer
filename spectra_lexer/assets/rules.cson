@@ -477,6 +477,7 @@
   "-ability": ["-BLT", "a(.b)i(.l)i(.ty)", [], "standalone suffix stroke"],
 
   # Specific shortenings used in the most common words
+  "you.":   ["U",      "you",              [], "prefix `you` in common compound words"],
   "some.":  ["S",      "some",             [], "prefix `some` in common compound words"],
   ".ever":  ["-FR",    "e(.v)e(.r)",       [], "suffix `ever` in common compound words"],
   #".one":   ["-PB",    "o(.n)e",           [], "suffix `one` in common compound words"],

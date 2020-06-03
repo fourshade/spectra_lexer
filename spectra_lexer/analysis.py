@@ -178,9 +178,10 @@ def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAna
         # Convert each rule to lexer format. Rule weight is assigned based on letters matched.
         # Rare rules are uncommon in usage and/or prone to causing false positives.
         # They have slightly reduced weight so that other rules with equal letter count are chosen first.
+        # Word rules may be otherwise equal to some prefixes and suffixes; they need *more* weight to win.
         skeys = keymap.rtfcre_to_skeys(rule.keys)
         letters = rule.letters
-        weight = 10 * len(letters) - rule.is_rare
+        weight = 10 * len(letters) - rule.is_rare + rule.is_word
         lr = LexerRule(skeys, letters, weight)
         # Map every lexer-format rule to the original so we can convert back.
         refmap[lr] = rule
