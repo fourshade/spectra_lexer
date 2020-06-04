@@ -8,7 +8,7 @@ from spectra_lexer.analysis import StenoAnalyzer, TranslationPairs
 from spectra_lexer.console.system import SystemConsole
 from spectra_lexer.discord import DiscordMessage, DiscordBot
 from spectra_lexer.display import BoardDiagram, BoardEngine
-from spectra_lexer.qt.svg import SVGConverter
+from spectra_lexer.qt.svg import SVGEngine
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.search import SearchEngine
 
@@ -16,9 +16,9 @@ from spectra_lexer.search import SearchEngine
 class MessageFactory:
     """ Factory for Discord messages containing content from Spectra. """
 
-    def __init__(self, *, msg_cls:Type[DiscordMessage]=None, svg_converter:SVGConverter=None) -> None:
+    def __init__(self, *, msg_cls:Type[DiscordMessage]=None, svg_engine:SVGEngine=None) -> None:
         self._msg_cls = msg_cls or DiscordMessage
-        self._svg_converter = svg_converter or SVGConverter()  # Converter for SVG data to PNG.
+        self._svg_engine = svg_engine or SVGEngine()
 
     def text_message(self, message:str) -> DiscordMessage:
         """ Generate a Discord message consisting only of text. """
@@ -28,7 +28,8 @@ class MessageFactory:
         """ Generate a Discord message with a board diagram in PNG raster format with good dimensions.
             Discord will not embed SVGs directly. """
         msg = self._msg_cls(f'``{caption}``')
-        png_data = self._svg_converter.to_png(board_data)
+        self._svg_engine.load(board_data)
+        png_data = self._svg_engine.make_png()
         msg.attach_as_file(png_data, "board.png")
         return msg
 
@@ -147,8 +148,8 @@ def build_app(opts:SpectraOptions) -> DiscordApplication:
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
     log("Loading...")
-    converter = SVGConverter(background_rgba=(0, 0, 0, 0))
-    msg_factory = MessageFactory(svg_converter=converter)
+    svg_engine = SVGEngine(background_rgba=(0, 0, 0, 0))
+    msg_factory = MessageFactory(svg_engine=svg_engine)
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')
     translations = io.load_json_translations(*translations_files)

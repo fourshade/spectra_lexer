@@ -2,11 +2,11 @@ from itertools import cycle
 from typing import Callable, Dict, Sequence, Tuple
 
 from PyQt5.QtCore import QTimer, QUrl
-from PyQt5.QtGui import QTextCharFormat
+from PyQt5.QtGui import QPicture, QTextCharFormat
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
 from .file import save_file_dialog
-from .svg import QtSVGData, svg_save, SVGPictureRenderer
+from .svg import QtSVGData, SVGEngine
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 ExamplesCallback = Callable[[str], None]
@@ -119,10 +119,9 @@ class _BoardWrapper:
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
     def __init__(self, w_board:PictureWidget, w_link_save:QLabel) -> None:
-        self._w_board = w_board                  # Board diagram container widget.
-        self._w_link_save = w_link_save          # Save board hyperlink.
-        self._renderer = SVGPictureRenderer()
-        self._last_board_data = b""
+        self._w_board = w_board          # Board diagram container widget.
+        self._w_link_save = w_link_save  # Hyperlink to save diagram as file.
+        self._svg = SVGEngine()
         self._call_on_resize = None
 
     def _get_size(self) -> Tuple[float, float]:
@@ -130,9 +129,11 @@ class _BoardWrapper:
         return self._w_board.width(), self._w_board.height()
 
     def _draw_board(self) -> None:
-        """ Render the diagram on a new picture, repaint the board, and reposition the link. """
+        """ Render the diagram on a new picture and repaint the board. """
         width, height = self._get_size()
-        gfx = self._renderer.render_fit(width, height)
+        bounds = self._svg.best_fit(width, height)
+        gfx = QPicture()
+        self._svg.render(gfx, bounds)
         self._w_board.setPicture(gfx)
 
     def _on_resize(self) -> None:
@@ -143,9 +144,12 @@ class _BoardWrapper:
 
     def _on_link_click(self, *_) -> None:
         """ Save the current diagram to an SVG file on link click. """
-        filename = save_file_dialog(self._w_board, "Save File", "svg", "board.svg")
+        filename = save_file_dialog(self._w_board, "Save File", "svg|png", "board.svg")
         if filename:
-            svg_save(self._last_board_data, filename)
+            if filename.endswith('png'):
+                self._svg.save_png(filename)
+            else:
+                self._svg.save(filename)
 
     def connect_signals(self, on_resize:Callable[[float, float], None]) -> None:
         """ Connect Qt signals and set callback functions. """
@@ -160,9 +164,8 @@ class _BoardWrapper:
 
     def set_data(self, data:QtSVGData) -> None:
         """ Load the renderer with new SVG data and redraw the board. """
-        self._last_board_data = data
+        self._svg.load(data)
         self._w_link_save.setVisible(bool(data))
-        self._renderer.set_data(data)
         self._draw_board()
 
 

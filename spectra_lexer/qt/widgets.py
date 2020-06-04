@@ -23,7 +23,8 @@ class PictureWidget(QWidget):
     def paintEvent(self, *args) -> None:
         """ Paint the saved picture (if any) on this widget when GUI repaint occurs. """
         if self._picture is not None:
-            self._picture.play(QPainter(self))
+            with QPainter(self) as p:
+                self._picture.play(p)
 
     def resizeEvent(self, *args) -> None:
         """ Send a signal on any size change. """
