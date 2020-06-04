@@ -1,6 +1,7 @@
 12.1.0
 -----
 * Board diagrams are now more correct (and colorful)
+* Board diagrams may now be saved to SVG files via the main GUI.
 * Rules involving briefs are given more weight
 
 12.0.0

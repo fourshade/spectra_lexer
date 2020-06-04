@@ -185,14 +185,14 @@ class QtGUIApplication:
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
-        filenames = self._window.open_files("Load Translations", ".", "json")
+        filenames = self._window.open_files("Load Translations", "json")
         if filenames:
             self.run_async(self._gui.load_translations, *filenames,
                            msg_start="Loading files...", msg_done="Loaded translations from file dialog.")
 
     def open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
-        filename = self._window.open_file("Load Index", ".", "json")
+        filename = self._window.open_file("Load Index", "json")
         if filename:
             self.run_async(self._gui.load_examples, filename,
                            msg_start="Loading file...", msg_done="Loaded index from file dialog.")
@@ -283,7 +283,8 @@ def build_app(gui:GUILayerExtended, logger:Callable[[str], None]) -> QtGUIApplic
     window.set_icon(icon_data)
     menu = MenuController(ui.w_menubar)
     search = SearchController(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
-    display = DisplayController(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption, ui.w_slider)
+    display = DisplayController(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption,
+                                ui.w_slider, ui.w_link_examples, ui.w_link_save)
     app = QtGUIApplication(gui, async_dsp, window, menu, search, display)
     exc_man.add_logger(display.show_traceback)
     exc_man.add_handler(app.on_exception)

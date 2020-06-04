@@ -3,15 +3,9 @@ from weakref import WeakValueDictionary
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import QDialog, QFileDialog, QMainWindow, QMessageBox
+from PyQt5.QtWidgets import QDialog, QMainWindow, QMessageBox
 
-
-def _filter_str(file_ext="") -> str:
-    """ Return a file dialog filter string based on a file extension. It should not include the dot.
-        If <file_ext> is empty, return a filter string matching any file. """
-    if not file_ext:
-        return "All files (*.*)"
-    return f"{file_ext.upper()} files (*.{file_ext})"
+from .file import open_file_dialog, open_files_dialog
 
 
 class WindowController:
@@ -59,12 +53,12 @@ class WindowController:
         button = QMessageBox.question(self._w_window, title, message, yes | no)
         return button == yes
 
-    def open_file(self, title="Open File", start_dir=".", file_ext="") -> str:
+    def open_file(self, title="Open File", file_ext="", start_dir=".") -> str:
         """ Present a modal dialog for the user to select a file to open.
             Return the selected filename, or an empty string on cancel. """
-        return QFileDialog.getOpenFileName(self._w_window, title, start_dir, _filter_str(file_ext))[0]
+        return open_file_dialog(self._w_window, title, file_ext, start_dir)
 
-    def open_files(self, title="Open Files", start_dir=".", file_ext="") -> List[str]:
+    def open_files(self, title="Open Files", file_ext="", start_dir=".") -> List[str]:
         """ Present a modal dialog for the user to select multiple files to open.
             Return a list of selected filenames, or an empty list on cancel. """
-        return QFileDialog.getOpenFileNames(self._w_window, title, start_dir, _filter_str(file_ext))[0]
+        return open_files_dialog(self._w_window, title, file_ext, start_dir)

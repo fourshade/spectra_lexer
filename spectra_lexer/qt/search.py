@@ -62,11 +62,11 @@ class SearchController:
         self._page_count += 1
         self._send_search()
 
-    def _on_input_changed(self, *_) -> None:
+    def _on_invalidate_search(self, *_) -> None:
         """ Do a new search on certain signals (disregard their arguments). """
         self._new_search()
 
-    def _on_match_selected(self, match:str) -> None:
+    def _on_user_select_match(self, match:str) -> None:
         """ If the user clicked "more", search again with another page.
             Otherwise, update the mappings list with the items corresponding to <match> and pick the best one. """
         if match == self._MORE_TEXT:
@@ -77,7 +77,7 @@ class SearchController:
             if mappings:
                 self._send_query(match, mappings)
 
-    def _on_mapping_selected(self, mapping:str) -> None:
+    def _on_user_select_mapping(self, mapping:str) -> None:
         """ When the user selects a <mapping>, send a lexer query for this specific translation. """
         if mapping:
             match = self._w_matches.selectedValue()
@@ -87,11 +87,11 @@ class SearchController:
         """ Connect all Qt signals for user actions and set the callback functions. """
         self._call_search = call_search
         self._call_query = call_query
-        self._w_strokes.toggled.connect(self._on_input_changed)
-        self._w_regex.toggled.connect(self._on_input_changed)
-        self._w_input.textEdited.connect(self._on_input_changed)
-        self._w_matches.itemSelected.connect(self._on_match_selected)
-        self._w_mappings.itemSelected.connect(self._on_mapping_selected)
+        self._w_strokes.toggled.connect(self._on_invalidate_search)
+        self._w_regex.toggled.connect(self._on_invalidate_search)
+        self._w_input.textEdited.connect(self._on_invalidate_search)
+        self._w_matches.itemSelected.connect(self._on_user_select_match)
+        self._w_mappings.itemSelected.connect(self._on_user_select_mapping)
 
     def get_mode_strokes(self) -> bool:
         return self._w_strokes.isChecked()
@@ -105,7 +105,7 @@ class SearchController:
     def update_results(self, matches:MatchDict, *, can_expand=False) -> None:
         """ Replace the current set of search results.
             If <can_expand> is True, add a final list item to allow search expansion.
-            If there was only one match, select it automatically and proceed with a query. """
+            If there was only one match, select it and proceed with a query as if the user had clicked it. """
         self._match_dict = matches
         match_list = list(matches)
         if can_expand:
@@ -115,7 +115,7 @@ class SearchController:
         if len(match_list) == 1:
             match = match_list[0]
             self._select_match(match)
-            self._on_match_selected(match)
+            self._on_user_select_match(match)
 
     def clear_results(self) -> None:
         self.update_results({})

@@ -5,7 +5,8 @@ from PyQt5.QtCore import QTimer, QUrl
 from PyQt5.QtGui import QTextCharFormat
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
-from .svg import QtSVGData, SVGPictureRenderer
+from .file import save_file_dialog
+from .svg import QtSVGData, svg_save, SVGPictureRenderer
 from .widgets import HyperlinkTextBrowser, PictureWidget
 
 ExamplesCallback = Callable[[str], None]
@@ -117,12 +118,12 @@ class _GraphWrapper:
 class _BoardWrapper:
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
-    def __init__(self, w_board:PictureWidget, w_link:QLabel) -> None:
-        self._w_board = w_board  # Board diagram container widget.
-        self._w_link = w_link    # Rule example hyperlink.
+    def __init__(self, w_board:PictureWidget, w_link_save:QLabel) -> None:
+        self._w_board = w_board                  # Board diagram container widget.
+        self._w_link_save = w_link_save          # Save board hyperlink.
         self._renderer = SVGPictureRenderer()
+        self._last_board_data = b""
         self._call_on_resize = None
-        self._call_on_link_click = None
 
     def _get_size(self) -> Tuple[float, float]:
         """ Return the size of the board widget. """
@@ -133,7 +134,6 @@ class _BoardWrapper:
         width, height = self._get_size()
         gfx = self._renderer.render_fit(width, height)
         self._w_board.setPicture(gfx)
-        self._w_link.move(width - 75, height - 18)
 
     def _on_resize(self) -> None:
         """ Redraw the board on any size change. """
@@ -142,14 +142,16 @@ class _BoardWrapper:
         self._call_on_resize(width, height)
 
     def _on_link_click(self, *_) -> None:
-        self._call_on_link_click()
+        """ Save the current diagram to an SVG file on link click. """
+        filename = save_file_dialog(self._w_board, "Save File", "svg", "board.svg")
+        if filename:
+            svg_save(self._last_board_data, filename)
 
-    def connect_signals(self, on_resize:Callable[[float, float], None], on_link_click:Callable[[], None]) -> None:
+    def connect_signals(self, on_resize:Callable[[float, float], None]) -> None:
         """ Connect Qt signals and set callback functions. """
         self._call_on_resize = on_resize
-        self._call_on_link_click = on_link_click
         self._w_board.resized.connect(self._on_resize)
-        self._w_link.linkActivated.connect(self._on_link_click)
+        self._w_link_save.linkActivated.connect(self._on_link_click)
 
     def get_ratio(self) -> float:
         """ Return the width / height aspect ratio of the board widget. """
@@ -158,18 +160,15 @@ class _BoardWrapper:
 
     def set_data(self, data:QtSVGData) -> None:
         """ Load the renderer with new SVG data and redraw the board. """
+        self._last_board_data = data
+        self._w_link_save.setVisible(bool(data))
         self._renderer.set_data(data)
         self._draw_board()
-
-    def set_link_visible(self, visible:bool) -> None:
-        """ Show the link in the bottom-right corner of the diagram if examples exist. """
-        self._w_link.setVisible(visible)
 
 
 class DisplayController:
 
     _DEFAULT_PAGE_KEY = "_DEFAULT"  # Dict key for default display page (nothing selected).
-    _LINK_HTML = "<a href='dummy'>More Examples</a>"
 
     RESIZE_STEP_PX = 100  # Required size change for the board widget to force an aspect ratio query.
 
@@ -179,21 +178,20 @@ class DisplayController:
     TR_MSG_EBLANK = 'ERROR: One or both sides is empty.'
 
     def __init__(self, w_title:QLineEdit, w_graph:HyperlinkTextBrowser, w_board:PictureWidget,
-                 w_caption:QLabel, w_slider:QSlider) -> None:
+                 w_caption:QLabel, w_slider:QSlider, w_link_examples:QLabel, w_link_save:QLabel) -> None:
         """ Wrap each widget and build the title/graph/board display controller. """
         self._title = _TitleWrapper(w_title)
         self._graph = _GraphWrapper(w_graph)
-        w_link = QLabel(self._LINK_HTML, w_board)
-        self._board = _BoardWrapper(w_board, w_link)
+        self._board = _BoardWrapper(w_board, w_link_save)
         self._w_caption = w_caption  # Label with caption containing rule keys/letters/description.
         self._w_slider = w_slider    # Slider to control board rendering options.
+        self._w_link_examples = w_link_examples  # Rule example hyperlink.
         self._page_dict = {}
         self._last_link_ref = ""
         self._last_translation = None
         self._last_resize_step = 0
         self._call_example_search = None
         self._call_query = None
-        self._board.set_link_visible(False)
 
     def _search_examples(self) -> None:
         """ Start an example search based on the last valid link reference. """
@@ -213,14 +211,18 @@ class DisplayController:
         """ Show a caption above the board diagram. """
         self._w_caption.setText(caption)
 
+    def _set_link_ref(self, link_ref:str) -> None:
+        """ Show the link in the bottom-right corner of the diagram if examples exist. """
+        self._last_link_ref = link_ref
+        self._w_link_examples.setVisible(bool(link_ref))
+
     def _set_page(self, page:DisplayPageData, focused=False) -> None:
         """ Change the currently displayed analysis page and set its focus state. """
         self._graph.set_graph_text(page.html_graphs[focused])
         self._graph.set_focus(focused)
         self._set_caption(page.board_caption)
         self._board.set_data(page.board_data)
-        self._board.set_link_visible(bool(page.link_ref))
-        self._last_link_ref = page.link_ref
+        self._set_link_ref(page.link_ref)
 
     def _clear_page(self) -> None:
         """ Clear the current translation and analysis page and turn off graph interaction. """
@@ -241,17 +243,17 @@ class DisplayController:
     def _on_graph_over(self, node_ref:str) -> None:
         self._graph_action(node_ref, False)
 
-    def _on_graph_clicked(self, node_ref:str) -> None:
+    def _on_graph_click(self, node_ref:str) -> None:
         self._graph_action(node_ref, True)
 
-    def _on_link_clicked(self, *_) -> None:
+    def _on_link_click(self, *_) -> None:
         self._search_examples()
 
-    def _on_request_requery(self, *_) -> None:
+    def _on_slider_move(self, *_) -> None:
         """ On slider movements, resend the last query to get new pages rendered. """
         self._send_query()
 
-    def _on_board_resized(self, width:float, height:float) -> None:
+    def _on_board_resize(self, width:float, height:float) -> None:
         """ Redrawing the entire set of pages on every resize signal is *far* too expensive.
             Instead we only redraw as the dimensions pass certain set points. """
         rstep = int(width + height) // self.RESIZE_STEP_PX
@@ -260,11 +262,11 @@ class DisplayController:
             # XXX dynamic resizing currently has too many problems
             # self._on_request_requery()
 
-    def _on_translation_edited(self, _:str) -> None:
+    def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
         self._set_caption(self.TR_MSG_CHANGED)
 
-    def _on_translation_submitted(self, text:str) -> None:
+    def _on_translation_submit(self, text:str) -> None:
         """ Display user entry errors in the caption. """
         self._clear_page()
         args = text.split(self.TR_DELIMITER, 1)
@@ -282,10 +284,11 @@ class DisplayController:
         """ Connect all Qt signals for user actions and set the callback functions. """
         self._call_example_search = call_example_search
         self._call_query = call_query
-        self._graph.connect_signals(self._on_graph_over, self._on_graph_clicked)
-        self._board.connect_signals(self._on_board_resized, self._on_link_clicked)
-        self._title.connect_signals(self._on_translation_edited, self._on_translation_submitted)
-        self._w_slider.valueChanged.connect(self._on_request_requery)
+        self._graph.connect_signals(self._on_graph_over, self._on_graph_click)
+        self._board.connect_signals(self._on_board_resize)
+        self._title.connect_signals(self._on_translation_edit, self._on_translation_submit)
+        self._w_slider.valueChanged.connect(self._on_slider_move)
+        self._w_link_examples.linkActivated.connect(self._on_link_click)
 
     def get_board_ratio(self) -> float:
         return self._board.get_ratio()

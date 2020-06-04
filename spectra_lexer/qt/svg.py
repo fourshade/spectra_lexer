@@ -15,6 +15,12 @@ def _ensure_bytes(data:QtSVGData) -> bytes:
     return data
 
 
+def svg_save(data:QtSVGData, filename:str) -> None:
+    svg_data = _ensure_bytes(data)
+    with open(filename, 'wb') as fp:
+        fp.write(svg_data)
+
+
 class SVGConverter:
     """ Converts SVG images to raster formats. """
 
