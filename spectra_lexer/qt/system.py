@@ -42,41 +42,32 @@ class QtExceptionHook(QObject):
         self._prev_excepthook = None
 
 
-class QtSignalCaller(QObject):
-    """ Allows any thread to execute functions on this object's event loop using a Qt signal. """
+class QtTaskExecutor(QObject):
+    """ Manages a queue that executes GUI tasks on the main thread and long-running operations on a worker thread. """
 
-    _sig_call = pyqtSignal([object, tuple, dict])
+    _sig_call_main = pyqtSignal([object, tuple])  # Allows this thread to execute functions on the main event loop.
 
     def __init__(self) -> None:
         super().__init__()
-        self._sig_call.connect(lambda func, args, kwargs: func(*args, **kwargs))
-
-    def __call__(self, func:Callable=None, *args, **kwargs) -> None:
-        if func is not None:
-            self._sig_call.emit(func, args, kwargs)
-
-
-class QtAsyncDispatcher:
-    """ Executes long-running operations on a separate thread. """
-
-    def __init__(self) -> None:
         self._q = Queue()
         self._thread = QThread()
-        self._call_on_main = QtSignalCaller()
 
-    def dispatch(self, func:Callable, *args, on_start:Callable=None, on_finish:Callable=None, **kwargs) -> None:
-        """ Add <func> as a task with the given <args> and <kwargs> and send back results using a Qt signal.
-            <on_start>, if given, will be called on the main thread with no arguments just before the task starts.
-            <on_finish>, if given, must accept the return value of this function as its only argument. """
-        self._q.put((func, args, kwargs, on_start, on_finish))
-        if not self._thread.isRunning():
-            self._thread.run = self._run
-            self._thread.start()
+    def on_main(self, func:Callable, *args) -> None:
+        """ Add <func> as a task with the given <args> to be called on the main thread. """
+        self._q.put((self._sig_call_main.emit, func, args))
+
+    def on_worker(self, func:Callable, *args) -> None:
+        """ Add <func> as a task with the given <args> to be called on the worker thread. """
+        self._q.put((func, *args))
 
     def _run(self) -> None:
         """ Loop through the queue and execute each item in turn. """
         while True:
-            func, args, kwargs, on_start, on_finish = self._q.get()
-            self._call_on_main(on_start)
-            value = func(*args, **kwargs)
-            self._call_on_main(on_finish, value)
+            func, *args = self._q.get()
+            func(*args)
+
+    def start(self) -> None:
+        """ Start the worker thread and connect the signal that applies functions on the main thread. """
+        self._sig_call_main.connect(lambda func, args: func(*args))
+        self._thread.run = self._run
+        self._thread.start()

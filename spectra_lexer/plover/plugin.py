@@ -76,14 +76,11 @@ class EngineWrapper:
             The callback must be wrapped in a partial for signals to reach it...no idea why. """
         self._engine.signal_connect(key, partial(callback))
 
-    def get_dictionaries(self) -> IPlover.StenoDictionaryCollection:
-        """ Return the currently loaded set of dictionaries from the engine. """
-        return self._engine.dictionaries
-
-    def compile_dict(self, steno_dc:IPlover.StenoDictionaryCollection) -> TupleStenoDict:
-        """ As a plugin, we lock the Plover engine just long enough to copy its steno dictionaries.
+    def compile_dictionaries(self) -> TupleStenoDict:
+        """ As a plugin, we lock the Plover engine just long enough to copy its current steno dictionaries.
             The contents are strings and tuples of strings, so we are thread-safe after this point. """
         with self._engine:
+            steno_dc = self._engine.dictionaries
             return steno_dc_to_dict(steno_dc)
 
     def get_last_strokes(self) -> Sequence[str]:
@@ -150,8 +147,9 @@ class PloverExtension:
         """ Convert and merge all translations in <steno_dc> into a string dict.
             If None, convert the current set of dictionaries from the engine. """
         if steno_dc is None:
-            steno_dc = self._engine.get_dictionaries()
-        d_tuple = self._engine.compile_dict(steno_dc)
+            d_tuple = self._engine.compile_dictionaries()
+        else:
+            d_tuple = steno_dc_to_dict(steno_dc)
         keys_iter = map(self._stroke_delim.join, d_tuple)
         items_iter = zip(keys_iter, d_tuple.values())
         return dict(items_iter)

@@ -14,7 +14,7 @@ from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
-from spectra_lexer.qt.system import QtAsyncDispatcher, QtExceptionHook
+from spectra_lexer.qt.system import QtTaskExecutor, QtExceptionHook
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.translations import ExamplesDict, TranslationsDict, TranslationsIO
 from spectra_lexer.util.config import SimpleConfigDict
@@ -45,10 +45,17 @@ class GUILayerExtended(GUILayer):
         """ Send a new examples index dict to the search engine. """
         self._search_engine.set_examples(examples)
 
-    def load_examples(self, filename:str=None) -> None:
+    def load_examples(self, filename:str) -> None:
         """ Load an examples index from a JSON file. """
-        examples = self._io.load_json_examples(filename or self._examples_path)
+        examples = self._io.load_json_examples(filename)
         self.set_examples(examples)
+
+    def load_start_examples(self) -> None:
+        """ Load the startup examples index. Ignore I/O errors since it may be missing. """
+        try:
+            self.load_examples(self._examples_path)
+        except OSError:
+            pass
 
     def compile_examples(self, size:int) -> None:
         """ Run the lexer on all translations with an optional <size> filter and look at the top-level rule IDs.
@@ -68,19 +75,11 @@ class GUILayerExtended(GUILayer):
 
     def load_config(self) -> bool:
         """ Load the config file. If missing, create it with default values and return True. """
-        is_first_run = not self._config.read()
-        if is_first_run:
+        is_missing = not self._config.read()
+        if is_missing:
             options = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
             self.update_config(options)
-        return is_first_run
-
-    def load_user_files(self) -> bool:
-        """ Load the examples index and config files. Ignore I/O errors since either may be missing. """
-        try:
-            self.load_examples()
-        except OSError:
-            pass
-        return self.load_config()
+        return is_missing
 
 
 class QtGUIApplication:
@@ -88,10 +87,10 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, gui:GUILayerExtended, async_dsp:QtAsyncDispatcher, window:WindowController,
+    def __init__(self, gui:GUILayerExtended, tasks:QtTaskExecutor, window:WindowController,
                  menu:MenuController, search:SearchController, display:DisplayController) -> None:
         self._gui = gui
-        self._async_dsp = async_dsp
+        self._tasks = tasks
         self._window = window
         self._menu = menu
         self._search = search
@@ -151,54 +150,72 @@ class QtGUIApplication:
         out = self._gui.search_examples(link_ref)
         self._update_gui(out)
 
-    def run_async(self, func:Callable, *args, callback:Callable=None, msg_start:str=None, msg_done:str=None) -> None:
-        """ Start a blocking async task. If <msg_start> is not None, show it and disable the window controls.
-            Make a callback that will re-enable the controls and show <msg_done> when the task is done.
+    def has_focus(self) -> bool:
+        return self._window.has_focus()
+
+    def show(self) -> None:
+        self._window.show()
+
+    def close(self) -> None:
+        self._window.close()
+
+    def set_status(self, status:str) -> None:
+        self._display.set_status(status)
+
+    def set_enabled(self, enabled:bool) -> None:
+        """ Enable/disable all widgets. """
+        self._menu.set_enabled(enabled)
+        self._search.set_enabled(enabled)
+        self._display.set_enabled(enabled)
+
+    def _set_async_mode(self, enabled:bool, status:str=None) -> None:
+        """ Set the GUI enabled mode with an optional message when GUI-blocking operations are running. """
+        self.set_enabled(enabled)
+        if status is not None:
+            self.set_status(status)
+
+    def run_async(self, func:Callable, *args, msg_start:str=None, msg_finish:str=None) -> None:
+        """ Run a blocking task on another thread. Disable the window controls and show <msg_start> first.
+            Queue a callback that will re-enable the controls and show <msg_finish> when the task is done.
             GUI events may misbehave unless explicitly processed before the async thread takes the GIL. """
         q_app = QApplication.instance()
-        def on_task_start() -> None:
-            if msg_start is not None:
-                self.set_enabled(False)
-                self.set_status(msg_start)
-        def on_task_finish(val) -> None:
-            if msg_start is not None:
-                self.set_enabled(True)
-            if msg_done is not None:
-                self.set_status(msg_done)
-            if callback is not None:
-                callback(val)
         q_app.processEvents()
-        self._async_dsp.dispatch(func, *args, on_start=on_task_start, on_finish=on_task_finish)
+        self._tasks.on_main(self._set_async_mode, False, msg_start)
+        self._tasks.on_worker(func, *args)
+        self._tasks.on_main(self._set_async_mode, True, msg_finish)
 
-    def _on_ready(self, is_first_run:bool) -> None:
-        """ When all resources are ready, connect the GUI callbacks.
+    def _on_ready(self) -> None:
+        """ When all major resources are ready, load the config and connect the GUI callbacks.
             Present an index generation dialog if this is the first time the program has been run. """
+        is_first_run = self._gui.load_config()
         self._search.connect_signals(self.gui_search, self.gui_query)
         self._display.connect_signals(self.gui_search_examples, self.gui_query)
         if is_first_run:
             self.confirm_startup_index()
 
-    def load_user_files(self) -> None:
+    def start(self, loader:Callable, *args) -> None:
         """ Load initial data asynchronously on a new thread to avoid blocking the GUI. """
-        self.run_async(self._gui.load_user_files, callback=self._on_ready,
-                       msg_start="Loading...", msg_done="Loading complete.")
+        self._tasks.start()
+        self.run_async(loader, *args, msg_start="Loading...", msg_finish="Loading complete.")
+        self._tasks.on_main(self._on_ready)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self._window.open_files("Load Translations", "json")
         if filenames:
             self.run_async(self._gui.load_translations, *filenames,
-                           msg_start="Loading files...", msg_done="Loaded translations from file dialog.")
+                           msg_start="Loading files...", msg_finish="Loaded translations from file dialog.")
 
     def open_index(self) -> None:
         """ Present a dialog for the user to select an index file and attempt to load it unless cancelled. """
         filename = self._window.open_file("Load Index", "json")
         if filename:
             self.run_async(self._gui.load_examples, filename,
-                           msg_start="Loading file...", msg_done="Loaded index from file dialog.")
+                           msg_start="Loading file...", msg_finish="Loaded index from file dialog.")
 
     def _config_edited(self, options:dict) -> None:
-        self.run_async(self._gui.update_config, options, msg_done="Configuration saved.")
+        self._gui.update_config(options)
+        self.set_status("Configuration saved.")
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
@@ -214,7 +231,7 @@ class QtGUIApplication:
     def _make_index(self, size:int) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
         self.run_async(self._gui.compile_examples, size,
-                       msg_start="Making new index...", msg_done="Successfully created index!")
+                       msg_start="Making new index...", msg_finish="Successfully created index!")
 
     def confirm_startup_index(self) -> None:
         """ Present a modal dialog for the user to approve making a default-sized index on first start. """
@@ -244,24 +261,6 @@ class QtGUIApplication:
             dialog.set_namespace(vars(self), root_package=__package__)
             dialog.show()
 
-    def has_focus(self) -> bool:
-        return self._window.has_focus()
-
-    def show(self) -> None:
-        self._window.show()
-
-    def close(self) -> None:
-        self._window.close()
-
-    def set_status(self, status:str) -> None:
-        self._display.set_status(status)
-
-    def set_enabled(self, enabled:bool) -> None:
-        """ Enable/disable all widgets when GUI-blocking operations are running. """
-        self._menu.set_enabled(enabled)
-        self._search.set_enabled(enabled)
-        self._display.set_enabled(enabled)
-
     def on_exception(self, exc:BaseException) -> None:
         """ Store unhandled exceptions and enable all widgets afterward to allow debugging. """
         self.last_exception = exc
@@ -274,7 +273,7 @@ def build_app(gui:GUILayerExtended, logger:Callable[[str], None]) -> QtGUIApplic
     exc_man.add_logger(logger)
     exc_hook = QtExceptionHook(chain_hooks=False)
     exc_hook.connect(exc_man.on_exception)
-    async_dsp = QtAsyncDispatcher()
+    tasks = QtTaskExecutor()
     w_window = QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(w_window)
@@ -285,7 +284,7 @@ def build_app(gui:GUILayerExtended, logger:Callable[[str], None]) -> QtGUIApplic
     search = SearchController(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
     display = DisplayController(ui.w_title, ui.w_graph, ui.w_board, ui.w_caption,
                                 ui.w_slider, ui.w_link_examples, ui.w_link_save)
-    app = QtGUIApplication(gui, async_dsp, window, menu, search, display)
+    app = QtGUIApplication(gui, tasks, window, menu, search, display)
     exc_man.add_logger(display.show_traceback)
     exc_man.add_handler(app.on_exception)
     menu.add(app.open_translations, "File", "Load Translations...")
