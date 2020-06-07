@@ -10,12 +10,15 @@ from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
 from spectra_lexer.qt.config import ConfigDialog
-from spectra_lexer.qt.display import DisplayBoard, DisplayController, DisplayGraph, DisplayPageData, DisplayTitle
+from spectra_lexer.qt.display import DisplayController, DisplayPageData
+from spectra_lexer.qt.board import DisplayBoard
+from spectra_lexer.qt.graph import DisplayGraph
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchController
 from spectra_lexer.qt.system import QtTaskExecutor, QtExceptionHook
+from spectra_lexer.qt.title import DisplayTitle
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.util.exception import ExceptionManager
 
@@ -242,14 +245,17 @@ def build_app(engine:GUIEngine, ext:GUIExtension, logger:Callable[[str], None]) 
     app = QtGUIApplication(engine, ext, tasks, window, menu, search, display)
     exc_man.add_logger(display.show_traceback)
     exc_man.add_handler(app.on_exception)
-    menu.add(app.open_translations, "File", "Load Translations...")
-    menu.add(app.open_index, "File", "Load Index...")
-    menu.add_separator("File")
-    menu.add(app.close, "File", "Close")
-    menu.add(app.config_editor, "Tools", "Edit Configuration...")
-    menu.add(app.custom_index, "Tools", "Make Index...")
-    menu.add(app.debug_console, "Debug", "Open Console...")
-    menu.add(app.debug_tree, "Debug", "View Object Tree...")
+    f_menu = menu.get_section("File")
+    f_menu.addItem(app.open_translations, "Load Translations...")
+    f_menu.addItem(app.open_index, "Load Index...")
+    f_menu.addSeparator()
+    f_menu.addItem(app.close, "Close")
+    t_menu = menu.get_section("Tools")
+    t_menu.addItem(app.config_editor, "Edit Configuration...")
+    t_menu.addItem(app.custom_index, "Make Index...")
+    d_menu = menu.get_section("Debug")
+    d_menu.addItem(app.debug_console, "Open Console...")
+    d_menu.addItem(app.debug_tree, "View Object Tree...")
     app.set_enabled(False)
     app.show()
     # Some object references must be saved in an attribute or else Qt will disconnect the signals upon scope exit.

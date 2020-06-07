@@ -3,24 +3,25 @@
 
 from typing import List
 
-from PyQt5.QtCore import pyqtSignal, QItemSelection, QStringListModel, Qt, QUrl
-from PyQt5.QtGui import QPainter, QPicture, QWheelEvent
+from PyQt5.QtCore import pyqtSignal, QItemSelection, QPoint, QRect, QStringListModel, Qt, QUrl
+from PyQt5.QtGui import QContextMenuEvent, QPainter, QPicture, QWheelEvent
 from PyQt5.QtWidgets import QListView, QTextBrowser, QWidget
 
 
 class PictureWidget(QWidget):
     """ Generic widget using a QPicture as a paint buffer. """
 
-    resized = pyqtSignal()  # Sent on widget resize.
-
     def __init__(self, *args) -> None:
         super().__init__(*args)
         self._picture = QPicture()  # Last saved picture rendering.
 
     def __enter__(self) -> QPicture:
-        """ Reset the current picture and return it for rendering. """
-        self._picture = QPicture()
-        return self._picture
+        """ Reset the current picture, size it to match the widget, and return it for rendering. """
+        self._picture = picture = QPicture()
+        rect = QRect()
+        rect.setSize(self.size())
+        picture.setBoundingRect(rect)
+        return picture
 
     def __exit__(self, *_) -> None:
         """ Repaint the widget after rendering is complete. """
@@ -31,8 +32,19 @@ class PictureWidget(QWidget):
         with QPainter(self) as p:
             self._picture.play(p)
 
+    # should be inherited from a: """ Mixin to send a signal on a context menu request (right-click). """
+
+    contextMenuRequest = pyqtSignal([QPoint])
+
+    def contextMenuEvent(self, event:QContextMenuEvent) -> None:
+        pos = event.globalPos()
+        self.contextMenuRequest.emit(pos)
+
+    # should be inherited from a: """ Mixin to send a signal on any widget size change. """
+
+    resized = pyqtSignal()
+
     def resizeEvent(self, *_) -> None:
-        """ Send a signal on any size change. """
         self.resized.emit()
 
 

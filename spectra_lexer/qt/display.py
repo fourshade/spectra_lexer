@@ -1,13 +1,12 @@
-from itertools import cycle
-from typing import Callable, Dict, Sequence, Tuple
+from typing import Callable, Dict, Tuple
 
-from PyQt5.QtCore import QTimer, QUrl
-from PyQt5.QtGui import QTextCharFormat
-from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
+from PyQt5.QtWidgets import QLabel, QSlider
 
-from .file import save_file_dialog
-from .svg import QtSVGData, SVGEngine
-from .widgets import HyperlinkTextBrowser, PictureWidget
+from spectra_lexer.qt.board import DisplayBoard
+from spectra_lexer.qt.graph import DisplayGraph
+from spectra_lexer.qt.title import DisplayTitle
+
+from .svg import QtSVGData
 
 ExamplesCallback = Callable[[str], None]
 QueryCallback = Callable[[str, str], None]
@@ -24,139 +23,6 @@ class DisplayPageData:
 
 
 EMPTY_PAGE_DATA = DisplayPageData(("", ""), "", "", "")
-
-
-class DisplayTitle:
-    """ Wrapper for title bar widget that displays plaintext as well as simple text animations. """
-
-    def __init__(self, w_title:QLineEdit) -> None:
-        self._w_title = w_title
-        self._anim_timer = QTimer(w_title)  # Animation timer for loading messages.
-        self._call_on_submit = None
-
-    def _on_submit_text(self) -> None:
-        """ Submit the title bar text to the callback. """
-        text = self._w_title.text()
-        self._call_on_submit(text)
-
-    def connect_signals(self, on_edit:Callable[[str], None], on_submit:Callable[[str], None]) -> None:
-        """ Connect Qt signals and set callback functions. """
-        self._call_on_submit = on_submit
-        self._w_title.textEdited.connect(on_edit)
-        self._w_title.returnPressed.connect(self._on_submit_text)
-
-    def set_enabled(self, enabled:bool) -> None:
-        """ The title bar should be set read-only instead of disabled to continue showing status messages. """
-        self._w_title.setReadOnly(not enabled)
-
-    def set_static_text(self, text:str) -> None:
-        """ Stop any animation and show normal text in the title bar. """
-        self._anim_timer.stop()
-        self._w_title.setText(text)
-
-    def set_animated_text(self, text_items:Sequence[str], delay_ms:int) -> None:
-        """ Set the widget text to animate over <text_items> on a timed cycle.
-            The first item is shown immediately, then a new one is shown every <delay_ms> milliseconds. """
-        if text_items:
-            show_next_item = map(self._w_title.setText, cycle(text_items)).__next__
-            show_next_item()
-            self._anim_timer.timeout.connect(show_next_item)
-            self._anim_timer.start(delay_ms)
-
-
-class DisplayGraph:
-    """ Formatted text widget for displaying a monospaced HTML graph of the breakdown of text by steno rules.
-        May also display plaintext output such as error messages and exceptions when necessary. """
-
-    def __init__(self, w_graph:HyperlinkTextBrowser) -> None:
-        self._w_graph = w_graph
-        self._mouse_enabled = False  # If True, all graph mouse actions are disabled.
-        self._has_focus = False      # If True, freeze focus on the current page and do not allow mouseover signals.
-        self._call_on_mouse_over = None
-        self._call_on_mouse_click = None
-
-    def _on_link_over(self, url:QUrl) -> None:
-        """ If the graph is enabled, send the fragment string of the URL under the cursor.
-            When we move off of a link, this will be sent with an empty string.
-            Do not allow mouseover signals if focus is active. """
-        if self._mouse_enabled and not self._has_focus:
-            self._call_on_mouse_over(url.fragment())
-
-    def _on_link_click(self, url:QUrl) -> None:
-        """ If the graph is enabled, send the fragment string of the clicked URL.
-            When we click something that isn't a link, this will be sent with an empty string. """
-        if self._mouse_enabled:
-            self._call_on_mouse_click(url.fragment())
-
-    def connect_signals(self, on_mouse_over:Callable[[str], None], on_mouse_click:Callable[[str], None]) -> None:
-        """ Connect Qt signals and set callback functions. """
-        self._call_on_mouse_over = on_mouse_over
-        self._call_on_mouse_click = on_mouse_click
-        self._w_graph.linkOver.connect(self._on_link_over)
-        self._w_graph.linkClicked.connect(self._on_link_click)
-
-    def set_enabled(self, enabled:bool) -> None:
-        self._w_graph.setEnabled(enabled)
-
-    def set_focus(self, enabled:bool) -> None:
-        """ Set the focus state of the graph. Mouseover signals will be suppressed when focus is active. """
-        self._has_focus = enabled
-
-    def set_graph_text(self, text:str) -> None:
-        """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
-        self._mouse_enabled = True
-        self._w_graph.setHtml(text, no_scroll=True)
-
-    def set_plaintext(self, text:str) -> None:
-        """ Disable graph interaction and replace the current text with new plaintext. """
-        self._mouse_enabled = False
-        self._w_graph.clear()
-        self._w_graph.setCurrentCharFormat(QTextCharFormat())
-        self._w_graph.append(text)
-
-
-class DisplayBoard:
-    """ Displays all of the keys that make up one or more steno strokes pictorally. """
-
-    def __init__(self, w_board:PictureWidget, w_link_save:QLabel) -> None:
-        self._w_board = w_board          # Board diagram container widget.
-        self._w_link_save = w_link_save  # Hyperlink to save diagram as file.
-        self._svg = SVGEngine()
-
-    def get_size(self) -> Tuple[float, float]:
-        """ Return the size of the board widget. """
-        return self._w_board.width(), self._w_board.height()
-
-    def _draw_board(self) -> None:
-        """ Render the diagram to the board widget. """
-        width, height = self.get_size()
-        bounds = self._svg.best_fit(width, height)
-        with self._w_board as target:
-            self._svg.render(target, bounds)
-
-    def _on_resize(self, *_) -> None:
-        """ Redraw the board on any size change. """
-        self._draw_board()
-
-    def _on_link_click(self, *_) -> None:
-        """ Save the current diagram to an SVG file on link click. """
-        filename = save_file_dialog(self._w_board, "Save File", "svg|png", "board.svg")
-        if filename:
-            if filename.endswith('png'):
-                self._svg.save_png(filename)
-            else:
-                self._svg.save(filename)
-
-    def connect_signals(self) -> None:
-        """ Connect Qt signals and set callback functions. """
-        self._w_board.resized.connect(self._on_resize)
-        self._w_link_save.linkActivated.connect(self._on_link_click)
-
-    def set_data(self, data:QtSVGData) -> None:
-        """ Load the renderer with new SVG data and redraw the board. """
-        self._svg.load(data)
-        self._w_link_save.setVisible(bool(data))
-        self._draw_board()
 
 
 class DisplayController:
@@ -272,8 +138,8 @@ class DisplayController:
 
     def get_board_ratio(self) -> float:
         """ Return the width / height aspect ratio of the board widget. """
-        width, height = self._board.get_size()
-        return width / height
+        size = self._board.get_size()
+        return size.width() / size.height()
 
     def get_board_compound(self) -> bool:
         """ The board is compound if not in keys mode (slider at top, value=0). """
