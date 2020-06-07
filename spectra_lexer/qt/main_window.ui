@@ -14,7 +14,7 @@
    <string>Spectra Lexer</string>
   </property>
   <widget class="QWidget" name="w_central">
-   <layout class="QGridLayout" name="lt_central" rowminimumheight="22,210,180" columnminimumwidth="150,275">
+   <layout class="QGridLayout" name="lt_central" rowminimumheight="22,180,180" columnminimumwidth="150,275">
     <property name="leftMargin">
      <number>6</number>
     </property>
@@ -365,7 +365,7 @@
       <property name="frameShape">
        <enum>QFrame::StyledPanel</enum>
       </property>
-      <layout class="QGridLayout" name="lt_info">
+      <layout class="QGridLayout" name="lt_info" rowstretch="1,0">
        <property name="leftMargin">
         <number>6</number>
        </property>
@@ -378,7 +378,7 @@
        <property name="bottomMargin">
         <number>6</number>
        </property>
-       <item row="0" column="0">
+       <item row="0" column="0" rowspan="2">
         <layout class="QVBoxLayout" name="lt_info_main">
          <property name="spacing">
           <number>2</number>
@@ -435,7 +435,7 @@
          </item>
         </layout>
        </item>
-       <item row="0" column="0">
+       <item row="1" column="0">
         <layout class="QHBoxLayout" name="lt_info_links">
          <item>
           <widget class="QLabel" name="w_link_save">
@@ -447,9 +447,6 @@
            </property>
            <property name="alignment">
             <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
-           </property>
-           <property name="textInteractionFlags">
-            <set>Qt::LinksAccessibleByKeyboard|Qt::LinksAccessibleByMouse</set>
            </property>
           </widget>
          </item>
@@ -463,9 +460,6 @@
            </property>
            <property name="alignment">
             <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
-           </property>
-           <property name="textInteractionFlags">
-            <set>Qt::LinksAccessibleByKeyboard|Qt::LinksAccessibleByMouse</set>
            </property>
           </widget>
          </item>

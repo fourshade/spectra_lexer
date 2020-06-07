@@ -33,7 +33,7 @@ size = {}: includes everything.
 """
 
 
-class IndexSizeSlider(QSlider):
+class TooltipSlider(QSlider):
     """ Qt interactive slider that displays its value in a tooltip when moved. """
 
     def sliderChange(self, change:int) -> None:
@@ -53,9 +53,9 @@ class IndexSizeDialog(QDialog):
         super().__init__(*args)
         self.setWindowTitle("Choose Index Size")
         self.set_size(360, 320)
-        self._heading = heading = QLabel(self)         # Index size description label.
+        self._heading = heading = QLabel(self)       # Index size description label.
         heading.setWordWrap(True)
-        self._slider = slider = IndexSizeSlider(self)  # Horizontal slider widget.
+        self._slider = slider = TooltipSlider(self)  # Horizontal slider widget.
         slider.setOrientation(Qt.Horizontal)
         slider.setTickPosition(QSlider.TicksBelow)
         slider.setTickInterval(1)

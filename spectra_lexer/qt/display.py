@@ -2,7 +2,7 @@ from itertools import cycle
 from typing import Callable, Dict, Sequence, Tuple
 
 from PyQt5.QtCore import QTimer, QUrl
-from PyQt5.QtGui import QPicture, QTextCharFormat
+from PyQt5.QtGui import QTextCharFormat
 from PyQt5.QtWidgets import QLabel, QLineEdit, QSlider
 
 from .file import save_file_dialog
@@ -26,7 +26,7 @@ class DisplayPageData:
 EMPTY_PAGE_DATA = DisplayPageData(("", ""), "", "", "")
 
 
-class _TitleWrapper:
+class DisplayTitle:
     """ Wrapper for title bar widget that displays plaintext as well as simple text animations. """
 
     def __init__(self, w_title:QLineEdit) -> None:
@@ -64,7 +64,7 @@ class _TitleWrapper:
             self._anim_timer.start(delay_ms)
 
 
-class _GraphWrapper:
+class DisplayGraph:
     """ Formatted text widget for displaying a monospaced HTML graph of the breakdown of text by steno rules.
         May also display plaintext output such as error messages and exceptions when necessary. """
 
@@ -115,32 +115,28 @@ class _GraphWrapper:
         self._w_graph.append(text)
 
 
-class _BoardWrapper:
+class DisplayBoard:
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
     def __init__(self, w_board:PictureWidget, w_link_save:QLabel) -> None:
         self._w_board = w_board          # Board diagram container widget.
         self._w_link_save = w_link_save  # Hyperlink to save diagram as file.
         self._svg = SVGEngine()
-        self._call_on_resize = None
 
-    def _get_size(self) -> Tuple[float, float]:
+    def get_size(self) -> Tuple[float, float]:
         """ Return the size of the board widget. """
         return self._w_board.width(), self._w_board.height()
 
     def _draw_board(self) -> None:
-        """ Render the diagram on a new picture and repaint the board. """
-        width, height = self._get_size()
+        """ Render the diagram to the board widget. """
+        width, height = self.get_size()
         bounds = self._svg.best_fit(width, height)
-        gfx = QPicture()
-        self._svg.render(gfx, bounds)
-        self._w_board.setPicture(gfx)
+        with self._w_board as target:
+            self._svg.render(target, bounds)
 
-    def _on_resize(self) -> None:
+    def _on_resize(self, *_) -> None:
         """ Redraw the board on any size change. """
-        width, height = self._get_size()
         self._draw_board()
-        self._call_on_resize(width, height)
 
     def _on_link_click(self, *_) -> None:
         """ Save the current diagram to an SVG file on link click. """
@@ -151,16 +147,10 @@ class _BoardWrapper:
             else:
                 self._svg.save(filename)
 
-    def connect_signals(self, on_resize:Callable[[float, float], None]) -> None:
+    def connect_signals(self) -> None:
         """ Connect Qt signals and set callback functions. """
-        self._call_on_resize = on_resize
         self._w_board.resized.connect(self._on_resize)
         self._w_link_save.linkActivated.connect(self._on_link_click)
-
-    def get_ratio(self) -> float:
-        """ Return the width / height aspect ratio of the board widget. """
-        width, height = self._get_size()
-        return width / height
 
     def set_data(self, data:QtSVGData) -> None:
         """ Load the renderer with new SVG data and redraw the board. """
@@ -173,26 +163,22 @@ class DisplayController:
 
     _DEFAULT_PAGE_KEY = "_DEFAULT"  # Dict key for default display page (nothing selected).
 
-    RESIZE_STEP_PX = 100  # Required size change for the board widget to force an aspect ratio query.
-
     TR_DELIMITER = '->'  # Delimiter between keys and letters of translations shown in title bar.
     TR_MSG_CHANGED = "Press Enter to parse any changes."
     TR_MSG_EDELIMITERS = 'ERROR: An arrow "->" must separate the steno keys and translated text.'
     TR_MSG_EBLANK = 'ERROR: One or both sides is empty.'
 
-    def __init__(self, w_title:QLineEdit, w_graph:HyperlinkTextBrowser, w_board:PictureWidget,
-                 w_caption:QLabel, w_slider:QSlider, w_link_examples:QLabel, w_link_save:QLabel) -> None:
-        """ Wrap each widget and build the title/graph/board display controller. """
-        self._title = _TitleWrapper(w_title)
-        self._graph = _GraphWrapper(w_graph)
-        self._board = _BoardWrapper(w_board, w_link_save)
+    def __init__(self, title:DisplayTitle, graph:DisplayGraph, board:DisplayBoard,
+                 w_caption:QLabel, w_slider:QSlider, w_link_examples:QLabel) -> None:
+        self._title = title
+        self._graph = graph
+        self._board = board
         self._w_caption = w_caption  # Label with caption containing rule keys/letters/description.
         self._w_slider = w_slider    # Slider to control board rendering options.
         self._w_link_examples = w_link_examples  # Rule example hyperlink.
         self._page_dict = {}
         self._last_link_ref = ""
         self._last_translation = None
-        self._last_resize_step = 0
         self._call_example_search = None
         self._call_query = None
 
@@ -256,15 +242,6 @@ class DisplayController:
         """ On slider movements, resend the last query to get new pages rendered. """
         self._send_query()
 
-    def _on_board_resize(self, width:float, height:float) -> None:
-        """ Redrawing the entire set of pages on every resize signal is *far* too expensive.
-            Instead we only redraw as the dimensions pass certain set points. """
-        rstep = int(width + height) // self.RESIZE_STEP_PX
-        if rstep != self._last_resize_step:
-            self._last_resize_step = rstep
-            # XXX dynamic resizing currently has too many problems
-            # self._on_request_requery()
-
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
         self._set_caption(self.TR_MSG_CHANGED)
@@ -288,13 +265,15 @@ class DisplayController:
         self._call_example_search = call_example_search
         self._call_query = call_query
         self._graph.connect_signals(self._on_graph_over, self._on_graph_click)
-        self._board.connect_signals(self._on_board_resize)
+        self._board.connect_signals()
         self._title.connect_signals(self._on_translation_edit, self._on_translation_submit)
         self._w_slider.valueChanged.connect(self._on_slider_move)
         self._w_link_examples.linkActivated.connect(self._on_link_click)
 
     def get_board_ratio(self) -> float:
-        return self._board.get_ratio()
+        """ Return the width / height aspect ratio of the board widget. """
+        width, height = self._board.get_size()
+        return width / height
 
     def get_board_compound(self) -> bool:
         """ The board is compound if not in keys mode (slider at top, value=0). """

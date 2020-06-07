@@ -74,7 +74,7 @@ class ComponentBench:
     def run_gui(self, n=1000) -> None:
         samples = _random_translations(n)
         app = app_start()
-        self._profiler.run(app._gui.query, samples)
+        self._profiler.run(app._gui_engine.query, samples)
 
     def run_http(self, n=500) -> None:
         from spectra_lexer.http.tcp import TCPConnection, TCPServer

@@ -143,16 +143,21 @@ class PloverExtension:
         """ Set a callback to receive user input actions. """
         self._engine.signal_connect("translated", callback)
 
-    def parse_dictionaries(self, steno_dc:IPlover.StenoDictionaryCollection=None) -> StringStenoDict:
-        """ Convert and merge all translations in <steno_dc> into a string dict.
-            If None, convert the current set of dictionaries from the engine. """
-        if steno_dc is None:
-            d_tuple = self._engine.compile_dictionaries()
-        else:
-            d_tuple = steno_dc_to_dict(steno_dc)
+    def _parse_tuple_dict(self, d_tuple:TupleStenoDict) -> StringStenoDict:
+        """ Convert all stroke tuples in <d_tuple> into strings. """
         keys_iter = map(self._stroke_delim.join, d_tuple)
         items_iter = zip(keys_iter, d_tuple.values())
         return dict(items_iter)
+
+    def parse_dictionaries(self, steno_dc:IPlover.StenoDictionaryCollection) -> StringStenoDict:
+        """ Convert and merge all translations in <steno_dc> into a string dict. """
+        d_tuple = steno_dc_to_dict(steno_dc)
+        return self._parse_tuple_dict(d_tuple)
+
+    def parse_engine_dictionaries(self) -> StringStenoDict:
+        """ Convert and merge the Plover engine's current dictionaries into a string dict. """
+        d_tuple = self._engine.compile_dictionaries()
+        return self._parse_tuple_dict(d_tuple)
 
     def parse_actions(self, old_actions:IPlover.ActionSequence,
                       new_actions:IPlover.ActionSequence) -> Optional[Tuple[str, str]]:

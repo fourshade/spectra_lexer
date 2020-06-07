@@ -9,24 +9,29 @@ from PyQt5.QtWidgets import QListView, QTextBrowser, QWidget
 
 
 class PictureWidget(QWidget):
-    """ Simple widget that paints a saved QPicture on every paint request. """
+    """ Generic widget using a QPicture as a paint buffer. """
 
     resized = pyqtSignal()  # Sent on widget resize.
 
-    _picture: QPicture = None  # Last saved picture rendering.
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._picture = QPicture()  # Last saved picture rendering.
 
-    def setPicture(self, picture:QPicture=None) -> None:
-        """ Set a new picture (or clear it) and immediately repaint the widget. """
-        self._picture = picture
+    def __enter__(self) -> QPicture:
+        """ Reset the current picture and return it for rendering. """
+        self._picture = QPicture()
+        return self._picture
+
+    def __exit__(self, *_) -> None:
+        """ Repaint the widget after rendering is complete. """
         self.update()
 
-    def paintEvent(self, *args) -> None:
-        """ Paint the saved picture (if any) on this widget when GUI repaint occurs. """
-        if self._picture is not None:
-            with QPainter(self) as p:
-                self._picture.play(p)
+    def paintEvent(self, *_) -> None:
+        """ Paint the saved picture on this widget when GUI repaint occurs. """
+        with QPainter(self) as p:
+            self._picture.play(p)
 
-    def resizeEvent(self, *args) -> None:
+    def resizeEvent(self, *_) -> None:
         """ Send a signal on any size change. """
         self.resized.emit()
 

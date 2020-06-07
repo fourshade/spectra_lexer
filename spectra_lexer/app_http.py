@@ -7,7 +7,7 @@ from typing import Callable
 
 from spectra_lexer import SpectraOptions
 from spectra_lexer.analysis import TranslationFilter
-from spectra_lexer.gui import DisplayData, DisplayPage, GUILayer, GUIOptions, GUIOutput, SearchResults
+from spectra_lexer.gui_engine import DisplayData, DisplayPage, GUIEngine, GUIOptions, GUIOutput, SearchResults
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.json import CustomJSONEncoder, JSONBinaryWrapper, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
@@ -22,17 +22,17 @@ JSON_DATA_CLASSES = [DisplayData, DisplayPage, SearchResults, GUIOutput]
 class HTTPGUIApplication:
     """ Main HTTP application. """
 
-    def __init__(self, gui:GUILayer, log:Callable[[str], None]) -> None:
-        self._gui = gui      # Main steno GUI.
-        self._lock = Lock()  # Lock to protect the main engine, which may not be thread-safe.
-        self._log = log      # Thread-safe logger.
+    def __init__(self, gui_engine:GUIEngine, log:Callable[[str], None]) -> None:
+        self._gui_engine = gui_engine  # Main steno GUI engine.
+        self._lock = Lock()            # Lock to protect the main engine, which may not be thread-safe.
+        self._log = log                # Thread-safe logger.
 
     def _gui_call(self, *, action:str, args:list, options:dict) -> GUIOutput:
         """ Process a GUI app call. Input data includes a GUI action, its arguments (if any), and all options. """
+        opts = GUIOptions(options)
         with self._lock:
-            method = getattr(self._gui, action)
-            opts = GUIOptions(options)
-            self._gui.set_options(opts)
+            method = getattr(self._gui_engine, action)
+            self._gui_engine.set_options(opts)
             return method(*args)
 
     def build_server(self, root_dir:str) -> ThreadedTCPServer:
@@ -91,8 +91,8 @@ def build_app(opts:SpectraOptions) -> HTTPGUIApplication:
         examples = {r_id: dict(pairs_out) for r_id, pairs_out in index.items()}
         io.save_json_examples(index_file)
     search_engine.set_examples(examples)
-    gui = GUILayer(search_engine, analyzer, graph_engine, board_engine)
-    return HTTPGUIApplication(gui, log)
+    gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
+    return HTTPGUIApplication(gui_engine, log)
 
 
 def main() -> int:

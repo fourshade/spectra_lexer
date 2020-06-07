@@ -71,8 +71,8 @@ class GUIOptions:
             self.__dict__.update(options)
 
 
-class GUILayer:
-    """ Layer for common user GUI actions. """
+class GUIEngine:
+    """ Layer for executing common user GUI actions. """
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  graph_engine:GraphEngine, board_engine:BoardEngine, *, index_delim=";") -> None:

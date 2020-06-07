@@ -3,7 +3,9 @@
 from typing import Any
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.gui_qt import build_app, GUILayerExtended, QtGUIApplication
+from spectra_lexer.gui_engine import GUIEngine
+from spectra_lexer.gui_ext import GUIExtension
+from spectra_lexer.gui_qt import build_app, QtGUIApplication
 from spectra_lexer.plover.plugin import EngineWrapper, IPlover, PloverExtension
 from spectra_lexer.qt import WINDOW_ICON_PATH
 
@@ -11,30 +13,32 @@ from spectra_lexer.qt import WINDOW_ICON_PATH
 class PloverPluginApplication:
     """ The highest application layer, exclusive to Plover. Probably needs some flattening. """
 
-    def __init__(self, gui:GUILayerExtended, app:QtGUIApplication, ext:PloverExtension) -> None:
-        self._gui = gui
+    def __init__(self, app:QtGUIApplication, gui_ext:GUIExtension, plover_ext:PloverExtension) -> None:
         self._app = app
-        self._ext = ext
+        self._gui_ext = gui_ext
+        self._plover_ext = plover_ext
 
-    def _set_translations(self, *args) -> None:
-        """ Convert Plover translation dictionaries to string-key format and send the result to the main engine. """
-        translations = self._ext.parse_dictionaries(*args)
-        self._gui.set_translations(translations)
+    def _load_all(self) -> None:
+        """ The startup translations come from the current Plover dictionaries. """
+        translations = self._plover_ext.parse_engine_dictionaries()
+        self._gui_ext.set_translations(translations)
+        self._gui_ext.load_start_examples()
+        self._gui_ext.load_config()
 
-    def _load_user_files(self) -> None:
-        """ Load initial user data. In this case the translations come from the current Plover dictionaries. """
-        self._set_translations()
-        self._gui.load_start_examples()
+    def _load_translations(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
+        translations = self._plover_ext.parse_dictionaries(steno_dc)
+        self._gui_ext.set_translations(translations)
 
-    def on_dictionaries_loaded(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
+    def _on_dictionaries_loaded(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
         """ Load translation dictionaries in async mode to keep the GUI responsive. """
-        self._app.run_async(self._set_translations, steno_dc, msg_start="Loading dictionaries...",
-                            msg_finish="Loaded new dictionaries from Plover.")
+        self._app.async_start("Loading dictionaries...")
+        self._app.async_run(self._load_translations, steno_dc)
+        self._app.async_finish("Loaded new dictionaries from Plover.")
 
-    def on_translated(self, *args:IPlover.ActionSequence) -> None:
+    def _on_translated(self, *args:IPlover.ActionSequence) -> None:
         """ Look up a user's strokes as they are entered, but *not* while the main search window is active.
             User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
-        translation = self._ext.parse_actions(*args)
+        translation = self._plover_ext.parse_actions(*args)
         if translation is not None and not self._app.has_focus():
             keys, letters = translation
             self._app.gui_query(keys, letters, strict=False)
@@ -43,9 +47,9 @@ class PloverPluginApplication:
         """ Start the main app and connect the Plover extension only if compatible. """
         try:
             IPlover.is_compatible()
-            self._app.start(self._load_user_files)
-            self._ext.call_on_dictionaries_loaded(self.on_dictionaries_loaded)
-            self._ext.call_on_translated(self.on_translated)
+            self._app.start(self._load_all)
+            self._plover_ext.call_on_dictionaries_loaded(self._on_dictionaries_loaded)
+            self._plover_ext.call_on_translated(self._on_translated)
         except IPlover.IncompatibleError as e:
             # If the compatibility check fails, abort the loading sequence and show an error message.
             self._app.set_status(f"ERROR: {e}")
@@ -86,13 +90,13 @@ class PloverPlugin:
         spectra = opts.compile(parse_args=False)
         index_path = opts.index_path()
         cfg_path = opts.config_path()
-        gui = GUILayerExtended(spectra.translations_io, index_path, cfg_path, spectra.search_engine,
-                               spectra.analyzer, spectra.graph_engine, spectra.board_engine)
-        app = build_app(gui, spectra.log)
-        ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
+        gui_engine = GUIEngine(spectra.search_engine, spectra.analyzer, spectra.graph_engine, spectra.board_engine)
+        gui_ext = GUIExtension(spectra.translations_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
+        app = build_app(gui_engine, gui_ext, spectra.log)
+        plover_ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
         # Add the extension as an app attribute so it is visible to the Qt app debug tools.
-        app.plover = ext
-        self._main = PloverPluginApplication(gui, app, ext)
+        app.plover = plover_ext
+        self._main = PloverPluginApplication(app, gui_ext, plover_ext)
         self._main.start()
 
     def __getattr__(self, name:str) -> Any:
