@@ -5,14 +5,14 @@ from typing import Dict, Iterable, Iterator, List, Sequence
 
 from .path import ArrowPathGenerator, ChainPathGenerator, PathCommands
 from .rule import BoardRule
-from .svg import SVGElementFactory, SVGStyle, XMLElement
+from .svg import SVGElement, SVGElementFactory, SVGStyle
 from .tfrm import GridLayoutEngine, TransformData
 
 
 class Overlay:
     """ Contains elements which are shifted independently of the main stroke groupings. """
 
-    def iter_elements(self, *tfrms:TransformData) -> Iterator[XMLElement]:
+    def iter_elements(self, *tfrms:TransformData) -> Iterator[SVGElement]:
         raise NotImplementedError
 
 
@@ -25,17 +25,17 @@ class BoardElementGroup:
     ends_stroke = False        # If True, this element group is the last in the current stroke.
     overlay: Overlay = None    # Reserved for special elements that add overlays covering multiple strokes.
 
-    def __init__(self, *elems:XMLElement) -> None:
+    def __init__(self, *elems:SVGElement) -> None:
         self.tfrm = TransformData()  # Contains the approximate center of this element in the current stroke.
         self._elems = [*elems]
 
-    def append(self, elem:XMLElement) -> None:
+    def append(self, elem:SVGElement) -> None:
         self._elems.append(elem)
 
     def get_offset(self) -> complex:
         return self.tfrm.offset()
 
-    def __iter__(self) -> Iterator[XMLElement]:
+    def __iter__(self) -> Iterator[SVGElement]:
         """ Iterate over all finished SVG elements, positioned correctly within the context of a single stroke. """
         return iter(self._elems)
 
@@ -52,7 +52,7 @@ class LinkedOverlay(Overlay):
         self._factory = factory
         self._strokes = s_stroke, e_stroke  # Element groups with the ending of one stroke and the start of another.
 
-    def iter_elements(self, first_tfrm:TransformData, last_tfrm:TransformData, *_) -> Iterator[XMLElement]:
+    def iter_elements(self, first_tfrm:TransformData, last_tfrm:TransformData, *_) -> Iterator[SVGElement]:
         """ For multi-element rules, connect the last element in the first stroke to the first element in the next. """
         s_stroke, e_stroke = self._strokes
         first_offset = s_stroke[-1].get_offset() + first_tfrm.offset()
@@ -61,7 +61,7 @@ class LinkedOverlay(Overlay):
         yield self._stroke_group(s_stroke, first_tfrm)
         yield self._stroke_group(e_stroke, last_tfrm)
 
-    def _iter_layers(self, p1:complex, p2:complex) -> Iterator[XMLElement]:
+    def _iter_layers(self, p1:complex, p2:complex) -> Iterator[SVGElement]:
         """ Yield SVG paths that compose a chain between the endpoints. """
         halves = [PathCommands(), PathCommands()]
         self.PATH_GENERATOR.connect(p1, p2, *halves)
@@ -70,7 +70,7 @@ class LinkedOverlay(Overlay):
             for style in self.LAYER_STYLES:
                 yield self._factory.path(path_data, style)
 
-    def _stroke_group(self, stroke:Iterable[BoardElementGroup], tfrm:TransformData) -> XMLElement:
+    def _stroke_group(self, stroke:Iterable[BoardElementGroup], tfrm:TransformData) -> SVGElement:
         """ Create a new SVG group with every element in <stroke> and translate it by <dx, dy>. """
         elems = []
         for g in stroke:
@@ -175,7 +175,7 @@ class BoardElementFactory:
         items += self._arrow_layers(p2, p1)
         return BoardElementGroup(*items)
 
-    def _arrow_layers(self, start:complex, end:complex) -> Iterator[XMLElement]:
+    def _arrow_layers(self, start:complex, end:complex) -> Iterator[SVGElement]:
         """ Yield SVG path elements that compose an arrow pointing between <start> and <end>.
             Layers are shifted by an incremental offset to create a drop shadow appearance. """
         for style in self.ARROW_STYLES:
@@ -194,7 +194,7 @@ class BoardElementFactory:
         return grp
 
     @staticmethod
-    def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[XMLElement]]:
+    def _stroke_groups(elems:Iterable[BoardElementGroup]) -> List[List[SVGElement]]:
         stroke_elems = []
         stroke_list = [stroke_elems]
         for grp in elems:
@@ -205,7 +205,7 @@ class BoardElementFactory:
         return stroke_list
 
     @staticmethod
-    def _overlays(elems:Iterable[BoardElementGroup], tfrms:Sequence[TransformData]) -> List[XMLElement]:
+    def _overlays(elems:Iterable[BoardElementGroup], tfrms:Sequence[TransformData]) -> List[SVGElement]:
         overlay_list = []
         i = 0
         for grp in elems:
@@ -219,7 +219,7 @@ class BoardElementFactory:
                  layout:GridLayoutEngine, aspect_ratio:float=None) -> str:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
             Transform each diagram to be tiled in a grid layout to match the aspect ratio.
-            Add overlays (if any), put it all in a new SVG document, and return the final encoded string. """
+            Add overlays (if any), put it all in a new SVG document, and return it in string form. """
         strokes = self._stroke_groups(elems)
         stroke_count = len(strokes)
         # If no aspect ratio is given, aspect_ratio=0.0001 ensures that all boards end up in one column.
@@ -240,7 +240,7 @@ class BoardElementFactory:
             root_elements.append(group)
         root_elements += self._overlays(elems, tfrms)
         document = self._factory.svg(*root_elements, viewbox=viewbox)
-        return document.serialize()
+        return str(document)
 
 
 class BoardFactory:
