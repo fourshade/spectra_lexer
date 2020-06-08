@@ -15,35 +15,28 @@ class LexerResult:
         self.unmatched_skeys = unmatched_skeys  # Contains leftover keys we couldn't match.
 
 
-class LexerStates:
+class _LexerStates:
     """ Container for choosing good results from complete and/or terminated lexer states. """
 
     # Data type containing the state of the lexer at some point in time. Must be very lightweight.
     # Implemented as a list: [keys_not_yet_matched, rule1, rule1_start, rule2, rule2_start, ...]
     _LexerState = List[Union[str, LexerRule, int]]
 
-    def __init__(self, complete:Sequence[_LexerState], incomplete:Sequence[_LexerState]=()) -> None:
-        self._complete = complete
-        self._incomplete = incomplete
+    def __init__(self, states:Sequence[_LexerState]) -> None:
+        self._states = states
 
     def best(self, _wt=attrgetter("weight")) -> _LexerState:
-        """ Compare all lexer states and return the best one. Use complete matches if any exist.
+        """ Compare all lexer states and return the best one.
             Each criterion is lazily evaluated, with the first non-zero result determining the winner.
             Some criteria are negative, meaning that more accurate states have smaller values.
             The full compare sequence is inlined to avoid method call overhead. """
-        states = self._complete or self._incomplete
-        # Going in reverse is faster.
-        best, *others = reversed(states)
+        best, *others = self._states
         for other in others:
             if (-len(best[0]) + len(other[0]) or                           # Fewest total keys unmatched.
                 sum(map(_wt, best[1::2])) - sum(map(_wt, other[1::2])) or  # Highest total rule weight.
                -len(best) + len(other)) < 0:                               # Fewest rules.
                 best = other
         return best
-
-    def best_result(self) -> LexerResult:
-        unmatched_skeys, *rulemap = self.best()
-        return LexerResult(rulemap[::2], rulemap[1::2], unmatched_skeys)
 
 
 class StenoLexer:
@@ -57,7 +50,8 @@ class StenoLexer:
         """ Return a list of the best rules that map <skeys> to <letters>,
             their positions in the word, and any keys we couldn't match. """
         states = self._process(skeys, letters)
-        return states.best_result()
+        unmatched_skeys, *rulemap = states.best()
+        return LexerResult(rulemap[::2], rulemap[1::2], unmatched_skeys)
 
     def best_translation(self, skeys_seq:Sequence[str], letters:str) -> int:
         """ Return the index of the best (most accurate) set of keys in <skeys_seq> that maps to <letters>. """
@@ -70,10 +64,10 @@ class StenoLexer:
             states = self._process(skeys, letters)
             unmatched_keys, *rulemap = states.best()
             best_of_each.append([unmatched_keys[:1], *rulemap])
-        best = LexerStates(best_of_each).best()
+        best = _LexerStates(best_of_each).best()
         return best_of_each.index(best)
 
-    def _process(self, skeys:str, letters:str) -> LexerStates:
+    def _process(self, skeys:str, letters:str) -> _LexerStates:
         """ Given a string of formatted s-keys and a matching translation, use steno rules to match keys to printed
             characters in order to generate a series of rules that could possibly produce the translation. """
         # In order to test all possibilities, we need a queue or a stack to hold states.
@@ -98,4 +92,5 @@ class StenoLexer:
                     q_put(state)
                 else:
                     complete_put(state)
-        return LexerStates(complete, q)
+        # There is no need to rank incomplete matches unless we didn't find any complete ones.
+        return _LexerStates(complete or q)

@@ -64,7 +64,7 @@ class ComponentBench:
         counts = [100] * n
         self._profiler.run(spectra.search_engine.search, zip(prefixes, counts))
 
-    def run_lexer(self, n=5000) -> None:
+    def run_lexer(self, n=10000) -> None:
         from spectra_lexer import SpectraOptions
         opts = SpectraOptions()
         spectra = opts.compile()
@@ -76,7 +76,7 @@ class ComponentBench:
         app = app_start()
         self._profiler.run(app._gui_engine.query, samples)
 
-    def run_http(self, n=500) -> None:
+    def run_http(self, n=1000) -> None:
         from spectra_lexer.http.tcp import TCPConnection, TCPServer
         import io, json
         args_list = []

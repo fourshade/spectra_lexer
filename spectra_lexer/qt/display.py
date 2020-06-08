@@ -22,12 +22,10 @@ class DisplayPageData:
         self.link_ref = link_ref            # Target ref for a link to find examples of this rule (empty if none).
 
 
-EMPTY_PAGE_DATA = DisplayPageData(("", ""), "", "", "")
+EMPTY_PAGE_DATA = DisplayPageData((" ", " "), "", "", "")
 
 
 class DisplayController:
-
-    _DEFAULT_PAGE_KEY = "_DEFAULT"  # Dict key for default display page (nothing selected).
 
     TR_DELIMITER = '->'  # Delimiter between keys and letters of translations shown in title bar.
     TR_MSG_CHANGED = "Press Enter to parse any changes."
@@ -43,6 +41,7 @@ class DisplayController:
         self._w_slider = w_slider    # Slider to control board rendering options.
         self._w_link_examples = w_link_examples  # Rule example hyperlink.
         self._page_dict = {}
+        self._default_page = EMPTY_PAGE_DATA
         self._last_link_ref = ""
         self._last_translation = None
         self._call_example_search = None
@@ -71,37 +70,29 @@ class DisplayController:
         self._last_link_ref = link_ref
         self._w_link_examples.setVisible(bool(link_ref))
 
-    def _set_page(self, page:DisplayPageData, focused=False) -> None:
-        """ Change the currently displayed analysis page and set its focus state. """
-        self._graph.set_graph_text(page.html_graphs[focused])
-        self._graph.set_focus(focused)
+    def _show_page(self, page:DisplayPageData, intense:bool) -> None:
+        """ Change the currently displayed analysis page. """
+        self._graph.set_html(page.html_graphs[intense])
         self._set_caption(page.board_caption)
         self._board.set_data(page.board_data)
         self._set_link_ref(page.link_ref)
 
-    def _clear_page(self) -> None:
-        """ Clear the current translation and analysis page and turn off graph interaction. """
+    def _clear(self) -> None:
+        """ Clear the current translation and all analysis pages. """
         self._last_translation = None
-        self._set_page(EMPTY_PAGE_DATA)
+        self._page_dict = {}
+        self._default_page = EMPTY_PAGE_DATA
+        self._show_page(EMPTY_PAGE_DATA, False)
         self._graph.set_plaintext("")
 
-    def _graph_action(self, node_ref:str, focused:bool) -> None:
+    def _on_graph_action(self, node_ref:str, intense:bool) -> None:
         """ On mouse actions, change the current analysis page to the one under <node_ref>.
-            If <node_ref> is an empty string, show the default page with nothing focused. """
-        if not node_ref:
-            focused = False
-            node_ref = self._DEFAULT_PAGE_KEY
-        page = self._page_dict.get(node_ref)
-        if page is not None:
-            self._set_page(page, focused)
-
-    def _on_graph_over(self, node_ref:str) -> None:
-        self._graph_action(node_ref, False)
-
-    def _on_graph_click(self, node_ref:str) -> None:
-        self._graph_action(node_ref, True)
+            If <node_ref> is an empty string, show the default page. """
+        page = self._page_dict.get(node_ref) or self._default_page
+        self._show_page(page, intense)
 
     def _on_link_click(self, *_) -> None:
+        """ On link activation, start an example search for the current rule. """
         self._search_examples()
 
     def _on_slider_move(self, *_) -> None:
@@ -114,7 +105,7 @@ class DisplayController:
 
     def _on_translation_submit(self, text:str) -> None:
         """ Display user entry errors in the caption. """
-        self._clear_page()
+        self._clear()
         args = text.split(self.TR_DELIMITER, 1)
         if not len(args) == 2:
             self._set_caption(self.TR_MSG_EDELIMITERS)
@@ -130,7 +121,7 @@ class DisplayController:
         """ Connect all Qt signals for user actions and set the callback functions. """
         self._call_example_search = call_example_search
         self._call_query = call_query
-        self._graph.connect_signals(self._on_graph_over, self._on_graph_click)
+        self._graph.connect_signals(self._on_graph_action)
         self._board.connect_signals()
         self._title.connect_signals(self._on_translation_edit, self._on_translation_submit)
         self._w_slider.valueChanged.connect(self._on_slider_move)
@@ -155,17 +146,21 @@ class DisplayController:
         tr_text = " ".join([keys, self.TR_DELIMITER, letters])
         self._set_title(tr_text)
 
+    def _focus_page(self, page:DisplayPageData, focused:bool) -> None:
+        """ Forcibly reset the graph's focus before setting a new page. """
+        self._graph.set_focus(focused)
+        self._show_page(page, focused)
+
     def set_pages(self, page_dict:Dict[str, DisplayPageData], default:DisplayPageData) -> None:
         """ Replace the current dict of analysis pages and attempt to select the last link target. """
-        self._page_dict = {self._DEFAULT_PAGE_KEY: default, **page_dict}
-        last_link = self._last_link_ref
-        start_ref = ""
-        if last_link:
+        self._page_dict = page_dict
+        self._default_page = default
+        if self._last_link_ref:
             for node_ref, page in page_dict.items():
-                if page.link_ref == last_link:
-                    start_ref = node_ref
-                    break
-        self._graph_action(start_ref, True)
+                if page.link_ref == self._last_link_ref:
+                    self._focus_page(page, True)
+                    return
+        self._focus_page(default, False)
 
     def set_status(self, text:str) -> None:
         """ Check if the status text ends in an ellipsis. If not, just show it in the title normally.
@@ -186,7 +181,7 @@ class DisplayController:
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all display widgets. Invalidate the current graph and board on disable. """
         if not enabled:
-            self._clear_page()
+            self._clear()
         self._title.set_enabled(enabled)
         self._graph.set_enabled(enabled)
         self._w_slider.setEnabled(enabled)

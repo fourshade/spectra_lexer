@@ -1,6 +1,9 @@
-12.1.1
+12.2.0
 -----
+* Internal Qt GUI code is restructured
+* Board diagram panel now expands when the GUI is resized
 * Board diagrams may now be saved in PNG format
+* Board diagrams may now be copied directly to the clipboard
 
 12.1.0
 -----
