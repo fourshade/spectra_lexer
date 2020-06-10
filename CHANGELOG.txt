@@ -1,3 +1,8 @@
+12.2.1
+-----
+* Qt GUI code is further restructured
+* Fixed config editor
+
 12.2.0
 -----
 * Internal Qt GUI code is restructured

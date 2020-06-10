@@ -5,9 +5,11 @@ from PyQt5.QtGui import QTextCharFormat
 
 from .widgets import HyperlinkTextBrowser
 
+ActionCallback = Callable[[str, bool], None]
 
-class DisplayGraph:
-    """ Formatted text widget for displaying a monospaced HTML graph of the breakdown of text by steno rules.
+
+class GraphPanel:
+    """ GUI panel for displaying a monospaced HTML graph of the breakdown of text by steno rules.
         May also display plaintext output such as error messages and exceptions when necessary. """
 
     def __init__(self, w_graph:HyperlinkTextBrowser) -> None:
@@ -34,8 +36,8 @@ class DisplayGraph:
             self._has_focus = not url.isEmpty()
             self._send_action(url)
 
-    def connect_signals(self, on_graph_action:Callable[[str, bool], None]) -> None:
-        """ Connect Qt signals and set callback functions. """
+    def connect_signals(self, on_graph_action:ActionCallback) -> None:
+        """ Connect Qt signals and set the callback function. """
         self._call_on_graph_action = on_graph_action
         self._w_graph.linkOver.connect(self._on_link_over)
         self._w_graph.linkClicked.connect(self._on_link_click)

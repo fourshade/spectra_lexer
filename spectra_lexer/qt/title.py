@@ -4,8 +4,10 @@ from typing import Callable, Sequence
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QLineEdit
 
+EditCallback = SubmitCallback = Callable[[str], None]
 
-class DisplayTitle:
+
+class TitleDisplay:
     """ Wrapper for title bar widget that displays plaintext as well as simple text animations. """
 
     def __init__(self, w_title:QLineEdit) -> None:
@@ -18,7 +20,7 @@ class DisplayTitle:
         text = self._w_title.text()
         self._call_on_submit(text)
 
-    def connect_signals(self, on_edit:Callable[[str], None], on_submit:Callable[[str], None]) -> None:
+    def connect_signals(self, on_edit:EditCallback, on_submit:SubmitCallback) -> None:
         """ Connect Qt signals and set callback functions. """
         self._call_on_submit = on_submit
         self._w_title.textEdited.connect(on_edit)

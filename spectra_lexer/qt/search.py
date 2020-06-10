@@ -9,7 +9,8 @@ SearchCallback = Callable[[str, int], None]
 QueryCallback = Callable[[Sequence[str], str], None]
 
 
-class SearchController:
+class SearchPanel:
+    """ Controls the three main search widgets. """
 
     _MORE_TEXT = "(more...)"  # Text displayed as the final match, allowing the user to expand the search.
 
@@ -47,7 +48,7 @@ class SearchController:
             The order of lexer parameters must be reversed for strokes mode.
             Currently, strokes can never have more than one mapping. """
         assert mappings
-        if self.get_mode_strokes():
+        if self.is_mode_strokes():
             self._call_query([match], mappings[0])
         else:
             self._call_query(mappings, match)
@@ -93,11 +94,19 @@ class SearchController:
         self._w_matches.itemSelected.connect(self._on_user_select_match)
         self._w_mappings.itemSelected.connect(self._on_user_select_mapping)
 
-    def get_mode_strokes(self) -> bool:
+    def is_mode_strokes(self) -> bool:
         return self._w_strokes.isChecked()
 
-    def get_mode_regex(self) -> bool:
+    def is_mode_regex(self) -> bool:
         return self._w_regex.isChecked()
+
+    def set_enabled(self, enabled:bool) -> None:
+        """ Enable/disable all search widgets. """
+        self._w_input.setEnabled(enabled)
+        self._w_matches.setEnabled(enabled)
+        self._w_mappings.setEnabled(enabled)
+        self._w_strokes.setEnabled(enabled)
+        self._w_regex.setEnabled(enabled)
 
     def update_input(self, value:str) -> None:
         return self._w_input.setText(value)
@@ -122,19 +131,9 @@ class SearchController:
 
     def select_translation(self, keys:str, letters:str) -> None:
         """ Set the current selections to match the analyzed translation if possible. Do not send queries. """
-        match, mapping = [keys, letters] if self.get_mode_strokes() else [letters, keys]
+        match, mapping = [keys, letters] if self.is_mode_strokes() else [letters, keys]
         if match in self._match_dict:
             mappings = self._match_dict[match]
             self._select_match(match)
             self._set_mappings(mappings)
             self._select_mapping(mapping)
-
-    def set_enabled(self, enabled:bool) -> None:
-        """ Enable/disable all search widgets. Invalidate the current search results on disable. """
-        if not enabled:
-            self.clear_results()
-        self._w_input.setEnabled(enabled)
-        self._w_matches.setEnabled(enabled)
-        self._w_mappings.setEnabled(enabled)
-        self._w_strokes.setEnabled(enabled)
-        self._w_regex.setEnabled(enabled)
