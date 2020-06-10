@@ -13,11 +13,7 @@ lib
 # PyTest
 .pytest_cache
 
-# IDE files
+# IDE files and other local data
 .idea
 .cache
-.vscode
-
-# Vim swap/undo files
-*.swp
-*.un
+.local
