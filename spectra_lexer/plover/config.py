@@ -3,7 +3,7 @@
 from configparser import ConfigParser
 import json
 import os
-from typing import List
+from typing import Iterator
 
 
 class PloverConfig:
@@ -20,25 +20,28 @@ class PloverConfig:
         cfg_path = os.path.join(self._base_path, filename or self.DEFAULT_FILENAME)
         self._parser.read(cfg_path, encoding='utf-8')
 
-    def dictionary_paths(self) -> List[str]:
-        """ Return a list of full file paths for the Plover dictionaries listed in the config file. """
+    def dictionary_paths(self) -> Iterator[str]:
+        """ Yield a full file path for each Plover dictionary listed in the config file. """
         # The config value we need is read as a string, but it must be decoded as a JSON array of objects.
         value = self._parser['System: English Stenotype']['dictionaries']
         dictionary_specs = json.loads(value)
         # Earlier keys override later ones in Plover, but dict.update does the opposite. Reverse the priority order.
-        dictionary_specs.reverse()
-        # The paths start out relative to the location of the config file. Make them absolute.
-        return [os.path.join(self._base_path, spec['path']) for spec in dictionary_specs]
+        for spec in reversed(dictionary_specs):
+            path = spec['path']
+            # The paths start out relative to the location of the config file. Make them absolute.
+            yield os.path.join(self._base_path, path)
 
 
-def find_dictionaries(user_dir:str, cfg_filename:str=None, *, ignore_errors=False) -> List[str]:
-    """ Load a Plover config file from a user data directory and return the full file paths for the dictionaries.
-        Return an empty list on a file or parsing error if <ignore_errors> is True. """
+def find_dictionaries(user_dir:str, cfg_filename:str=None, *, ext=None, ignore_errors=False) -> Iterator[str]:
+    """ Load a Plover config file from a user data directory and yield file paths for the dictionaries.
+        If <ext> is not None, only yield paths with that file extension.
+        If <ignore_errors> is True, file and parsing errors will be silently ignored. """
     try:
         config = PloverConfig(user_dir)
         config.read(cfg_filename)
-        return config.dictionary_paths()
+        for path in config.dictionary_paths():
+            if ext is None or path.endswith(ext):
+                yield path
     except (IndexError, KeyError, OSError, ValueError):
         if not ignore_errors:
             raise
-        return []

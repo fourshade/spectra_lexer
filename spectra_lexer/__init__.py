@@ -132,19 +132,22 @@ class SpectraOptions(CmdlineOptions):
         return self._convert_path(self.board_defs)
 
     def translations_paths(self) -> list:
+        """ Return a list of full file paths to the translation dictionaries. """
         filenames = []
         for f in self.translations:
             if f == self.PLOVER_SENTINEL:
                 plover_user_path = user_data_directory(PLOVER_APP_NAME)
-                filenames += find_dictionaries(plover_user_path, ignore_errors=True)
+                filenames += find_dictionaries(plover_user_path, ext=".json", ignore_errors=True)
             else:
                 filenames.append(self._convert_path(f))
         return filenames
 
     def index_path(self) -> str:
+        """ Return the full file path to the examples index, adding directories if it doesn't exist. """
         return self._convert_path(self.index, make_dirs=True)
 
     def config_path(self) -> str:
+        """ Return the full file path to the config file, adding directories if it doesn't exist. """
         return self._convert_path(self.config, make_dirs=True)
 
     def compile(self, *, parse_args=True) -> Spectra:
