@@ -1,32 +1,34 @@
+""" Defines data types and provides I/O functions for JSON-compatible steno translations. """
+
 import json
 from typing import Dict, List, Tuple
 
-# Basic translation data types.
-Translation = Tuple[str, str]                 # A steno translation as a pair of strings: (RTFCRE keys, letters).
-TranslationsDict = Dict[str, str]             # Dictionary mapping RTFCRE keys to letters.
-ExamplesDict = Dict[str, List[Translation]]   # Dictionary mapping rule identifiers to lists of translations.
+Translation = Tuple[str, str]                   # A steno translation as a pair of strings: (RTFCRE keys, letters).
+TranslationsDict = Dict[str, str]               # Dictionary mapping RTFCRE keys to letters.
+RuleID = str                                    # Rule ID data type. Must be a string to act as a JSON object key.
+ExamplesDict = Dict[RuleID, List[Translation]]  # Dictionary mapping rule identifiers to lists of example translations.
 
 
 class TextFileIO:
 
-    def __init__(self, **kwargs) -> None:
-        self._open_kwargs = kwargs  # Keyword arguments to open().
+    def __init__(self, *, encoding='utf-8') -> None:
+        self._encoding = encoding  # Character encoding. UTF-8 must be explicitly set on some platforms.
 
     def read(self, filename:str) -> str:
         """ Load a text file into a string. """
-        with open(filename, 'r', **self._open_kwargs) as fp:
+        with open(filename, 'r', encoding=self._encoding) as fp:
             return fp.read()
 
     def write(self, filename:str, s:str) -> None:
         """ Save a string into a text file. """
-        with open(filename, 'w', **self._open_kwargs) as fp:
+        with open(filename, 'w', encoding=self._encoding) as fp:
             fp.write(s)
 
 
 class TranslationsIO:
 
     def __init__(self) -> None:
-        self._io = TextFileIO(encoding='utf-8')  # IO for text files. UTF-8 is explicitly required for some strings.
+        self._io = TextFileIO()  # IO for text files. UTF-8 is required for some translations.
 
     def load_json_translations(self, *filenames:str) -> TranslationsDict:
         """ Load and merge RTFCRE steno translations from JSON files. """

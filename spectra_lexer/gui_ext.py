@@ -1,6 +1,6 @@
 from spectra_lexer.analysis import StenoAnalyzer
-from spectra_lexer.resource.translations import ExamplesDict, TranslationsDict, TranslationsIO
 from spectra_lexer.search.engine import SearchEngine
+from spectra_lexer.search.translations import ExamplesDict, TranslationsDict, TranslationsIO
 from spectra_lexer.util.config import SimpleConfigDict
 
 

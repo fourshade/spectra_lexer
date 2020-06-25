@@ -2,15 +2,12 @@ from collections import defaultdict
 from itertools import repeat
 import random
 import re
-from typing import Dict, Hashable, Iterable, Mapping, List, Tuple
+from typing import Dict, Iterable, List
 
 from .dict import StringSearchDict
+from .translations import ExamplesDict, RuleID, Translation, TranslationsDict
 
-MatchDict = Dict[str, List[str]]                  # Dict matching search strings to lists of possible values.
-Translation = Tuple[str, str]                     # A steno key string paired with its translation string.
-TranslationsMap = Mapping[str, str]               # Mapping of steno key strings to translation strings.
-RuleID = Hashable                                 # Rule ID data type. Can be anything hashable.
-ExamplesMap = Mapping[RuleID, List[Translation]]  # Mapping of rule identifiers to lists of example translations.
+MatchDict = Dict[str, List[str]]  # Dict matching search strings to lists of possible values.
 
 
 class SearchRegexError(Exception):
@@ -36,7 +33,7 @@ class SearchEngine:
         """ Mapping the built-in string methods separately provides a good speed boost for large dictionaries. """
         return map(str.lower, map(str.strip, s_iter, repeat(self._strip_chars)))
 
-    def _new_search_dict(self, translations:TranslationsMap, *, reverse=False) -> StringSearchDict:
+    def _new_search_dict(self, translations:TranslationsDict, *, reverse=False) -> StringSearchDict:
         """ Return a StringSearchDict that uses our strip functions. """
         if reverse:
             # This is the fastest way I could find to reverse a string dict
@@ -47,7 +44,7 @@ class SearchEngine:
             d = translations
         return StringSearchDict(d, simfn=self._simfn, mapfn=self._simfn_mapped)
 
-    def set_translations(self, translations:TranslationsMap) -> None:
+    def set_translations(self, translations:TranslationsDict) -> None:
         """ Create new translation search dicts from the <translations> mapping and saved similarity functions. """
         self._forward = self._new_search_dict(translations)
         self._reverse = self._new_search_dict(translations, reverse=True)
@@ -83,7 +80,7 @@ class SearchEngine:
             raise SearchRegexError(pattern) from e
         return self._lookup_keys(d, keys, mode_strokes)
 
-    def set_examples(self, examples:ExamplesMap) -> None:
+    def set_examples(self, examples:ExamplesDict) -> None:
         """ Set a new examples reference index and clear the cache of any search dicts built from the last one. """
         self._examples_raw = examples
         self._examples_cache.clear()

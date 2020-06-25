@@ -120,11 +120,3 @@ class StenoKeyLayout:
         for v in self._alias_trans.values():
             assert v
             assert set(v) <= s_keys_set
-
-    @classmethod
-    def from_json_dict(cls, d:dict) -> "StenoKeyLayout":
-        """ Create a layout from a JSON dict unpacked as **kwargs. """
-        try:
-            return cls(**d)
-        except TypeError as e:
-            raise TypeError("Key layout definitions are incomplete") from e

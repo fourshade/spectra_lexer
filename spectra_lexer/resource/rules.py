@@ -119,6 +119,9 @@ class StenoRule:
             assert not -counter, f"Rule {self.id} has fewer keys than its child rules: {-counter}"
 
 
+StenoRuleList = List[StenoRule]
+
+
 class StenoRuleParser:
     """ Converts steno rules from JSON arrays to StenoRule objects.
         In order to recursively resolve references, all rule data should be added before any parsing is done. """
@@ -150,13 +153,6 @@ class StenoRuleParser:
         self._sub_parser.add_mapping(r_id, pattern)
         self._rule_data[r_id] = [keys, flags, desc, alt]
 
-    def add_json_dict(self, d:dict) -> None:
-        """ Add all rule data from a JSON dict. """
-        if not isinstance(d, dict):
-            raise TypeError('Rules data object is not a dict.')
-        for name, data in d.items():
-            self.add_json_data(name, data)
-
     def _parse(self, r_id:str) -> StenoRule:
         """ Return a rule by ID if finished, else parse it recursively. """
         memo = self._rule_memo
@@ -164,19 +160,20 @@ class StenoRuleParser:
             return memo[r_id]
         keys, flags, desc, alt = self._rule_data[r_id]
         sub_result = self._sub_parser.parse(r_id)
-        connections = [(self._parse(sub.ref), sub.start, sub.length) for sub in sub_result.subs]
+        subs = sub_result.subs
         letters = sub_result.text
-        if connections and letters:
+        if subs and letters:
             # Compound rule info includes the complete mapping of keys to letters.
             info = f'{keys} → {letters}: {desc}'
         else:
             # Base rule info includes only the keys to the left of the description.
             info = f"{keys}: {desc}"
-        rule = self._rule_memo[r_id] = StenoRule(keys, letters, info, flags, r_id, alt)
-        for c in connections:
-            rule.add_connection(*c)
+        rule = memo[r_id] = StenoRule(keys, letters, info, flags, r_id, alt)
+        for sub in subs:
+            child = self._parse(sub.ref)
+            rule.add_connection(child, sub.start, sub.length)
         return rule
 
-    def parse(self) -> List[StenoRule]:
+    def parse(self) -> StenoRuleList:
         """ Parse all saved rule data and return the finished rules in a list. """
         return [self._parse(r_id) for r_id in self._rule_data]

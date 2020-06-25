@@ -12,11 +12,3 @@ class StenoBoardDefinitions:
         self.glyphs = glyphs    # Dict of single Unicode characters mapped to SVG path data strings with their outlines.
         self.keys = keys        # Dict of single steno s-keys mapped to full definitions of their appearance.
         self.rules = rules      # Dict of s-keys sequences mapped to compound key shapes with space for rule text.
-
-    @classmethod
-    def from_json_dict(cls, d:dict) -> "StenoBoardDefinitions":
-        """ Create a definitions structure from a JSON dict unpacked as **kwargs. """
-        try:
-            return cls(**d)
-        except TypeError as e:
-            raise TypeError("Board graphics definitions are incomplete") from e

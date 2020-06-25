@@ -8,10 +8,9 @@ from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.resource.translations import ExamplesDict, Translation
+from spectra_lexer.search.translations import ExamplesDict, RuleID, Translation
 from spectra_lexer.util.parallel import ParallelMapper
 
-RuleID = str                              # Rule ID data type.
 TranslationPairs = Iterable[Translation]  # Iterable collection of steno translations.
 
 
