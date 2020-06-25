@@ -8,7 +8,7 @@ import re
 import pytest
 
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.search.dict import SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.dict import RegexError, SimilarKeyDict, StringSearchDict
 from spectra_lexer.search.engine import SearchEngine
 
 
@@ -227,7 +227,7 @@ def test_string_dict(cls) -> None:
 
     # Regex errors won't raise if the algorithm short circuits a pattern with no possible matches.
     assert d.regex_match_keys('an open group that doesn\'t raise(', count=5) == []
-    with pytest.raises(re.error):
+    with pytest.raises(RegexError):
         d.regex_match_keys('beautiful...an open group(', count=1)
 
 

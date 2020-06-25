@@ -1,17 +1,12 @@
 from collections import defaultdict
 from itertools import repeat
 import random
-import re
 from typing import Dict, Iterable, List
 
-from .dict import StringSearchDict
+from .dict import RegexError, StringSearchDict
 from .translations import ExamplesDict, RuleID, Translation, TranslationsDict
 
-MatchDict = Dict[str, List[str]]  # Dict matching search strings to lists of possible values.
-
-
-class SearchRegexError(Exception):
-    """ Raised if there's a syntax error in a regex search. """
+MatchDict = Dict[str, List[str]]  # Dict matching key strings to lists of value strings.
 
 
 class SearchEngine:
@@ -76,8 +71,8 @@ class SearchEngine:
         d = self._get_dict(mode_strokes)
         try:
             keys = d.regex_match_keys(pattern, count)
-        except re.error as e:
-            raise SearchRegexError(pattern) from e
+        except RegexError:
+            return {"INVALID REGEX": []}
         return self._lookup_keys(d, keys, mode_strokes)
 
     def set_examples(self, examples:ExamplesDict) -> None:

@@ -187,6 +187,18 @@ class SimilarKeyDict(Dict[KT, VT]):
         return [i[1] for i in items]
 
 
+class RegexError(Exception):
+    """ Raised if there's a syntax error in a regex search. """
+
+
+def _regex_matcher(pattern:str) -> Callable:
+    """ Compile a regular expression pattern and return a match predicate function. """
+    try:
+        return re.compile(pattern).match
+    except re.error as e:
+        raise RegexError(pattern + " is not a valid regular expression.") from e
+
+
 class StringSearchDict(SimilarKeyDict):
     """
     A similar-key dictionary with special search methods for strings.
@@ -194,9 +206,9 @@ class StringSearchDict(SimilarKeyDict):
     not change the relative order of characters (i.e. changing case is fine, reversing the string is not.)
     """
 
-    # Regex to match ASCII characters without special regex behavior when used at the start of a pattern.
+    # Regex matcher for ASCII characters without special regex behavior when used at the start of a pattern.
     # Will always return at least the empty string (which is a prefix of everything).
-    _LITERAL_PREFIX_RX = re.compile(r'[\w \"#%\',\-:;<=>@`~]*').match
+    _LITERAL_PREFIX_MATCH = _regex_matcher(r'[\w \"#%\',\-:;<=>@`~]*')
 
     def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[str]:
         """ Return a list of keys (of either type) where the simkey starts with <prefix>, up to <count>. """
@@ -220,7 +232,7 @@ class StringSearchDict(SimilarKeyDict):
         """ Return a list of at most <count> keys that match the regex <pattern> from the start.
             Can search and return either the raw keys (default) or sim keys. """
         # First, figure out how much of the pattern string from the start is literal (no regex special characters).
-        literal_prefix = self._LITERAL_PREFIX_RX(pattern).group()
+        literal_prefix = self._LITERAL_PREFIX_MATCH(pattern).group()
         # If all matches must start with a certain literal prefix, we can narrow the range of our search.
         # Only keep the type of key (raw or simkey) that we're interested in searching.
         keys = self.prefix_match_keys(literal_prefix, count=None, raw=raw)
@@ -231,6 +243,6 @@ class StringSearchDict(SimilarKeyDict):
         if literal_prefix == pattern:
             match_op = methodcaller("startswith", pattern)
         else:
-            match_op = re.compile(pattern).match
+            match_op = _regex_matcher(pattern)
         # Run the match filter until <count> entries have been produced (if None, search the entire key list).
         return list(islice(filter(match_op, keys), count))

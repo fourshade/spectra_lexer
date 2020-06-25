@@ -3,7 +3,7 @@ from typing import Dict, Iterable, Optional
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search.engine import MatchDict, SearchRegexError, SearchEngine
+from spectra_lexer.search.engine import MatchDict, SearchEngine
 
 
 class SearchResults:
@@ -99,13 +99,9 @@ class GUIEngine:
             matches = se.search_examples(link_ref, rule_pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
-            try:
-                method = se.search_regex if self._opts.search_mode_regex else se.search
-                matches = method(pattern, count, mode_strokes=mode_strokes)
-                is_complete = len(matches) < count
-            except SearchRegexError:
-                matches = {"REGEX ERROR": []}
-                is_complete = True
+            method = se.search_regex if self._opts.search_mode_regex else se.search
+            matches = method(pattern, count, mode_strokes=mode_strokes)
+            is_complete = len(matches) < count
         return SearchResults(matches, is_complete)
 
     def _analyze(self, keys:str, letters:str) -> StenoRule:
