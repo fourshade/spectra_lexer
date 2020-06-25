@@ -112,7 +112,7 @@ class StenoAnalyzer:
             best_index = self._lexer.best_translation(skeys_list, letters)
         return keys_list[best_index]
 
-    def _query_rule_ids(self, keys:str, letters:str) -> List[RuleID]:
+    def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.
             Results may be returned out of order, so the output starts with the original keys and letters.
             The identities of rule objects do not survive pickling, so only ID strings are returned.
@@ -148,31 +148,25 @@ class StenoAnalyzer:
 
 
 def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAnalyzer:
-    """ Distribute rules and build the rule matcher, lexer and analyzer. """
+    """ Distribute rules and build the rule matchers, lexer and analyzer. """
     refmap = {}
+    matcher_groups = []
     key_sep = keymap.separator_key()
     key_special = keymap.special_key()
 
+    # Separators are force-matched before the normal matchers can waste cycles on them.
     sep_matcher = DelimiterMatcher()
     lr_sep = LexerRule(key_sep, "", 0)
     rule_sep = StenoRule(key_sep, "", "stroke separator")
     refmap[lr_sep] = rule_sep
     sep_matcher.add(lr_sep)
+    matcher_groups.append([sep_matcher])
 
-    special_matcher = SpecialMatcher(key_sep)
-    for pred in SpecialMatcher.Predicate.LIST:
-        # Rules with special behavior must be handled case-by-case.
-        lr = LexerRule(key_special, "", 0)
-        info = key_special + ": " + pred.desc
-        rule = StenoRule(key_special, "", info, set(), "", pred.repl)
-        refmap[lr] = rule
-        special_matcher.add_test(lr, pred)
-
+    # Matchers for rules without special behavior are processed as one group.
     prefix_matcher = UnorderedPrefixMatcher(key_sep, key_special)
     stroke_matcher = StrokeMatcher(key_sep)
     word_matcher = WordMatcher()
     idmap = {}
-    # Rules without special behavior should be in example indices.
     for rule in rules:
         # Convert each rule to lexer format. Rule weight is assigned based on letters matched.
         # Rare rules are uncommon in usage and/or prone to causing false positives.
@@ -184,6 +178,7 @@ def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAna
         lr = LexerRule(skeys, letters, weight)
         # Map every lexer-format rule to the original so we can convert back.
         refmap[lr] = rule
+        # Rules without special behavior should be in example indices.
         idmap[lr] = rule.id
         # Add the lexer rule to one of the rule matchers based on flags.
         if rule.is_reference:
@@ -198,10 +193,20 @@ def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAna
         else:
             # All other rules are added to the tree-based prefix matcher.
             prefix_matcher.add(lr)
-    # Separators are force-matched before the normal matchers can waste cycles on them.
+    matcher_groups.append([prefix_matcher, stroke_matcher, word_matcher])
+
     # Use the special matcher only if absolutely nothing else has worked.
-    matcher = PriorityRuleMatcher([sep_matcher],
-                                  [prefix_matcher, stroke_matcher, word_matcher],
-                                  [special_matcher])
+    special_matcher = SpecialMatcher(key_sep)
+    for pred in SpecialMatcher.Predicate.LIST:
+        # Rules with special behavior must be handled case-by-case.
+        lr = LexerRule(key_special, "", 0)
+        info = key_special + ": " + pred.desc
+        rule = StenoRule(key_special, "", info, set(), "", pred.repl)
+        refmap[lr] = rule
+        special_matcher.add_test(lr, pred)
+    matcher_groups.append([special_matcher])
+
+    # Each matcher group is tried in order of priority (separators first, specials last).
+    matcher = PriorityRuleMatcher(*matcher_groups)
     lexer = StenoLexer(matcher)
     return StenoAnalyzer(keymap, lexer, rule_sep, refmap, idmap)

@@ -23,6 +23,7 @@ class _LexerStates:
     _LexerState = List[Union[str, LexerRule, int]]
 
     def __init__(self, states:Sequence[_LexerState]) -> None:
+        assert states
         self._states = states
 
     def best(self, _wt=attrgetter("weight")) -> _LexerState:
