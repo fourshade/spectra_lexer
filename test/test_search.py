@@ -2,13 +2,14 @@
 
 """ Unit tests for structures in search dictionary package. """
 
+import pickle
 import re
 
 import pytest
 
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.search import SearchEngine
 from spectra_lexer.search.dict import SimilarKeyDict, StringSearchDict
+from spectra_lexer.search.engine import SearchEngine
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -71,12 +72,12 @@ def test_skdict_aux(cls) -> None:
     d.clear()
     with pytest.raises(KeyError):
         d.popitem()
-    d = SimilarKeyDict.fromkeys([1, 2, 3, 4, 5])
+    d = cls.fromkeys([1, 2, 3, 4, 5])
     assert sum(list(d.keys())) == 15
     assert all(v is None for v in d.values())
-    d = SimilarKeyDict.fromkeys([1, 2, 3, 4, 5], 6)
+    d = cls.fromkeys([1, 2, 3, 4, 5], 6)
     assert all(v == 6 for v in d.values())
-    d = SimilarKeyDict.fromkeys([-4, 2, 9, -1, -6], 0, simfn=abs)
+    d = cls.fromkeys([-4, 2, 9, -1, -6], 0, simfn=abs)
     assert d.popitem() == (9, 0)
     # Both the current dict items and similarity function should copy.
     assert d.copy().popitem() == (-6, 0)
@@ -87,8 +88,9 @@ def test_skdict_iter(cls) -> None:
     """ Unit tests for iter, keys, values, and items in SimilarKeyDict. """
     # Iterators should behave like an ordinary dictionary, independent of the key tracking capabilities.
     d = cls({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
+    keys_from_iter = set(iter(d))
     for (k, v, item) in zip(d.keys(), d.values(), d.items()):
-        assert any(k_iter == k for k_iter in d)
+        assert k in keys_from_iter
         assert (k, v) == item
 
 
@@ -121,6 +123,17 @@ def test_skdict_values(cls) -> None:
     assert d["unwrap me!"][0][0][0][0] == "and get the prize"
     d["recurse me!"] = d
     assert d["recurse me!"]["recurse me!"]["recurse me!"] is d
+
+
+@class_test(SimilarKeyDict)
+def test_skdict_pickle(cls) -> None:
+    """ Unit tests for reduce and setstate. """
+    d = cls({'++++': "a", '++': "b", '+': "c"}, simfn=len)
+    assert d.get_similar_keys("test") == ['++++']
+    s = pickle.dumps(d)
+    new_d = pickle.loads(s)
+    assert new_d == d
+    assert new_d.get_similar_keys("test") == ['++++']
 
 
 @class_test(SimilarKeyDict)
@@ -169,15 +182,14 @@ def test_skdict_similar(cls) -> None:
 def test_string_dict(cls) -> None:
     """ Unit tests for the added functionality of the string-based search dict class. """
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
-    keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
-    d = cls.fromkeys(keys, simfn=lambda s: s.strip(' #{^}').lower())
+    d = cls.fromkeys(['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly'], simfn=lambda s: s.strip(' #{^}').lower())
     assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('') == []
 
     # Prefix search will return words in sorted order which are supersets of the input starting from
     # the beginning after applying the similarity function. Also stops at the end of the dictionary.
-    keys = ['beau', 'beautiful', 'Beautiful', 'beautifully', 'BEAUTIFULLY', 'ugly', 'ugliness']
+    keys = {'beau', 'beautiful', 'Beautiful', 'beautifully', 'BEAUTIFULLY', 'ugly', 'ugliness'}
     d.clear()
     d.update(dict.fromkeys(keys))
     assert d.prefix_match_keys('beau',   count=4) == ['beau', 'Beautiful', 'beautiful', 'BEAUTIFULLY']
@@ -191,7 +203,7 @@ def test_string_dict(cls) -> None:
 
     # If count is None or not given, prefix search will return all possible supersets in the dictionary.
     assert d.prefix_match_keys('beaut', count=None) == ['Beautiful', 'beautiful', 'BEAUTIFULLY', 'beautifully']
-    assert set(d.prefix_match_keys('')) == set(keys)
+    assert set(d.prefix_match_keys('')) == keys
 
     # If raw is False, the similarity keys (case-stripped) will be directly returned.
     assert d.prefix_match_keys('beautiful', raw=False) == ['beautiful', 'beautiful', 'beautifully', 'beautifully']
@@ -207,7 +219,7 @@ def test_string_dict(cls) -> None:
 
     # If count is None or not given, regex search should just go through the entire list in order.
     assert d.regex_match_keys('.*u.+y', count=None) == ['beautifully', 'ugly']
-    assert set(d.regex_match_keys('')) == set(keys)
+    assert set(d.regex_match_keys('')) == keys
 
     # If raw is False, the similarity keys (case-stripped) will be searched instead.
     assert d.regex_match_keys('.*y$',      raw=False) == ['beautifully', 'beautifully', 'ugly']

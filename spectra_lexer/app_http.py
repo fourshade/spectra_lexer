@@ -87,9 +87,8 @@ def build_app(opts:SpectraOptions) -> HTTPGUIApplication:
         # If there's no index, we really need one, so make one (and make it big).
         log("Building new index...")
         pairs = translations.items()
-        index = analyzer.compile_index(pairs, TranslationFilter.SIZE_LARGE)
-        examples = {r_id: dict(pairs_out) for r_id, pairs_out in index.items()}
-        io.save_json_examples(index_file)
+        examples = analyzer.compile_index(pairs, TranslationFilter.SIZE_LARGE)
+        io.save_json_examples(index_file, examples)
     search_engine.set_examples(examples)
     gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
     return HTTPGUIApplication(gui_engine, log)

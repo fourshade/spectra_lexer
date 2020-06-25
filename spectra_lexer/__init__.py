@@ -63,8 +63,8 @@ from spectra_lexer.analysis import build_analyzer, StenoAnalyzer
 from spectra_lexer.display import build_board_engine, BoardEngine, GraphEngine
 from spectra_lexer.plover.config import find_dictionaries
 from spectra_lexer.resource.io import ResourceIO
-from spectra_lexer.search import SearchEngine
-from spectra_lexer.translations import TranslationsIO
+from spectra_lexer.resource.translations import TranslationsIO
+from spectra_lexer.search.engine import SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.log import open_logger, StreamLogger
 from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory

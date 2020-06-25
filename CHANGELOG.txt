@@ -1,3 +1,7 @@
+12.3.0
+-----
+* I/O code has been consolidated
+
 12.2.1
 -----
 * Qt GUI code is further restructured

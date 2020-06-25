@@ -23,8 +23,7 @@ def main() -> int:
     start_time = time()
     translations = io.load_json_translations(*files_in)
     pairs = translations.items()
-    index = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)
-    examples = {r_id: dict(pairs_out) for r_id, pairs_out in index.items()}
+    examples = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)
     io.save_json_examples(file_out, examples)
     total_time = time() - start_time
     log(f"Operation done in {total_time:.1f} seconds.")

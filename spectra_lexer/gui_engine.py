@@ -3,7 +3,7 @@ from typing import Dict, Iterable, Optional
 from spectra_lexer.analysis import StenoAnalyzer
 from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search import MatchDict, SearchRegexError, SearchEngine
+from spectra_lexer.search.engine import MatchDict, SearchRegexError, SearchEngine
 
 
 class SearchResults:

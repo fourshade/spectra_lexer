@@ -10,7 +10,7 @@ from spectra_lexer.discord import DiscordMessage, DiscordBot
 from spectra_lexer.display import BoardDiagram, BoardEngine
 from spectra_lexer.qt.svg import SVGRasterEngine
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search import SearchEngine
+from spectra_lexer.search.engine import SearchEngine
 
 
 class MessageFactory:

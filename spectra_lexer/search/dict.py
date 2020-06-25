@@ -73,8 +73,9 @@ class SimilarKeyDict(Dict[KT, VT]):
 
     def __reduce__(self) -> tuple:
         """ Dict subclasses call __setitem__ to unpickle, which will happen before the key list exists in our case.
-            We must sidestep this and unpickle everything using __setstate__.  """
-        return self.__class__, (), (dict(self), self._simfn, self._mapfn)
+            We must sidestep this and unpickle everything using __setstate__ instead.  """
+        state = (dict(self), self._simfn, self._mapfn)
+        return self.__class__, (), state
 
     def __setstate__(self, state:tuple) -> None:
         """ Unpickle everything with a call to __init__. This makes the key list redundant. """

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Iterable, List, Mapping, Tuple
+from typing import Iterable, List, Mapping
 
 from spectra_lexer.lexer import LexerResult, LexerRule, StenoLexer
 from spectra_lexer.lexer.composite import PriorityRuleMatcher
@@ -8,10 +8,11 @@ from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
+from spectra_lexer.resource.translations import ExamplesDict, Translation
 from spectra_lexer.util.parallel import ParallelMapper
 
-Translation = Tuple[str, str]              # A steno translation as a pair of strings: (RTFCRE keys, letters).
-TranslationPairs = Iterable[Translation]   # Iterable collection of steno translations.
+RuleID = str                              # Rule ID data type.
+TranslationPairs = Iterable[Translation]  # Iterable collection of steno translations.
 
 
 class TranslationFilter:
@@ -48,7 +49,7 @@ class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
     def __init__(self, keymap:StenoKeyLayout, lexer:StenoLexer, rule_sep:StenoRule,
-                 refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, str]) -> None:
+                 refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
         self._to_skeys = keymap.rtfcre_to_skeys   # Converts user RTFCRE steno strings to s-keys.
         self._to_rtfcre = keymap.skeys_to_rtfcre  # Converts s-keys back to RTFCRE.
         self._lexer = lexer                       # Main analysis engine; operates only on s-keys.
@@ -112,7 +113,7 @@ class StenoAnalyzer:
             best_index = self._lexer.best_translation(skeys_list, letters)
         return keys_list[best_index]
 
-    def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
+    def _query_rule_ids(self, keys:str, letters:str) -> List[RuleID]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.
             Results may be returned out of order, so the output starts with the original keys and letters.
             The identities of rule objects do not survive pickling, so only ID strings are returned.
@@ -126,8 +127,7 @@ class StenoAnalyzer:
                     output.append(self._idmap[lr])
         return output
 
-    def compile_index(self, translations:TranslationPairs, *,
-                      size:int=None, process_count=0) -> Mapping[str, TranslationPairs]:
+    def compile_index(self, translations:TranslationPairs, *, size:int=None, process_count=0) -> ExamplesDict:
         """ Run the lexer on all given <translations> with an optional <size> filter.
             This is a big job; do it in parallel if possible using <process_count> processes at once.
             Then make a index containing each rule's ID mapped to a list of every translation that used it. """

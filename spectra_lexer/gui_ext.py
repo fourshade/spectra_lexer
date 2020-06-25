@@ -1,6 +1,6 @@
 from spectra_lexer.analysis import StenoAnalyzer
-from spectra_lexer.search import SearchEngine
-from spectra_lexer.translations import ExamplesDict, TranslationsDict, TranslationsIO
+from spectra_lexer.resource.translations import ExamplesDict, TranslationsDict, TranslationsIO
+from spectra_lexer.search.engine import SearchEngine
 from spectra_lexer.util.config import SimpleConfigDict
 
 
@@ -44,8 +44,7 @@ class GUIExtension:
 
     def compile_examples(self, size:int) -> None:
         """ Make an examples index, set it as active, and save it as JSON. """
-        index = self._analyzer.compile_index(self._last_translations.items(), size=size)
-        examples = {r_id: dict(pairs) for r_id, pairs in index.items()}
+        examples = self._analyzer.compile_index(self._last_translations.items(), size=size)
         self.set_examples(examples)
         self._io.save_json_examples(self._examples_path, examples)
 
