@@ -1,8 +1,6 @@
-""" Module for styling the appearance of keys and translations in text graphs. """
+""" Styles for the appearance of keys and translations in text graphs. """
 
-from typing import Tuple
-
-from .base import IBody
+from . import IBody
 
 
 class SeparatorBody(IBody):
@@ -26,8 +24,11 @@ class SeparatorBody(IBody):
     def is_separator(self) -> bool:
         return True
 
-    def text(self, col:int) -> Tuple[int, str]:
-        return col, self._key
+    def text(self) -> str:
+        return self._key
+
+    def offset(self) -> int:
+        return 0
 
 
 class StandardBody(IBody):
@@ -49,8 +50,11 @@ class StandardBody(IBody):
     def is_separator(self) -> bool:
         return False
 
-    def text(self, col:int) -> Tuple[int, str]:
-        return col, self._text
+    def text(self) -> str:
+        return self._text
+
+    def offset(self) -> int:
+        return 0
 
 
 class ShiftedBody(StandardBody):
@@ -64,9 +68,9 @@ class ShiftedBody(StandardBody):
         """ The body width must account for the column shift. """
         return len(self._text) + self._col_offset
 
-    def text(self, col:int) -> Tuple[int, str]:
-        """ Return the text after shifting to account for hyphens. """
-        return col + self._col_offset, self._text
+    def offset(self) -> int:
+        """ Return the text shift to account for hyphens. """
+        return self._col_offset
 
 
 class BoldBody(StandardBody):

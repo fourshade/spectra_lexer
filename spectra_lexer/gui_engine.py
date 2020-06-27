@@ -119,8 +119,12 @@ class GUIEngine:
             board = self._board_engine.draw_keys(rule.keys, aspect_ratio)
         return board
 
-    def _build_page(self, ngraph:HTMLGraph, igraph:HTMLGraph, rule:StenoRule) -> DisplayPage:
+    def _build_page(self, graph:GraphTree, ref:str, rule:StenoRule=None) -> DisplayPage:
         """ Create a display page for a rule selection. Do not add links to rules for which we don't have examples. """
+        ngraph = graph.draw(ref)
+        igraph = graph.draw(ref, intense=True)
+        if rule is None:
+            rule = graph[ref]
         caption = rule.info
         board = self._draw_board(rule)
         r_id = rule.id
@@ -131,14 +135,9 @@ class GUIEngine:
     def _display(self, analysis:StenoRule) -> DisplayData:
         """ Return a full set of display data for a steno analysis, including all possible selections. """
         graph = self._build_graph(analysis)
-        pages = {}
-        for ref, rule in graph.iter_mappings():
-            ngraph = graph.draw(ref)
-            igraph = graph.draw(ref, intense=True)
-            pages[ref] = self._build_page(ngraph, igraph, rule)
+        pages = {ref: self._build_page(graph, ref) for ref in graph}
         # When nothing is selected, use the board and caption for the root node.
-        default_graph = graph.draw()
-        default_page = self._build_page(default_graph, default_graph, analysis)
+        default_page = self._build_page(graph, "", analysis)
         return DisplayData(analysis.keys, analysis.letters, pages, default_page)
 
     def _check_query(self, keys:str, letters:str) -> Optional[DisplayData]:

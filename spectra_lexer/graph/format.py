@@ -1,10 +1,11 @@
-""" Module for rendering text graphs in grid form and formatting them into user-readable strings with markup. """
+""" HTML formatter for grids of text elements with markup. """
 
 from functools import lru_cache
+from typing import Sequence
 
-from .base import TextElementGrid
+from . import TextElement
 
-GRAPH_CSS_CLASS = "stenoGraph"
+TextElementGrid = Sequence[Sequence[TextElement]]  # Indexable 2D grid of text elements.
 
 
 class HTMLFormat:
@@ -17,6 +18,8 @@ class HTMLFormat:
         self.cell_delim = cell_delim  # Delimiter to place between each cell.
         self.stylesheet = stylesheet  # CSS stylesheet. Required to stop anchors from behaving as hyperlinks.
 
+
+GRAPH_CSS_CLASS = "stenoGraph"
 
 # Formats text using preformatted whitespace with normal line breaks.
 # Adds additional styles needed for monospacing.

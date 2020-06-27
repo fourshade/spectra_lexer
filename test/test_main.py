@@ -42,7 +42,7 @@ def test_analysis(keys, letters) -> None:
     _verify_analysis(analysis)
     # The graph and board tests currently pass as long as they don't raise.
     graph = SPECTRA.graph_engine.graph(analysis)
-    for ref, rule in graph.iter_mappings():
+    for ref, rule in graph.items():
         assert graph.draw(ref)
         assert SPECTRA.board_engine.draw_rule(rule)
 
