@@ -1,8 +1,12 @@
 import random
+from typing import Dict, List
 
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translation, TranslationsDict
-from spectra_lexer.search.engine import MatchDict, StringSearchFactory
+from spectra_lexer.search.engine import StringSearchFactory
+
+# Marker type for a dict of key strings mapped to lists of value strings.
+MatchDict = Dict[str, List[str]]
 
 
 class SearchEngine:
@@ -22,7 +26,7 @@ class SearchEngine:
         """ Do a normal translations search for <pattern>.
             <count>        - Maximum number of matches returned. If None, there is no limit.
             <mode_strokes> - If True, search for strokes instead of translations.
-            <mode_regex> - If True, do a regular expression search instead. """
+            <mode_regex>   - If True, do a regular expression search instead. """
         method = self._main_engine.search_regex if mode_regex else self._main_engine.search
         return method(pattern, count, reverse=not mode_strokes)
 

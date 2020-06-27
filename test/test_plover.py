@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """ Unit tests for Plover dictionary conversion. """
 
 from .base import TEST_TRANSLATIONS

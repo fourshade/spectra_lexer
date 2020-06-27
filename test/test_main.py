@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """ Unit tests for lexical analysis and graphical rendering. """
 
 import pytest

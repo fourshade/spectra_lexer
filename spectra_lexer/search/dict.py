@@ -1,14 +1,20 @@
 """ Module for key-search dictionaries from generic to specialized. """
 
-from bisect import bisect_left
+from bisect import bisect_left, insort_left
 from itertools import islice
 from operator import methodcaller
 import re
-from typing import Callable, Dict, Iterable, List, Tuple, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, Tuple, TypeVar
 
-SKT = TypeVar("SKT")  # Similarity-transformed key (simkey) type.
-KT = TypeVar("KT")    # Raw key type.
-VT = TypeVar("VT")    # Value type.
+SKT = TypeVar("SKT")        # Similarity-transformed key (simkey) type.
+KT = TypeVar("KT")          # Raw key type.
+KeyPair = Tuple[SKT, KT]    # Sortable tuple type: (simkey, rawkey).
+BisectList = List[KeyPair]  # Bisect-searchable list type with sorted tuples.
+VT = TypeVar("VT")          # Value type.
+
+Iterable_KT = Iterable[KT]
+Iterable_SKT = Iterable[SKT]
+PickleState = Tuple[Dict[KT, VT], Dict[str, Any]]
 
 
 class SimilarKeyDict(Dict[KT, VT]):
@@ -17,7 +23,7 @@ class SimilarKeyDict(Dict[KT, VT]):
     lookups for keys that are "similar" to a given key in O(log n) time as well as exact O(1) hash lookups, at the
     cost of extra memory to store transformed keys and increased time for individual item insertion and deletion.
     It is most useful for large dictionaries that are mutated rarely after initialization, and which have a need
-    to compare and sort their keys by some measure other than their natural sorting order (if they have one).
+    to compare and sort their keys by some measure other than their natural sorting order.
 
     The "similarity function" returns a measure of how close two keys are to one another. This function should take a
     single key as input, and the return values should compare equal for keys that are deemed to be "similar". Even if
@@ -28,88 +34,92 @@ class SimilarKeyDict(Dict[KT, VT]):
     Due to the dual nature of the data structure, there are additional restrictions on the data types allowed to be
     keys. As with a regular dict, keys must be of a type that is hashable, but they also must be totally orderable
     (i.e. it is possible to rank all the keys from least to greatest using comparisons) in order for sorting to work.
-    A frozenset, for instance, would not work despite being hashable because it has no well-defined sorting order.
-    The output type of the similarity function (if it is different) must be totally orderable as well.
+    Frozensets, for instance, would not work despite being hashable because they have no well-defined sorting order.
+    The output type of the similarity function, if different, must be totally orderable as well.
 
     Inside the list, keys are stored in sorted order as tuples of (simkey, rawkey), which means they are ordered first
     by the value computed by the similarity function, and if those are equal, then by their natural value.
 
     The average-case time complexity for common operations are as follows:
 
-    +-------------------+-------------------+------+
-    |     Operation     | SimilarSearchDict | dict |
-    +-------------------+-------------------+------+
-    | Initialize        | O(n log n)        | O(n) |
-    | Lookup (exact)    | O(1)              | O(1) |
-    | Lookup (inexact)  | O(log n)          | O(n) |
-    | Insert Item       | O(n)              | O(1) |
-    | Delete Item       | O(n)              | O(1) |
-    | Iteration         | O(n)              | O(n) |
-    +-------------------+-------------------+------+
+    +-------------------+----------------+------+
+    |     Operation     | SimilarKeyDict | dict |
+    +-------------------+----------------+------+
+    | Initialize        | O(n log n)     | O(n) |
+    | Lookup (exact)    | O(1)           | O(1) |
+    | Lookup (inexact)  | O(log n)       | O(n) |
+    | Insert Item       | O(n)           | O(1) |
+    | Delete Item       | O(n)           | O(1) |
+    | Iteration         | O(n)           | O(n) |
+    +-------------------+----------------+------+
     """
 
-    def __init__(self, *args, simfn:Callable[[KT], SKT]=None, mapfn:Callable[[Iterable[KT]], map]=None, **kwargs):
-        """ Initialize the dict and list to empty and set up the similarity and map functions.
-            If other arguments were given, treat them as containing initial items to add as with dict.update(). """
-        super().__init__()
-        if simfn is None:
-            simfn = self._default_simfn
-        if mapfn is None:
-            mapfn = self._default_mapfn
-        self._list = []      # Sorted list of tuples: the similarity function output paired with the original key.
-        self._simfn = simfn  # Similarity function, mapping raw keys that share some property to the same "simkey".
-        self._mapfn = mapfn  # Optional implementation of the similarity function mapped across many keys.
-        if args or kwargs:
-            self._update_empty(*args, **kwargs)
+    _list: BisectList  # Sorted list of tuples: the similarity function output paired with the original key.
+
+    def __init__(self, *args, simfn:Callable=None, mapfn:Callable=None, **kwargs):
+        """ Initialize the dict and list and set up the similarity and map functions if given. """
+        super().__init__(*args, **kwargs)
+        if simfn is not None:
+            self._simfn = simfn
+        if mapfn is not None:
+            self._mapfn = mapfn
+        self._build_list()
 
     @staticmethod
-    def _default_simfn(k:KT) -> SKT:
-        """ The default similarity function returns keys unchanged. """
+    def _simfn(k:KT) -> SKT:
+        """ The similarity function maps raw keys that share some property to the same "simkey".
+            This will usually be overridden in __init__. If not, it maps keys to themselves. """
         return k
 
-    def _default_mapfn(self, keys:Iterable[KT]) -> map:
-        """ The default similarity map function is a straight call to map(). This is usually good enough. """
+    def _mapfn(self, keys:Iterable_KT) -> Iterable_SKT:
+        """ Optional mapped implementation of the similarity function for faster initialization.
+            The default implementation is a straight call to map(). This is usually good enough. """
         return map(self._simfn, keys)
 
-    def __reduce__(self) -> tuple:
-        """ Dict subclasses call __setitem__ to unpickle, which will happen before the key list exists in our case.
-            We must sidestep this and unpickle everything using __setstate__ instead.  """
-        state = (dict(self), self._simfn, self._mapfn)
-        return self.__class__, (), state
+    def _build_list(self) -> None:
+        """ Build (or rebuild) the sorted tuples list using the map function and the contents of the dict. """
+        self._list = sorted(zip(self._mapfn(self), self))
 
-    def __setstate__(self, state:tuple) -> None:
-        """ Unpickle everything with a call to __init__. This makes the key list redundant. """
-        d, simfn, mapfn = state
-        self.__init__(d, simfn=simfn, mapfn=mapfn)
+    def _index_left(self, sk:SKT) -> int:
+        """ Find the leftmost list index of <sk> (or the place it *would* be) using bisection search. """
+        # Out of all tuples with an equal first value, the 1-tuple with this value compares less than any 2-tuple.
+        return bisect_left(self._list, (sk,))
 
-    def clear(self) -> None:
-        super().clear()
-        self._list.clear()
+    def _index_exact(self, k:KT) -> int:
+        """ Find the exact list index of the key <k> using bisection search (if it exists). """
+        sk = self._simfn(k)
+        return bisect_left(self._list, (sk, k))
+
+    def _list_insert(self, k:KT) -> None:
+        """ Find where <k> should go in the list and insert it. """
+        sk = self._simfn(k)
+        insort_left(self._list, (sk, k))
+
+    def _list_remove(self, k:KT) -> None:
+        """ Find where <k> is in the list and remove it. """
+        idx = self._index_exact(k)
+        del self._list[idx]
 
     def __setitem__(self, k:KT, v:VT) -> None:
-        """ Set an item in the dict. If the key didn't exist before, find where it goes in the list and insert it. """
+        """ Set an item in the dict. If the key didn't exist before, insert it in the list. """
         if k not in self:
-            idx = self._index_exact(k)
-            self._list.insert(idx, (self._simfn(k), k))
+            self._list_insert(k)
         super().__setitem__(k, v)
+
+    def pop(self, k:KT, *default:VT) -> VT:
+        """ Remove an item from the dict and list and return its value, or <default> if not found. """
+        if k in self:
+            self._list_remove(k)
+        return super().pop(k, *default)
 
     def __delitem__(self, k:KT) -> None:
         """ Just call pop() and throw away the return value. This will not affect sort order. """
         self.pop(k)
 
-    def pop(self, k:KT, *default:VT) -> VT:
-        """ Remove an item from the dict and list and return its value, or <default> if not found. """
-        if k in self:
-            idx = self._index_exact(k)
-            del self._list[idx]
-        if not default:
-            return super().pop(k)
-        return super().pop(k, *default)
-
-    def popitem(self) -> Tuple[KT,VT]:
+    def popitem(self) -> Tuple[KT, VT]:
         """ Remove the last (key, value) pair as found in the list and return it. The dict must not be empty. """
         if not self:
-            raise KeyError()
+            raise KeyError('dictionary is empty')
         sk, k = self._list[-1]
         return k, self.pop(k)
 
@@ -120,71 +130,73 @@ class SimilarKeyDict(Dict[KT, VT]):
         self[k] = default
         return default
 
+    def clear(self) -> None:
+        super().clear()
+        self._list.clear()
+
     def update(self, *args, **kwargs) -> None:
         """ Update the dict and list using items from the given arguments. Because this is typically used
             to fill dictionaries with large amounts of items, a fast path is included if this one is empty. """
         if not self:
-            self._update_empty(*args, **kwargs)
+            super().update(*args, **kwargs)
+            self._build_list()
         else:
             for (k, v) in dict(*args, **kwargs).items():
                 self[k] = v
 
-    def _update_empty(self, *args, **kwargs) -> None:
-        """ Fill the dict from empty and remake the list using items from the given arguments. """
-        assert not self
-        super().update(*args, **kwargs)
-        self._list = sorted(zip(self._mapfn(self), self))
+    def __reduce__(self) -> Tuple[type, tuple, PickleState]:
+        """ Dict subclasses call __setitem__ to unpickle, which will happen before the key list exists in our case.
+            We must sidestep this and unpickle everything using __setstate__ instead.  """
+        state = (dict(self), self.__dict__)
+        return self.__class__, (), state
+
+    def __setstate__(self, state:PickleState) -> None:
+        """ Unpickle both the items and the attributes. """
+        d, attrs = state
+        super().update(d)
+        self.__dict__.update(attrs)
 
     def copy(self) -> "SimilarKeyDict":
         """ Make a shallow copy of the dict. The list will simply be reconstructed in the new copy. """
-        cls = type(self)
-        return cls(self, simfn=self._simfn, mapfn=self._mapfn)
+        return self.__class__(self, simfn=self._simfn, mapfn=self._mapfn)
 
     @classmethod
-    def fromkeys(cls, seq:Iterable[KT], value:VT=None, **kwargs) -> "SimilarKeyDict":
+    def fromkeys(cls, seq:Iterable_KT, value:VT=None, **kwargs) -> "SimilarKeyDict":
         """ Make a new dict from a collection of keys, setting the value of each to <value>.
-            simfn can still be set by including it as a keyword argument after <value>. """
-        return cls(dict.fromkeys(seq, value), **kwargs)
-
-    def _index_left(self, simkey:SKT) -> int:
-        """ Find the leftmost list index of <simkey> (or the place it *would* be) using bisection search. """
-        # Out of all tuples with an equal first value, the 1-tuple with this value compares less than any 2-tuple.
-        return bisect_left(self._list, (simkey,))
-
-    def _index_exact(self, k:KT) -> int:
-        """ Find the exact list index of the key <k> using bisection search (if it exists). """
-        return bisect_left(self._list, (self._simfn(k), k))
+            Similarity functions can still be set by including them as keyword arguments after <value>. """
+        d = dict.fromkeys(seq, value)
+        return cls(d, **kwargs)
 
     def get_similar_keys(self, k:KT, count:int=None) -> List[KT]:
         """ Return a list of at most <count> keys that compare equal to <k> under the similarity function. """
-        _list = self._list
-        simkey = self._simfn(k)
-        idx_start = self._index_left(simkey)
-        idx_end = len(_list)
+        sk_start = self._simfn(k)
+        idx_start = self._index_left(sk_start)
+        idx_end = len(self)
         if count is not None:
             idx_end = min(idx_end, idx_start + count)
         keys = []
+        items = self._list
         for idx in range(idx_start, idx_end):
-            (sk, rk) = _list[idx]
-            if sk != simkey:
+            (sk, rk) = items[idx]
+            if sk != sk_start:
                 break
             keys.append(rk)
         return keys
 
     def get_nearby_keys(self, k:KT, count:int) -> List[KT]:
-        """ Return a list of at most <count> keys that are near to <k> under the similarity function.
+        """ Return a list of at most <count> keys that are equal or close to <k> under the similarity function.
             All keys will be approximately centered around <k> unless we're too close to one edge of the list. """
-        _list = self._list
-        idx_left = self._index_exact(k) - count // 2
-        if idx_left <= 0:
-            items = _list[:count]
+        idx_center = self._index_exact(k)
+        idx_start = idx_center - count // 2
+        if idx_start <= 0:
+            items = self._list[:count]
         else:
-            idx_right = idx_left + count
-            if idx_right >= len(_list):
-                items = _list[-count:]
+            idx_end = idx_start + count
+            if idx_end >= len(self):
+                items = self._list[-count:]
             else:
-                items = _list[idx_left:idx_right]
-        return [i[1] for i in items]
+                items = self._list[idx_start:idx_end]
+        return [item[1] for item in items]
 
 
 class RegexError(Exception):
@@ -199,9 +211,9 @@ def _regex_matcher(pattern:str) -> Callable:
         raise RegexError(pattern + " is not a valid regular expression.") from e
 
 
-class StringSearchDict(SimilarKeyDict):
+class StringSearchDict(SimilarKeyDict[str, VT]):
     """
-    A similar-key dictionary with special search methods for strings.
+    A similar-key dictionary with special search methods for string keys.
     In order for the standard optimizations involving literal prefixes to work, the similarity function must
     not change the relative order of characters (i.e. changing case is fine, reversing the string is not.)
     """
@@ -210,36 +222,33 @@ class StringSearchDict(SimilarKeyDict):
     # Will always return at least the empty string (which is a prefix of everything).
     _LITERAL_PREFIX_MATCH = _regex_matcher(r'[\w \"#%\',\-:;<=>@`~]*')
 
-    def prefix_match_keys(self, prefix:str, count:int=None, raw=True) -> List[str]:
-        """ Return a list of keys (of either type) where the simkey starts with <prefix>, up to <count>. """
+    def prefix_match_keys(self, prefix:str, count:int=None) -> List[str]:
+        """ Return a list of keys where the simkey starts with <prefix>, up to <count>. """
         sk_start = self._simfn(prefix)
         if not sk_start:
             # If the prefix is empty after transformation, it could possibly match anything.
-            matches = self._list if count is None else self._list[:count]
+            items = self._list if count is None else self._list[:count]
         else:
             # All matches will be found in the sort order between the prefix itself (inclusive) and
-            # the prefix with one added to the numerical value of its final character (exclusive).
-            idx_start = self._index_left(sk_start)
+            # the prefix with one added to the ordinal of its final character (exclusive).
             sk_end = sk_start[:-1] + chr(ord(sk_start[-1]) + 1)
+            idx_start = self._index_left(sk_start)
             idx_end = self._index_left(sk_end)
             if count is not None:
                 idx_end = min(idx_end, idx_start + count)
-            matches = self._list[idx_start:idx_end]
-        # For the (simkey, rawkey) tuples, we can use the boolean as an index for the key type we want.
-        return [i[raw] for i in matches]
+            items = self._list[idx_start:idx_end]
+        return [item[1] for item in items]
 
-    def regex_match_keys(self, pattern:str, count:int=None, raw=True) -> List[str]:
-        """ Return a list of at most <count> keys that match the regex <pattern> from the start.
-            Can search and return either the raw keys (default) or sim keys. """
+    def regex_match_keys(self, pattern:str, count:int=None) -> List[str]:
+        """ Return a list of at most <count> keys that match the regex <pattern> from the start. """
         # First, figure out how much of the pattern string from the start is literal (no regex special characters).
         literal_prefix = self._LITERAL_PREFIX_MATCH(pattern).group()
         # If all matches must start with a certain literal prefix, we can narrow the range of our search.
-        # Only keep the type of key (raw or simkey) that we're interested in searching.
-        keys = self.prefix_match_keys(literal_prefix, count=None, raw=raw)
+        keys = self.prefix_match_keys(literal_prefix, count=None)
         if not keys:
             return []
         # If the prefix and pattern are equal, we have a complete literal string. Regex is not necessary.
-        # Just do a (case-sensitive) prefix match in that case. Otherwise, compile the regular expression.
+        # Just do an *exact* prefix match in that case. Otherwise, compile the regular expression.
         if literal_prefix == pattern:
             match_op = methodcaller("startswith", pattern)
         else:

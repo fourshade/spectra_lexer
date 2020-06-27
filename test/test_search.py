@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """ Unit tests for structures in search dictionary package. """
 
 import pickle
@@ -96,7 +94,7 @@ def test_skdict_iter(cls) -> None:
 
 @class_test(SimilarKeyDict)
 def test_skdict_update(cls) -> None:
-    """ Unit tests for bool, clear, and update in SimilarKeyDict. Handles args and kwargs from init. """
+    """ Unit tests for bool, clear, and update in SimilarKeyDict. """
     # Make a blank dict, add new stuff from (k, v) tuples and keywords, and test it.
     d = cls(simfn=bool)
     d.update([("a list", "yes"), ("of tuples", "okay")], but="add", some="keywords")
@@ -181,8 +179,11 @@ def test_skdict_similar(cls) -> None:
 @class_test(StringSearchDict)
 def test_string_dict(cls) -> None:
     """ Unit tests for the added functionality of the string-based search dict class. """
+    def strip_case(s:str) -> str:
+        return s.strip(' #{^}').lower()
+
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
-    d = cls.fromkeys(['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly'], simfn=lambda s: s.strip(' #{^}').lower())
+    d = cls.fromkeys(['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly'], simfn=strip_case)
     assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('') == []
@@ -205,9 +206,6 @@ def test_string_dict(cls) -> None:
     assert d.prefix_match_keys('beaut', count=None) == ['Beautiful', 'beautiful', 'BEAUTIFULLY', 'beautifully']
     assert set(d.prefix_match_keys('')) == keys
 
-    # If raw is False, the similarity keys (case-stripped) will be directly returned.
-    assert d.prefix_match_keys('beautiful', raw=False) == ['beautiful', 'beautiful', 'beautifully', 'beautifully']
-
     # Regex search is straightforward; return up to count entries in order that match the given regular expression.
     # If no regex metacharacters are present, should just be a case-sensitive prefix search.
     assert d.regex_match_keys('beau',          count=4) == ['beau', 'beautiful', 'beautifully']
@@ -220,10 +218,6 @@ def test_string_dict(cls) -> None:
     # If count is None or not given, regex search should just go through the entire list in order.
     assert d.regex_match_keys('.*u.+y', count=None) == ['beautifully', 'ugly']
     assert set(d.regex_match_keys('')) == keys
-
-    # If raw is False, the similarity keys (case-stripped) will be searched instead.
-    assert d.regex_match_keys('.*y$',      raw=False) == ['beautifully', 'beautifully', 'ugly']
-    assert d.regex_match_keys('Beautiful', raw=False) == []
 
     # Regex errors won't raise if the algorithm short circuits a pattern with no possible matches.
     assert d.regex_match_keys('an open group that doesn\'t raise(', count=5) == []
