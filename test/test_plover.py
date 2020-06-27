@@ -1,7 +1,8 @@
 """ Unit tests for Plover dictionary conversion. """
 
-from .base import TEST_TRANSLATIONS
 from spectra_lexer.plover.plugin import IPlover, PloverExtension, steno_dc_to_dict, StringStenoDict
+
+from . import TEST_TRANSLATIONS
 
 
 def test_plover() -> None:

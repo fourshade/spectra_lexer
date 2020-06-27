@@ -1,13 +1,28 @@
-""" Unit tests for lexical analysis and graphical rendering. """
+""" Main feature tests for the Spectra steno lexer.
+    Tests translation search, lexical analysis, and graphical rendering. """
+
+import re
 
 import pytest
-
 from spectra_lexer import SpectraOptions
 
-from .base import TEST_TRANSLATIONS
+from . import TEST_TRANSLATIONS
 
 SPECTRA = SpectraOptions().compile()
+SPECTRA.search_engine.set_translations(TEST_TRANSLATIONS)
 TEST_TRANSLATION_PAIRS = list(TEST_TRANSLATIONS.items())
+
+
+@pytest.mark.parametrize("keys, letters", TEST_TRANSLATION_PAIRS)
+def test_search(keys, letters) -> None:
+    """ Go through each loaded test translation and check all search methods. """
+    search = SPECTRA.search_engine.search
+    assert search(keys, count=2, mode_strokes=True) == {keys: (letters,)}
+    assert search(letters, count=2) == {letters: (keys,)}
+    assert keys in search(re.escape(keys), count=2, mode_strokes=True, mode_regex=True)
+    assert letters in search(re.escape(letters), count=2, mode_regex=True)
+
+
 RTFCRE_CHARS = set("/-#STKPWHRAO*EUFRPBLGTSDZ")
 DELIMS = '/-'
 
@@ -39,3 +54,9 @@ def test_compound() -> None:
         compound_rule = SPECTRA.analyzer.compound_query(seq)
         _verify_analysis(compound_rule)
         assert len(list(compound_rule)) == (2 * len(seq) - 1)
+
+
+def test_index() -> None:
+    """ Basic test for examples index generation. Every translation should have at least one entry. """
+    examples = SPECTRA.analyzer.compile_index(TEST_TRANSLATION_PAIRS, process_count=1)
+    assert {pair for d in examples.values() for pair in d.items()} == set(TEST_TRANSLATION_PAIRS)
