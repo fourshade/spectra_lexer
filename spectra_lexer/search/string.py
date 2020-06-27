@@ -1,14 +1,13 @@
-from itertools import islice
+from itertools import islice, repeat
 from operator import methodcaller
 import re
-from typing import Callable, Dict, Iterable, List, TypeVar
+from typing import Callable, Iterable, List, TypeVar
 
 from .similar import SimilarKeyMap
 
 V = TypeVar("V")
 StringIter = Iterable[str]
 StringList = List[str]
-MultiStringDict = Dict[str, StringList]
 
 
 class RegexError(Exception):
@@ -67,20 +66,22 @@ class StringKeyMap(SimilarKeyMap[str, V]):
         return list(islice(filter(match_op, keys), count))
 
 
-class StringMap(StringKeyMap[str]):
-    """ Searchable one-to-one string mapping. """
+class StripCaseFunctions:
+    """ Contains similarity functions that ignore case and/or certain ending characters. """
 
-    def lookup(self, keys:StringIter) -> MultiStringDict:
-        """ Forward mapping values are strings; wrap each one in a list. """
-        d = self._d
-        return {k: [d[k]] for k in keys}
+    def __init__(self, strip_chars:str) -> None:
+        self._strip_chars = strip_chars
+
+    def simfn(self, s:str) -> str:
+        """ Similarity function for search maps that removes case and strips a user-defined set of characters. """
+        return s.strip(self._strip_chars).lower()
+
+    def mapfn(self, s_iter:StringIter) -> StringIter:
+        """ Mapping the built-in string methods separately provides a good speed boost for large dictionaries. """
+        return map(str.lower, map(str.strip, s_iter, repeat(self._strip_chars)))
 
 
-class MultiStringMap(StringKeyMap[StringList]):
-    """ Searchable one-to-many string mapping. """
-
-    def lookup(self, keys:StringIter) -> MultiStringDict:
-        """ Reverse mapping values are lists; copy them so the caller can't mutate the originals.
-            [*unpacking] seems to be the fastest way to copy large numbers of small lists. """
-        d = self._d
-        return {k: [*d[k]] for k in keys}
+def strip_case_map(*args, strip=" ") -> StringKeyMap:
+    """ Build a new string search map that strips characters and removes case. """
+    fns = StripCaseFunctions(strip)
+    return StringKeyMap(*args, simfn=fns.simfn, mapfn=fns.mapfn)

@@ -1,12 +1,13 @@
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Mapping, Sequence
 
 from PyQt5.QtWidgets import QCheckBox, QLineEdit
 
 from .widgets import StringListView
 
-MatchDict = Dict[str, List[str]]  # Ordered dict with strings matched in a search, each mapped to a list of values.
+StringSeq = Sequence[str]
+SearchResults = Mapping[str, StringSeq]  # Ordered mapping of strings matched in a search to their possible values.
 SearchCallback = Callable[[str, int], None]
-QueryCallback = Callable[[Sequence[str], str], None]
+QueryCallback = Callable[[StringSeq, str], None]
 
 
 class SearchPanel:
@@ -21,15 +22,15 @@ class SearchPanel:
         self._w_mappings = w_mappings
         self._w_strokes = w_strokes
         self._w_regex = w_regex
-        self._match_dict = {}
+        self._matches = {}
         self._page_count = 1
         self._call_search = lambda *_: None
         self._call_query = lambda *_: None
 
-    def _set_matches(self, matches:List[str]) -> None:
+    def _set_matches(self, matches:StringSeq) -> None:
         self._w_matches.setItems(matches)
 
-    def _set_mappings(self, mappings:List[str]) -> None:
+    def _set_mappings(self, mappings:StringSeq) -> None:
         self._w_mappings.setItems(mappings)
 
     def _select_match(self, match:str) -> None:
@@ -43,7 +44,7 @@ class SearchPanel:
         input_text = self._w_input.text()
         self._call_search(input_text, self._page_count)
 
-    def _send_query(self, match:str, mappings:List[str]) -> None:
+    def _send_query(self, match:str, mappings:StringSeq) -> None:
         """ Send a lexer query for one or more translations.
             The order of lexer parameters must be reversed for strokes mode.
             Currently, strokes can never have more than one mapping. """
@@ -72,8 +73,8 @@ class SearchPanel:
             Otherwise, update the mappings list with the items corresponding to <match> and pick the best one. """
         if match == self._MORE_TEXT:
             self._expanded_search()
-        elif match in self._match_dict:
-            mappings = self._match_dict[match]
+        elif match in self._matches:
+            mappings = self._matches[match]
             self._set_mappings(mappings)
             if mappings:
                 self._send_query(match, mappings)
@@ -111,11 +112,11 @@ class SearchPanel:
     def update_input(self, value:str) -> None:
         return self._w_input.setText(value)
 
-    def update_results(self, matches:MatchDict, *, can_expand=False) -> None:
+    def update_results(self, matches:SearchResults, *, can_expand=False) -> None:
         """ Replace the current set of search results.
             If <can_expand> is True, add a final list item to allow search expansion.
             If there was only one match, select it and proceed with a query as if the user had clicked it. """
-        self._match_dict = matches
+        self._matches = matches
         match_list = list(matches)
         if can_expand:
             match_list.append(self._MORE_TEXT)
@@ -132,8 +133,8 @@ class SearchPanel:
     def select_translation(self, keys:str, letters:str) -> None:
         """ Set the current selections to match the analyzed translation if possible. Do not send queries. """
         match, mapping = [keys, letters] if self.is_mode_strokes() else [letters, keys]
-        if match in self._match_dict:
-            mappings = self._match_dict[match]
+        if match in self._matches:
+            mappings = self._matches[match]
             self._select_match(match)
             self._set_mappings(mappings)
             self._select_mapping(mapping)

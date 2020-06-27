@@ -1,44 +1,44 @@
 from collections import defaultdict
-from itertools import repeat
-from typing import Iterable, Mapping
+from typing import Dict, Mapping, Tuple
 
-from .string import MultiStringDict, MultiStringMap, RegexError, StringKeyMap, StringMap
+from .string import RegexError, StringKeyMap, strip_case_map
+
+StringMap = Mapping[str, str]
+StringTuple = Tuple[str, ...]
+StringSearchMap = StringKeyMap[StringTuple]   # Searchable one-to-many string mapping.
+StringSearchResults = Dict[str, StringTuple]  # Dict of key strings mapped to tuples of matching value strings.
 
 
 class StringSearchEngine:
     """ A hybrid forward+reverse string search engine.  """
 
-    def __init__(self, forward:StringMap, reverse:MultiStringMap) -> None:
-        self._forward = forward
-        self._reverse = reverse
+    def __init__(self, *maps:StringSearchMap) -> None:
+        self._maps = maps
 
-    def _get_map(self, reverse:bool) -> StringKeyMap:
-        return self._reverse if reverse else self._forward
-
-    def search(self, pattern:str, count=None, *, reverse=False) -> MultiStringDict:
+    def search(self, pattern:str, count=None, *, reverse=False) -> StringSearchResults:
         """ Do a normal key string search for <pattern>.
             <count>   - Maximum number of matches returned. If None, there is no limit.
             <reverse> - If True, search for values instead of keys. """
-        d = self._get_map(reverse)
+        d = self._maps[reverse]
         keys = d.prefix_match_keys(pattern, count)
         return d.lookup(keys)
 
-    def search_regex(self, pattern:str, count=None, *, reverse=False) -> MultiStringDict:
+    def search_regex(self, pattern:str, count=None, *, reverse=False) -> StringSearchResults:
         """ Do a regular expression search for <pattern>. Return a special result if there's a regex syntax error.
             <count>   - Maximum number of matches returned. If None, there is no limit.
             <reverse> - If True, search for values instead of keys. """
-        d = self._get_map(reverse)
+        d = self._maps[reverse]
         try:
             keys = d.regex_match_keys(pattern, count)
         except RegexError:
-            return {"INVALID REGEX": []}
+            return {"INVALID REGEX": ()}
         return d.lookup(keys)
 
-    def search_nearby(self, pattern:str, count:int, *, reverse=False) -> MultiStringDict:
+    def search_nearby(self, pattern:str, count:int, *, reverse=False) -> StringSearchResults:
         """ Search for key strings close to <pattern>.
             <count>   - Maximum number of matches returned.
             <reverse> - If True, search for values instead of keys. """
-        d = self._get_map(reverse)
+        d = self._maps[reverse]
         keys = d.get_nearby_keys(pattern, count)
         return d.lookup(keys)
 
@@ -48,30 +48,24 @@ class StringSearchFactory:
     def __init__(self, strip_chars=" ") -> None:
         self._strip_chars = strip_chars  # Characters to ignore at the ends of strings during search.
 
-    def _simfn(self, s:str) -> str:
-        """ Similarity function for search dicts that removes case and strips a user-defined set of symbols. """
-        return s.strip(self._strip_chars).lower()
+    def _build_map(self, *args) -> StringKeyMap:
+        """ Build a new string search map that strips characters and removes case. """
+        return strip_case_map(*args, strip=self._strip_chars)
 
-    def _simfn_mapped(self, s_iter:Iterable[str]) -> Iterable[str]:
-        """ Mapping the built-in string methods separately provides a good speed boost for large dictionaries. """
-        return map(str.lower, map(str.strip, s_iter, repeat(self._strip_chars)))
+    def _build_forward(self, s_map:StringMap) -> StringSearchMap:
+        """ Create a tuple-based forward search map from a string mapping.
+            zip() with one argument just packs each value into a 1-tuple. """
+        items_iter = zip(s_map, zip(s_map.values()))
+        return self._build_map(items_iter)
 
-    def _kwargs(self) -> dict:
-        """ Return keyword arguments with the similarity functions. """
-        return dict(simfn=self._simfn, mapfn=self._simfn_mapped)
+    def _build_reverse(self, s_map:StringMap) -> StringSearchMap:
+        """ Create a tuple-based reverse search map from a string mapping. """
+        rd = defaultdict(tuple)
+        for k, v in s_map.items():
+            rd[v] += (k,)
+        return self._build_map(rd)
 
-    def _build_forward(self, s_map:Mapping[str, str]) -> StringMap:
-        """ Create a normal search dict from a string mapping. """
-        return StringMap(s_map, **self._kwargs())
-
-    def _build_reverse(self, s_map:Mapping[str, str]) -> MultiStringMap:
-        """ This is the fastest way I could find to reverse a string mapping
-            (even despite building and throwing away a giant list of None). """
-        rd = defaultdict(list)
-        list(map(list.append, [rd[v] for v in s_map.values()], s_map))
-        return MultiStringMap(rd, **self._kwargs())
-
-    def build(self, s_map:Mapping[str, str]) -> StringSearchEngine:
+    def build(self, s_map:StringMap) -> StringSearchEngine:
         """ Build a bidirectional string search engine. """
         forward = self._build_forward(s_map)
         reverse = self._build_reverse(s_map)

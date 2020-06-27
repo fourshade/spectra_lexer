@@ -1,12 +1,11 @@
 import random
-from typing import Dict, List
 
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translation, TranslationsDict
-from spectra_lexer.search.engine import StringSearchFactory
+from spectra_lexer.search.engine import StringSearchFactory, StringSearchResults
 
-# Marker type for a dict of key strings mapped to lists of value strings.
-MatchDict = Dict[str, List[str]]
+# Marker type for a JSON-compatible dict of search results.
+MatchDict = StringSearchResults
 
 
 class SearchEngine:

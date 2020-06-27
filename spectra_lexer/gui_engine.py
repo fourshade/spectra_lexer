@@ -11,7 +11,7 @@ class SearchResults:
     """ Data class for all results of a search. """
 
     def __init__(self, matches:MatchDict, is_complete=True) -> None:
-        self.matches = matches          # Dict of matched strings with a list of mappings for each.
+        self.matches = matches          # Dict of matched strings with a sequence of mappings for each.
         self.is_complete = is_complete  # If True, this includes all available results.
 
 

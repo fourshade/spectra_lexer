@@ -1,7 +1,7 @@
 """ Qt widget subclasses with essential functionality for the GUI.
     Usually these are only necessary if an event method must be overridden. Otherwise, wrappers are used. """
 
-from typing import List
+from typing import Iterable
 
 from PyQt5.QtCore import pyqtSignal, QItemSelection, QPoint, QRect, QStringListModel, Qt, QUrl
 from PyQt5.QtGui import QContextMenuEvent, QPainter, QPicture, QWheelEvent
@@ -102,9 +102,9 @@ class StringListView(QListView):
         self._max_font_size = max_font_size  # Maximum font size for list items in points.
         self.setModel(QStringListModel([]))
 
-    def setItems(self, str_list:List[str]) -> None:
+    def setItems(self, str_iter:Iterable[str]) -> None:
         """ Replace the list of items. This deselects every item, even ones that didn't change. """
-        self.model().setStringList(str_list)
+        self.model().setStringList(str_iter)
 
     def selectByValue(self, value:str=None, *, center_selection=False) -> None:
         """ Programmatically select a specific item by value if it exists. If it doesn't, clear the selection.

@@ -222,7 +222,7 @@ def test_translations_search() -> None:
     """ Go through each loaded test translation and check all search methods. """
     engine = StringSearchFactory(" -").build(TEST_TRANSLATIONS)
     for keys, word in TEST_TRANSLATIONS.items():
-        assert engine.search(keys, count=2) == {keys: [word]}
-        assert engine.search(word, count=2, reverse=True) == {word: [keys]}
+        assert engine.search(keys, count=2) == {keys: (word,)}
+        assert engine.search(word, count=2, reverse=True) == {word: (keys,)}
         assert keys in engine.search_regex(re.escape(keys), count=2)
         assert word in engine.search_regex(re.escape(word), count=2, reverse=True)
