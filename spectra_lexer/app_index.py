@@ -4,7 +4,7 @@ import sys
 from time import time
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.analysis import TranslationFilter
+from spectra_lexer.spc_lexer import TranslationFilter
 
 
 def main() -> int:
@@ -17,7 +17,7 @@ def main() -> int:
     files_in = opts.translations_paths()
     file_out = opts.index_path()
     log = spectra.log
-    io = spectra.translations_io
+    io = spectra.resource_io
     analyzer = spectra.analyzer
     log("Operation started...")
     start_time = time()

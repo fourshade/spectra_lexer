@@ -1,9 +1,10 @@
 from typing import Dict, Iterable, Optional
 
-from spectra_lexer.analysis import StenoAnalyzer
-from spectra_lexer.display import BoardDiagram, BoardEngine, GraphEngine, GraphTree, HTMLGraph
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search.engine import MatchDict, SearchEngine
+from spectra_lexer.spc_board import BoardDiagram, BoardEngine
+from spectra_lexer.spc_graph import GraphEngine, GraphTree, HTMLGraph
+from spectra_lexer.spc_lexer import StenoAnalyzer
+from spectra_lexer.spc_search import MatchDict, SearchEngine
 
 
 class SearchResults:
@@ -90,17 +91,16 @@ class GUIEngine:
         """ Perform a search based on the current options and/or presence of the index delimiter. """
         count = pages * self._opts.search_match_limit
         mode_strokes = self._opts.search_mode_strokes
-        se = self._search_engine
         if not pattern or pattern.isspace():
             matches = {}
             is_complete = True
         elif self._index_delim in pattern:
             link_ref, rule_pattern = pattern.split(self._index_delim, 1)
-            matches = se.search_examples(link_ref, rule_pattern, count, mode_strokes=mode_strokes)
+            matches = self._search_engine.search_examples(link_ref, rule_pattern, count, mode_strokes=mode_strokes)
             is_complete = True
         else:
-            method = se.search_regex if self._opts.search_mode_regex else se.search
-            matches = method(pattern, count, mode_strokes=mode_strokes)
+            mode_regex = self._opts.search_mode_regex
+            matches = self._search_engine.search(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
             is_complete = len(matches) < count
         return SearchResults(matches, is_complete)
 

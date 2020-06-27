@@ -6,7 +6,7 @@ from threading import Lock
 from typing import Callable
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.analysis import TranslationFilter
+from spectra_lexer.spc_lexer import TranslationFilter
 from spectra_lexer.gui_engine import DisplayData, DisplayPage, GUIEngine, GUIOptions, GUIOutput, SearchResults
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.json import CustomJSONEncoder, JSONBinaryWrapper, RestrictedJSONDecoder
@@ -73,7 +73,7 @@ def build_app(opts:SpectraOptions) -> HTTPGUIApplication:
     translations_files = opts.translations_paths()
     index_file = opts.index_path()
     log = spectra.log
-    io = spectra.translations_io
+    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine

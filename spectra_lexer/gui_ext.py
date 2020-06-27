@@ -1,13 +1,14 @@
-from spectra_lexer.analysis import StenoAnalyzer
-from spectra_lexer.search.engine import SearchEngine
-from spectra_lexer.search.translations import ExamplesDict, TranslationsDict, TranslationsIO
+from spectra_lexer.resource.io import StenoResourceIO
+from spectra_lexer.resource.translations import ExamplesDict, TranslationsDict
+from spectra_lexer.spc_lexer import StenoAnalyzer
+from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.config import SimpleConfigDict
 
 
 class GUIExtension:
     """ Layer for user GUI actions that may require disk access or other higher permissions. """
 
-    def __init__(self, io:TranslationsIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
+    def __init__(self, io:StenoResourceIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  examples_path:str, cfg_path:str) -> None:
         self._io = io
         self._search_engine = search_engine

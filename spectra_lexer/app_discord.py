@@ -4,13 +4,13 @@ import sys
 from typing import Callable, List, Optional, Type
 
 from spectra_lexer import SpectraOptions
-from spectra_lexer.analysis import StenoAnalyzer, TranslationPairs
 from spectra_lexer.console.system import SystemConsole
-from spectra_lexer.discord import DiscordMessage, DiscordBot
-from spectra_lexer.display import BoardDiagram, BoardEngine
 from spectra_lexer.qt.svg import SVGRasterEngine
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search.engine import SearchEngine
+from spectra_lexer.spc_board import BoardDiagram, BoardEngine
+from spectra_lexer.spc_lexer import StenoAnalyzer, TranslationPairs
+from spectra_lexer.spc_search import SearchEngine
+from spectra_lexer.util.discord import DiscordBot, DiscordMessage
 
 
 class MessageFactory:
@@ -143,7 +143,7 @@ def build_app(opts:SpectraOptions) -> DiscordApplication:
     spectra = opts.compile()
     translations_files = opts.translations_paths()
     log = spectra.log
-    io = spectra.translations_io
+    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine

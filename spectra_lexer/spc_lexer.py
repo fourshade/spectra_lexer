@@ -4,12 +4,12 @@ from typing import Iterable, List, Mapping
 from spectra_lexer.lexer import LexerResult, LexerRule, StenoLexer
 from spectra_lexer.lexer.composite import PriorityRuleMatcher
 from spectra_lexer.lexer.exact import StrokeMatcher, WordMatcher
+from spectra_lexer.lexer.parallel import ParallelMapper
 from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
-from spectra_lexer.search.translations import ExamplesDict, RuleID, Translation
-from spectra_lexer.util.parallel import ParallelMapper
+from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translation
 
 TranslationPairs = Iterable[Translation]  # Iterable collection of steno translations.
 
@@ -129,16 +129,15 @@ class StenoAnalyzer:
     def compile_index(self, translations:TranslationPairs, *, size:int=None, process_count=0) -> ExamplesDict:
         """ Run the lexer on all given <translations> with an optional <size> filter.
             This is a big job; do it in parallel if possible using <process_count> processes at once.
-            Then make a index containing each rule's ID mapped to a list of every translation that used it. """
+            Then make a index containing each rule's ID mapped to a dict of every translation that used it. """
         mapper = ParallelMapper(self._query_rule_ids, process_count=process_count)
         if size is not None:
             translations = TranslationFilter(size).filter(translations)
         results = mapper.starmap(translations)
-        index = defaultdict(list)
+        index = defaultdict(dict)
         for keys, letters, *rule_ids in results:
-            translation = keys, letters
             for r_id in rule_ids:
-                index[r_id].append(translation)
+                index[r_id][keys] = letters
         return index
 
     def normalize_keys(self, keys:str) -> str:

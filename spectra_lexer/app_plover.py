@@ -91,7 +91,7 @@ class PloverPlugin:
         index_path = opts.index_path()
         cfg_path = opts.config_path()
         gui_engine = GUIEngine(spectra.search_engine, spectra.analyzer, spectra.graph_engine, spectra.board_engine)
-        gui_ext = GUIExtension(spectra.translations_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
+        gui_ext = GUIExtension(spectra.resource_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
         app = build_app(gui_engine, gui_ext, spectra.log)
         plover_ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
         # Add the extension as an app attribute so it is visible to the Qt app debug tools.

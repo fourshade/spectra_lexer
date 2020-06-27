@@ -1,4 +1,4 @@
-""" EXPERIMENTAL DISCORD BOT MODULE (dependency on discord.py not declared in setup). """
+""" Experimental Discord bot module. """
 
 import io
 from traceback import format_exc

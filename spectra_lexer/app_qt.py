@@ -18,7 +18,7 @@ def main() -> int:
     index_path = opts.index_path()
     cfg_path = opts.config_path()
     gui_engine = GUIEngine(spectra.search_engine, spectra.analyzer, spectra.graph_engine, spectra.board_engine)
-    gui_ext = GUIExtension(spectra.translations_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
+    gui_ext = GUIExtension(spectra.resource_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
     app = build_app(gui_engine, gui_ext, spectra.log)
     translations_paths = opts.translations_paths()
     def load_all() -> None:

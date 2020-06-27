@@ -9,7 +9,7 @@ import pytest
 
 from .base import TEST_TRANSLATIONS
 from spectra_lexer.search.dict import RegexError, SimilarKeyDict, StringSearchDict
-from spectra_lexer.search.engine import SearchEngine
+from spectra_lexer.search.engine import StringSearchFactory
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -233,10 +233,9 @@ def test_string_dict(cls) -> None:
 
 def test_translations_search() -> None:
     """ Go through each loaded test translation and check all search methods. """
-    engine = SearchEngine()
-    engine.set_translations(TEST_TRANSLATIONS)
+    engine = StringSearchFactory(" -").build(TEST_TRANSLATIONS)
     for keys, word in TEST_TRANSLATIONS.items():
-        assert engine.search(word, count=2) == {word: [keys]}
-        assert engine.search(keys, count=2, mode_strokes=True) == {keys: [word]}
-        assert word in engine.search_regex(re.escape(word), count=2)
-        assert keys in engine.search_regex(re.escape(keys), count=2, mode_strokes=True)
+        assert engine.search(keys, count=2) == {keys: [word]}
+        assert engine.search(word, count=2, reverse=True) == {word: [keys]}
+        assert keys in engine.search_regex(re.escape(keys), count=2)
+        assert word in engine.search_regex(re.escape(word), count=2, reverse=True)

@@ -3,7 +3,6 @@ from typing import Callable, Sequence
 
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from spectra_lexer.analysis import TranslationFilter
 from spectra_lexer.console.qt import ConsoleDialog
 from spectra_lexer.gui_engine import DisplayPage, GUIEngine, GUIOptions, GUIOutput
 from spectra_lexer.gui_ext import GUIExtension
@@ -20,6 +19,7 @@ from spectra_lexer.qt.search import SearchPanel
 from spectra_lexer.qt.system import QtTaskExecutor, QtExceptionHook
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
+from spectra_lexer.spc_lexer import TranslationFilter
 from spectra_lexer.util.exception import ExceptionManager
 
 EMPTY_PAGE = DisplayPage(" ", " ", "", "", "")

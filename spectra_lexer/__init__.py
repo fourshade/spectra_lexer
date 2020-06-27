@@ -59,12 +59,12 @@
     __init__ - Anything using Spectra, including the built-in application objects, must start by calling one of the
     main factory methods on the Spectra class. All entry points to the program descend from this in some manner. """
 
-from spectra_lexer.analysis import build_analyzer, StenoAnalyzer
-from spectra_lexer.display import build_board_engine, BoardEngine, GraphEngine
 from spectra_lexer.plover.config import find_dictionaries
-from spectra_lexer.resource.io import ResourceIO
-from spectra_lexer.search.engine import SearchEngine
-from spectra_lexer.search.translations import TranslationsIO
+from spectra_lexer.resource.io import StenoResourceIO
+from spectra_lexer.spc_board import BoardEngine, build_board_engine
+from spectra_lexer.spc_graph import build_graph_engine, GraphEngine
+from spectra_lexer.spc_lexer import build_analyzer, StenoAnalyzer
+from spectra_lexer.spc_search import build_search_engine, SearchEngine
 from spectra_lexer.util.cmdline import CmdlineOptions
 from spectra_lexer.util.log import open_logger, StreamLogger
 from spectra_lexer.util.path import module_directory, PrefixPathConverter, user_data_directory
@@ -77,10 +77,10 @@ PLOVER_APP_NAME = "plover"
 class Spectra:
     """ Container for all common components, and the basis for using Spectra as a library. """
 
-    def __init__(self, logger:StreamLogger, translations_io:TranslationsIO, search_engine:SearchEngine,
+    def __init__(self, logger:StreamLogger, resource_io:StenoResourceIO, search_engine:SearchEngine,
                  analyzer:StenoAnalyzer, graph_engine:GraphEngine, board_engine:BoardEngine) -> None:
         self.log = logger.log
-        self.translations_io = translations_io
+        self.resource_io = resource_io
         self.search_engine = search_engine
         self.analyzer = analyzer
         self.graph_engine = graph_engine
@@ -154,7 +154,9 @@ class SpectraOptions(CmdlineOptions):
         """ From the base directory, load and verify each resource component, then return the complete collection. """
         if parse_args:
             self.parse()
-        r_io = ResourceIO()
+        log_path = self.log_path()
+        logger = open_logger(log_path, to_stdout=True)
+        r_io = StenoResourceIO()
         keymap = r_io.load_keymap(self.keymap_path())
         keymap.verify()
         rules = r_io.load_rules(self.rules_path())
@@ -163,11 +165,8 @@ class SpectraOptions(CmdlineOptions):
         for rule in rules:
             rule.verify(valid_rtfcre, delimiters)
         board_defs = r_io.load_board_defs(self.board_defs_path())
-        log_path = self.log_path()
-        logger = open_logger(log_path, to_stdout=True)
-        t_io = TranslationsIO()
-        search_engine = SearchEngine()
+        search_engine = build_search_engine(keymap)
         analyzer = build_analyzer(keymap, rules)
-        graph_engine = GraphEngine(keymap.separator_key(), keymap.divider_key())
+        graph_engine = build_graph_engine(keymap)
         board_engine = build_board_engine(keymap, board_defs)
-        return Spectra(logger, t_io, search_engine, analyzer, graph_engine, board_engine)
+        return Spectra(logger, r_io, search_engine, analyzer, graph_engine, board_engine)

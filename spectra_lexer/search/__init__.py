@@ -1,2 +1,1 @@
-""" Package for the steno translation search engine.
-    Includes specific steno translation search dictionaries and managers. """
+""" Package for the string search engine. """
