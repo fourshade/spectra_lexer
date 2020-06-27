@@ -6,8 +6,9 @@ import re
 import pytest
 
 from .base import TEST_TRANSLATIONS
-from spectra_lexer.search.dict import RegexError, SimilarKeyDict, StringSearchDict
 from spectra_lexer.search.engine import StringSearchFactory
+from spectra_lexer.search.similar import SimilarKeyMap
+from spectra_lexer.search.string import RegexError, StringKeyMap
 
 
 def class_hierarchy_tester(*test_classes:type):
@@ -22,12 +23,12 @@ def class_hierarchy_tester(*test_classes:type):
 
 
 # Each test is designed for a specific class, but subclasses should be substitutable, so run the tests on them too.
-class_test = class_hierarchy_tester(SimilarKeyDict, StringSearchDict)
+class_test = class_hierarchy_tester(SimilarKeyMap, StringKeyMap)
 
 
-@class_test(SimilarKeyDict)
-def test_skdict_basic(cls) -> None:
-    """ Basic unit tests for init, getitem, setitem, delitem, len, contains, and eq on SimilarKeyDict. """
+@class_test(SimilarKeyMap)
+def test_skmap_basic(cls) -> None:
+    """ Basic unit tests for init, getitem, setitem, delitem, len, contains, and eq. """
     d = cls({1: "a", 2: "b", 3: "c"})
     assert 1 in d
     assert 2 in d
@@ -47,9 +48,20 @@ def test_skdict_basic(cls) -> None:
         del d["key not here"]
 
 
-@class_test(SimilarKeyDict)
-def test_skdict_aux(cls) -> None:
-    """ Unit tests for get, setdefault, pop, popitem, copy, and fromkeys on SimilarKeyDict. """
+@class_test(SimilarKeyMap)
+def test_skmap_iter(cls) -> None:
+    """ Unit tests for iter, keys, values, and items. """
+    # Iterators should behave like an ordinary dictionary, independent of the key tracking capabilities.
+    d = cls({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
+    keys_from_iter = set(iter(d))
+    for (k, v, item) in zip(d.keys(), d.values(), d.items()):
+        assert k in keys_from_iter
+        assert (k, v) == item
+
+
+@class_test(SimilarKeyMap)
+def test_skmap_aux(cls) -> None:
+    """ Unit tests for get, setdefault, pop, and popitem. """
     d = cls({1: "a", 2: "b", 3: "c", 4: "d", 5: "e"}, simfn=abs)
     assert d.get(1) == "a"
     assert d.get(5) == "e"
@@ -65,37 +77,17 @@ def test_skdict_aux(cls) -> None:
     with pytest.raises(KeyError):
         d.pop(20)
     assert d.pop(10, "default") == "default"
-    # The greatest absolute value key (sorted last in the list) should be -10 here.
-    assert d.popitem() == (-10, None)
-    d.clear()
+    items = set(d.items())
+    while d:
+        assert d.popitem() in items
     with pytest.raises(KeyError):
         d.popitem()
-    d = cls.fromkeys([1, 2, 3, 4, 5])
-    assert sum(list(d.keys())) == 15
-    assert all(v is None for v in d.values())
-    d = cls.fromkeys([1, 2, 3, 4, 5], 6)
-    assert all(v == 6 for v in d.values())
-    d = cls.fromkeys([-4, 2, 9, -1, -6], 0, simfn=abs)
-    assert d.popitem() == (9, 0)
-    # Both the current dict items and similarity function should copy.
-    assert d.copy().popitem() == (-6, 0)
 
 
-@class_test(SimilarKeyDict)
-def test_skdict_iter(cls) -> None:
-    """ Unit tests for iter, keys, values, and items in SimilarKeyDict. """
-    # Iterators should behave like an ordinary dictionary, independent of the key tracking capabilities.
-    d = cls({48: "0", 65: "A", 124: "|", 97: "a"}, simfn=chr)
-    keys_from_iter = set(iter(d))
-    for (k, v, item) in zip(d.keys(), d.values(), d.items()):
-        assert k in keys_from_iter
-        assert (k, v) == item
-
-
-@class_test(SimilarKeyDict)
-def test_skdict_update(cls) -> None:
-    """ Unit tests for bool, clear, and update in SimilarKeyDict. """
-    # Make a blank dict, add new stuff from (k, v) tuples and keywords, and test it.
+@class_test(SimilarKeyMap)
+def test_skmap_update(cls) -> None:
+    """ Unit tests for bool, clear, and update. """
+    # Start empty and add new stuff from (k, v) tuples and keywords.
     d = cls(simfn=bool)
     d.update([("a list", "yes"), ("of tuples", "okay")], but="add", some="keywords")
     assert d
@@ -111,8 +103,8 @@ def test_skdict_update(cls) -> None:
     assert len(d) == 0
 
 
-@class_test(SimilarKeyDict)
-def test_skdict_values(cls) -> None:
+@class_test(SimilarKeyMap)
+def test_skmap_values(cls) -> None:
     """ Exotic values (functions, nested sequences, self-references) shouldn't break anything. """
     d = cls({"x" * i: i for i in range(10)}, simfn=str.upper)
     d["func"] = len
@@ -123,19 +115,8 @@ def test_skdict_values(cls) -> None:
     assert d["recurse me!"]["recurse me!"]["recurse me!"] is d
 
 
-@class_test(SimilarKeyDict)
-def test_skdict_pickle(cls) -> None:
-    """ Unit tests for reduce and setstate. """
-    d = cls({'++++': "a", '++': "b", '+': "c"}, simfn=len)
-    assert d.get_similar_keys("test") == ['++++']
-    s = pickle.dumps(d)
-    new_d = pickle.loads(s)
-    assert new_d == d
-    assert new_d.get_similar_keys("test") == ['++++']
-
-
-@class_test(SimilarKeyDict)
-def test_skdict_similar(cls) -> None:
+@class_test(SimilarKeyMap)
+def test_skmap_similar(cls) -> None:
     """
     For these tests, the similarity function will remove everything but a's in the string.
     This means strings with equal numbers of a's will compare as "similar".
@@ -148,7 +129,7 @@ def test_skdict_similar(cls) -> None:
     # The values don't matter; just have them be the number of a's for reference.
     data = {"a": 1, "Canada": 3, "a man!?": 2, "^hates^": 1, "lots\nof\nlines": 0,
             "": 0,  "A's don't count, just a's": 1, "AaaAaa, Ʊnićodə!": 4}
-    d = cls(simfn=just_a, **data)
+    d = cls(data, simfn=just_a)
 
     # "Similar keys", should be all keys with the same number of a's as the input.
     assert d.get_similar_keys("a") == ["A's don't count, just a's", "^hates^", "a"]
@@ -176,20 +157,32 @@ def test_skdict_similar(cls) -> None:
     assert set(d.get_nearby_keys("EVERYTHING", 100)) == set(d)
 
 
-@class_test(StringSearchDict)
-def test_string_dict(cls) -> None:
-    """ Unit tests for the added functionality of the string-based search dict class. """
+@class_test(SimilarKeyMap)
+def test_skmap_pickle(cls) -> None:
+    """ Unit tests for pickling. """
+    d = cls({'++++': "a", '++': "b", '+': "c"}, simfn=len)
+    assert d.get_similar_keys("test") == ['++++']
+    s = pickle.dumps(d)
+    new_d = pickle.loads(s)
+    assert new_d == d
+    assert new_d.get_similar_keys("test") == ['++++']
+
+
+@class_test(StringKeyMap)
+def test_string_map(cls) -> None:
+    """ Unit tests for the added functionality of the string-based search class. """
     def strip_case(s:str) -> str:
         return s.strip(' #{^}').lower()
 
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
-    d = cls.fromkeys(['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly'], simfn=strip_case)
+    keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
+    d = cls(dict.fromkeys(keys), simfn=strip_case)
     assert d.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert d.get_similar_keys('') == []
 
     # Prefix search will return words in sorted order which are supersets of the input starting from
-    # the beginning after applying the similarity function. Also stops at the end of the dictionary.
+    # the beginning after applying the similarity function. Also stops at the end of the list.
     keys = {'beau', 'beautiful', 'Beautiful', 'beautifully', 'BEAUTIFULLY', 'ugly', 'ugliness'}
     d.clear()
     d.update(dict.fromkeys(keys))
