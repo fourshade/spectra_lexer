@@ -1,8 +1,6 @@
 """ Module for exact string rule matching. """
 
-from typing import List
-
-from .base import IRuleMatcher, LexerRule, RuleMatch
+from . import IRuleMatcher, LexerRule, RuleMatches
 
 
 class StrokeMatcher(IRuleMatcher):
@@ -15,7 +13,7 @@ class StrokeMatcher(IRuleMatcher):
     def add(self, rule:LexerRule) -> None:
         self._rules_by_stroke[rule.skeys] = rule
 
-    def match(self, skeys:str, letters:str, all_skeys:str, *_) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, all_skeys:str, *_) -> RuleMatches:
         """ We have a complete stroke next if we just started or a stroke separator was just matched. """
         if skeys == all_skeys or all_skeys[-len(skeys)-1] == self._key_sep:
             skeys_fs = skeys.split(self._key_sep, 1)[0]
@@ -37,7 +35,7 @@ class WordMatcher(IRuleMatcher):
     def add(self, rule:LexerRule) -> None:
         self._rules_by_word[rule.letters] = rule
 
-    def match(self, skeys:str, letters:str, all_skeys:str, *_) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, all_skeys:str, *_) -> RuleMatches:
         """ We have a complete word next if we just started or the word pointer is sitting on a space. """
         if skeys == all_skeys or letters[:1] == ' ':
             letters = letters.lower()

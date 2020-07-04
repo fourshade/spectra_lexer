@@ -1,23 +1,26 @@
 """ Module for matching rules by a prefix of steno keys. """
 
-from typing import List, Sequence, TypeVar
+from typing import Generic, Sequence, TypeVar
 
-from .base import IRuleMatcher, LexerRule, RuleMatch
+from . import IRuleMatcher, LexerRule, RuleMatches
+
+E = TypeVar("E")  # Trie element type.
+V = TypeVar("V")  # Trie value type.
+Sequence_E = Sequence[E]
+Sequence_V = Sequence[V]
 
 
-class _PrefixTree:
+class PrefixTree(Generic[E, V]):
     """ A trie-based structure with sequence-based keys that has the distinct advantage of
         quickly returning all values that match a given key or any of its prefixes, in order.
         It also allows duplicate keys, returning a list of all values that match it. """
-
-    _T = TypeVar("_T")
 
     def __init__(self) -> None:
         """ The root node matches the empty sequence, which is a prefix of everything. """
         self._root = {"values": []}
 
-    def add(self, k:Sequence, v:_T) -> None:
-        """ Add a new value to the list under the given key. If it doesn't exist, create nodes until we reach it. """
+    def add(self, k:Sequence_E, v:V) -> None:
+        """ Add a new value to the list for sequence <k>. If it doesn't exist, create nodes until we reach it. """
         node = self._root
         for element in k:
             if element not in node:
@@ -25,9 +28,9 @@ class _PrefixTree:
             node = node[element]
         node["values"].append(v)
 
-    def match(self, k:Sequence) -> List[_T]:
-        """ From a given sequence, return a list of all of the values that match
-            any prefix of it in order from longest prefix matched to shortest. """
+    def match(self, k:Sequence_E) -> Sequence_V:
+        """ For a sequence <k>, return all of the values that match
+            any prefix in order from longest prefix matched to shortest. """
         node = self._root
         values = node["values"][:]
         for element in k:
@@ -42,7 +45,7 @@ class PrefixMatcher(IRuleMatcher):
     """ Matches rules that start with certain keys in order. """
 
     def __init__(self) -> None:
-        self._tree = _PrefixTree()  # Prefix tree for all rules.
+        self._tree = PrefixTree()  # Prefix tree for all rules.
 
     def add(self, rule:LexerRule) -> None:
         """ Index a rule, its skeys length, and its letters under the skeys.
@@ -51,7 +54,7 @@ class PrefixMatcher(IRuleMatcher):
         letters = rule.letters.lower()
         self._tree.add(skeys, (rule, len(skeys), letters))
 
-    def match(self, skeys:str, letters:str, *_) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, *_) -> RuleMatches:
         """ Match a key string with only ordered keys. Prefixes may be removed by slicing. """
         letters = letters.lower()
         matches = []
@@ -70,7 +73,7 @@ class UnorderedPrefixMatcher(IRuleMatcher):
         assert len(key_sep) == 1
         self._key_sep = key_sep                    # Steno stroke delimiter.
         self._unordered_set = set(unordered_keys)  # Set of keys in which to ignore steno order.
-        self._tree = _PrefixTree()                 # Prefix tree for all rules.
+        self._tree = PrefixTree()                  # Prefix tree for all rules.
         self._ordered_matcher = PrefixMatcher()    # Matches rules with only ordered keys.
 
     def add(self, rule:LexerRule) -> None:
@@ -90,7 +93,7 @@ class UnorderedPrefixMatcher(IRuleMatcher):
             ordered_keys = ordered_keys.replace(c, "", 1)
         self._tree.add(ordered_keys, (rule, skeys, letters, unordered_fs))
 
-    def match(self, skeys:str, letters:str, *_) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, *_) -> RuleMatches:
         """ Match all rules that contain a prefix of the ordered keys in <skeys>, a subset of <letters>,
             and a subset of unordered keys from the first stroke. This may yield a large number of rules. """
         skeys_fs = skeys.split(self._key_sep, 1)[0]

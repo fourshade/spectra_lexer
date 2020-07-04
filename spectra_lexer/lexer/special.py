@@ -1,8 +1,8 @@
 """ Module for matching special-case rules. These are usually modifiers involving the asterisk. """
 
-from typing import Callable, List
+from typing import Callable
 
-from .base import IRuleMatcher, LexerRule, RuleMatch
+from . import IRuleMatcher, LexerRule, RuleMatches
 
 
 class DelimiterMatcher(IRuleMatcher):
@@ -20,7 +20,7 @@ class DelimiterMatcher(IRuleMatcher):
             raise ValueError("Delimiter rules may not have letters.")
         self._delim_rules[skey] = rule
 
-    def match(self, skeys:str, *_) -> List[RuleMatch]:
+    def match(self, skeys:str, *_) -> RuleMatches:
         """ Match a delimiter only if it is at the head of the key string. """
         head = skeys[:1]
         if head in self._delim_rules:
@@ -92,7 +92,7 @@ class SpecialMatcher(IRuleMatcher):
         test = getattr(self, pred.meth_name)
         self._rule_tests.append((rule, test))
 
-    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> RuleMatches:
         """ If we only have a special key left at the end of a stroke, try to guess its meaning.
             <skeys>        - contains all keys that have not yet been matched.
             <letters>      - contains all letters that have not yet been matched.

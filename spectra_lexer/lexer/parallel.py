@@ -28,34 +28,38 @@ class ParallelMapper:
         self._process_count = process_count  # Number of parallel processes (0 = one process for each logical CPU core).
         self._retry = retry                  # If True, retry with a single process on failure.
 
-    def map(self, *iterables:Iterable) -> list:
-        """ Using the saved function, perform the equivalent of builtins.map on <iterables> in parallel. """
-        return self.starmap(zip(*iterables))
-
-    def starmap(self, iterable:StarmapIterable) -> list:
-        """ Using the saved function, perform the equivalent of itertools.starmap on <iterable> in parallel.
-            This will return a list instead of an iterator. No order is guaranteed in the results. """
-        # Don't add the overhead of multiprocessing if there's only one process.
-        if self._process_count == 1:
-            return self._serial_starmap(iterable)
-        # The iterable may be one-time use. Make a list out of it in case we have to retry with one process.
-        iterable = list(iterable)
-        try:
-            return self._parallel_starmap(iterable)
-        except Exception:
-            if not self._retry:
-                raise
-            # If the process pool fails (usually due to pickling problems), retry with ordinary starmap.
-            print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
-            return self._serial_starmap(iterable)
-
     def _parallel_starmap(self, iterable:StarmapIterable) -> list:
-        """ Map the function over <iterable> in parallel with Pool.starmap. """
-        # multiprocessing is fairly large, so don't import until we have to.
+        """ Map the function over <iterable> in parallel with multiprocessing.Pool.starmap. """
+        # multiprocessing is fairly large, so don't import it until we have to.
         from multiprocessing import Pool
         with Pool(processes=self._process_count) as pool:
             return pool.starmap(self._func, iterable)
 
     def _serial_starmap(self, iterable:StarmapIterable) -> list:
-        """ Map the function over <iterable> with ordinary starmap. """
+        """ Map the function over <iterable> one item at a time with itertools.starmap. """
         return list(starmap(self._func, iterable))
+
+    def _safe_starmap(self, iterable:StarmapIterable) -> list:
+        """ Attempt a parallel starmap, but fall back to a single process on an error.
+            The iterable may be one-time use, so make a list out of it in case we have to retry. """
+        items = list(iterable)
+        try:
+            return self._parallel_starmap(items)
+        except Exception:
+            # If the process pool fails (usually due to pickling problems), retry with ordinary starmap.
+            print("Parallel operation failed. Trying with a single process...", file=sys.stderr)
+            return self._serial_starmap(items)
+
+    def starmap(self, iterable:StarmapIterable) -> list:
+        """ Using the saved function, perform the equivalent of itertools.starmap on <iterable> in parallel.
+            This will return a list instead of an iterator. No order is guaranteed in the results. """
+        if self._process_count == 1:
+            # Don't add the overhead of multiprocessing if there's only one process.
+            return self._serial_starmap(iterable)
+        elif self._retry:
+            return self._safe_starmap(iterable)
+        return self._parallel_starmap(iterable)
+
+    def map(self, *iterables:Iterable) -> list:
+        """ Using the saved function, perform the equivalent of builtins.map on <iterables> in parallel. """
+        return self.starmap(zip(*iterables))

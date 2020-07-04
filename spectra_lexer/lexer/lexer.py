@@ -3,7 +3,7 @@
 from operator import attrgetter
 from typing import List, Sequence, Union
 
-from .base import IRuleMatcher, LexerRule
+from . import IRuleMatcher, LexerRule
 
 
 class LexerResult:

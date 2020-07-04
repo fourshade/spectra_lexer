@@ -1,8 +1,8 @@
 """ Module for matching rules by delegation to other rule matchers. """
 
-from typing import Iterable, List
+from typing import Iterable
 
-from .base import IRuleMatcher, RuleMatch
+from . import IRuleMatcher, RuleMatches
 
 
 class PriorityRuleMatcher(IRuleMatcher):
@@ -11,7 +11,7 @@ class PriorityRuleMatcher(IRuleMatcher):
     def __init__(self, *matcher_groups:Iterable[IRuleMatcher]) -> None:
         self._groups = matcher_groups  # Groups of steno rule matchers to be tried in iteration order.
 
-    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> List[RuleMatch]:
+    def match(self, skeys:str, letters:str, all_skeys:str, all_letters:str) -> RuleMatches:
         """ Look for matches using each group of rule matchers in priority order.
             If a group finds matches, return all of the matches found by that group and stop.
             Only move to the next group if the previous group finds nothing at all. """
