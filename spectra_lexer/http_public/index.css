@@ -2,55 +2,19 @@
               font-size: 11pt;}
 .fontConsole {font-family: "Courier New", Courier, monospace;
               font-size: 10pt;}
-.main        {display: grid;
-              grid-gap: 2px;
-              grid-template-columns: 150px minmax(450px, 1fr);}
-.main > div  {margin: 0px;
-              padding: 4px;
-              background: #F7F7F7;
-              border: 1px solid black;}
-.footer      {text-align: right;}
 
-
-#gInput {grid-area: 1 / 1;}
-#gInput > input {box-sizing: border-box;
-                 width: 100%;}
-
-#gMatches {grid-area: 2 / 1;}
-#gMatches > ul {height: 210px;}
-
-#gMappings {grid-area: 3 / 1;}
-#gMappings > ul    {height: 100px;
-                    margin-bottom: 4px;}
-#gMappings > input {margin: 8px 10px 8px 10px;}
-
-#gOptions {grid-area: 4 / 1;
-           text-align: right;}
-
-
-#gTitle {grid-area: 1 / 2;
-         padding: 6px;}
-#gTitle > input {box-sizing: border-box;
-                 width: 100%;
-                 background: #F7F7F7;
-                 border: none;}
-#gTitle > input:focus {background: #FFFFFF;
-                       border: 1px inset;}
-
-#gGraph {grid-area: 2 / 2;
-         padding: 6px;}
-#gGraph > div {overflow: auto;}
-
-#gBoard {grid-area: 3 / 2 / span 2;
-         padding: 6px;
-         position: relative;
-         text-align: center;}
-#gBoard svg {max-height: 250px;}
-#gBoard > a {position: absolute;
-             bottom: 6px;
-             right: 6px;}
-
-
+.mainGrid {display: grid;
+           grid-gap: 2px;
+           grid-template-columns: 150px minmax(450px, 1fr);}
+.cell {margin: 0px;
+       padding: 4px;
+       background: #F7F7F7;
+       border: 1px solid black;}
+.option {margin: 8px 0 8px 0;}
+.option > * {vertical-align: middle;}
+.option > label {margin: 0 5px 0 5px;}
+.textInput {box-sizing: border-box;
+            width: 100%;}
 .searchList {padding: 0px;
              background: white;
              border: 1px solid black;
@@ -63,11 +27,35 @@
                   cursor: pointer;}
 .searchList > li.selected {background: #BFCFFF;}
 
-.option {margin: 8px 0 8px 0;}
-.option > * {vertical-align: middle;
-             margin: 0 5px 0 5px;}
+.gInput     {grid-area: 1 / 1;}
+.gMatches   {grid-area: 2 / 1;}
+#w_matches  {height: 210px;}
+.gMappings  {grid-area: 3 / 1;}
+#w_mappings {height: 100px;
+             margin-bottom: 4px;}
+.gOptions   {grid-area: 4 / 1;
+             text-align: right;}
 
+.gTitle        {grid-area: 1 / 2;
+                padding: 6px;}
+#w_title       {background: inherit;
+                border: none;}
+#w_title:focus {background: #FFFFFF;
+                border: 1px inset;}
+.gGraph        {grid-area: 2 / 2;
+                padding: 6px;}
+#w_graph       {height: 210px;
+                overflow: auto;}
+.gBoard        {grid-area: 3 / 2 / span 2;
+                padding: 6px;
+                position: relative;
+                text-align: center;}
+#w_board > svg {max-height: 250px;}
+#w_link        {position: absolute;
+                bottom: 6px;
+                right: 6px;}
 
+.footer {text-align: right;}
 .mobile {display: none;}
 @media only screen and (min-device-width : 320px) and (max-device-width : 480px)
 {

@@ -17,15 +17,28 @@ function SpectraClient() {
             }
         }
     }
+    const queryOptions = new JSONQueryParams(window.location.search);
 
-    var queryOptions = new JSONQueryParams(window.location.search);
+    function elementById(id) {
+        return document.getElementById(id);
+    }
+    const searchInput = elementById("w_input");
+    const searchMatches = elementById("w_matches");
+    const searchMappings = elementById("w_mappings");
+    const searchModeStrokes = elementById("w_strokes");
+    const searchModeRegex = elementById("w_regex");
+    const displayTitle = elementById("w_title");
+    const displayText = elementById("w_graph");
+    const displayDesc = elementById("w_caption");
+    const displayBoard = elementById("w_board");
+    const displayLink = elementById("w_link");
 
     class ListHandler {
-        constructor(id, onSelectFn) {
-            this.active = {};
+        constructor(root, onSelectFn) {
+            this.root = root;
             this.onSelectFn = onSelectFn;
-            this.root = document.getElementById(id);
-            this.root.addEventListener("click", this.clickEvent.bind(this));
+            this.active = {};
+            root.addEventListener("click", this.clickEvent.bind(this));
         }
         selectElem(elem) {
             if(this.root === elem || this.active === elem) {
@@ -66,20 +79,20 @@ function SpectraClient() {
         }
         get value() {return this.active.textContent;}
     }
-
-    const searchInput = document.getElementById("w_input");
-    const matchSelector = new ListHandler("w_matches", onSelectMatch);
-    const mappingSelector = new ListHandler("w_mappings", onSelectMapping);
-    const searchModeStrokes = document.getElementById("w_strokes");
-    const searchModeRegex = document.getElementById("w_regex");
-    const displayTitle = document.getElementById("w_title");
-    const displayText = document.getElementById("w_graph");
-    const displayDesc = document.getElementById("w_caption");
-    const displayBoard = document.getElementById("w_board");
-    const displayLink = document.getElementById("w_link");
+    const matchSelector = new ListHandler(searchMatches, onSelectMatch);
+    const mappingSelector = new ListHandler(searchMappings, onSelectMapping);
 
     var lastMatches = {};
     var lastPageCount = 1;
+    function doSearch() {
+        let input = searchInput.value;
+        sendRequest({action: "search",
+                     args: [input, lastPageCount]});
+    }
+    function newSearch() {
+        lastPageCount = 1;
+        doSearch();
+    }
     function onSelectMatch(match) {
         if(match == MORE_TEXT) {
             lastPageCount++;
@@ -105,16 +118,6 @@ function SpectraClient() {
         sendRequest({action: "query",
                      args: strokes ? [match, mappings[0]]: [mappings, match]});
     }
-
-    function newSearch() {
-        lastPageCount = 1;
-        doSearch();
-    }
-    function doSearch() {
-        let input = searchInput.value;
-        sendRequest({action: "search",
-                     args: [input, lastPageCount]});
-    }
     searchModeStrokes.addEventListener("change", newSearch);
     searchModeRegex.addEventListener("change", newSearch);
     searchInput.addEventListener("input", newSearch);
@@ -135,7 +138,7 @@ function SpectraClient() {
         displayText.innerHTML = graphFocused ? intense_graph : graph;
         displayDesc.textContent = caption;
         displayBoard.innerHTML = board;
-        displayLink.style.display = (rule_id ? "" : "none");
+        displayLink.style.display = (rule_id ? "block" : "none");
         currentLink = rule_id;
     }
     displayLink.addEventListener("click", function(){
@@ -145,12 +148,13 @@ function SpectraClient() {
         return false;
     });
 
-    var currentDisplay = null;
+    var currentPages = null;
+    var currentDefaultPage = null;
     var currentNodeRef = null;
     function graphAction(nodeRef) {
-        if(currentDisplay) {
+        if(currentPages) {
             currentNodeRef = nodeRef;
-            setPage(currentDisplay.pages_by_ref[nodeRef] || currentDisplay.default_page);
+            setPage(currentPages[nodeRef] || currentDefaultPage);
         }
     }
     $(displayText).on("mouseenter", NODE_SELECTOR, function(){
@@ -173,58 +177,64 @@ function SpectraClient() {
         return false;
     });
 
-    function updateGUI({search_results, display_data}) {
-        if(search_results) {  // New items in the search lists.
-            // The web version has too much latency to use this. It could cover up what the user is typing.
-            // searchInput.value = search_results.pattern;
-            lastMatches = search_results.matches;
-            let keys = Object.keys(lastMatches);
-            // If there are unseen results, add a final list item to allow search expansion.
-            if(!search_results.is_complete) {
-                keys.push(MORE_TEXT);
-            }
-            matchSelector.update(keys);
-            // If the new list does not have the previous selection, reset the mappings.
-            if(!matchSelector.value) {
-                mappingSelector.update([]);
-            }
-            if (keys.length == 1) {
-                // Automatically select the item if there was only one.
-                let [match] = keys;
-                matchSelector.selectText(match);
-                onSelectMatch(match);
-            }
+    function updateSearch({pattern, matches, is_complete}) {
+        // The web version has too much latency to use this. It could cover up what the user is typing.
+        // searchInput.value = pattern;
+        lastMatches = matches;
+        let keys = Object.keys(matches);
+        // If there are unseen results, add a final list item to allow search expansion.
+        if(!is_complete) {
+            keys.push(MORE_TEXT);
         }
-        if(display_data) {  // New graphical objects.
-            currentDisplay = display_data;
-            let {keys, letters, pages_by_ref, default_page} = display_data;
-            displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
-            // Set the current selections to match the translation if possible.
-            let strokes = searchModeStrokes.checked;
-            let match = strokes ? keys : letters;
-            let mapping = strokes ? letters : keys;
-            let mappings = lastMatches[match];
-            if(mappings) {
-                matchSelector.selectText(match);
-                mappingSelector.update(mappings);
-                mappingSelector.selectText(mapping);
-            }
-            let startPage = default_page;
-            graphFocused = false;
-            if(currentLink) {
-                for (let page of Object.values(pages_by_ref)) {
-                    if(currentLink == page.rule_id) {
-                        startPage = page;
-                        graphFocused = true;
-                        break;
-                    }
+        matchSelector.update(keys);
+        // If the new list does not have the previous selection, reset the mappings.
+        if(!matchSelector.value) {
+            mappingSelector.update([]);
+        }
+        if (keys.length == 1) {
+            // Automatically select the item if there was only one.
+            let [match] = keys;
+            matchSelector.selectText(match);
+            onSelectMatch(match);
+        }
+    }
+    function updateDisplay({keys, letters, pages_by_ref, default_page}) {
+        currentPages = pages_by_ref;
+        currentDefaultPage = default_page;
+        displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
+        // Set the current selections to match the translation if possible.
+        let strokes = searchModeStrokes.checked;
+        let match = strokes ? keys : letters;
+        let mapping = strokes ? letters : keys;
+        let mappings = lastMatches[match];
+        if(mappings) {
+            matchSelector.selectText(match);
+            mappingSelector.update(mappings);
+            mappingSelector.selectText(mapping);
+        }
+        let startPage = default_page;
+        graphFocused = false;
+        if(currentLink) {
+            for (let page of Object.values(pages_by_ref)) {
+                if(currentLink == page.rule_id) {
+                    startPage = page;
+                    graphFocused = true;
+                    break;
                 }
             }
-            setPage(startPage);
+        }
+        setPage(startPage);
+    }
+    function updateGUI({search_results, display_data}) {
+        if(search_results) {  // New items in the search lists.
+            updateSearch(search_results)
+        }
+        if(display_data) {  // New graphical objects.
+            updateDisplay(display_data)
         }
     }
 
-    var cache = new Map();
+    let cache = new Map();
     function sendRequest({action, args=[], ignoreCache=false}) {
         let boardOpts = JSON.parse(document.querySelector(OPT_SELECTOR + ':checked').value);
         let options = {search_mode_strokes: searchModeStrokes.checked,
@@ -253,9 +263,6 @@ function SpectraClient() {
             });
         }
     }
-
-    // Before starting, hide the link.
-    displayLink.style.display = "none";
 }
 
 $(document).ready(SpectraClient);

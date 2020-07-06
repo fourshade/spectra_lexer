@@ -5,42 +5,42 @@
     <title>The Spectra Project</title>
     <link rel="icon" href="icon.png" type="image/png" sizes="32x32">
     <link rel="stylesheet" href="index.css" type="text/css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
-    <script src="index.js" type="text/javascript"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <script src="index.js"></script>
 </head><body class="fontDefault">
-<div class="main">
-    <div id="gInput">
-        <input id="w_input" placeholder="Search..." title="Search the dictionary for a text pattern.">
+    <div class="mainGrid">
+        <div class="cell gInput">
+            <input id="w_input" class="textInput" placeholder="Search..." title="Search the dictionary for a text pattern.">
+        </div>
+        <div class="cell gTitle">
+            <input id="w_title" class="textInput fontConsole" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'>
+        </div>
+        <div class="cell gMatches">
+            <ul id="w_matches" class="searchList"></ul>
+        </div>
+        <div class="cell gGraph">
+            <div id="w_graph" class="fontConsole">Search for any word to see its breakdown.</div>
+        </div>
+        <div class="cell gMappings">
+            <ul id="w_mappings" class="searchList"></ul>
+            <div class="option"><input type="checkbox" id="w_strokes"><label for="w_strokes">Stroke Search</label></div>
+            <div class="option"><input type="checkbox" id="w_regex"><label for="w_regex">Regex Search</label></div>
+        </div>
+        <div class="cell gBoard">
+            <div id="w_caption" class="fontConsole">No translation selected.</div>
+            <div id="w_board"><svg></svg></div>
+            <a id="w_link" href="#" style="display: none;">More Examples</a>
+        </div>
+        <div class="cell gOptions">
+            <div class="option"><label for="w_boardopts_0">Show Keys</label><input type="radio" name="w_boardopts" value="[0,0]" id="w_boardopts_0"></div>
+            <div class="option"><label for="w_boardopts_1">Show Sounds</label><input type="radio" name="w_boardopts" value="[1,0]" id="w_boardopts_1"></div>
+            <div class="option"><label for="w_boardopts_2">Show Text</label><input type="radio" name="w_boardopts" value="[1,1]" id="w_boardopts_2" checked></div>
+        </div>
     </div>
-    <div id="gTitle">
-        <input id="w_title" class="fontConsole" value="Spectra HTTP Client" title='Enter text here in the form "TEGT -> text" to analyze a steno translation.'>
+    <div class="footer">
+        <span><a href="?graph_compatibility_mode=1">Compatibility Mode</a> ◆ <a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
     </div>
-    <div id="gMatches">
-        <ul id="w_matches" class="searchList"></ul>
-    </div>
-    <div id="gGraph">
-        <div id="w_graph" class="fontConsole">Search for any word to see its breakdown.</div>
-    </div>
-    <div id="gMappings">
-        <ul id="w_mappings" class="searchList"></ul>
-        <div class="option"><input type="checkbox" id="w_strokes"><label for="w_strokes">Stroke Search</label></div>
-        <div class="option"><input type="checkbox" id="w_regex"><label for="w_regex">Regex Search</label></div>
-    </div>
-    <div id="gBoard">
-        <div id="w_caption" class="fontConsole">No translation selected.</div>
-        <div id="w_board"><svg></svg></div>
-        <a id="w_link" href="#">More Examples</a>
-    </div>
-    <div id="gOptions">
-        <div class="option"><label for="w_boardopts_0">Show Keys</label><input type="radio" name="w_boardopts" value="[0,0]" id="w_boardopts_0"></div>
-        <div class="option"><label for="w_boardopts_1">Show Sounds</label><input type="radio" name="w_boardopts" value="[1,0]" id="w_boardopts_1"></div>
-        <div class="option"><label for="w_boardopts_2">Show Text</label><input type="radio" name="w_boardopts" value="[1,1]" id="w_boardopts_2" checked></div>
-    </div>
-</div>
-<div class="footer">
-    <span><a href="?graph_compatibility_mode=1">Compatibility Mode</a> ◆ <a href="https://github.com/fourshade/spectra_lexer">Project Home Page</a> ◆ Also available as a plugin for Plover.</span>
-</div>
-<p class="mobile">
-    <span><u>WARNING</u>: The major mobile browsers do not grasp the concept of "monospaced" font rendering for anything outside the ASCII range. The line-based characters in Unicode are explicitly designed for this, yet mobile browsers routinely mangle the spacing in practically every font. You can try <a href="?graph_compatibility_mode=1">compatibility mode</a> if nothing is lining up.</span>
-</p>
+    <p class="mobile">
+        <span><u>WARNING</u>: The major mobile browsers do not grasp the concept of "monospaced" font rendering for anything outside the ASCII range. The line-based characters in Unicode are explicitly designed for this, yet mobile browsers routinely mangle the spacing in practically every font. You can try <a href="?graph_compatibility_mode=1">compatibility mode</a> if nothing is lining up.</span>
+    </p>
 </body></html>
