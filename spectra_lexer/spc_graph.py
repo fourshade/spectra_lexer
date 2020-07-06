@@ -1,7 +1,7 @@
 """ Main module for arranging text graph nodes on a character grid. """
 
 from collections import defaultdict
-from typing import Dict, Iterable, Iterator, List, Mapping, Sequence, Set, Tuple
+from typing import Dict, Iterator, List, Mapping, Sequence, Set
 
 from spectra_lexer.graph import IBody, IConnectors, TextElement
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
@@ -9,10 +9,10 @@ from spectra_lexer.graph.canvas import GridCanvas
 from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors, NullConnectors, \
                                            SimpleConnectors, ThickConnectors, UnmatchedConnectors
 from spectra_lexer.graph.format import HTMLFormatter
+from spectra_lexer.graph.layout import CascadedGraphLayout, CompressedGraphLayout, GraphLayout, LayoutParams
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
-SizeTuple = Tuple[int, int]
 SuccessorsDict = Dict[int, Set[str]]
 TextCanvas = GridCanvas[TextElement]  # Text graph element canvas.
 EMPTY_ELEMENT = TextElement(" ")      # Blank text graph element with no markup or references.
@@ -21,49 +21,52 @@ EMPTY_ELEMENT = TextElement(" ")      # Blank text graph element with no markup 
 class GraphNode:
     """ Represents a node in a tree structure of steno rules. Each node may have zero or more children. """
 
-    ChildNodes = Sequence["GraphNode"]
+    _top = 0   # Current row for top of node body.
+    _left = 0  # Current column for left side of node body.
 
     def __init__(self, ref:str, body:IBody, connectors:IConnectors,
-                 tstart:int, tlen:int, children:ChildNodes) -> None:
+                 tstart:int, tlen:int, children:List["GraphNode"]) -> None:
         self._ref = ref                # Reference string that is guaranteed to be unique in the tree.
         self._body = body              # The node's "body" containing steno keys or English text.
         self._connectors = connectors  # Pattern constructor for connectors.
         self._attach_start = tstart    # Index of the starting character in the parent node where this node attaches.
         self._attach_length = tlen     # Length in characters of the attachment to the parent node.
-        self._children = children      # Direct children of this node.
-        self._top = 0
-        self._left = 0
-
-    def min_row(self) -> int:
-        """ Return the minimum row index to place the top of the node body relative to the parent.
-            Minimum row spacing is determined by the connectors. """
-        return self._connectors.min_height()
-
-    def start_col(self) -> int:
-        """ Return the column index to place the left side of the node body relative to the parent.
-            This is also the relative start column index to highlight when this node is selected. """
-        return self._attach_start
-
-    def is_separator(self) -> bool:
-        return self._body.is_separator()
-
-    def body_size(self) -> SizeTuple:
-        h = self._body.height()
-        w = self._body.width()
-        return h, w
+        self._children = children      # List of direct children of this node.
 
     def move(self, row:int, col:int) -> None:
+        """ Move the top-left corner of this node's body to <row, col>. """
         self._top = row
         self._left = col
 
-    def get_children(self) -> ChildNodes:
-        return self._children
-
-    def set_children(self, children:ChildNodes) -> None:
-        self._children = children
+    def layout(self, layout:GraphLayout) -> LayoutParams:
+        """ Arrange each child node in rows and return the combined bounds. """
+        # Minimum vertical spacing from the parent is determined by the connectors.
+        top = self._connectors.min_height()
+        # attach_start is the column index for the left side of the node body relative to the parent.
+        left = self._attach_start
+        # Our own node body is the smallest possible width and height.
+        h = self._body.height()
+        w = self._body.width()
+        children = self._children
+        if children:
+            # Children are recursively laid out first to determine their height and width.
+            params = [child.layout(layout) for child in children]
+            # Arrange (or remove) children and calculate total width and height from the maximum child bounds.
+            for child, output in zip(children[:], layout.arrange(params)):
+                if output is None:
+                    children.remove(child)
+                else:
+                    tb, lb, bb, rb = output
+                    child.move(tb, lb)
+                    if bb > h:
+                        h = bb
+                    if rb > w:
+                        w = rb
+        return top, left, h, w
 
     def _draw_normal(self, canvas:TextCanvas, top_row:int, bottom_row:int, col:int,
                      depth:int, successors:SuccessorsDict) -> None:
+        """ Draw the text body and connectors (if any) on the canvas. """
         ref = self._ref
         for i in range(self._attach_length):
             successors[i+col].add(ref)
@@ -99,121 +102,16 @@ class GraphNode:
         top = parent_top + self._top
         left = parent_left + self._left
         successors = defaultdict(set)
-        for child in self._children:
+        # Reverse the composition order to ensure that the leftmost children get drawn last.
+        for child in self._children[::-1]:
             triggers = child.draw(canvas, top, left, depth + 1)
             for i, s in triggers.items():
                 successors[i].update(s)
-        if self.is_separator():
+        if self._body.is_separator():
             self._draw_sep(canvas, top)
         else:
             self._draw_normal(canvas, parent_top, top, left, depth, successors)
         return successors
-
-
-LayoutParams = Iterable[Tuple[GraphNode, SizeTuple]]
-LayoutOutput = Iterator[Tuple[GraphNode, int, int]]
-
-
-class BaseLayoutEngine:
-    """ Abstract class for a text graph node layout engine. """
-
-    def arrange_rows(self, params:LayoutParams) -> LayoutOutput:
-        """ Lay out a series of nodes from <params> and yield each one with its final size.
-            All row indices are relative to the parent node at index 0 and going down. """
-        raise NotImplementedError
-
-    def layout(self, node:GraphNode) -> SizeTuple:
-        """ Arrange each child node in rows and return the combined size. """
-        h, w = node.body_size()
-        children = node.get_children()
-        if not children:
-            return h, w
-        # Children are recursively laid out first to determine their height and width.
-        params = [(child, self.layout(child)) for child in children]
-        # Reverse the composition order to ensure that the leftmost objects get drawn last.
-        new_children, heights, widths = zip(*self.arrange_rows(params))
-        node.set_children(new_children[::-1])
-        # Calculate total width and height from the maximum child bounds.
-        # Our own node body will be the smallest possible width and height.
-        return max([*heights, h]), max([*widths, w])
-
-
-class CascadedLayoutEngine(BaseLayoutEngine):
-    """ Graph layout engine that places nodes in descending order like a waterfall from the top down.
-        Recursive construction with one line per node means everything fits naturally with no overlap.
-        Window space economy is poor (the triangle shape means half the space is wasted off the top).
-        Aspect ratio is highly vertical, requiring an awkwardly shaped display window to accommodate. """
-
-    def arrange_rows(self, params:LayoutParams) -> LayoutOutput:
-        bottom_bound = 0
-        right_bound = 0
-        for node, size in params:
-            height, width = size
-            top_bound = node.min_row()
-            left_bound = node.start_col()
-            # Separators will never add extra rows.
-            if node.is_separator():
-                right_bound = 0
-            # Move to the next free row, plus one more if this child shares columns with the last one.
-            if top_bound < bottom_bound:
-                top_bound = bottom_bound
-            if right_bound > left_bound:
-                top_bound += 1
-            # Place the node and move down by a number of rows equal to its height.
-            bottom_bound = top_bound + height
-            right_bound = left_bound + width
-            node.move(top_bound, left_bound)
-            yield node, bottom_bound, right_bound
-
-
-class CompressedLayoutEngine(BaseLayoutEngine):
-    """ Graph layout engine that attempts to arrange nodes and connections in the minimum number of rows
-        using a slot-based system. Each node records which row slot it occupies starting from the top down,
-        and the rightmost column it needs. After that column passes, the slot becomes free again.
-        Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
-
-    def __init__(self, max_width=50, max_height=50) -> None:
-        self._max_width = max_width   # Graphs should never be wider than this many columns.
-        self._max_height = max_height  # Graphs should never be taller than this many rows.
-
-    def arrange_rows(self, params:LayoutParams) -> LayoutOutput:
-        last_row = 0
-        right_bound = 0
-        slots = [-1] * self._max_height
-        for node, size in params:
-            height, width = size
-            top_bound = node.min_row()
-            left_bound = node.start_col()
-            # Separators are not drawn, but the first node after one must not line up with the previous.
-            if node.is_separator():
-                right_bound = self._max_width
-                continue
-            # If this node starts where the last one ended and there's no overlap, use the same row.
-            if left_bound != right_bound or last_row < top_bound:
-                # Search for the next free row from the top down and place the node there.
-                for row in range(top_bound, self._max_height):
-                    if slots[row] <= left_bound:
-                        if height == 1 or all([b <= left_bound for b in slots[row+1:row+height]]):
-                            last_row = row
-                            break
-                else:
-                    # What monstrosity is this? Put the next row wherever.
-                    last_row = top_bound
-            top_bound = last_row
-            bottom_bound = top_bound + height
-            right_bound = left_bound + width
-            # Prevent other text from starting adjacent to text in this node (unless handled specially as above).
-            # Also prevent this node from overlapping the next with its connector (rare, but can happen with asterisks).
-            new_slots = [*([left_bound + 1] * (top_bound - 1)),  # │... # . = free slots
-                         right_bound,                            # ├┐.. # x = unavailable slots
-                         *([right_bound + 1] * height),          # EUx. #
-                         right_bound]                            # xx.. #
-            # Only overwrite slots other nodes if ours is largest.
-            for i, bound in enumerate(new_slots):
-                if slots[i] < bound:
-                    slots[i] = bound
-            node.move(top_bound, left_bound)
-            yield node, bottom_bound, right_bound
 
 
 HTMLGraph = str  # Marker type for an HTML text graph.
@@ -295,8 +193,8 @@ class GraphEngine:
             The root node's attach points are arbitrary, so start=0 and length=len(letters). """
         tree_listing = []
         root = self._build_tree(tree_listing, rule, 0, len(rule.letters))
-        layout_engine = CompressedLayoutEngine() if compressed else CascadedLayoutEngine()
-        h, w = layout_engine.layout(root)
+        layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
+        *_, h, w = root.layout(layout)
         canvas = TextCanvas(h, w, EMPTY_ELEMENT)
         root.draw(canvas)
         grid = canvas.to_lists()
