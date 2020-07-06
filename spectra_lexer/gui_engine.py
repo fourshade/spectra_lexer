@@ -10,9 +10,10 @@ from spectra_lexer.spc_search import MatchDict, SearchEngine
 class SearchResults:
     """ Data class for all results of a search. """
 
-    def __init__(self, matches:MatchDict, is_complete=True) -> None:
+    def __init__(self, pattern:str, matches:MatchDict, is_complete=True) -> None:
+        self.pattern = pattern          # Pattern that produced the results.
         self.matches = matches          # Dict of matched strings with a sequence of mappings for each.
-        self.is_complete = is_complete  # If True, this includes all available results.
+        self.is_complete = is_complete  # If True, no more results are available. Asking for more pages will not help.
 
 
 class DisplayPage:
@@ -39,8 +40,7 @@ class DisplayData:
 class GUIOutput:
     """ Data class that contains an entire GUI update. All fields are optional. """
 
-    def __init__(self, search_input:str=None, search_results:SearchResults=None, display_data:DisplayData=None) -> None:
-        self.search_input = search_input      # Product of an example search action.
+    def __init__(self, search_results:SearchResults=None, display_data:DisplayData=None) -> None:
         self.search_results = search_results  # Product of a search action.
         self.display_data = display_data      # Product of a query action.
 
@@ -102,7 +102,7 @@ class GUIEngine:
             mode_regex = self._opts.search_mode_regex
             matches = self._search_engine.search(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
             is_complete = len(matches) < count
-        return SearchResults(matches, is_complete)
+        return SearchResults(pattern, matches, is_complete)
 
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
@@ -169,4 +169,4 @@ class GUIEngine:
         match = keys if self._opts.search_mode_strokes else letters
         pattern = link_ref + self._index_delim + match
         results = self._search(pattern, 1)
-        return GUIOutput(search_input=pattern, search_results=results, display_data=display)
+        return GUIOutput(search_results=results, display_data=display)

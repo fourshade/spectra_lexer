@@ -270,7 +270,7 @@ class BoardFactory:
         self._rule_procs = rule_procs      # Procedures for constructing and positioning key combos.
 
     @lru_cache(maxsize=None)
-    def _elems_from_base(self) -> BoardElementGroup:
+    def _base_group(self) -> BoardElementGroup:
         """ Generate board diagram elements for the base with all keys darkened. """
         base_procs = [p for procs in self._key_procs.values() for p in procs[:-1]]
         return self._elem_factory.processed_group(base_procs, self.FILL_BASE)
@@ -301,17 +301,17 @@ class BoardFactory:
                 return [*elems, self._elem_factory.processed_group(procs, bg or self.FILL_ALT, alt_text)]
         return []
 
-    def _elems_from_linked(self, rule:BoardRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
+    def _linked_group(self, rule:BoardRule, show_letters:bool, bg:str=None) -> BoardElementGroup:
         """ A rule using linked strokes must follow this pattern: (.first)(~/~)(last.) """
         strokes = [self._elems_from_rule(child, show_letters, bg) for child in rule.children]
-        return [self._elem_factory.linked_group(strokes[0], strokes[-1])]
+        return self._elem_factory.linked_group(strokes[0], strokes[-1])
 
-    def _elems_from_inversion(self, rule:BoardRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
+    def _inversion_group(self, rule:BoardRule, show_letters:bool, bg:str=None) -> BoardElementGroup:
         """ A rule using inversion connects the first two elements with arrows. """
         grps = []
         for child in rule.children:
             grps += self._elems_from_rule(child, show_letters, bg)
-        return [self._elem_factory.inversion_group(grps)]
+        return self._elem_factory.inversion_group(grps)
 
     def _elems_from_rule(self, rule:BoardRule, show_letters:bool, bg:str=None) -> List[BoardElementGroup]:
         """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
@@ -324,9 +324,9 @@ class BoardFactory:
             if not alt_text:
                 alt_text = letters
         if rule.is_linked:
-            return self._elems_from_linked(rule, show_letters, bg)
+            return [self._linked_group(rule, show_letters, bg)]
         elif rule.is_inversion:
-            return self._elems_from_inversion(rule, show_letters, bg)
+            return [self._inversion_group(rule, show_letters, bg)]
         elif rule.is_unmatched:
             return self._elems_from_skeys(skeys, self.FILL_UNMATCHED)
         elif rule.is_rare:
@@ -352,7 +352,7 @@ class BoardFactory:
 
     def _make_svg(self, elems:List[BoardElementGroup], aspect_ratio:float=None) -> str:
         """ Copy the element list to avoid corrupting the caches. """
-        base_group = self._elems_from_base()
+        base_group = self._base_group()
         return self._elem_factory.make_svg(base_group, elems[:], self._layout, aspect_ratio)
 
     def draw_keys(self, skeys:str, aspect_ratio:float=None) -> str:
@@ -360,7 +360,7 @@ class BoardFactory:
         elems = self._elems_from_skeys(skeys)
         return self._make_svg(elems, aspect_ratio)
 
-    def draw_rule(self, rule: BoardRule, aspect_ratio:float=None, *, show_letters=True) -> str:
+    def draw_rule(self, rule:BoardRule, aspect_ratio:float=None, *, show_letters=True) -> str:
         """ Generate a board diagram from a rule object arranged according to <aspect ratio>. """
         elems = self._elems_from_rule(rule, show_letters)
         return self._make_svg(elems, aspect_ratio)

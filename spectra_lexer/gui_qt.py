@@ -121,11 +121,9 @@ class QtGUIApplication:
 
     def _update_gui(self, out:GUIOutput) -> None:
         """ Update each GUI component with anything it uses from <out>. """
-        search_input = out.search_input
-        if out.search_input is not None:
-            self._search.update_input(search_input)
         results = out.search_results
         if results is not None:
+            self._search.update_input(results.pattern)
             self._search.update_results(results.matches, can_expand=not results.is_complete)
         display_data = out.display_data
         if display_data is not None:

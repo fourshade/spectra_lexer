@@ -1,4 +1,4 @@
-from typing import Dict, Sequence
+from typing import Mapping, Sequence
 
 XML_HEADER = '<?xml version="1.0" encoding="utf-8"?>'
 
@@ -29,13 +29,13 @@ class SVGElementFactory:
     """ Factory for XML elements formatted as necessary for SVG. """
 
     @staticmethod
-    def _element(tag:str, children:Sequence[SVGElement], attrib:Dict[str, str]) -> SVGElement:
+    def _element(tag:str, children:Sequence[SVGElement], attrib:Mapping[str, str]) -> SVGElement:
         """ Create an SVG element. It must be an object that returns valid SVG code on calling __str__.
             The simplest object that can do this is...just a plain string.
             We can just assemble the code into a string here and return that.
             tag      - XML tag name.
             children - Sequence of all child elements in order.
-            attrib   - Dict of all XML attributes. """
+            attrib   - Mapping of all XML attributes. """
         s_list = ['<', tag]
         for k, v in attrib.items():
             s_list += [' ', k, '="', v, '"']

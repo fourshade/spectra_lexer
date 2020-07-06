@@ -1,7 +1,7 @@
 """ Main module for the Discord bot application. """
 
 import sys
-from typing import Callable, List, Optional, Type
+from typing import Callable, Optional, Sequence, Type
 
 from spectra_lexer import SpectraOptions
 from spectra_lexer.console.system import SystemConsole
@@ -51,11 +51,11 @@ class DiscordApplication:
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
 
-    def _find_matches(self, word:str) -> List[str]:
+    def _find_matches(self, word:str) -> Sequence[str]:
         """ Search for possible stroke matches for a <word>. """
         matches = self._search_engine.search(word, self._search_depth)
         if not matches:
-            return []
+            return ()
         if word in matches:
             return matches[word]
         key = word.lower()
@@ -64,7 +64,7 @@ class DiscordApplication:
         for m in matches:
             if key == m.lower():
                 return matches[m]
-        return []
+        return ()
 
     def _best_translation(self, word:str) -> str:
         """ Find the best pairing between a word and its possible stroke matches. """

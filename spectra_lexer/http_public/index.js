@@ -173,11 +173,10 @@ function SpectraClient() {
         return false;
     });
 
-    function updateGUI({search_input, search_results, display_data}) {
-        if(search_input) {  // New example pattern for search textbox.
-            searchInput.value = search_input;
-        }
+    function updateGUI({search_results, display_data}) {
         if(search_results) {  // New items in the search lists.
+            // The web version has too much latency to use this. It could cover up what the user is typing.
+            // searchInput.value = search_results.pattern;
             lastMatches = search_results.matches;
             let keys = Object.keys(lastMatches);
             // If there are unseen results, add a final list item to allow search expansion.
