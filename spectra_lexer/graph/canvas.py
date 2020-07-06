@@ -11,11 +11,13 @@ def grid_copy(grid:Grid_T) -> Grid_T:
 
 
 class GridCanvas(Generic[T]):
-    """ A mutable 2D grid for drawing generic elements in a random-access manner. """
+    """ Auto-expanding mutable 2D grid for drawing generic elements in a random-access manner. """
 
-    def __init__(self, nrows:int, ncols:int, empty:T=None) -> None:
-        self._empty = empty   # Empty grid element. Used for initialization and padding.
-        self._grid = self._blank_grid(nrows, ncols)
+    def __init__(self, empty:T=None) -> None:
+        self._empty = empty   # Empty grid element. Used for padding on expansion.
+        self._grid = []       # Expandable element grid.
+        self._nrows = 0       # Actual size of the grid in rows.
+        self._ncols = 0       # Actual size of the grid in columns.
         self._row_offset = 0  # Offset in rows to add to every write command.
         self._col_offset = 0  # Offset in columns to add to every write command.
 
@@ -23,40 +25,64 @@ class GridCanvas(Generic[T]):
         """ Return a row of blank elements. """
         return [self._empty] * ncols
 
-    def _blank_grid(self, nrows:int, ncols:int) -> Grid_T:
+    def _blank_grid(self, nrows:int) -> Grid_T:
         """ Return a grid of blank elements. """
-        assert nrows >= 0 and ncols >= 0
-        row = self._blank_row(ncols)
-        return grid_copy([row] * nrows)
+        r = self._blank_row(self._ncols)
+        return grid_copy([r] * nrows)
 
-    def _shift_rows(self, nrows:int) -> None:
-        """ Pad the grid with empty rows at the top to compensate for an object drawing at a negative index. """
+    def _insert_rows(self, nrows:int) -> None:
+        """ Pad the grid with empty rows at the top to allow writes at a negative index. """
         self._row_offset += nrows
-        ncols = len(self._grid[0])
-        self._grid[:0] = self._blank_grid(nrows, ncols)
+        self._nrows += nrows
+        self._grid[:0] = self._blank_grid(nrows)
 
-    def _shift_cols(self, ncols:int) -> None:
-        """ Pad the grid with empty columns to the left to compensate for an object drawing at a negative index. """
+    def _append_rows(self, nrows:int) -> None:
+        """ Pad the grid with empty rows at the bottom. """
+        self._nrows += nrows
+        self._grid += self._blank_grid(nrows)
+
+    def _adjusted_row(self, row:int) -> int:
+        row += self._row_offset
+        if row < 0:
+            self._insert_rows(-row)
+            row = 0
+        if row >= self._nrows:
+            self._append_rows(row - self._nrows + 1)
+        return row
+
+    def _insert_cols(self, ncols:int) -> None:
+        """ Pad the grid with empty columns to the left to allow writes at a negative index. """
         self._col_offset += ncols
+        self._ncols += ncols
         padding = self._blank_row(ncols)
         for r in self._grid:
             r[:0] = padding
 
-    def write(self, element:T, row:int, col:int) -> None:
-        """ Write an <element> to the grid at <row, col>. """
-        row += self._row_offset
-        if row < 0:
-            self._shift_rows(-row)
-            row = 0
+    def _append_cols(self, ncols:int) -> None:
+        """ Pad the grid with empty columns to the right. """
+        self._ncols += ncols
+        padding = self._blank_row(ncols)
+        for r in self._grid:
+            r += padding
+
+    def _adjusted_col(self, col:int) -> int:
         col += self._col_offset
         if col < 0:
-            self._shift_cols(-col)
+            self._insert_cols(-col)
             col = 0
+        if col >= self._ncols:
+            self._append_cols(col - self._ncols + 1)
+        return col
+
+    def write(self, element:T, row:int, col:int) -> None:
+        """ Write an <element> to the grid at <row, col>. Expand to that size if it is out of bounds. """
+        row = self._adjusted_row(row)
+        col = self._adjusted_col(col)
         self._grid[row][col] = element
 
     def replace_empty(self, repl:T, row:int) -> None:
         """ Replace all empty elements in a entire row with <repl>. """
-        row += self._row_offset
+        row = self._adjusted_row(row)
         r = self._grid[row]
         for col, item in enumerate(r):
             if item is self._empty:

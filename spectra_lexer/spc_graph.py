@@ -13,7 +13,8 @@ from spectra_lexer.graph.layout import CascadedGraphLayout, CompressedGraphLayou
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
-SuccessorsDict = Dict[int, Set[str]]
+HTMLGraph = str                       # Marker type for an HTML text graph.
+SuccessorsDict = Dict[int, Set[str]]  # Dictionary of a node's successor references by depth.
 TextCanvas = GridCanvas[TextElement]  # Text graph element canvas.
 EMPTY_ELEMENT = TextElement(" ")      # Blank text graph element with no markup or references.
 
@@ -114,9 +115,6 @@ class GraphNode:
         return successors
 
 
-HTMLGraph = str  # Marker type for an HTML text graph.
-
-
 class GraphTree(Mapping[str, StenoRule]):
     """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant. """
 
@@ -194,8 +192,8 @@ class GraphEngine:
         tree_listing = []
         root = self._build_tree(tree_listing, rule, 0, len(rule.letters))
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
-        *_, h, w = root.layout(layout)
-        canvas = TextCanvas(h, w, EMPTY_ELEMENT)
+        root.layout(layout)
+        canvas = TextCanvas(EMPTY_ELEMENT)
         root.draw(canvas)
         grid = canvas.to_lists()
         formatter = HTMLFormatter(grid, compat=compat)
