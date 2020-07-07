@@ -23,8 +23,7 @@ def main() -> int:
     translations_paths = opts.translations_paths()
     def load_all() -> None:
         gui_ext.load_translations(*translations_paths)
-        gui_ext.load_start_examples()
-        gui_ext.load_config()
+        gui_ext.load_initial()
     app.start(load_all)
     # After everything is loaded, start a GUI event loop and run it indefinitely.
     return q_app.exec_()

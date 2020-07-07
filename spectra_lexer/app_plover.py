@@ -22,8 +22,7 @@ class PloverPluginApplication:
         """ The startup translations come from the current Plover dictionaries. """
         translations = self._plover_ext.parse_engine_dictionaries()
         self._gui_ext.set_translations(translations)
-        self._gui_ext.load_start_examples()
-        self._gui_ext.load_config()
+        self._gui_ext.load_initial()
 
     def _load_translations(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
         translations = self._plover_ext.parse_dictionaries(steno_dc)

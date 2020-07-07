@@ -84,14 +84,14 @@ class SearchEngine:
         keys = index.get_nearby_keys(pattern, count)
         return {k: d[k] for k in keys}
 
-    def random_example(self, rule_id:RuleID) -> Translation:
-        """ Return a random translation using a particular steno rule by ID, or blank strings if none exist. """
-        d, index = self._get_example_data(rule_id, mode_strokes=True)
-        keys = index.get_random_keys(1)
-        if not keys:
-            return "", ""
-        k = keys[0]
-        return k, d[k][0]
+    def random_examples(self, rule_id:RuleID, count:int, *, mode_strokes=False) -> MatchDict:
+        """ Search for random translations using a particular steno rule.
+            <rule_id>      - Identifier of the rule. Only exact matches will work.
+            <count>        - Maximum number of matches returned.
+            <mode_strokes> - If True, search for strokes instead of translations. """
+        d, index = self._get_example_data(rule_id, mode_strokes)
+        keys = index.get_random_keys(count)
+        return {k: d[k] for k in keys}
 
 
 def build_search_engine(keymap:StenoKeyLayout) -> SearchEngine:

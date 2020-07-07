@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, Optional
+import random
+from typing import Dict, Iterable
 
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
@@ -35,14 +36,6 @@ class DisplayData:
         self.letters = letters            # Translation letters.
         self.pages_by_ref = pages         # Analysis pages keyed by HTML anchor reference.
         self.default_page = default_page  # Default starting analysis page. May also be included in pages_by_ref.
-
-
-class GUIOutput:
-    """ Data class that contains an entire GUI update. All fields are optional. """
-
-    def __init__(self, search_results:SearchResults=None, display_data:DisplayData=None) -> None:
-        self.search_results = search_results  # Product of a search action.
-        self.display_data = display_data      # Product of a query action.
 
 
 class GUIOptions:
@@ -87,22 +80,38 @@ class GUIEngine:
     def set_options(self, opts:GUIOptions) -> None:
         self._opts = opts
 
-    def _search(self, pattern:str, pages:int) -> SearchResults:
-        """ Perform a search based on the current options and/or presence of the index delimiter. """
-        count = pages * self._opts.search_match_limit
+    def _search(self, pattern:str, count:int) -> MatchDict:
         mode_strokes = self._opts.search_mode_strokes
+        mode_regex = self._opts.search_mode_regex
+        return self._search_engine.search(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
+
+    def _search_examples(self, link_ref:str, pattern:str) -> MatchDict:
+        count = self._opts.search_match_limit
+        mode_strokes = self._opts.search_mode_strokes
+        return self._search_engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
+
+    def search(self, pattern:str, pages=1) -> SearchResults:
+        """ Perform a search based on the current options and/or presence of the index delimiter. """
         if not pattern or pattern.isspace():
             matches = {}
             is_complete = True
         elif self._index_delim in pattern:
-            link_ref, rule_pattern = pattern.split(self._index_delim, 1)
-            matches = self._search_engine.search_examples(link_ref, rule_pattern, count, mode_strokes=mode_strokes)
+            link_ref, tr_pattern = pattern.split(self._index_delim, 1)
+            matches = self._search_examples(link_ref, tr_pattern)
             is_complete = True
         else:
-            mode_regex = self._opts.search_mode_regex
-            matches = self._search_engine.search(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
+            count = pages * self._opts.search_match_limit
+            matches = self._search(pattern, count)
             is_complete = len(matches) < count
         return SearchResults(pattern, matches, is_complete)
+
+    def random_pattern(self, link_ref:str) -> str:
+        """ Return a valid example search pattern for <link_ref> centered on a random translation if one exists. """
+        mode_strokes = self._opts.search_mode_strokes
+        matches = self._search_engine.random_examples(link_ref, 1, mode_strokes=mode_strokes)
+        if not matches:
+            return ""
+        return link_ref + self._index_delim + [*matches][0]
 
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
@@ -140,33 +149,20 @@ class GUIEngine:
         default_page = self._build_page(graph, "", analysis)
         return DisplayData(analysis.keys, analysis.letters, pages, default_page)
 
-    def _check_query(self, keys:str, letters:str) -> Optional[DisplayData]:
-        if keys and letters:
-            analysis = self._analyze(keys, letters)
-            return self._display(analysis)
-
-    def query(self, keys:Iterable[str], letters:str) -> GUIOutput:
+    def query(self, keys:Iterable[str], letters:str) -> DisplayData:
         """ Execute and return a full display of a lexer query.
             <keys> may be either a single string or an iterable of strings. """
         if not isinstance(keys, str):
-            keys_seq = list(filter(None, keys))
-            keys = self._analyzer.best_translation(keys_seq, letters) if keys_seq else ""
-        display = self._check_query(keys, letters)
-        return GUIOutput(display_data=display)
+            keys = self._analyzer.best_translation(keys, letters)
+        analysis = self._analyze(keys, letters)
+        return self._display(analysis)
 
-    def search(self, pattern:str, pages=1) -> GUIOutput:
-        """ Do a new search and return results (unless the pattern is just whitespace). """
-        results = self._search(pattern, pages)
-        return GUIOutput(search_results=results)
-
-    def search_examples(self, link_ref:str) -> GUIOutput:
-        """ When a link is clicked, search for examples of the named rule and select one at random.
-            Overwrite the current search input with its pattern. """
-        keys, letters = self._search_engine.random_example(link_ref)
-        display = self._check_query(keys, letters)
-        if display is None:
-            return GUIOutput()
-        match = keys if self._opts.search_mode_strokes else letters
-        pattern = link_ref + self._index_delim + match
-        results = self._search(pattern, 1)
-        return GUIOutput(search_results=results, display_data=display)
+    def query_random(self, results:SearchResults) -> DisplayData:
+        """ Execute and return a full display of a lexer query randomly chosen from <results>. """
+        matches = results.matches
+        assert matches
+        match = random.choice(list(matches))
+        mapping = matches[match][0]
+        keys, letters = (match, mapping) if self._opts.search_mode_strokes else (mapping, match)
+        analysis = self._analyze(keys, letters)
+        return self._display(analysis)

@@ -4,7 +4,7 @@ from typing import Callable, Sequence
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.gui_engine import DisplayPage, GUIEngine, GUIOptions, GUIOutput
+from spectra_lexer.gui_engine import DisplayData, DisplayPage, GUIEngine, GUIOptions, SearchResults
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
@@ -119,25 +119,23 @@ class QtGUIApplication:
         opts.board_show_letters = self._board.shows_letters()
         return opts
 
-    def _update_gui(self, out:GUIOutput) -> None:
-        """ Update each GUI component with anything it uses from <out>. """
-        results = out.search_results
-        if results is not None:
-            self._search.update_input(results.pattern)
-            self._search.update_results(results.matches, can_expand=not results.is_complete)
-        display_data = out.display_data
-        if display_data is not None:
-            self._set_translation(display_data.keys, display_data.letters)
-            self._page_dict = display_data.pages_by_ref
-            self._default_page = display_data.default_page
-            self._show_start_page()
+    def _update_search(self, results:SearchResults) -> None:
+        """ Update each GUI search component with new results. """
+        self._search.update_results(results.matches, can_expand=not results.is_complete)
+
+    def _update_display(self, display_data:DisplayData) -> None:
+        """ Update each GUI display component with new pages. """
+        self._set_translation(display_data.keys, display_data.letters)
+        self._page_dict = display_data.pages_by_ref
+        self._default_page = display_data.default_page
+        self._show_start_page()
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
         opts = self._get_options()
         self._engine.set_options(opts)
-        out = self._engine.search(pattern, pages)
-        self._update_gui(out)
+        results = self._engine.search(pattern, pages)
+        self._update_search(results)
 
     def gui_query(self, keys_or_seq:Sequence[str], letters:str, strict:bool=None) -> None:
         """ Run a lexer query and update the GUI with any results. """
@@ -145,15 +143,20 @@ class QtGUIApplication:
         if strict is not None:
             opts.lexer_strict_mode = strict
         self._engine.set_options(opts)
-        out = self._engine.query(keys_or_seq, letters)
-        self._update_gui(out)
+        display_data = self._engine.query(keys_or_seq, letters)
+        self._update_display(display_data)
 
     def gui_search_examples(self, link_ref:str) -> None:
         """ Run an example search and update the GUI with any results. """
         opts = self._get_options()
         self._engine.set_options(opts)
-        out = self._engine.search_examples(link_ref)
-        self._update_gui(out)
+        pattern = self._engine.random_pattern(link_ref)
+        if pattern:
+            self._search.update_input(pattern)
+            results = self._engine.search(pattern)
+            self._update_search(results)
+            display_data = self._engine.query_random(results)
+            self._update_display(display_data)
 
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """

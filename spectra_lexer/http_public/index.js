@@ -177,9 +177,7 @@ function SpectraClient() {
         return false;
     });
 
-    function updateSearch({pattern, matches, is_complete}) {
-        // The web version has too much latency to use this. It could cover up what the user is typing.
-        // searchInput.value = pattern;
+    function updateSearch({matches, is_complete}) {
         lastMatches = matches;
         let keys = Object.keys(matches);
         // If there are unseen results, add a final list item to allow search expansion.

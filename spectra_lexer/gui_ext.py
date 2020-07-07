@@ -36,13 +36,6 @@ class GUIExtension:
         examples = self._io.load_json_examples(filename)
         self.set_examples(examples)
 
-    def load_start_examples(self) -> None:
-        """ Load the startup examples index. Ignore I/O errors since it may be missing. """
-        try:
-            self.load_examples(self._examples_path)
-        except OSError:
-            pass
-
     def compile_examples(self, size:int) -> None:
         """ Make an examples index, set it as active, and save it as JSON. """
         examples = self._analyzer.compile_index(self._last_translations.items(), size=size)
@@ -58,3 +51,11 @@ class GUIExtension:
     def update_config(self, options:dict) -> None:
         self._config.update(options)
         self._config.write()
+
+    def load_initial(self) -> None:
+        """ Load the startup examples index and config. Ignore I/O errors since either one may be missing. """
+        try:
+            self.load_examples(self._examples_path)
+        except OSError:
+            pass
+        self.load_config()
