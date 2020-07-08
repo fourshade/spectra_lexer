@@ -1,7 +1,7 @@
 """ Main module for arranging text graph nodes on a character grid. """
 
 from collections import defaultdict
-from typing import Dict, Iterator, List, Mapping, Sequence, Set
+from typing import Dict, Iterator, List, Mapping, Set
 
 from spectra_lexer.graph import IBody, IConnectors, TextElement
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
@@ -17,6 +17,8 @@ HTMLGraph = str                       # Marker type for an HTML text graph.
 SuccessorsDict = Dict[int, Set[str]]  # Dictionary of a node's successor references by depth.
 TextCanvas = GridCanvas[TextElement]  # Text graph element canvas.
 EMPTY_ELEMENT = TextElement(" ")      # Blank text graph element with no markup or references.
+RuleMapping = Mapping[str, StenoRule]
+RuleDict = Dict[str, StenoRule]
 
 
 class GraphNode:
@@ -115,22 +117,24 @@ class GraphNode:
         return successors
 
 
-class GraphTree(Mapping[str, StenoRule]):
-    """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant. """
+class GraphTree(RuleMapping):
+    """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant.
+        Implements the mapping protocol for ref strings to steno rules. """
 
-    def __init__(self, tree_listing:Sequence[StenoRule], formatter:HTMLFormatter) -> None:
-        self._tree_listing = tree_listing
+    def __init__(self, root_rule:StenoRule, tree_map:RuleMapping, formatter:HTMLFormatter) -> None:
+        self._root_rule = root_rule
+        self._tree_map = tree_map
         self._formatter = formatter
 
     def __len__(self) -> int:
-        return len(self._tree_listing)
+        return len(self._tree_map)
 
     def __iter__(self) -> Iterator[str]:
-        """ Yield all ref strings to steno rules. """
-        return map(str, range(len(self)))
+        return iter(self._tree_map)
 
     def __getitem__(self, k:str) -> StenoRule:
-        return self._tree_listing[int(k)]
+        """ Use the root node as a default. """
+        return self._tree_map.get(k, self._root_rule)
 
     def draw(self, ref="", *, intense=False) -> HTMLGraph:
         """ Return an HTML text graph with <ref> highlighted.
@@ -176,11 +180,11 @@ class GraphEngine:
             connectors = SimpleConnectors(length, width)
         return connectors
 
-    def _build_tree(self, tree_listing:List[StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
+    def _build_tree(self, tree_map:RuleDict, rule:StenoRule, start:int, length:int) -> GraphNode:
         """ Build a display node tree recursively from a rule's properties, position, and descendants. """
-        children = [self._build_tree(tree_listing, c.child, c.start, c.length) for c in rule]
-        ref = str(len(tree_listing))
-        tree_listing.append(rule)
+        ref = str(len(tree_map))
+        tree_map[ref] = rule
+        children = [self._build_tree(tree_map, c.child, c.start, c.length) for c in rule]
         body = self._build_body(rule)
         width = body.width()
         connectors = self._build_connectors(rule, length, width)
@@ -189,15 +193,15 @@ class GraphEngine:
     def graph(self, rule:StenoRule, *, compressed=True, compat=False) -> GraphTree:
         """ Generate a graph object for a steno rule.
             The root node's attach points are arbitrary, so start=0 and length=len(letters). """
-        tree_listing = []
-        root = self._build_tree(tree_listing, rule, 0, len(rule.letters))
+        tree_map = {}
+        root = self._build_tree(tree_map, rule, 0, len(rule.letters))
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
         root.layout(layout)
         canvas = TextCanvas(EMPTY_ELEMENT)
         root.draw(canvas)
         grid = canvas.to_lists()
         formatter = HTMLFormatter(grid, compat=compat)
-        return GraphTree(tree_listing, formatter)
+        return GraphTree(rule, tree_map, formatter)
 
 
 def build_graph_engine(keymap:StenoKeyLayout) -> GraphEngine:

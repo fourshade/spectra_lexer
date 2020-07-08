@@ -4,7 +4,7 @@ from typing import Callable, Sequence
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.gui_engine import DisplayData, DisplayPage, GUIEngine, GUIOptions, SearchResults
+from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults, SearchResults
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt import WINDOW_ICON_PATH
@@ -21,8 +21,6 @@ from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.spc_lexer import TranslationFilter
 from spectra_lexer.util.exception import ExceptionManager
-
-EMPTY_PAGE = DisplayPage(" ", " ", "", "", "")
 
 
 class QtGUIApplication:
@@ -48,10 +46,8 @@ class QtGUIApplication:
         self._search = search
         self._graph = graph
         self._board = board
-        self._page_dict = {}
-        self._default_page = EMPTY_PAGE
-        self._last_rule_id = ""
-        self._last_translation = None
+        self._last_graph_ref = None
+        self._last_example_id = ""
 
     def _set_title(self, text:str) -> None:
         self._title.set_static_text(text)
@@ -62,101 +58,96 @@ class QtGUIApplication:
 
     def _set_translation(self, keys:str, letters:str) -> None:
         """ Format a translation and show it in the search boxes and/or title bar. """
-        self._last_translation = [keys, letters]
         self._search.select_translation(keys, letters)
         tr_text = " ".join([keys, self.TR_DELIMITER, letters])
         self._set_title(tr_text)
 
-    def _set_rule_id(self, rule_id:str) -> None:
-        """ Save the current rule ID and show/hide the link based on its contents. """
-        self._last_rule_id = rule_id
-        if rule_id:
+    def _set_example_id(self, example_id:str) -> None:
+        """ Save the current example ID and show/hide the link based on its contents. """
+        self._last_example_id = example_id
+        if example_id:
             self._board.show_examples_link()
         else:
             self._board.hide_examples_link()
 
-    def _show_page(self, page:DisplayPage, intense:bool) -> None:
+    def _show_page(self, ref:str, intense:bool) -> None:
         """ Change the currently displayed analysis page. """
-        html_graph = page.intense_graph if intense else page.graph
+        self._last_graph_ref = ref
+        html_graph = self._engine.draw_graph(ref, intense)
         self._graph.set_html(html_graph)
-        self._set_caption(page.caption)
-        self._board.set_data(page.board)
-        self._set_rule_id(page.rule_id)
+        caption = self._engine.get_caption(ref)
+        self._set_caption(caption)
+        board = self._engine.draw_board(ref)
+        self._board.set_data(board)
+        example_id = self._engine.get_example_id(ref)
+        self._set_example_id(example_id)
 
-    def _focus_page(self, page:DisplayPage, focused:bool) -> None:
-        """ Forcibly reset the graph's focus before setting a new page. """
-        self._graph.set_focus(focused)
-        self._show_page(page, focused)
-
-    def _show_start_page(self) -> None:
-        """ Attempt to show a new page using the last link target, otherwise show the default. """
-        if self._last_rule_id:
-            for node_ref, page in self._page_dict.items():
-                if page.rule_id == self._last_rule_id:
-                    self._focus_page(page, True)
-                    return
-        self._focus_page(self._default_page, False)
-
-    def _clear_display(self) -> None:
-        """ Clear the current translation and all analysis pages. """
-        self._last_translation = None
-        self._page_dict = {}
-        self._default_page = EMPTY_PAGE
-        self._show_page(EMPTY_PAGE, False)
+    def _clear_page(self) -> None:
+        """ Clear the current display data. """
+        self._last_graph_ref = None
+        self._last_example_id = ""
         self._graph.set_plaintext("")
+        self._set_caption("")
+        self._board.set_data("")
+        self._set_example_id("")
+
+    def _update_search(self, results:SearchResults) -> None:
+        """ Update each GUI search component with new results. """
+        self._search.update_results(results.matches, can_expand=not results.is_complete)
+
+    def _find_same_example(self, refs:Sequence[str]):
+        """ Attempt to find a graph ref that has the same link target as the last selection. """
+        if self._last_example_id:
+            for ref in refs:
+                if self._last_example_id == self._engine.get_example_id(ref):
+                    return ref
+        return ""
+
+    def _update_display(self, results:QueryResults) -> None:
+        """ Update the GUI display with a new analysis.
+            Attempt to show a page using the last link target, otherwise show the default.
+            Forcibly reset the graph's focus before setting the start page. """
+        self._set_translation(results.keys, results.letters)
+        start_ref = self._find_same_example(results.refs)
+        intense = bool(start_ref)
+        self._graph.set_focus(intense)
+        self._show_page(start_ref, intense)
 
     def _base_options(self) -> GUIOptions:
         """ Config settings form the base for a set of GUI engine options. """
         return GUIOptions(self._ext.get_config())
 
-    def _get_options(self) -> GUIOptions:
-        """ Return all values that may be needed by the steno engine as options. """
+    def set_options(self, **kwargs) -> None:
+        """ Set all options that may be needed by the steno engine. Overriding options may be given as kwargs. """
         opts = self._base_options()
         opts.search_mode_strokes = self._search.is_mode_strokes()
         opts.search_mode_regex = self._search.is_mode_regex()
         opts.board_aspect_ratio = self._board.aspect_ratio()
         opts.board_show_compound = self._board.is_compound()
         opts.board_show_letters = self._board.shows_letters()
-        return opts
-
-    def _update_search(self, results:SearchResults) -> None:
-        """ Update each GUI search component with new results. """
-        self._search.update_results(results.matches, can_expand=not results.is_complete)
-
-    def _update_display(self, display_data:DisplayData) -> None:
-        """ Update each GUI display component with new pages. """
-        self._set_translation(display_data.keys, display_data.letters)
-        self._page_dict = display_data.pages_by_ref
-        self._default_page = display_data.default_page
-        self._show_start_page()
+        if kwargs:
+            vars(opts).update(kwargs)
+        self._engine.set_options(opts)
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
-        opts = self._get_options()
-        self._engine.set_options(opts)
-        results = self._engine.search(pattern, pages)
-        self._update_search(results)
+        search_results = self._engine.search(pattern, pages)
+        self._update_search(search_results)
 
-    def gui_query(self, keys_or_seq:Sequence[str], letters:str, strict:bool=None) -> None:
+    def gui_query(self, keys_or_seq:Sequence[str], letters:str) -> None:
         """ Run a lexer query and update the GUI with any results. """
-        opts = self._get_options()
-        if strict is not None:
-            opts.lexer_strict_mode = strict
-        self._engine.set_options(opts)
-        display_data = self._engine.query(keys_or_seq, letters)
-        self._update_display(display_data)
+        query_results = self._engine.query(keys_or_seq, letters)
+        self._update_display(query_results)
 
-    def gui_search_examples(self, link_ref:str) -> None:
-        """ Run an example search and update the GUI with any results. """
-        opts = self._get_options()
-        self._engine.set_options(opts)
-        pattern = self._engine.random_pattern(link_ref)
+    def gui_search_examples(self) -> None:
+        """ Run an example search based on the last valid link reference and update the GUI with any results. """
+        pattern = self._engine.random_pattern(self._last_example_id)
         if pattern:
             self._search.update_input(pattern)
-            results = self._engine.search(pattern)
-            self._update_search(results)
-            display_data = self._engine.query_random(results)
-            self._update_display(display_data)
+            search_results = self._engine.search(pattern)
+            self._update_search(search_results)
+            query_results = self._engine.query_random(search_results)
+            self._update_display(query_results)
 
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
@@ -164,7 +155,7 @@ class QtGUIApplication:
 
     def _on_translation_submit(self, text:str) -> None:
         """ Display user entry errors in the caption. """
-        self._clear_display()
+        self._clear_page()
         args = text.split(self.TR_DELIMITER, 1)
         if not len(args) == 2:
             self._set_caption(self.TR_MSG_EDELIMITERS)
@@ -173,19 +164,19 @@ class QtGUIApplication:
         if not (keys and letters):
             self._set_caption(self.TR_MSG_EBLANK)
             return
+        self.set_options()
         self.gui_query(keys, letters)
 
     def _on_graph_action(self, node_ref:str, intense:bool) -> None:
-        """ On mouse actions, change the current analysis page to the one under <node_ref>.
-            If <node_ref> is an empty string, show the default page. """
-        page = self._page_dict.get(node_ref) or self._default_page
-        self._show_page(page, intense)
+        """ On mouse actions, change the current analysis page to the one under <node_ref>. """
+        self._show_page(node_ref, intense)
 
     def _on_board_invalid(self) -> None:
-        """ Send a query for the last valid translation to get a new board diagram. """
-        if self._last_translation is not None:
-            keys, letters = self._last_translation
-            self.gui_query(keys, letters)
+        """ Redraw the last board diagram with new options. """
+        if self._last_graph_ref is not None:
+            self.set_options()
+            board = self._engine.draw_board(self._last_graph_ref)
+            self._board.set_data(board)
 
     def _on_board_save(self) -> None:
         """ Save the current board diagram on link click. """
@@ -193,14 +184,21 @@ class QtGUIApplication:
         if filename:
             self._board.dump_image(filename)
 
+    def _on_search_input(self, pattern:str, pages:int) -> None:
+        self.set_options()
+        self.gui_search(pattern, pages)
+
+    def _on_search_query(self, keys_or_seq:Sequence[str], letters:str) -> None:
+        self.set_options()
+        self.gui_query(keys_or_seq, letters)
+
     def _on_request_examples(self) -> None:
-        """ Start an example search based on the last valid link reference. """
-        if self._last_rule_id:
-            self.gui_search_examples(self._last_rule_id)
+        self.set_options()
+        self.gui_search_examples()
 
     def _connect_signals(self) -> None:
         self._title.connect_signals(self._on_translation_edit, self._on_translation_submit)
-        self._search.connect_signals(self.gui_search, self.gui_query)
+        self._search.connect_signals(self._on_search_input, self._on_search_query)
         self._graph.connect_signals(self._on_graph_action)
         self._board.connect_signals(self._on_board_invalid, self._on_board_save, self._on_request_examples)
 
@@ -233,7 +231,7 @@ class QtGUIApplication:
         """ Enable/disable all display widgets. Invalidate the current search, graph, and board on disable. """
         if not enabled:
             self._search.clear_results()
-            self._clear_display()
+            self._clear_page()
         self._menu.set_enabled(enabled)
         self._title.set_enabled(enabled)
         self._search.set_enabled(enabled)

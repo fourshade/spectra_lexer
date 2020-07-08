@@ -30,13 +30,14 @@ class BoardPanel:
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
     def __init__(self, w_board:PictureWidget, w_caption:QLabel, w_slider:QSlider,
-                 w_link_save:QLabel, w_link_examples:QLabel) -> None:
+                 w_link_save:QLabel, w_link_examples:QLabel, *, dynamic_resize=True) -> None:
         self._w_board = w_board                  # Board diagram container widget.
         self._w_caption = w_caption              # Label with caption containing rule keys/letters/description.
         self._w_slider = w_slider                # Slider to control board rendering options.
         self._w_link_save = w_link_save          # Hyperlink to save diagram as file.
         self._w_link_examples = w_link_examples  # Hyperlink to show examples of the current rule.
         self._ctx_menu = QMenu(w_board)          # Context menu to copy diagram to clipboard.
+        self._dynamic_resize = dynamic_resize    # If True, invalidate the board on resize to get new data.
         self._svg = SVGRasterEngine()            # SVG rendering engine.
         self._clipboard = Clipboard()            # System clipboard wrapper.
         self._call_invalid = None
@@ -65,11 +66,14 @@ class BoardPanel:
         self._clipboard.copy(im)
 
     def _on_resize(self, *_) -> None:
-        """ Redraw the board on any size change. """
-        self._draw_board()
+        """ Redraw or invalidate the board on any size change. """
+        if self._dynamic_resize:
+            self._call_invalid()
+        else:
+            self._draw_board()
 
     def _on_slider_move(self, *_) -> None:
-        """ On slider movements, declare the board invalid to get new page data. """
+        """ On slider movements, declare the board invalid to get new data. """
         self._call_invalid()
 
     def _on_save_link_click(self, *_) -> None:

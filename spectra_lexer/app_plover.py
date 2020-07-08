@@ -40,7 +40,8 @@ class PloverPluginApplication:
         translation = self._plover_ext.parse_actions(*args)
         if translation is not None and not self._app.has_focus():
             keys, letters = translation
-            self._app.gui_query(keys, letters, strict=False)
+            self._app.set_options(lexer_strict_mode=False)
+            self._app.gui_query(keys, letters)
 
     def start(self) -> None:
         """ Start the main app and connect the Plover extension only if compatible. """

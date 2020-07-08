@@ -44,6 +44,8 @@ def test_analysis(keys, letters) -> None:
     graph = SPECTRA.graph_engine.graph(analysis)
     for ref, rule in graph.items():
         assert graph.draw(ref)
+        assert graph.draw(ref, intense=True)
+        assert SPECTRA.board_engine.draw_keys(rule.keys)
         assert SPECTRA.board_engine.draw_rule(rule)
 
 
