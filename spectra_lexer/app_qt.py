@@ -4,7 +4,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from spectra_lexer import SpectraOptions
+from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.gui_engine import GUIEngine
 from spectra_lexer.gui_qt import build_app
 from spectra_lexer.gui_ext import GUIExtension
@@ -14,17 +14,20 @@ def main() -> int:
     """ In standalone mode, we must create a QApplication before building any of the GUI. """
     q_app = QApplication(sys.argv)
     opts = SpectraOptions("Run Spectra as a standalone GUI application.")
-    spectra = opts.compile()
-    index_path = opts.index_path()
-    cfg_path = opts.config_path()
-    gui_engine = GUIEngine(spectra.search_engine, spectra.analyzer, spectra.graph_engine, spectra.board_engine)
-    gui_ext = GUIExtension(spectra.resource_io, spectra.search_engine, spectra.analyzer, index_path, cfg_path)
-    app = build_app(gui_engine, gui_ext, spectra.log)
-    translations_paths = opts.translations_paths()
-    def load_all() -> None:
-        gui_ext.load_translations(*translations_paths)
-        gui_ext.load_initial()
-    app.start(load_all)
+    spectra = Spectra.compile(opts)
+    io = spectra.resource_io
+    search_engine = spectra.search_engine
+    analyzer = spectra.analyzer
+    graph_engine = spectra.graph_engine
+    board_engine = spectra.board_engine
+    log = spectra.logger.log
+    translations_paths = spectra.translations_paths
+    index_path = spectra.index_path
+    cfg_path = spectra.cfg_path
+    gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
+    gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
+    app = build_app(gui_engine, gui_ext, log)
+    app.start(gui_ext.load_initial)
     # After everything is loaded, start a GUI event loop and run it indefinitely.
     return q_app.exec_()
 

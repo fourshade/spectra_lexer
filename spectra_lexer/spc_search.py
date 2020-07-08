@@ -1,7 +1,7 @@
 from typing import Dict, Tuple
 
 from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translation, TranslationsDict
+from spectra_lexer.resource.translations import ExamplesDict, RuleID, TranslationsDict
 from spectra_lexer.search.index import RegexError, StripCaseIndex
 from spectra_lexer.search.multidict import forward_multidict, reverse_multidict
 
@@ -12,7 +12,7 @@ _EMPTY_DATA = ({}, StripCaseIndex())
 
 
 class SearchEngine:
-    """ A hybrid forward+reverse steno translation search engine.  """
+    """ A hybrid forward+reverse steno translation search engine with support for rule example lookup. """
 
     def __init__(self, strip_chars:str) -> None:
         self._strip_chars = strip_chars  # Characters to remove during search.

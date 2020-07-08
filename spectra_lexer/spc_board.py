@@ -14,10 +14,11 @@ class BoardEngine:
 
     def __init__(self, keymap:StenoKeyLayout, factory:BoardFactory) -> None:
         self._to_skeys = keymap.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
-        self._factory = factory
-        self._id_cache = {}
+        self._factory = factory                  # Factory for complete SVG board diagrams.
+        self._id_cache = {}                      # Cache for board rules by ID.
 
     def _to_board_rule(self, rule:StenoRule) -> BoardRule:
+        """ Convert a normal rule to board format and cache it if it has an ID (analysis rules do not). """
         r_id = rule.id
         if r_id and r_id in self._id_cache:
             return self._id_cache[r_id]

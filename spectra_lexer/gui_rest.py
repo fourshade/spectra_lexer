@@ -36,7 +36,11 @@ class RESTUpdate:
 
 
 class RESTGUIApplication:
-    """ Thread-safe GUI application for use in a web server. """
+    """ Thread-safe GUI application for use in a web server.
+        Steno rules may be parsed into a tree of nodes, each of which may have several forms of representation.
+        All information for a single node is combined into a display "page" which can be used for GUI updates.
+        All display pages for to a single rule or lexer query are further stored in a single data object.
+        This allows for fewer HTTP requests and more opportunities for caching. """
 
     def __init__(self, gui:GUIEngine) -> None:
         self._gui = gui

@@ -3,7 +3,7 @@
 import sys
 from time import time
 
-from spectra_lexer import SpectraOptions
+from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.spc_lexer import TranslationFilter
 
 
@@ -13,14 +13,14 @@ def main() -> int:
     fcls = TranslationFilter
     opts.add("size", fcls.SIZE_MEDIUM, f"Relative size of generated index ({fcls.SIZE_MINIMUM}-{fcls.SIZE_MAXIMUM}).")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
-    spectra = opts.compile()
-    files_in = opts.translations_paths()
-    file_out = opts.index_path()
-    log = spectra.log
-    io = spectra.resource_io
-    analyzer = spectra.analyzer
+    spectra = Spectra.compile(opts)
+    log = spectra.logger.log
     log("Operation started...")
     start_time = time()
+    io = spectra.resource_io
+    analyzer = spectra.analyzer
+    files_in = spectra.translations_paths
+    file_out = spectra.index_path
     translations = io.load_json_translations(*files_in)
     pairs = translations.items()
     examples = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)

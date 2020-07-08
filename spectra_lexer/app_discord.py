@@ -3,7 +3,7 @@
 import sys
 from typing import Callable, Optional, Sequence, Type
 
-from spectra_lexer import SpectraOptions
+from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.console.system import SystemConsole
 from spectra_lexer.qt.svg import SVGRasterEngine
 from spectra_lexer.resource.rules import StenoRule
@@ -139,20 +139,18 @@ class DiscordApplication:
         return bot.run()
 
 
-def build_app(opts:SpectraOptions) -> DiscordApplication:
-    spectra = opts.compile()
-    translations_files = opts.translations_paths()
-    log = spectra.log
+def build_app(spectra:Spectra) -> DiscordApplication:
     io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
+    log = spectra.logger.log
     log("Loading...")
     svg_engine = SVGRasterEngine(background_rgba=(0, 0, 0, 0))
     msg_factory = MessageFactory(svg_engine=svg_engine)
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')
-    translations = io.load_json_translations(*translations_files)
+    translations = io.load_json_translations(*spectra.translations_paths)
     # Strip Plover glue and case metacharacters so our search engine has a chance to find the actual text.
     stripped_values = [v.strip(' {<&>}') for v in translations.values()]
     translations = {k: v for k, v in zip(translations, stripped_values) if v}
@@ -164,7 +162,8 @@ def build_app(opts:SpectraOptions) -> DiscordApplication:
 def main() -> int:
     opts = SpectraOptions("Run Spectra as a Discord bot.")
     opts.add("token", "", "Discord bot token (REQUIRED).")
-    app = build_app(opts)
+    spectra = Spectra.compile(opts)
+    app = build_app(spectra)
     return app.run_bot(opts.token)
 
 

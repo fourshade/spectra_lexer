@@ -1,5 +1,6 @@
 13.0.0
 -----
+* GUI logic for REST queries has been moved to its own module
 * Board diagrams are now rearranged when the GUI is resized
 * I/O code has been consolidated
 

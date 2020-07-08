@@ -1,2 +1,2 @@
-""" Package for loading all resources necessary to set up a steno system.
-    Most structures are parsed from JSON. Built-in assets include a key layout, rules, and board graphics. """
+""" Package for all resources necessary to set up a steno system. All structures are parsed from JSON.
+    Built-in assets include a key layout, rules, and board graphics. """

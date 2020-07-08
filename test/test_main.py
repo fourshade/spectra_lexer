@@ -4,11 +4,11 @@
 import re
 
 import pytest
-from spectra_lexer import SpectraOptions
+from spectra_lexer import Spectra
 
 from . import TEST_TRANSLATIONS
 
-SPECTRA = SpectraOptions().compile()
+SPECTRA = Spectra.compile()
 SPECTRA.search_engine.set_translations(TEST_TRANSLATIONS)
 TEST_TRANSLATION_PAIRS = list(TEST_TRANSLATIONS.items())
 

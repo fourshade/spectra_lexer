@@ -1,7 +1,5 @@
-""" Main module for arranging text graph nodes on a character grid. """
-
 from collections import defaultdict
-from typing import Dict, Iterator, List, Mapping, Set
+from typing import Container, Dict, Iterator, List, Mapping, Set
 
 from spectra_lexer.graph import IBody, IConnectors, TextElement
 from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, StandardBody
@@ -145,9 +143,9 @@ class GraphTree(RuleMapping):
 class GraphEngine:
     """ Creates trees of displayable graph nodes out of steno rules. """
 
-    def __init__(self, key_sep:str, ignored_chars="") -> None:
-        self._key_sep = key_sep
-        self._ignored = set(ignored_chars)  # Characters to ignore at the beginning of key strings (usually the hyphen).
+    def __init__(self, key_sep:str, ignored_chars:Container[str]) -> None:
+        self._key_sep = key_sep        # Stroke separator key.
+        self._ignored = ignored_chars  # Characters to ignore at the beginning of key strings (usually the hyphen).
 
     def _build_body(self, rule:StenoRule) -> IBody:
         """ Make a node display body. The text is shifted left if it starts with an ignored token. """
@@ -206,5 +204,5 @@ class GraphEngine:
 
 def build_graph_engine(keymap:StenoKeyLayout) -> GraphEngine:
     key_sep = keymap.separator_key()
-    ignored_chars = keymap.divider_key()
+    ignored_chars = {keymap.divider_key()}
     return GraphEngine(key_sep, ignored_chars)

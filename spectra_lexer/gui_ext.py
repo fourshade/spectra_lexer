@@ -1,4 +1,4 @@
-from spectra_lexer.resource.io import StenoResourceIO
+from spectra_lexer.resource.io import ResourceIOError, StenoResourceIO
 from spectra_lexer.resource.translations import ExamplesDict, TranslationsDict
 from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import SearchEngine
@@ -9,13 +9,14 @@ class GUIExtension:
     """ Layer for user GUI actions that may require disk access or other higher permissions. """
 
     def __init__(self, io:StenoResourceIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 examples_path:str, cfg_path:str) -> None:
+                 translations_paths=(), examples_path="", cfg_path="") -> None:
         self._io = io
         self._search_engine = search_engine
         self._analyzer = analyzer
-        self._examples_path = examples_path  # User examples index file path.
         self._config = SimpleConfigDict(cfg_path, "app_qt")
-        self._last_translations = {}
+        self._translations_paths = translations_paths  # Starting translation file paths.
+        self._examples_path = examples_path            # User examples index file path.
+        self._last_translations = {}                   # Most recently loaded translations (for indexing).
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
@@ -53,9 +54,15 @@ class GUIExtension:
         self._config.write()
 
     def load_initial(self) -> None:
-        """ Load the startup examples index and config. Ignore I/O errors since either one may be missing. """
-        try:
-            self.load_examples(self._examples_path)
-        except OSError:
-            pass
+        """ Load optional startup resources. Ignore I/O errors since any of them may be missing. """
+        if self._translations_paths:
+            try:
+                self.load_translations(*self._translations_paths)
+            except ResourceIOError:
+                pass
+        if self._examples_path:
+            try:
+                self.load_examples(self._examples_path)
+            except ResourceIOError:
+                pass
         self.load_config()
