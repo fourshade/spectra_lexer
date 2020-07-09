@@ -20,12 +20,12 @@ def main() -> int:
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine
     board_engine = spectra.board_engine
-    log = spectra.logger.log
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
     cfg_path = spectra.cfg_path
     gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
     gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
+    log = spectra.logger.log
     app = build_app(gui_engine, gui_ext, log)
     app.start(gui_ext.load_initial)
     # After everything is loaded, start a GUI event loop and run it indefinitely.

@@ -1,7 +1,8 @@
 import pkgutil
+import sys
 from typing import Callable, Sequence
 
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWidgets import QMainWindow
 
 from spectra_lexer.console.qt import ConsoleDialog
 from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults, SearchResults
@@ -16,11 +17,11 @@ from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
 from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchPanel
-from spectra_lexer.qt.system import QtTaskExecutor, QtExceptionHook
+from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.spc_lexer import TranslationFilter
-from spectra_lexer.util.exception import ExceptionManager
+from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLogger
 
 
 class QtGUIApplication:
@@ -211,11 +212,6 @@ class QtGUIApplication:
     def close(self) -> None:
         self._window.close()
 
-    def show_traceback(self, tb_text:str) -> None:
-        """ Display a stack trace with an appropriate title. """
-        self._set_title("Well, this is embarrassing...")
-        self._graph.set_plaintext(tb_text)
-
     def set_status(self, text:str) -> None:
         """ Check if the status text ends in an ellipsis. If not, just show it in the title normally.
             Otherwise, animate the text with a • dot moving down the ellipsis until new text is shown:
@@ -238,6 +234,16 @@ class QtGUIApplication:
         self._graph.set_enabled(enabled)
         self._board.set_enabled(enabled)
 
+    def _on_task_start(self, msg_start:str) -> None:
+        """ Disable the window controls and show <msg_start> before running a blocking task on another thread. """
+        self.set_enabled(False)
+        self.set_status(msg_start)
+
+    def _on_task_finish(self, msg_finish:str) -> None:
+        """ Re-enable the controls and show <msg_finish> when all worker tasks are done. """
+        self.set_enabled(True)
+        self.set_status(msg_finish)
+
     def async_run(self, func:Callable, *args) -> None:
         """ Queue a function to execute on the worker thread. """
         self._tasks.on_worker(func, *args)
@@ -247,17 +253,10 @@ class QtGUIApplication:
         self._tasks.on_main(func, *args)
 
     def async_start(self, msg_start:str) -> None:
-        """ Disable the window controls and show <msg_start> first before running a blocking task on another thread.
-            GUI events may misbehave unless explicitly processed before the async thread takes the GIL. """
-        q_app = QApplication.instance()
-        q_app.processEvents()
-        self.async_queue(self.set_enabled, False)
-        self.async_queue(self.set_status, msg_start)
+        self.async_queue(self._on_task_start, msg_start)
 
     def async_finish(self, msg_finish:str) -> None:
-        """ Queue callbacks that will re-enable the controls and show <msg_finish> when all worker tasks are done. """
-        self.async_queue(self.set_enabled, True)
-        self.async_queue(self.set_status, msg_finish)
+        self.async_queue(self._on_task_finish, msg_finish)
 
     def _on_ready(self) -> None:
         """ When all major resources are ready, load the config and connect the GUI callbacks.
@@ -268,15 +267,6 @@ class QtGUIApplication:
             defaults = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
             self._ext.update_config(defaults)
             self.confirm_startup_index()
-
-    def start(self, *funcs:Callable[[], None]) -> None:
-        """ Load initial data from <funcs> asynchronously on a new thread to avoid blocking the GUI. """
-        self._tasks.start()
-        self.async_start("Loading...")
-        for f in funcs:
-            self.async_run(f)
-        self.async_finish("Loading complete.")
-        self.async_queue(self._on_ready)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
@@ -343,18 +333,31 @@ class QtGUIApplication:
             dialog.set_namespace(vars(self), root_package=__package__)
             dialog.show()
 
-    def on_exception(self, exc:BaseException) -> None:
-        """ Store unhandled exceptions and enable all widgets afterward to allow debugging. """
-        self.last_exception = exc
-        self.set_enabled(True)
+    def start(self, *funcs:Callable[[], None]) -> None:
+        """ Load initial data and call <funcs> asynchronously on a new thread to avoid blocking the GUI. """
+        self._on_task_start("Loading...")
+        self.show()
+        self._tasks.start()
+        self.async_run(self._ext.load_initial)
+        for f in funcs:
+            self.async_run(f)
+        self.async_finish("Loading complete.")
+        self.async_queue(self._on_ready)
+
+    def on_exception(self, exc_type, exc_value, _) -> bool:
+        """ Display an error message with an appropriate title. Save the exception afterward to allow debugging. """
+        self._set_title("EXCEPTION - " + exc_type.__name__)
+        text = str(exc_value) + '\n\nIn the menu, go to "Debug -> View Object Tree..." for debug details.'
+        self._graph.set_plaintext(text)
+        self.last_exception = exc_value
+        return True
 
 
 def build_app(engine:GUIEngine, ext:GUIExtension, logger:Callable[[str], None]) -> QtGUIApplication:
     """ Build the interactive Qt GUI application with all necessary components. """
-    exc_man = ExceptionManager()
-    exc_man.add_logger(logger)
-    exc_hook = QtExceptionHook(chain_hooks=False)
-    exc_hook.connect(exc_man.on_exception)
+    exc_handler = CompositeExceptionHandler()
+    exc_handler.add(ExceptionLogger(logger))
+    sys.excepthook = exc_handler
     tasks = QtTaskExecutor()
     w_window = QMainWindow()
     ui = Ui_MainWindow()
@@ -369,9 +372,7 @@ def build_app(engine:GUIEngine, ext:GUIExtension, logger:Callable[[str], None]) 
     graph = GraphPanel(ui.w_graph)
     board = BoardPanel(ui.w_board, ui.w_caption, ui.w_slider, ui.w_link_save, ui.w_link_examples)
     app = QtGUIApplication(engine, ext, tasks, dialogs, window, menu, title, search, graph, board)
-    app.set_status("Loading...")
-    exc_man.add_logger(app.show_traceback)
-    exc_man.add_handler(app.on_exception)
+    exc_handler.add(app.on_exception)
     f_menu = menu.get_section("File")
     f_menu.addItem(app.open_translations, "Load Translations...")
     f_menu.addItem(app.open_index, "Load Index...")
@@ -383,8 +384,4 @@ def build_app(engine:GUIEngine, ext:GUIExtension, logger:Callable[[str], None]) 
     d_menu = menu.get_section("Debug")
     d_menu.addItem(app.debug_console, "Open Console...")
     d_menu.addItem(app.debug_tree, "View Object Tree...")
-    app.set_enabled(False)
-    app.show()
-    # Some object references must be saved in an attribute or else Qt will disconnect the signals upon scope exit.
-    app.sys_refs = [exc_man, exc_hook]
     return app

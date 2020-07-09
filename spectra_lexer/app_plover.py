@@ -18,7 +18,7 @@ class PloverPluginApplication:
         self._gui_ext = gui_ext
         self._plover_ext = plover_ext
 
-    def _load_all(self) -> None:
+    def _load_initial(self) -> None:
         """ The startup translations come from the current Plover dictionaries. """
         translations = self._plover_ext.parse_engine_dictionaries()
         self._gui_ext.set_translations(translations)
@@ -47,7 +47,7 @@ class PloverPluginApplication:
         """ Start the main app and connect the Plover extension only if compatible. """
         try:
             IPlover.is_compatible()
-            self._app.start(self._load_all)
+            self._app.start(self._load_initial)
             self._plover_ext.call_on_dictionaries_loaded(self._on_dictionaries_loaded)
             self._plover_ext.call_on_translated(self._on_translated)
         except IPlover.IncompatibleError as e:
@@ -92,11 +92,12 @@ class PloverPlugin:
         analyzer = spectra.analyzer
         graph_engine = spectra.graph_engine
         board_engine = spectra.board_engine
-        log = spectra.logger.log
+        translations_paths = ()
         index_path = spectra.index_path
         cfg_path = spectra.cfg_path
         gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
-        gui_ext = GUIExtension(io, search_engine, analyzer, (), index_path, cfg_path)
+        gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
+        log = spectra.logger.log
         app = build_app(gui_engine, gui_ext, log)
         plover_ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
         # Add the extension as an app attribute so it is visible to the Qt app debug tools.
