@@ -1,68 +1,15 @@
 """ Main module for the Qt GUI plugin for Plover. """
 
-from typing import Any
-
 from spectra_lexer import Spectra
-from spectra_lexer.gui_engine import GUIEngine
-from spectra_lexer.gui_ext import GUIExtension
-from spectra_lexer.gui_qt import build_app, QtGUIApplication
+from spectra_lexer.app_qt import build_app
 from spectra_lexer.plover.plugin import EngineWrapper, IPlover, PloverExtension
 from spectra_lexer.qt import WINDOW_ICON_PATH
-
-
-class PloverPluginApplication:
-    """ The highest application layer, exclusive to Plover. Probably needs some flattening. """
-
-    def __init__(self, app:QtGUIApplication, gui_ext:GUIExtension, plover_ext:PloverExtension) -> None:
-        self._app = app
-        self._gui_ext = gui_ext
-        self._plover_ext = plover_ext
-
-    def _load_initial(self) -> None:
-        """ The startup translations come from the current Plover dictionaries. """
-        translations = self._plover_ext.parse_engine_dictionaries()
-        self._gui_ext.set_translations(translations)
-        self._gui_ext.load_initial()
-
-    def _load_translations(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
-        translations = self._plover_ext.parse_dictionaries(steno_dc)
-        self._gui_ext.set_translations(translations)
-
-    def _on_dictionaries_loaded(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
-        """ Load translation dictionaries in async mode to keep the GUI responsive. """
-        self._app.async_start("Loading dictionaries...")
-        self._app.async_run(self._load_translations, steno_dc)
-        self._app.async_finish("Loaded new dictionaries from Plover.")
-
-    def _on_translated(self, *args:IPlover.ActionSequence) -> None:
-        """ Look up a user's strokes as they are entered, but *not* while the main search window is active.
-            User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
-        translation = self._plover_ext.parse_actions(*args)
-        if translation is not None and not self._app.has_focus():
-            keys, letters = translation
-            self._app.set_options(lexer_strict_mode=False)
-            self._app.gui_query(keys, letters)
-
-    def start(self) -> None:
-        """ Start the main app and connect the Plover extension only if compatible. """
-        try:
-            IPlover.is_compatible()
-            self._app.start(self._load_initial)
-            self._plover_ext.call_on_dictionaries_loaded(self._on_dictionaries_loaded)
-            self._plover_ext.call_on_translated(self._on_translated)
-        except IPlover.IncompatibleError as e:
-            # If the compatibility check fails, abort the loading sequence and show an error message.
-            self._app.set_status(f"ERROR: {e}")
-
-    def dialog_proxy(self) -> object:
-        """ Return a delegate that will interface with Plover as a GUI dialog. """
-        return self._app
 
 
 class _Dummy:
     """ A robust dummy object. Returns itself through any chain of attribute lookups, subscriptions, and calls. """
 
-    def return_self(self, *_, **__) -> Any:
+    def return_self(self, *_, **__) -> '_Dummy':
         return self
 
     __getattr__ = __getitem__ = __call__ = return_self
@@ -85,30 +32,56 @@ class PloverPlugin:
     def __init__(self, plover_engine:IPlover.Engine) -> None:
         """ Main entry point for Spectra's Plover plugin. The Plover engine is our only argument.
             Command-line arguments are not used (sys.argv belongs to Plover), and translations are not read from files.
-            We create the main application object, but do not expose it except through __getattr__. """
+            We must create the main application object *and* start it before __init__ returns.
+            The extension is added as attribute 'plover' solely to make it visible to the debug tools. """
         spectra = Spectra.compile(parse_args=False)
-        io = spectra.resource_io
-        search_engine = spectra.search_engine
-        analyzer = spectra.analyzer
-        graph_engine = spectra.graph_engine
-        board_engine = spectra.board_engine
-        translations_paths = ()
-        index_path = spectra.index_path
-        cfg_path = spectra.cfg_path
-        gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
-        gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
-        log = spectra.logger.log
-        app = build_app(gui_engine, gui_ext, log)
-        plover_ext = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
-        # Add the extension as an app attribute so it is visible to the Qt app debug tools.
-        app.plover = plover_ext
-        self._main = PloverPluginApplication(app, gui_ext, plover_ext)
-        self._main.start()
+        spectra.translations_paths = ()
+        self._app = app = build_app(spectra)
+        self._ext = app.plover = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
+        app.async_run(self._start)
+        app.start()
 
-    def __getattr__(self, name:str) -> Any:
-        """ As a proxy, we delegate or fake any attribute we don't want to handle to avoid incompatibility. """
-        try:
-            dialog = self._main.dialog_proxy()
-            return getattr(dialog, name)
-        except AttributeError:
-            return _Dummy()
+    def _load_translations(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
+        """ Plover dictionaries may be resent with a signal if they change. """
+        translations = self._ext.parse_dictionaries(steno_dc)
+        self._app.set_translations(translations)
+
+    def _on_dictionaries_loaded(self, steno_dc:IPlover.StenoDictionaryCollection) -> None:
+        """ Load translation dictionaries in async mode to keep the GUI responsive. """
+        self._app.async_start("Loading dictionaries...")
+        self._app.async_run(self._load_translations, steno_dc)
+        self._app.async_finish("Loaded new dictionaries from Plover.")
+
+    def _on_translated(self, *args:IPlover.ActionSequence) -> None:
+        """ Look up a user's strokes as they are entered, but *not* while the main search window is active.
+            User strokes may involve all sorts of custom briefs, so do not attempt to match every key. """
+        translation = self._ext.parse_actions(*args)
+        if translation is not None and not self._app.has_focus():
+            keys, letters = translation
+            self._app.set_options(lexer_strict_mode=False)
+            self._app.gui_query(keys, letters)
+
+    def _connect(self) -> None:
+        """ Connect the Plover engine signals. Must be done on the main thread. """
+        self._ext.call_on_dictionaries_loaded(self._on_dictionaries_loaded)
+        self._ext.call_on_translated(self._on_translated)
+
+    def _start(self) -> None:
+        """ Load translations from the current dictionaries and connect the Plover engine signals if compatible.
+            The translations *must* load before the first-run index prompt appears. """
+        IPlover.check_compatible()
+        translations = self._ext.parse_engine_dictionaries()
+        self._app.set_translations(translations)
+        self._app.async_queue(self._connect)
+
+    # Interface methods for Plover as a GUI dialog.
+
+    def show(self) -> None:
+        self._app.show()
+
+    def close(self) -> None:
+        self._app.close()
+
+    def __getattr__(self, name:str) -> _Dummy:
+        """ As a proxy, we fake any attribute we can't find to avoid incompatibility. """
+        return _Dummy()

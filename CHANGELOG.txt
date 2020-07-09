@@ -1,3 +1,8 @@
+13.1.0
+------
+* Stack traces are now hidden from the user
+* Exceptions no longer permanently disable the worker thread
+
 13.0.0
 -----
 * GUI logic for REST queries has been moved to its own module

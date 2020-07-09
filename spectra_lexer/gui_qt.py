@@ -1,27 +1,20 @@
-import pkgutil
-import sys
 from typing import Callable, Sequence
-
-from PyQt5.QtWidgets import QMainWindow
 
 from spectra_lexer.console.qt import ConsoleDialog
 from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults, SearchResults
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
-from spectra_lexer.qt import WINDOW_ICON_PATH
 from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.config import ConfigDialog
 from spectra_lexer.qt.dialog import DialogManager
 from spectra_lexer.qt.graph import GraphPanel
 from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
-from spectra_lexer.qt.main_window_ui import Ui_MainWindow
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchPanel
 from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.spc_lexer import TranslationFilter
-from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLogger
 
 
 class QtGUIApplication:
@@ -114,9 +107,15 @@ class QtGUIApplication:
         self._graph.set_focus(intense)
         self._show_page(start_ref, intense)
 
+    def _get_config(self) -> dict:
+        return self._ext.get_config()
+
+    def _update_config(self, options:dict) -> None:
+        self._ext.update_config(options)
+
     def _base_options(self) -> GUIOptions:
         """ Config settings form the base for a set of GUI engine options. """
-        return GUIOptions(self._ext.get_config())
+        return GUIOptions(self._get_config())
 
     def set_options(self, **kwargs) -> None:
         """ Set all options that may be needed by the steno engine. Overriding options may be given as kwargs. """
@@ -129,6 +128,9 @@ class QtGUIApplication:
         if kwargs:
             vars(opts).update(kwargs)
         self._engine.set_options(opts)
+
+    def set_translations(self, *args) -> None:
+        self._ext.set_translations(*args)
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
@@ -234,12 +236,12 @@ class QtGUIApplication:
         self._graph.set_enabled(enabled)
         self._board.set_enabled(enabled)
 
-    def _on_task_start(self, msg_start:str) -> None:
+    def _block(self, msg_start:str) -> None:
         """ Disable the window controls and show <msg_start> before running a blocking task on another thread. """
         self.set_enabled(False)
         self.set_status(msg_start)
 
-    def _on_task_finish(self, msg_finish:str) -> None:
+    def _unblock(self, msg_finish:str) -> None:
         """ Re-enable the controls and show <msg_finish> when all worker tasks are done. """
         self.set_enabled(True)
         self.set_status(msg_finish)
@@ -253,20 +255,10 @@ class QtGUIApplication:
         self._tasks.on_main(func, *args)
 
     def async_start(self, msg_start:str) -> None:
-        self.async_queue(self._on_task_start, msg_start)
+        self.async_queue(self._block, msg_start)
 
     def async_finish(self, msg_finish:str) -> None:
-        self.async_queue(self._on_task_finish, msg_finish)
-
-    def _on_ready(self) -> None:
-        """ When all major resources are ready, load the config and connect the GUI callbacks.
-            If the config settings are blank, this is the first time the program has been run.
-            Add the default config values and present an index generation dialog in this case. """
-        self._connect_signals()
-        if not self._ext.get_config():
-            defaults = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
-            self._ext.update_config(defaults)
-            self.confirm_startup_index()
+        self.async_queue(self._unblock, msg_finish)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
@@ -285,7 +277,7 @@ class QtGUIApplication:
             self.async_finish("Loaded index from file dialog.")
 
     def _config_edited(self, options:dict) -> None:
-        self._ext.update_config(options)
+        self._update_config(options)
         self.set_status("Configuration saved.")
 
     def config_editor(self) -> None:
@@ -333,16 +325,24 @@ class QtGUIApplication:
             dialog.set_namespace(vars(self), root_package=__package__)
             dialog.show()
 
-    def start(self, *funcs:Callable[[], None]) -> None:
-        """ Load initial data and call <funcs> asynchronously on a new thread to avoid blocking the GUI. """
-        self._on_task_start("Loading...")
-        self.show()
-        self._tasks.start()
+    def _on_ready(self) -> None:
+        """ When all major resources are ready, load the config and connect the GUI callbacks.
+            If the config settings are blank, this is the first time the program has been run.
+            Add the default config values and present an index generation dialog in this case. """
+        self._connect_signals()
+        if not self._get_config():
+            defaults = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
+            self._update_config(defaults)
+            self.confirm_startup_index()
+
+    def start(self) -> None:
+        """ Show the window and load initial data asynchronously on a new thread to keep the GUI responsive. """
+        self._block("Loading...")
         self.async_run(self._ext.load_initial)
-        for f in funcs:
-            self.async_run(f)
         self.async_finish("Loading complete.")
         self.async_queue(self._on_ready)
+        self.show()
+        self._tasks.start()
 
     def on_exception(self, exc_type, exc_value, _) -> bool:
         """ Display an error message with an appropriate title. Save the exception afterward to allow debugging. """
@@ -351,37 +351,3 @@ class QtGUIApplication:
         self._graph.set_plaintext(text)
         self.last_exception = exc_value
         return True
-
-
-def build_app(engine:GUIEngine, ext:GUIExtension, logger:Callable[[str], None]) -> QtGUIApplication:
-    """ Build the interactive Qt GUI application with all necessary components. """
-    exc_handler = CompositeExceptionHandler()
-    exc_handler.add(ExceptionLogger(logger))
-    sys.excepthook = exc_handler
-    tasks = QtTaskExecutor()
-    w_window = QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(w_window)
-    dialogs = DialogManager(w_window)
-    window = WindowController(w_window)
-    icon_data = pkgutil.get_data(*WINDOW_ICON_PATH)
-    window.set_icon(icon_data)
-    menu = MenuController(ui.w_menubar)
-    title = TitleDisplay(ui.w_title)
-    search = SearchPanel(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
-    graph = GraphPanel(ui.w_graph)
-    board = BoardPanel(ui.w_board, ui.w_caption, ui.w_slider, ui.w_link_save, ui.w_link_examples)
-    app = QtGUIApplication(engine, ext, tasks, dialogs, window, menu, title, search, graph, board)
-    exc_handler.add(app.on_exception)
-    f_menu = menu.get_section("File")
-    f_menu.addItem(app.open_translations, "Load Translations...")
-    f_menu.addItem(app.open_index, "Load Index...")
-    f_menu.addSeparator()
-    f_menu.addItem(app.close, "Close")
-    t_menu = menu.get_section("Tools")
-    t_menu.addItem(app.config_editor, "Edit Configuration...")
-    t_menu.addItem(app.custom_index, "Make Index...")
-    d_menu = menu.get_section("Debug")
-    d_menu.addItem(app.debug_console, "Open Console...")
-    d_menu.addItem(app.debug_tree, "View Object Tree...")
-    return app

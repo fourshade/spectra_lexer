@@ -55,6 +55,7 @@ class GUIExtension:
 
     def load_initial(self) -> None:
         """ Load optional startup resources. Ignore I/O errors since any of them may be missing. """
+        self.load_config()
         if self._translations_paths:
             try:
                 self.load_translations(*self._translations_paths)
@@ -65,4 +66,3 @@ class GUIExtension:
                 self.load_examples(self._examples_path)
             except ResourceIOError:
                 pass
-        self.load_config()

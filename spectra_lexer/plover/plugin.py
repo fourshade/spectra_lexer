@@ -17,7 +17,7 @@ class IPlover:
         """ Raised if the installed Plover version is not compatible with this application. """
 
     @classmethod
-    def is_compatible(cls) -> None:
+    def check_compatible(cls) -> None:
         """ Check the Plover version to see if it is compatible with this extension. """
         # pkg_resources takes 4x as long to import as *everything else combined*. Only import it when/if we need it.
         import pkg_resources
