@@ -7,7 +7,7 @@ from .svg import SVGElement, SVGElementFactory, SVGStyle
 from .tfrm import GridLayoutEngine, TransformData
 
 SVGIterator = Iterator[SVGElement]
-SVGList = List[SVGElement]
+SVGSequence = Sequence[SVGElement]
 TransformSequence = Sequence[TransformData]
 
 
@@ -21,21 +21,12 @@ class Overlay:
 class Group:
     """ A group of SVG steno board elements with metadata. """
 
-    bg = "#000000"             # Background color for key shapes.
-    txtmaxarea = [20.0, 20.0]  # Maximum available area for text. Determines text scale and orientation.
-    altangle = 0.0             # Alternate text orientation in degrees.
-    ends_stroke = False        # If True, this element group is the last in the current stroke.
-    overlay: Overlay = None    # Reserved for special elements that add overlays covering multiple strokes.
+    offset = 0j              # Tracks the approximate center of the element in the current stroke.
+    ends_stroke = False      # If True, this element group is the last in the current stroke.
+    overlay: Overlay = None  # Reserved for special elements that add overlays covering multiple strokes.
 
-    def __init__(self, *elems:SVGElement) -> None:
-        self.tfrm = TransformData()  # Contains the approximate center of this element in the current stroke.
-        self._elems = [*elems]
-
-    def append(self, elem:SVGElement) -> None:
-        self._elems.append(elem)
-
-    def get_offset(self) -> complex:
-        return self.tfrm.offset()
+    def __init__(self, elems:SVGSequence=()) -> None:
+        self._elems = elems  # Reusable iterable of SVG elements.
 
     def __iter__(self) -> SVGIterator:
         """ Iterate over all finished SVG elements, positioned correctly within the context of a single stroke. """
@@ -47,20 +38,20 @@ GroupList = List[Group]
 
 class InversionElements:
 
-    ARROW_GENERATOR = ArrowPathGenerator()
-    ARROW_STYLES = [SVGStyle(fill="none", stroke="#800000", stroke_width="1.5px"),
+    PATH_GENERATOR = ArrowPathGenerator()
+    LAYER_STYLES = [SVGStyle(fill="none", stroke="#800000", stroke_width="1.5px"),
                     SVGStyle(fill="none", stroke="#FF0000", stroke_width="1.5px")]
 
     def __init__(self, factory:SVGElementFactory, stroke:GroupList) -> None:
         self._factory = factory
         self._stroke = stroke
 
-    def _arrow_layers(self, start:complex, end:complex) -> SVGIterator:
+    def _iter_layers(self, start:complex, end:complex) -> SVGIterator:
         """ Yield SVG path elements that compose an arrow pointing between <start> and <end>.
             Layers are shifted by an incremental offset to create a drop shadow appearance. """
-        for style in self.ARROW_STYLES:
+        for style in self.LAYER_STYLES:
             cmds = PathCommands()
-            self.ARROW_GENERATOR.connect(start, end, cmds)
+            self.PATH_GENERATOR.connect(start, end, cmds)
             path_data = cmds.to_string()
             yield self._factory.path(path_data, style)
             start -= 1j
@@ -70,10 +61,10 @@ class InversionElements:
         """ Make a set of arrow paths connecting the first two groups in a stroke in both directions. """
         for grp in self._stroke:
             yield from grp
-        p1 = self._stroke[0].get_offset()
-        p2 = self._stroke[1].get_offset()
-        yield from self._arrow_layers(p1, p2)
-        yield from self._arrow_layers(p2, p1)
+        p1 = self._stroke[0].offset
+        p2 = self._stroke[1].offset
+        yield from self._iter_layers(p1, p2)
+        yield from self._iter_layers(p2, p1)
 
 
 class LinkedOverlay(Overlay):
@@ -107,11 +98,14 @@ class LinkedOverlay(Overlay):
         """ For multi-element rules, connect the last element in the first stroke to the first element in the next. """
         first_tfrm, last_tfrm = tfrms[:2]
         s_stroke, e_stroke = self._strokes
-        first_offset = s_stroke[-1].get_offset() + first_tfrm.offset()
-        last_offset = e_stroke[0].get_offset() + last_tfrm.offset()
+        first_offset = s_stroke[-1].offset + first_tfrm.offset()
+        last_offset = e_stroke[0].offset + last_tfrm.offset()
         yield from self._iter_layers(first_offset, last_offset)
         yield self._transformed_stroke(s_stroke, first_tfrm)
         yield self._transformed_stroke(e_stroke, last_tfrm)
+
+
+ProcsDict = Dict[str, Dict[str, str]]
 
 
 class BoardFactory:
@@ -126,11 +120,12 @@ class BoardFactory:
     FONT_PX_PER_UNIT = _FONT_SIZE / _EM_SIZE
     FONT_SPACING_PX = _FONT_SPACING * FONT_PX_PER_UNIT
     FONT_STYLE = SVGStyle(fill="#000000")
-    ARROW_GENERATOR = ArrowPathGenerator()
-    ARROW_STYLES = [SVGStyle(fill="none", stroke="#800000", stroke_width="1.5px"),
-                    SVGStyle(fill="none", stroke="#FF0000", stroke_width="1.5px")]
 
-    def __init__(self, factory:SVGElementFactory, key_procs:Dict[str, List[str]], rule_procs:Dict[str, List[str]],
+    class ProcTransformData(TransformData):
+        txtmaxarea = (20.0, 20.0)  # Maximum available area for text. Determines text scale and orientation.
+        altangle = 0.0             # Alternate text orientation in degrees.
+
+    def __init__(self, factory:SVGElementFactory, key_procs:ProcsDict, rule_procs:ProcsDict,
                  key_positions:Dict[str, List[int]], shape_defs:Dict[str, dict], glyph_table:Dict[str, str],
                  layout:GridLayoutEngine) -> None:
         self._factory = factory              # Standard SVG element factory.
@@ -143,51 +138,34 @@ class BoardFactory:
         self._defs_elems = []                # Base definitions to add to every document
         self._base_elems = []                # Base elements to add to every diagram
 
-    def _processed_group(self, procs:Iterable[str], bg:str) -> Group:
-        """ Each string in <procs> defines a `proc`ess that positions and/or constructs SVG elements.
-            Execution involves running every proc in the list, in order, on an empty BoardElementGroup. """
-        grp = Group()
-        grp.bg = bg
-        # Match proc string keys to proc_* methods and call each method using the corresponding value.
-        for proc_str in procs:
-            p_type, p_value = proc_str.split("=", 1)
-            meth = getattr(self, "proc_" + p_type, None)
-            if meth is not None:
-                meth(grp, p_value)
-        return grp
-
-    @staticmethod
-    def proc_sep(grp:Group, *_) -> None:
-        """ Set this element to separate strokes. """
-        grp.ends_stroke = True
-
-    def proc_pos(self, grp:Group, pos_id:str) -> None:
+    def _proc_pos(self, pos_id:str, tfrm:ProcTransformData) -> None:
         """ Move the offset used for the element shape. """
-        offset = self._key_positions[pos_id]
-        grp.tfrm.translate(*offset)
+        dx, dy = self._key_positions[pos_id]
+        tfrm.translate(dx, dy)
 
-    def proc_shape(self, grp:Group, shape_id:str) -> None:
-        """ Add an SVG path shape at the current offset.
+    def _proc_shape(self, shape_id:str, bg:str, tfrm:ProcTransformData) -> SVGElement:
+        """ Add an SVG path shape with the given fill and transform offset.
             Then advance the offset to center any following text and annotations (such as inversion arrows). """
         attrs = self._shape_defs[shape_id]
         path_data = attrs["d"]
-        style = SVGStyle(fill=grp.bg, stroke="#000000")
-        elem = self._factory.path(path_data, style, transform=grp.tfrm.to_string())
-        grp.append(elem)
-        grp.tfrm.translate(*attrs["txtcenter"])
-        grp.txtmaxarea = attrs["txtarea"]
-        grp.altangle = attrs["altangle"]
+        style = SVGStyle(fill=bg, stroke="#000000")
+        elem = self._factory.path(path_data, style, transform=tfrm.to_string())
+        dx, dy = attrs["txtcenter"]
+        tfrm.translate(dx, dy)
+        tfrm.txtmaxarea = attrs["txtarea"]
+        tfrm.altangle = attrs["altangle"]
+        return elem
 
-    def proc_text(self, grp:Group, text:str) -> None:
+    def _proc_text(self, text:str, tfrm:ProcTransformData) -> SVGElement:
         """ SVG fonts are not supported on any major browsers, so we must draw them as paths. """
         n = len(text) or 1
         spacing = self.FONT_SPACING_PX
-        w, h = grp.txtmaxarea
+        w, h = tfrm.txtmaxarea
         scale = min(1.0, w / (n * spacing))
         # If there is little horizontal space and plenty in another direction, rotate the text.
         if scale < 0.5 and h > w:
             scale = min(1.0, h / (n * spacing))
-            grp.tfrm.rotate(grp.altangle)
+            tfrm.rotate(tfrm.altangle)
         spacing *= scale
         font_scale = scale * self.FONT_PX_PER_UNIT
         x = - n * spacing / 2
@@ -195,31 +173,48 @@ class BoardFactory:
         elems = []
         style = self.FONT_STYLE
         for k in text:
-            tfrm = TransformData()
-            tfrm.scale(font_scale, -font_scale)
-            tfrm.translate(x, y)
+            char_tfrm = TransformData()
+            char_tfrm.scale(font_scale, -font_scale)
+            char_tfrm.translate(x, y)
             glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
-            char = self._factory.path(glyph, style, transform=tfrm.to_string())
+            char = self._factory.path(glyph, style, transform=char_tfrm.to_string())
             elems.append(char)
             x += spacing
-        g = self._factory.group(*elems, transform=grp.tfrm.to_string())
-        grp.append(g)
+        return self._factory.group(*elems, transform=tfrm.to_string())
+
+    def _processed_group(self, bg="#FFFFFF", pos=None, shape=None, text=None, sep=None) -> Group:
+        """ Each keyword defines a process that positions and/or constructs SVG elements.
+            Execution involves running every process, in order, on an empty BoardElementGroup. """
+        elems = []
+        params = self.ProcTransformData()
+        if pos is not None:
+            self._proc_pos(pos, params)
+        if shape is not None:
+            elem = self._proc_shape(shape, bg, params)
+            elems.append(elem)
+        if text is not None:
+            elem = self._proc_text(text, params)
+            elems.append(elem)
+        grp = Group(elems)
+        if sep is not None:
+            grp.ends_stroke = True
+        grp.offset = params.offset()
+        return grp
 
     def inversion_group(self, strk:GroupList) -> Group:
         """ Make a set of arrow paths connecting the first two groups in a stroke in both directions. """
-        elems = InversionElements(self._factory, strk)
-        return Group(*elems)
+        elems = [*InversionElements(self._factory, strk)]
+        return Group(elems)
 
     def linked_group(self, strk1:GroupList, strk2:GroupList) -> Group:
         """ Make a chain connecting two strokes, which are shifted independently of the main stroke groupings. """
-        grp = Group()
-        grp.ends_stroke = True
+        grp = self._processed_group(sep="1")
         grp.overlay = LinkedOverlay(self._factory, strk1, strk2)
         return grp
 
     def key_groups(self, skeys:str, bg:str) -> GroupList:
         """ Generate groups of elements from a set of steno s-keys. """
-        return [self._processed_group(self._key_procs[s], bg)
+        return [self._processed_group(bg, **self._key_procs[s])
                 for s in skeys if s in self._key_procs]
 
     def rule_group(self, skeys:str, text:str, bg:str) -> Optional[Group]:
@@ -227,19 +222,19 @@ class BoardFactory:
         procs = self._rule_procs.get(skeys)
         if procs is None:
             return None
-        procs = [*procs, "text="+text]
-        return self._processed_group(procs, bg)
+        return self._processed_group(bg, text=text, **procs)
 
     def set_base(self, bg:str, *, base_id="_BASE") -> None:
         """ Set the base defintions with all single keys unlabeled. """
         elems = [elem
                  for skeys, procs in self._rule_procs.items() if len(skeys) == 1
-                 for elem in self._processed_group(procs, bg)]
+                 for grp in self._processed_group(bg, **procs)
+                 for elem in grp]
         ref_base = self._factory.group(*elems, id=base_id)
         self._defs_elems = [self._factory.defs(ref_base)]
         self._base_elems = [self._factory.use(base_id)]
 
-    def _iter_strokes(self, groups:GroupList) -> Iterator[SVGList]:
+    def _iter_strokes(self, groups:GroupList) -> Iterator[SVGSequence]:
         elems = [*self._base_elems]
         for grp in groups:
             elems += grp
@@ -248,7 +243,7 @@ class BoardFactory:
                 elems = [*self._base_elems]
         yield elems
 
-    def _iter_diagrams(self, strokes:Iterable[SVGList], tfrms:TransformSequence) -> SVGIterator:
+    def _iter_diagrams(self, strokes:Iterable[SVGSequence], tfrms:TransformSequence) -> SVGIterator:
         for stroke, tfrm in zip(strokes, tfrms):
             yield self._factory.group(*stroke, transform=tfrm.to_string())
 

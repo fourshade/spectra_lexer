@@ -127,7 +127,7 @@ def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) 
     key_sep = keymap.separator_key()
     key_special = keymap.special_key()
     key_procs = board_defs.keys
-    key_procs[key_sep] = ["sep=1"]
+    key_procs[key_sep] = {"sep": "1"}
     rule_procs = board_defs.rules
     layout = GridLayoutEngine(**board_defs.bounds)
     factory = BoardFactory(svg_factory, key_procs, rule_procs,
