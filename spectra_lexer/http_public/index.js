@@ -177,13 +177,9 @@ function SpectraClient() {
         return false;
     });
 
-    function updateSearch({matches, is_complete}) {
+    function updateSearch(matches) {
         lastMatches = matches;
         let keys = Object.keys(matches);
-        // If there are unseen results, add a final list item to allow search expansion.
-        if(!is_complete) {
-            keys.push(MORE_TEXT);
-        }
         matchSelector.update(keys);
         // If the new list does not have the previous selection, reset the mappings.
         if(!matchSelector.value) {

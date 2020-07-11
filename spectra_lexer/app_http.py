@@ -4,7 +4,7 @@ import os
 import sys
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.gui_engine import GUIEngine, SearchResults
+from spectra_lexer.gui_engine import GUIEngine
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.gui_rest import RESTDisplay, RESTDisplayPage, RESTGUIApplication, RESTUpdate
 from spectra_lexer.http.connect import HTTPConnectionHandler
@@ -14,7 +14,7 @@ from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzi
 from spectra_lexer.http.tcp import ThreadedTCPServer
 
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
-JSON_DATA_CLASSES = [RESTDisplay, RESTDisplayPage, RESTUpdate, SearchResults]
+JSON_DATA_CLASSES = [RESTDisplay, RESTDisplayPage, RESTUpdate]
 
 
 def build_app(spectra:Spectra) -> RESTGUIApplication:

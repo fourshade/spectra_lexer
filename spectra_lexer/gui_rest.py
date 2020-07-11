@@ -1,9 +1,10 @@
 from threading import Lock
 from typing import Dict, Iterable
 
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults, SearchResults
+from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
+from spectra_lexer.spc_search import MatchDict
 
 
 class RESTDisplayPage:
@@ -30,7 +31,7 @@ class RESTDisplay:
 class RESTUpdate:
     """ Data class that contains an entire REST GUI update. All fields are optional. """
 
-    def __init__(self, search_results:SearchResults=None, display_data:RESTDisplay=None) -> None:
+    def __init__(self, search_results:MatchDict=None, display_data:RESTDisplay=None) -> None:
         self.search_results = search_results  # Product of a search action.
         self.display_data = display_data      # Product of a query action.
 
@@ -82,7 +83,7 @@ class RESTGUIApplication:
         return RESTUpdate(display_data=display_data)
 
     def REST_search_examples(self, link_ref:str) -> RESTUpdate:
-        """ When a link is clicked, search for examples of the named rule and select one at random. """
+        """ Search for examples of the named rule and display one at random. """
         pattern = self._gui.random_pattern(link_ref)
         if not pattern:
             search_results = display_data = None
