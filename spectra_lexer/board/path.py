@@ -48,12 +48,23 @@ class PathCommands:
 class ArrowPathGenerator:
     """ Draws curved arrows using quadratic Bezier curves. """
 
-    def __init__(self) -> None:
-        self.endpoint_shift = 12.0      # Amount to "shrink" the arrow endpoints away from their given values.
-        self.curve_shift = 15.0         # Amount to "bend" the center of the arrow body outward perpendicular.
-        self.min_head_length = 5.0      # Starting length for head edges (the lines that make the "point" of the arrow).
-        self.head_length_ratio = 0.033  # Additional length for head edges per unit of overall arrow length.
-        self.spread_angle = pi / 8      # Angle in radians between each head edge and the arrow body.
+    endpoint_shift = 12.0      # Amount to "shrink" the arrow endpoints away from their given values.
+    curve_shift = 15.0         # Amount to "bend" the center of the arrow body outward perpendicular.
+    min_head_length = 5.0      # Starting length for head edges (the lines that make the "point" of the arrow).
+    head_length_ratio = 0.033  # Additional length for head edges per unit of overall arrow length.
+    spread_angle = pi / 8      # Angle in radians between each head edge and the arrow body.
+
+    @staticmethod
+    def _shift_toward(ep:complex, cp:complex, shift_mag:float, angle_offset=0.0) -> complex:
+        return ep + rect(shift_mag, phase(cp - ep) + angle_offset)
+
+    def _shift_endpoint_to(self, ep:complex, control:complex) -> complex:
+        """ Back up an endpoint toward the control point. """
+        return self._shift_toward(ep, control, self.endpoint_shift)
+
+    def _get_control_point(self, tail:complex, head:complex) -> complex:
+        midpoint = (tail + head) / 2
+        return self._shift_toward(midpoint, head, self.curve_shift, pi / 2)
 
     def connect(self, tail:complex, head:complex, cmds:PathCommands) -> None:
         """ Add path commands for a curved arrow path from <tail> to <head>.
@@ -74,18 +85,6 @@ class ArrowPathGenerator:
         cmds.move_to(p_neg)
         cmds.line_to(head)
         cmds.line_to(p_pos)
-
-    def _shift_endpoint_to(self, ep:complex, control:complex) -> complex:
-        """ Back up an endpoint toward the control point. """
-        return self._shift_toward(ep, control, self.endpoint_shift)
-
-    def _get_control_point(self, tail:complex, head:complex) -> complex:
-        midpoint = (tail + head) / 2
-        return self._shift_toward(midpoint, head, self.curve_shift, pi / 2)
-
-    @staticmethod
-    def _shift_toward(ep:complex, cp:complex, shift_mag:float, angle_offset=0.0) -> complex:
-        return ep + rect(shift_mag, phase(cp - ep) + angle_offset)
 
 
 class ChainPathGenerator:
@@ -109,20 +108,9 @@ class ChainPathGenerator:
              \\----------//----\\----------//----\\----------//----\\----------//-------//
         All of the overlap happens here, so all links are still intertwined correctly after layering. """
 
-    def __init__(self) -> None:
-        self.link_length = 15.0  # Total length of a chain link.
-        self.link_radius = 5.0   # Radius of the circular portions of a chain link.
-        self.link_offset = 3.0   # Approximate amount to shift each chain link inward toward its predecessor.
-
-    def connect(self, start:complex, end:complex, cmds:PathCommands, revcmds:PathCommands=None) -> None:
-        """ Add path commands for a complete chain path from <start> to <end>.
-            If layers are required, pass two instances of PathCommands to draw each half separately. """
-        vec = end - start
-        length = abs(vec)
-        unit_vec = vec / length
-        origins = [start + unit_vec * offset for offset in self._link_offsets(length)]
-        self._draw_hemilinks(cmds, origins, unit_vec, False)
-        self._draw_hemilinks(revcmds or cmds, origins, unit_vec, True)
+    link_length = 15.0  # Total length of a chain link.
+    link_radius = 5.0   # Radius of the circular portions of a chain link.
+    link_offset = 3.0   # Approximate amount to shift each chain link inward toward its predecessor.
 
     def _link_offsets(self, total_length:float) -> List[float]:
         """ Return a list of linear offsets for the origin of each chain link.
@@ -151,3 +139,13 @@ class ChainPathGenerator:
             cmds.line_to(line_move, relative=True)
             cmds.arc_to(radii, start + end_offset, is_cw)
             is_cw = not is_cw
+
+    def connect(self, start:complex, end:complex, cmds:PathCommands, revcmds:PathCommands=None) -> None:
+        """ Add path commands for a complete chain path from <start> to <end>.
+            If layers are required, pass two instances of PathCommands to draw each half separately. """
+        vec = end - start
+        length = abs(vec)
+        unit_vec = vec / length
+        origins = [start + unit_vec * offset for offset in self._link_offsets(length)]
+        self._draw_hemilinks(cmds, origins, unit_vec, False)
+        self._draw_hemilinks(revcmds or cmds, origins, unit_vec, True)

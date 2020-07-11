@@ -14,16 +14,14 @@ class TransformData:
         self._dy = 0.0
         self._simple = True
 
-    @classmethod
-    def translation(cls, dx:float, dy:float) -> "TransformData":
-        """ Shortcut for creating a blank transform and translating it. """
-        self = cls()
-        self.translate(dx, dy)
-        return self
-
     def offset(self) -> complex:
         """ Return the current translation offset in complex form. """
         return self._dx + self._dy * 1j
+
+    def translate(self, dx:float, dy:float) -> None:
+        """ Translate (move) the system by an additional offset of <dx, dy>. """
+        self._dx += dx
+        self._dy += dy
 
     def rotate(self, degrees:float) -> None:
         """ Rotate the system <degrees> counterclockwise. """
@@ -39,11 +37,6 @@ class TransformData:
         self._scale_x *= scale_x
         self._scale_y *= scale_y
         self._simple = False
-
-    def translate(self, dx:float, dy:float) -> None:
-        """ Translate (move) the system by an additional offset of <dx, dy>. """
-        self._dx += dx
-        self._dy += dy
 
     def to_string(self) -> str:
         """ A linear transform with scaling, rotation, translation, etc. can be done in one step with a matrix. """
@@ -81,9 +74,11 @@ class GridLayoutEngine:
 
     def _offset_tfrm(self, i:int, ncols:int) -> TransformData:
         """ Create a (dx, dy) translation for row-major cell <i> in a grid with <ncols> columns. """
+        tfrm = TransformData()
         dx = self._width * (i % ncols)
         dy = self._height * (i // ncols)
-        return TransformData.translation(dx, dy)
+        tfrm.translate(dx, dy)
+        return tfrm
 
     def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
         """ Create evenly spaced offset transformations for a grid with <count> cells in <ncols> columns. """
