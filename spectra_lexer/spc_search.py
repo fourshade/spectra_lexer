@@ -8,14 +8,23 @@ from spectra_lexer.search.multidict import forward_multidict, reverse_multidict
 MatchDict = Dict[str, Tuple[str, ...]]         # JSON-compatible dict of search results.
 SearchData = Tuple[MatchDict, StripCaseIndex]  # Key search index paired with a standard dictionary for value lookup.
 
-_EMPTY_DATA = ({}, StripCaseIndex())
-
 INDEX_DELIM = ";;"                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
 EXPAND_KEY = '[more...]'           # If present, repeating the search with a higher <count> will return more items.
 BAD_REGEX_KEY = '[INVALID REGEX]'  # If present, the search input could not be compiled as a regular expression.
 
 # Reserved string keys in every lookup dict. These (and only these) map to an empty tuple of values.
 SENTINEL_KEYS = [EXPAND_KEY, BAD_REGEX_KEY]
+
+
+def _to_search_data(d:MatchDict, strip_chars=" ") -> SearchData:
+    """ Build a new string search index that strips characters and removes case. """
+    index = StripCaseIndex(d, strip_chars)
+    for k in SENTINEL_KEYS:
+        d[k] = ()
+    return d, index
+
+
+_EMPTY_DATA = _to_search_data({})
 
 
 class SearchEngine:
@@ -28,20 +37,13 @@ class SearchEngine:
         self._examples_raw = {}          # Contains steno rule IDs mapped to dicts of example translations.
         self._examples_cache = {}        # Cache of example search data for each rule ID and mode.
 
-    def _build_index(self, d:MatchDict) -> StripCaseIndex:
-        """ Build a new string search index that strips characters and removes case. """
-        return StripCaseIndex(d, strip=self._strip_chars)
-
     def _compile_data(self, translations:TranslationsDict, mode_strokes:bool) -> SearchData:
         """ Compile string search data for <translations> in the correct direction for <mode_strokes>. """
         if mode_strokes:
             d = forward_multidict(translations)
         else:
             d = reverse_multidict(translations)
-        index = self._build_index(d)
-        for k in SENTINEL_KEYS:
-            d[k] = ()
-        return d, index
+        return _to_search_data(d, self._strip_chars)
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Create new translation search data from the <translations> mapping. """

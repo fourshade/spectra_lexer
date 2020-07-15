@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import Callable, Dict, Set
 
+StenoKeyConverter = Callable[[str], str]  # Conversion method between types of steno key strings.
+
 
 class StenoKeyLayout:
     """ Contains all sections and characters required in a standard steno key layout.
@@ -83,8 +85,8 @@ class StenoKeyLayout:
                 return s.upper()
         return s
 
-    def _stroke_map(self, s:str, fn:Callable[[str], str]) -> str:
-        """ Split a set of keys, apply a string function to every stroke, and join them back together.
+    def _stroke_map(self, s:str, fn:StenoKeyConverter) -> str:
+        """ Split a set of keys, apply a conversion function to every stroke, and join them back together.
             If there is only one stroke, skip the string carving and apply the function directly. """
         sep = self._sep
         if sep in s:
