@@ -2,47 +2,7 @@ from cmath import phase, pi, rect
 from math import ceil
 from typing import List
 
-
-def _fmt(x:complex) -> str:
-    """ Format a complex number as a coordinate pair string. Remove trailing zeros to reduce file size. """
-    return f"{x.real:.4g},{x.imag:.4g}"
-
-
-class PathCommands:
-    """ Compiles SVG path commands into strings. """
-
-    def __init__(self) -> None:
-        self._cmds = []
-
-    def move_to(self, p:complex, relative=False) -> None:
-        """ Move to <p> and start a new primitive path. Must be called before using any drawing commands below. """
-        self._cmds += "m" if relative else "M", _fmt(p)
-
-    def line_to(self, ep:complex, relative=False) -> None:
-        """ Draw a simple line from the current position to <ep>. """
-        self._cmds += "l" if relative else "L", _fmt(ep)
-
-    def quad_to(self, cp:complex, ep:complex, relative=False) -> None:
-        """ Draw a quadratic Bezier curve from the current position to <ep> with control point <cp>. """
-        self._cmds += "q" if relative else "Q", _fmt(cp), _fmt(ep)
-
-    def cubic_to(self, cp:complex, dp:complex, ep:complex, relative=False) -> None:
-        """ Draw a cubic Bezier curve from the current position to <ep> with control points <cp>, <dp>. """
-        self._cmds += "c" if relative else "C", _fmt(cp), _fmt(dp), _fmt(ep)
-
-    def arc_to(self, radii:complex, ep:complex, sweep_cw=False, large_arc=False, relative=False) -> None:
-        """ Draw an elliptical arc with x and y <radii> from the current position to <ep>.
-            If <sweep_cw> is True, a clockwise arc is drawn, else it will be counter-clockwise.
-            If <large_arc> is True, out of the two possible arc lengths, the one greater than 180 will be used. """
-        self._cmds += "a" if relative else "A", _fmt(radii), f"0 {large_arc:d},{sweep_cw:d}", _fmt(ep)
-
-    def close(self) -> None:
-        """ After drawing with the above commands, close and fill a complete path. """
-        self._cmds += "z",
-
-    def to_string(self) -> str:
-        """ Return an SVG path string from the current series of commands. """
-        return " ".join(self._cmds)
+from . import IPathCanvas
 
 
 class ArrowPathGenerator:
@@ -66,7 +26,7 @@ class ArrowPathGenerator:
         midpoint = (tail + head) / 2
         return self._shift_toward(midpoint, head, self.curve_shift, pi / 2)
 
-    def connect(self, tail:complex, head:complex, cmds:PathCommands) -> None:
+    def connect(self, tail:complex, head:complex, path:IPathCanvas) -> None:
         """ Add path commands for a curved arrow path from <tail> to <head>.
             Back up endpoints to avoid covering up letters.
             The control point starts on the line connecting the endpoints, then is shifted perpendicular to it. """
@@ -75,16 +35,16 @@ class ArrowPathGenerator:
         head = self._shift_endpoint_to(head, i_control)
         control = self._get_control_point(tail, head)
         # Draw the curved arrow body.
-        cmds.move_to(head)
-        cmds.quad_to(control, tail)
+        path.move_to(head)
+        path.quad_to(control, tail)
         # Draw the arrow head with length based on the overall body length.
         body_length = abs(tail - head)
         h_len = self.min_head_length + body_length * self.head_length_ratio
         spread = self.spread_angle
         p_neg, p_pos = [self._shift_toward(head, control, h_len, angle) for angle in (-spread, spread)]
-        cmds.move_to(p_neg)
-        cmds.line_to(head)
-        cmds.line_to(p_pos)
+        path.move_to(p_neg)
+        path.line_to(head)
+        path.line_to(p_pos)
 
 
 class ChainPathGenerator:
@@ -123,7 +83,7 @@ class ChainPathGenerator:
         actual_spacing = (total_length - link_length) / (link_count - 1)
         return [i * actual_spacing for i in range(link_count)]
 
-    def _draw_hemilinks(self, cmds:PathCommands, origins:List[complex], unit_vec:complex, is_cw:bool) -> None:
+    def _draw_hemilinks(self, path:IPathCanvas, origins:List[complex], unit_vec:complex, is_cw:bool) -> None:
         """ Draw a path for alternating halves of a chain link starting at every position in <origins>.
             If <is_cw> is True, start the first link with a clockwise arc and alternate from there. """
         radius = self.link_radius
@@ -134,18 +94,18 @@ class ChainPathGenerator:
         line_move = end_offset - 2 * r_tan
         for start in origins:
             # The first and last movements for each link should be absolute for accurate shape closing.
-            cmds.move_to(start)
-            cmds.arc_to(radii, arc_moves[is_cw], is_cw, relative=True)
-            cmds.line_to(line_move, relative=True)
-            cmds.arc_to(radii, start + end_offset, is_cw)
+            path.move_to(start)
+            path.arc_to(radii, arc_moves[is_cw], is_cw, relative=True)
+            path.line_to(line_move, relative=True)
+            path.arc_to(radii, start + end_offset, is_cw)
             is_cw = not is_cw
 
-    def connect(self, start:complex, end:complex, cmds:PathCommands, revcmds:PathCommands=None) -> None:
+    def connect(self, start:complex, end:complex, path:IPathCanvas, revpath:IPathCanvas=None) -> None:
         """ Add path commands for a complete chain path from <start> to <end>.
             If layers are required, pass two instances of PathCommands to draw each half separately. """
         vec = end - start
         length = abs(vec)
         unit_vec = vec / length
         origins = [start + unit_vec * offset for offset in self._link_offsets(length)]
-        self._draw_hemilinks(cmds, origins, unit_vec, False)
-        self._draw_hemilinks(revcmds or cmds, origins, unit_vec, True)
+        self._draw_hemilinks(path, origins, unit_vec, False)
+        self._draw_hemilinks(revpath or path, origins, unit_vec, True)

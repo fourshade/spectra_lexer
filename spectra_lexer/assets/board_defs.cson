@@ -13,6 +13,13 @@
     "S2": [0, 30], "K": [30, 30], "W": [60, 30], "R": [90, 30], "*2": [120, 30], "r": [150, 30], "b": [180, 30], "g": [210, 30], "s": [240, 30], "z": [270, 30],
                                        "A": [70, 60], "O": [100, 60],       "E": [140, 60], "U": [170, 60]},
 
+  # Sizing properties for the glyphs. Paths are defined with an em box of 1000 units, upward positive.
+  # The baseline is 200 units above the origin. Tracking (horizontal spacing) is 600 units.
+  "font": {
+     "em_size":  1000,
+     "tracking": 600,
+     "baseline": 200},
+
   # Data for SVG paths composing key shapes and the areas that text may occupy on them.
   "shapes": {
     "number": {"txtcenter": [148, 9],   "txtarea": [290, 12], "altangle": 0,   "d": "M0,0h296v16h-296v-16z"},

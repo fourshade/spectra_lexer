@@ -42,6 +42,7 @@ class Spectra:
             rule.verify(valid_rtfcre, delimiters)
         board_defs_path = opts.board_defs_path()
         board_defs = r_io.load_board_defs(board_defs_path)
+        board_defs.verify()
         search_engine = build_search_engine(keymap)
         analyzer = build_analyzer(keymap, rules)
         graph_engine = build_graph_engine(keymap)
