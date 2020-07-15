@@ -100,12 +100,14 @@ class ChainPathGenerator:
             path.arc_to(radii, start + end_offset, is_cw)
             is_cw = not is_cw
 
-    def connect(self, start:complex, end:complex, path:IPathCanvas, revpath:IPathCanvas=None) -> None:
-        """ Add path commands for a complete chain path from <start> to <end>.
-            If layers are required, pass two instances of PathCommands to draw each half separately. """
+    def connect(self, start:complex, end:complex, path:IPathCanvas) -> None:
+        """ Add path commands for alternating halves of a complete chain path from <start> to <end>.
+            Reverse the endpoints to draw the other half (possibly on a different canvas). """
+        is_cw = (end.real < start.real)
+        if is_cw:
+            start, end = end, start
         vec = end - start
         length = abs(vec)
         unit_vec = vec / length
         origins = [start + unit_vec * offset for offset in self._link_offsets(length)]
-        self._draw_hemilinks(path, origins, unit_vec, False)
-        self._draw_hemilinks(revpath or path, origins, unit_vec, True)
+        self._draw_hemilinks(path, origins, unit_vec, is_cw)

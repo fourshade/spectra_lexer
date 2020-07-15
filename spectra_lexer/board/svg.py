@@ -84,6 +84,9 @@ class SVGTranslation(SVGTransform):
     header = 'translate'
 
 
+SVGViewbox = Sequence[int]  # (x, y, w, h) sequence of coordinates for the visible area of an SVG document.
+
+
 class SVGElementFactory:
     """ Factory for XML elements formatted as necessary for SVG. """
 
@@ -134,8 +137,14 @@ class SVGElementFactory:
         attrib = {"href": "#" + elem_id}
         return self._element("use", (), attrib)
 
-    def svg(self, children:SVGElements=(), viewbox:Sequence[int]=(0, 0, 100, 100)) -> SVGElement:
-        """ Top-level SVG document. Set the (x, y, w, h) sequence of coordinates as the viewbox. """
-        x, y, w, h = viewbox
-        attrib = dict(version="1.1", xmlns="http://www.w3.org/2000/svg", viewBox=f"{x} {y} {w} {h}")
+    DEFAULT_ATTRIB = {"version": "1.1",
+                      "xmlns": "http://www.w3.org/2000/svg",
+                      "viewBox": "0 0 100 100"}
+
+    def svg(self, children:SVGElements=(), viewbox:SVGViewbox=None) -> SVGElement:
+        """ Top-level SVG document. """
+        attrib = self.DEFAULT_ATTRIB.copy()
+        if viewbox is not None:
+            assert len(viewbox) == 4
+            attrib["viewBox"] = " ".join(map(str, viewbox))
         return self._element("svg", children, attrib)

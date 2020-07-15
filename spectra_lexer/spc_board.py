@@ -1,10 +1,10 @@
 from functools import lru_cache
 
-from spectra_lexer.board.factory import BoardFactory, GroupList
+from spectra_lexer.board.factory import GroupList, SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.svg import SVGElementFactory
 from spectra_lexer.board.tfrm import TextTransformer
-from spectra_lexer.resource.board import StenoBoardDefinitions
+from spectra_lexer.resource.board import ProcsDict, StenoBoardDefinitions
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
@@ -32,15 +32,21 @@ class FillColors:
 class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
-    def __init__(self, keymap:StenoKeyLayout, special_key:str, bg:FillColors, factory:BoardFactory) -> None:
+    def __init__(self, keymap:StenoKeyLayout, key_procs:ProcsDict, rule_procs:ProcsDict,
+                 bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
         self._to_skeys = keymap.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
-        self._special_key = special_key          # Key combined with others without contributing to text.
+        self._key_combo = keymap.special_key()   # Key combined with others without contributing to text.
         self._bg = bg                            # Namespace with background colors.
         self._factory = factory                  # Factory for complete SVG board diagrams.
+        self._layout = layout                    # Layout for multi-stroke diagrams.
+        self._key_procs = key_procs              # Procedures for constructing and positioning single keys.
+        self._rule_procs = rule_procs            # Procedures for constructing and positioning key combos.
 
     def _key_groups(self, keys:str, bg:str) -> GroupList:
+        """ Generate groups of elements from a set of steno keys. """
         skeys = self._to_skeys(keys)
-        return self._factory.key_groups(skeys, bg)
+        return [self._factory.processed_group(bg, **self._key_procs[s])
+                for s in skeys if s in self._key_procs]
 
     @lru_cache(maxsize=None)
     def _matched_key_groups(self, keys:str) -> GroupList:
@@ -50,24 +56,31 @@ class BoardEngine:
     def _unmatched_key_groups(self, keys:str) -> GroupList:
         return self._key_groups(keys, self._bg.unmatched)
 
+    def _rule_groups(self, skeys:str, text:str, bg:str) -> GroupList:
+        """ Generate groups of elements from a rule's text if procs using its s-keys exist. """
+        procs = self._rule_procs.get(skeys)
+        if procs is None:
+            return []
+        return [self._factory.processed_group(bg, text=text, **procs)]
+
     @lru_cache(maxsize=None)
-    def _rule_groups(self, keys:str, letters:str, alt_text:str, bg:str=None) -> GroupList:
+    def _find_shape(self, keys:str, letters:str, alt_text:str, bg:str=None) -> GroupList:
         text = letters or alt_text
         if not text:
             return []
         rbg = bg or (self._bg.letters if letters else self._bg.alt)
         skeys = self._to_skeys(keys)
-        grp = self._factory.rule_group(skeys, text, rbg)
-        if grp is not None:
-            return [grp]
-        star = self._special_key
+        grp = self._rule_groups(skeys, text, rbg)
+        if grp:
+            return grp
+        star = self._key_combo
         if star in skeys and star != skeys:
             # Rules using the star should have that key separate from their text.
             leftover = skeys.replace(star, "")
             cbg = bg or self._bg.combo
-            grp = self._factory.rule_group(leftover, text, cbg)
-            if grp is not None:
-                return self._factory.key_groups(star, cbg) + [grp]
+            grp = self._rule_groups(leftover, text, cbg)
+            if grp:
+                return self._key_groups(star, cbg) + grp
         return []
 
     def _find_groups(self, rule:StenoRule, show_letters:bool, bg:str=None) -> GroupList:
@@ -83,9 +96,9 @@ class BoardEngine:
         if rule.is_linked:
             # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
             strokes = [self._find_groups(child, show_letters, bg) for child in children]
-            first, *middle, last = strokes
+            first, *_, last = strokes
             chain_grp = self._factory.linked_group(first, last)
-            grps = [elem for grp in middle for elem in grp]
+            grps = [elem for grp in strokes for elem in grp]
             return [chain_grp, *grps]
         elif rule.is_inversion:
             # A rule using inversion connects the first two elements with arrows on top.
@@ -109,7 +122,7 @@ class BoardEngine:
             if letters == child.letters:
                 return self._find_groups(child, show_letters, bg)
         # Try to find an existing key shape for this rule. If we find one, we're done.
-        groups = self._rule_groups(keys, letters * show_letters, alt_text, bg)
+        groups = self._find_shape(keys, letters * show_letters, alt_text, bg)
         if groups:
             return groups
         # If there are children, add elements recursively from each one.
@@ -119,10 +132,15 @@ class BoardEngine:
         # There may not be compound elements for everything; in that case, use elements for each raw key.
         return self._matched_key_groups(keys)
 
-    def _make_svg(self, groups:GroupList, aspect_ratio:float=None):
-        """ If no aspect ratio is given, a ratio of 0.0001 ensures that all boards end up in one column.
-            Copy the list to to avoid possible cache corruption. """
-        return self._factory.make_svg([*groups], aspect_ratio or 0.0001)
+    def _make_svg(self, groups:GroupList, aspect_ratio:float=None) -> BoardDiagram:
+        """ Arrange all SVG elements in a document with a separate diagram for each stroke.
+            If no aspect ratio is given, a ratio of 0.0001 ensures that all boards end up in one column.
+            Copy the group list to to avoid possible cache corruption. """
+        stroke_count = sum([not grp for grp in groups]) + 1
+        rows, cols = self._layout.arrange(stroke_count, aspect_ratio or 0.0001)
+        offsets = self._layout.offsets(stroke_count, cols)
+        viewbox = self._layout.viewbox(rows, cols)
+        return self._factory.build_svg([*groups], offsets, viewbox)
 
     def draw_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
         """ Generate a board diagram from a steno key string arranged according to <aspect ratio>. """
@@ -136,16 +154,17 @@ class BoardEngine:
 
 
 def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> BoardEngine:
-    svg_factory = SVGElementFactory()
+    """ Set the base defintions with all single keys unlabeled. """
     key_sep = keymap.separator_key()
-    key_special = keymap.special_key()
     key_procs = board_defs.keys
-    key_procs[key_sep] = {"sep": "1"}
+    key_procs[key_sep] = {}
     rule_procs = board_defs.rules
-    text_tf = TextTransformer(FONT_SIZE_PX, **board_defs.font)
-    layout = GridLayoutEngine(**board_defs.bounds)
-    factory = BoardFactory(svg_factory, key_procs, rule_procs,
-                           board_defs.offsets, board_defs.shapes, board_defs.glyphs, text_tf, layout)
     bg = FillColors()
-    factory.set_base(bg.base)
-    return BoardEngine(keymap, key_special, bg, factory)
+    svg_factory = SVGElementFactory()
+    text_tf = TextTransformer(FONT_SIZE_PX, **board_defs.font)
+    factory = SVGBoardFactory(svg_factory, text_tf, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
+    base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
+                   for grp in factory.processed_group(bg.base, **procs)]
+    factory.set_base(*base_groups)
+    layout = GridLayoutEngine(**board_defs.bounds)
+    return BoardEngine(keymap, key_procs, rule_procs, bg, factory, layout)
