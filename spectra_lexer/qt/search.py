@@ -13,7 +13,7 @@ QueryCallback = Callable[[StringSeq, str], None]
 class SearchPanel:
     """ Controls the three main search widgets. """
 
-    _MORE_TEXT = "(more...)"  # Text displayed as the final match, allowing the user to expand the search.
+    _MORE_TEXT = "[more...]"  # Text displayed as the final match, allowing the user to expand the search.
 
     def __init__(self, w_input:QLineEdit, w_matches:StringListView, w_mappings:StringListView,
                  w_strokes:QCheckBox, w_regex:QCheckBox) -> None:

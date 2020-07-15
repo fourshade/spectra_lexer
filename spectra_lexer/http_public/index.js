@@ -1,7 +1,7 @@
 function SpectraClient() {
 
     const TR_DELIM = '->';          // Delimiter between keys and letters of translations shown in title bar.
-    const MORE_TEXT = '(more...)';  // Text displayed as the final match, allowing the user to expand the search.
+    const MORE_TEXT = '[more...]';  // Text displayed as the final match, allowing the user to expand the search.
 
     const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
     const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.

@@ -11,7 +11,7 @@ SearchData = Tuple[MatchDict, StripCaseIndex]  # Key search index paired with a 
 _EMPTY_DATA = ({}, StripCaseIndex())
 
 INDEX_DELIM = ";;"                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
-EXPAND_KEY = '(more...)'           # If present, repeating the search with a higher <count> will return more items.
+EXPAND_KEY = '[more...]'           # If present, repeating the search with a higher <count> will return more items.
 BAD_REGEX_KEY = '[INVALID REGEX]'  # If present, the search input could not be compiled as a regular expression.
 
 # Reserved string keys in every lookup dict. These (and only these) map to an empty tuple of values.
@@ -38,9 +38,10 @@ class SearchEngine:
             d = forward_multidict(translations)
         else:
             d = reverse_multidict(translations)
+        index = self._build_index(d)
         for k in SENTINEL_KEYS:
             d[k] = ()
-        return d, self._build_index(d)
+        return d, index
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Create new translation search data from the <translations> mapping. """
