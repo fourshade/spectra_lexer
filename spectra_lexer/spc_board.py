@@ -2,10 +2,8 @@ from functools import lru_cache
 
 from spectra_lexer.board.factory import GroupList, SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
-from spectra_lexer.board.svg import SVGElementFactory
-from spectra_lexer.board.tfrm import TextTransformer
-from spectra_lexer.resource.board import ProcsDict, StenoBoardDefinitions
-from spectra_lexer.resource.keys import StenoKeyLayout
+from spectra_lexer.resource.board import ProcsDict
+from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
 
 BoardDiagram = str  # Marker type for an SVG steno board diagram.
@@ -30,15 +28,15 @@ class FillColors:
 class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
-    def __init__(self, keymap:StenoKeyLayout, key_procs:ProcsDict, rule_procs:ProcsDict,
+    def __init__(self, to_skeys:StenoKeyConverter, key_combo:str, key_procs:ProcsDict, rule_procs:ProcsDict,
                  bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
-        self._to_skeys = keymap.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
-        self._key_combo = keymap.special_key()   # Key combined with others without contributing to text.
-        self._bg = bg                            # Namespace with background colors.
-        self._factory = factory                  # Factory for complete SVG board diagrams.
-        self._layout = layout                    # Layout for multi-stroke diagrams.
-        self._key_procs = key_procs              # Procedures for constructing and positioning single keys.
-        self._rule_procs = rule_procs            # Procedures for constructing and positioning key combos.
+        self._to_skeys = to_skeys      # Converts user RTFCRE steno strings to s-keys.
+        self._key_combo = key_combo    # Key designated to combine with others without contributing to text.
+        self._bg = bg                  # Namespace with background colors.
+        self._factory = factory        # Factory for complete SVG board diagrams.
+        self._layout = layout          # Layout for multi-stroke diagrams.
+        self._key_procs = key_procs    # Procedures for constructing and positioning single keys.
+        self._rule_procs = rule_procs  # Procedures for constructing and positioning key combos.
 
     def _key_groups(self, keys:str, bg:str) -> GroupList:
         """ Generate groups of elements from a set of steno keys. """
@@ -149,20 +147,3 @@ class BoardEngine:
         """ Generate a board diagram from a steno rule object arranged according to <aspect ratio>. """
         groups = self._find_groups(rule, show_letters)
         return self._make_svg(groups, aspect_ratio)
-
-
-def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) -> BoardEngine:
-    """ Set the base defintions with all single keys unlabeled. """
-    key_sep = keymap.separator_key()
-    key_procs = board_defs.keys
-    key_procs[key_sep] = {}
-    rule_procs = board_defs.rules
-    bg = FillColors()
-    svg_factory = SVGElementFactory()
-    text_tf = TextTransformer(**board_defs.font)
-    factory = SVGBoardFactory(svg_factory, text_tf, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
-    base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
-                   for grp in factory.processed_group(bg.base, **procs)]
-    factory.set_base(*base_groups)
-    layout = GridLayoutEngine(**board_defs.bounds)
-    return BoardEngine(keymap, key_procs, rule_procs, bg, factory, layout)

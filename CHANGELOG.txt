@@ -1,5 +1,6 @@
-13.2.0
+14.0.0
 ------
+* Main software components are now loaded only on demand
 * Sentinel keys no longer appear as actual search results
 * Board diagrams may now have chains connecting any number of keys
 

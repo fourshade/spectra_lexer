@@ -162,7 +162,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
 def main() -> int:
     opts = SpectraOptions("Run Spectra as a Discord bot.")
     opts.add("token", "", "Discord bot token (REQUIRED).")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     app = build_app(spectra)
     return app.run_bot(opts.token)
 

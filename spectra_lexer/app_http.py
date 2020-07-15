@@ -59,7 +59,7 @@ def main() -> int:
     opts.add("http-addr", "", "IP address or hostname for server.")
     opts.add("http-port", 80, "TCP port to listen for connections.")
     opts.add("http-dir", HTTP_PUBLIC_DEFAULT, "Root directory for public HTTP file service.")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     log = spectra.logger.log
     log("Loading...")
     app = build_app(spectra)

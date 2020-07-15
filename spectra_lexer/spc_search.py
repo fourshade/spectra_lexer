@@ -1,6 +1,5 @@
 from typing import Dict, Tuple
 
-from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, TranslationsDict
 from spectra_lexer.search.index import RegexError, StripCaseIndex
 from spectra_lexer.search.multidict import forward_multidict, reverse_multidict
@@ -107,9 +106,3 @@ class SearchEngine:
         if not keys:
             return ""
         return rule_id + INDEX_DELIM + keys[0]
-
-
-def build_search_engine(keymap:StenoKeyLayout) -> SearchEngine:
-    """ For translation-based searches, spaces and hyphens should be stripped off each end. """
-    strip_chars = " " + keymap.divider_key()
-    return SearchEngine(strip_chars)

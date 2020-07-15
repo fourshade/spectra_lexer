@@ -13,7 +13,7 @@ def main() -> int:
     fcls = TranslationFilter
     opts.add("size", fcls.SIZE_MEDIUM, f"Relative size of generated index ({fcls.SIZE_MINIMUM}-{fcls.SIZE_MAXIMUM}).")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     log = spectra.logger.log
     log("Operation started...")
     start_time = time()

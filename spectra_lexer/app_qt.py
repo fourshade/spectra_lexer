@@ -71,7 +71,7 @@ def main() -> int:
     """ In standalone mode, we must create a QApplication and run a GUI event loop indefinitely. """
     q_app = QApplication(sys.argv)
     opts = SpectraOptions("Run Spectra as a standalone GUI application.")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     app = build_app(spectra)
     app.start()
     return q_app.exec_()
