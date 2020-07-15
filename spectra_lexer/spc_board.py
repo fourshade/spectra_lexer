@@ -10,8 +10,6 @@ from spectra_lexer.resource.rules import StenoRule
 
 BoardDiagram = str  # Marker type for an SVG steno board diagram.
 
-FONT_SIZE_PX = 24  # Default font size is 24 px.
-
 
 class FillColors:
     """ Namespace for background colors as HTML/SVG hex strings. """
@@ -161,7 +159,7 @@ def build_board_engine(keymap:StenoKeyLayout, board_defs:StenoBoardDefinitions) 
     rule_procs = board_defs.rules
     bg = FillColors()
     svg_factory = SVGElementFactory()
-    text_tf = TextTransformer(FONT_SIZE_PX, **board_defs.font)
+    text_tf = TextTransformer(**board_defs.font)
     factory = SVGBoardFactory(svg_factory, text_tf, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
     base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
                    for grp in factory.processed_group(bg.base, **procs)]

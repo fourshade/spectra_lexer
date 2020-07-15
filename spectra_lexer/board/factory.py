@@ -126,8 +126,7 @@ class SVGBoardFactory:
     class ProcParams:
         x = 0.0
         y = 0.0
-        txtmaxarea = (20.0, 20.0)  # Maximum available area for text. Determines text scale and orientation.
-        altangle = 0.0             # Alternate text orientation in degrees.
+        orients = [TextOrientation(20, 20, 0)]
 
     def __init__(self, factory:SVGElementFactory, text_tf:TextTransformer,
                  key_positions:Dict[str, List[int]], shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
@@ -146,32 +145,30 @@ class SVGBoardFactory:
         params.y += dy
 
     def _proc_shape(self, shape_id:str, bg:str, params:ProcParams) -> SVGIterator:
-        """ Add an SVG path shape with the given fill and transform offset.
-            Then advance the offset to center any following text and annotations (such as inversion arrows). """
+        """ Add an SVG path shape with the current fill and transform offset.
+            Then add orientations for any following text and annotations (such as inversion arrows). """
         attrs = self._shape_defs[shape_id]
         path_data = attrs["d"]
         style = SVGStyle(fill=bg, stroke="#000000")
         trans = SVGTranslation(params.x, params.y)
         yield self._factory.path(path_data, style, trans)
-        dx, dy = attrs["txtcenter"]
+        dx, dy = attrs["center"]
         params.x += dx
         params.y += dy
-        params.txtmaxarea = attrs["txtarea"]
-        params.altangle = attrs["altangle"]
+        params.orients = [TextOrientation(*item) for item in attrs["orients"]]
 
     def _proc_text(self, text:str, params:ProcParams) -> SVGIterator:
-        """ SVG fonts are not supported on any major browsers, so we must draw them as paths. """
-        width, altwidth = params.txtmaxarea
-        # Choose horizontal orientation unless the difference is more than double.
-        orients = [TextOrientation(width), TextOrientation(altwidth, params.altangle, 0.5)]
+        """ SVG fonts are not supported on major browsers, so we must draw text using paths. """
         n = len(text)
-        tfrms = self._text_tf.iter_transforms(n, orients)
-        for k, tfrm in zip(text, tfrms):
+        orient_tfrm = self._text_tf.orient_tfrm(n, params.orients)
+        char_tfrms = self._text_tf.iter_char_tfrms(n)
+        for k, tfrm in zip(text, char_tfrms):
             glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
+            tfrm.compose(orient_tfrm)
             tfrm.translate(params.x, params.y)
             coefs = tfrm.coefs()
-            svg_tfrm = SVGTransform(*coefs)
-            yield self._factory.path(glyph, self.FONT_STYLE, svg_tfrm)
+            svg_transform = SVGTransform(*coefs)
+            yield self._factory.path(glyph, self.FONT_STYLE, svg_transform)
 
     def processed_group(self, bg="#FFFFFF", pos=None, shape=None, text=None) -> Group:
         """ Each keyword defines a process that positions and/or constructs SVG elements.
