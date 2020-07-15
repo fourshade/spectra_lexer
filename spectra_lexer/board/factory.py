@@ -2,11 +2,11 @@
 
 from typing import Dict, Iterator, List
 
-from .layout import OffsetSequence
+from . import OffsetSequence
 from .path import ArrowPathGenerator, ChainPathGenerator
 from .svg import SVGElement, SVGElements, SVGElementFactory, SVGPathCanvas, \
     SVGStyle, SVGTransform, SVGTranslation, SVGViewbox
-from .tfrm import TextOrientation, TextTransformer
+from .tfrm import TextOrientation, TextOrientations, TextTransformer
 
 SVGIterator = Iterator[SVGElement]
 
@@ -19,9 +19,10 @@ class Group:
 
     def __iter__(self) -> SVGIterator:
         """ Iterate over all SVG elements, positioned correctly within the context of a single stroke. """
-        raise NotImplementedError
+        return iter(())
 
 
+GroupIter = Iterator[Group]
 GroupList = List[Group]
 
 
@@ -31,9 +32,6 @@ class SimpleGroup(Group):
     def __init__(self, elems:SVGElements=(), x=0.0, y=0.0) -> None:
         self._elems = elems
         self.center = x + y*1j
-
-    def __bool__(self) -> bool:
-        return bool(self._elems)
 
     def __iter__(self) -> SVGIterator:
         return iter(self._elems)
@@ -73,7 +71,8 @@ class InversionGroup(Group):
 
 
 class LinkedGroup(Group):
-    """ Overlays chains connecting groups which are independent of the main stroke groupings. """
+    """ Overlays chains connecting groups which are independent of the main stroke groupings.
+        This group does not produce any elements in the normal manner. """
 
     PATH_GENERATOR = ChainPathGenerator()
     LAYER_STYLES = [SVGStyle(fill="none", stroke="#000000", stroke_width="5.0px"),
@@ -82,10 +81,6 @@ class LinkedGroup(Group):
     def __init__(self, factory:SVGElementFactory, *strokes:GroupList) -> None:
         self._factory = factory
         self._strokes = strokes  # Element group containers from one or more strokes.
-
-    def __iter__(self) -> SVGIterator:
-        """ This group does not produce any elements in the normal manner. """
-        return iter(())
 
     def _iter_layers(self, p1:complex, p2:complex) -> SVGIterator:
         """ Yield SVG paths that compose half of a chain between the endpoints. """
@@ -117,16 +112,14 @@ class LinkedGroup(Group):
             yield self._transformed_stroke(stroke, *offset)
 
 
+SEPARATOR = Group()  # Stroke separator sentinel group.
+
+
 class SVGBoardFactory:
     """ Factory for SVG steno board diagrams.
         Elements are added by proc_* methods, which are executed in order according to an external file. """
 
     FONT_STYLE = SVGStyle(fill="#000000")
-
-    class ProcParams:
-        x = 0.0
-        y = 0.0
-        orients = [TextOrientation(20, 20, 0)]
 
     def __init__(self, text_tf:TextTransformer, key_positions:Dict[str, List[int]],
                  shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
@@ -138,50 +131,41 @@ class SVGBoardFactory:
         self._defs_elems = []                # Base definitions to add to every document
         self._base_elems = []                # Base elements to add to every diagram
 
-    def _proc_pos(self, pos_id:str, params:ProcParams) -> None:
-        """ Move the offset used for the element shape. """
-        dx, dy = self._key_positions[pos_id]
-        params.x += dx
-        params.y += dy
-
-    def _proc_shape(self, shape_id:str, bg:str, params:ProcParams) -> SVGIterator:
-        """ Add an SVG path shape with the current fill and transform offset.
-            Then add orientations for any following text and annotations (such as inversion arrows). """
-        attrs = self._shape_defs[shape_id]
-        path_data = attrs["d"]
+    def _shape_path(self, x:float, y:float, path_data:str, bg:str) -> SVGElement:
+        """ Return an SVG path shape with the given path string, fill, and offset. """
         style = SVGStyle(fill=bg, stroke="#000000")
-        trans = SVGTranslation(params.x, params.y)
-        yield self._factory.path(path_data, style, trans)
-        dx, dy = attrs["center"]
-        params.x += dx
-        params.y += dy
-        params.orients = [TextOrientation(*item) for item in attrs["orients"]]
+        trans = SVGTranslation(x, y)
+        return self._factory.path(path_data, style, trans)
 
-    def _proc_text(self, text:str, params:ProcParams) -> SVGIterator:
+    def _iter_text_paths(self, x:float, y:float, text:str, orients:TextOrientations) -> SVGIterator:
         """ SVG fonts are not supported on major browsers, so we must draw text using paths. """
         n = len(text)
-        orient_tfrm = self._text_tf.orient_tfrm(n, params.orients)
+        orient_tfrm = self._text_tf.orient_tfrm(n, orients)
         char_tfrms = self._text_tf.iter_char_tfrms(n)
         for k, tfrm in zip(text, char_tfrms):
             glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
             tfrm.compose(orient_tfrm)
-            tfrm.translate(params.x, params.y)
+            tfrm.translate(x, y)
             coefs = tfrm.coefs()
             svg_transform = SVGTransform(*coefs)
             yield self._factory.path(glyph, self.FONT_STYLE, svg_transform)
 
     def processed_group(self, bg="#FFFFFF", pos=None, shape=None, text=None) -> Group:
-        """ Each keyword defines a process that positions and/or constructs SVG elements.
-            Execution involves running every process, in order, to fill an element group. """
-        params = self.ProcParams()
-        if pos is not None:
-            self._proc_pos(pos, params)
-        elems = []
-        if shape is not None:
-            elems += self._proc_shape(shape, bg, params)
+        """ Each keyword defines data that positions and/or constructs SVG elements. """
+        if pos is None or shape is None:
+            return SimpleGroup()
+        x, y = self._key_positions[pos]
+        attrs = self._shape_defs[shape]
+        path_data = attrs["d"]
+        elems = [self._shape_path(x, y, path_data, bg)]
+        # Add center offsets for any following text and annotations (such as inversion arrows).
+        cx, cy = attrs["center"]
+        x += cx
+        y += cy
         if text is not None:
-            elems += self._proc_text(text, params)
-        return SimpleGroup(elems, params.x, params.y)
+            orients = [TextOrientation(*item) for item in attrs["orients"]]
+            elems += self._iter_text_paths(x, y, text, orients)
+        return SimpleGroup(elems, x, y)
 
     def inversion_group(self, *groups:Group) -> Group:
         """ Return a group with arrow paths connecting the elements in other groups. """
@@ -199,7 +183,7 @@ class SVGBoardFactory:
         self._base_elems = [self._factory.use(base_id)]
 
     def build_svg(self, groups:GroupList, offsets:OffsetSequence, viewbox:SVGViewbox) -> str:
-        """ Separate elements in <groups> into strokes using falsy groups as delimiter sentinels.
+        """ Separate elements in <groups> into strokes using SEPARATOR as a delimiter sentinel.
             Translate each stroke group using data at the matching index from <offsets>.
             Add overlays (if any), put it all in a new SVG document, and return it in string form. """
         root_elems = [*self._defs_elems]
@@ -207,10 +191,10 @@ class SVGBoardFactory:
             overlays = []
             elems = []
             i = 0
-            if groups[-1]:
-                groups.append(())
+            if groups[-1] is not SEPARATOR:
+                groups.append(SEPARATOR)
             for grp in groups:
-                if not grp:
+                if grp is SEPARATOR:
                     x, y = offsets[i]
                     trans = SVGTranslation(x, y)
                     stroke = self._factory.group(self._base_elems + elems, trans)

@@ -1,5 +1,10 @@
 """ Package for constructing SVG steno board diagrams. """
 
+from typing import Sequence, Tuple
+
+Offset = Tuple[int, int]
+OffsetSequence = Sequence[Offset]
+
 
 class IPathCanvas:
     """ Abstract path command canvas. """

@@ -165,12 +165,8 @@ class Spectra:
     @Component
     def board_engine(self) -> BoardEngine:
         """ Set the base defintions with all single keys unlabeled. """
-        keymap = self.keymap
-        key_sep = keymap.separator_key()
-        key_combo = keymap.special_key()
         board_defs = self.board_defs
         key_procs = board_defs.keys
-        key_procs[key_sep] = {}
         rule_procs = board_defs.rules
         bg = FillColors()
         text_tf = TextTransformer(**board_defs.font)
@@ -179,4 +175,7 @@ class Spectra:
                        for grp in factory.processed_group(bg.base, **procs)]
         factory.set_base(*base_groups)
         layout = GridLayoutEngine(**board_defs.bounds)
-        return BoardEngine(keymap.rtfcre_to_skeys, key_combo, key_procs, rule_procs, bg, factory, layout)
+        keymap = self.keymap
+        key_sep = keymap.separator_key()
+        key_combo = keymap.special_key()
+        return BoardEngine(keymap.rtfcre_to_skeys, key_sep, key_combo, key_procs, rule_procs, bg, factory, layout)

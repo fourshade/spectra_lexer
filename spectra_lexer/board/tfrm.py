@@ -72,6 +72,9 @@ class TextOrientation:
         tfrm.rotate(self._angle)
 
 
+TextOrientations = Sequence[TextOrientation]
+
+
 class TextTransformer:
     """ Generates transforms to fit monospaced text glyphs inside irregular shapes.
         Glyphs are defined using standard typography conventions and units. """
@@ -90,7 +93,7 @@ class TextTransformer:
             tfrm.translate(x, y)
             yield tfrm
 
-    def orient_tfrm(self, n:int, orients:Sequence[TextOrientation]) -> AffineTransform:
+    def orient_tfrm(self, n:int, orients:TextOrientations) -> AffineTransform:
         """ Return an affine transform for a complete string of length <n> centered at the origin.
             Use the best-fitting overall transform from the given sequence of orientations. """
         tfrm = AffineTransform()

@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from spectra_lexer.board.factory import GroupList, SVGBoardFactory
+from spectra_lexer.board.factory import Group, GroupIter, GroupList, SEPARATOR, SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.resource.board import ProcsDict
 from spectra_lexer.resource.keys import StenoKeyConverter
@@ -28,9 +28,11 @@ class FillColors:
 class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
-    def __init__(self, to_skeys:StenoKeyConverter, key_combo:str, key_procs:ProcsDict, rule_procs:ProcsDict,
+    def __init__(self, to_skeys:StenoKeyConverter, key_sep:str, key_combo:str,
+                 key_procs:ProcsDict, rule_procs:ProcsDict,
                  bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
         self._to_skeys = to_skeys      # Converts user RTFCRE steno strings to s-keys.
+        self._key_sep = key_sep
         self._key_combo = key_combo    # Key designated to combine with others without contributing to text.
         self._bg = bg                  # Namespace with background colors.
         self._factory = factory        # Factory for complete SVG board diagrams.
@@ -38,26 +40,28 @@ class BoardEngine:
         self._key_procs = key_procs    # Procedures for constructing and positioning single keys.
         self._rule_procs = rule_procs  # Procedures for constructing and positioning key combos.
 
-    def _key_groups(self, keys:str, bg:str) -> GroupList:
+    def _iter_key_groups(self, keys:str, bg:str) -> GroupIter:
         """ Generate groups of elements from a set of steno keys. """
         skeys = self._to_skeys(keys)
-        return [self._factory.processed_group(bg, **self._key_procs[s])
-                for s in skeys if s in self._key_procs]
+        sep = self._key_sep
+        for s in skeys:
+            if s == sep:
+                yield SEPARATOR
+            elif s in self._key_procs:
+                yield self._factory.processed_group(bg, **self._key_procs[s])
 
     @lru_cache(maxsize=None)
     def _matched_key_groups(self, keys:str) -> GroupList:
-        return self._key_groups(keys, self._bg.matched)
+        return [*self._iter_key_groups(keys, self._bg.matched)]
 
     @lru_cache(maxsize=None)
     def _unmatched_key_groups(self, keys:str) -> GroupList:
-        return self._key_groups(keys, self._bg.unmatched)
+        return [*self._iter_key_groups(keys, self._bg.unmatched)]
 
-    def _rule_groups(self, skeys:str, text:str, bg:str) -> GroupList:
-        """ Generate groups of elements from a rule's text if procs using its s-keys exist. """
-        procs = self._rule_procs.get(skeys)
-        if procs is None:
-            return []
-        return [self._factory.processed_group(bg, text=text, **procs)]
+    def _rule_group(self, skeys:str, text:str, bg:str) -> Group:
+        """ Generate a group of elements from a rule's text if procs using its s-keys exist. """
+        if skeys in self._rule_procs:
+            return self._factory.processed_group(bg, text=text, **self._rule_procs[skeys])
 
     @lru_cache(maxsize=None)
     def _find_shape(self, keys:str, letters:str, alt_text:str, bg:str=None) -> GroupList:
@@ -66,17 +70,17 @@ class BoardEngine:
             return []
         rbg = bg or (self._bg.letters if letters else self._bg.alt)
         skeys = self._to_skeys(keys)
-        grp = self._rule_groups(skeys, text, rbg)
-        if grp:
-            return grp
+        grp = self._rule_group(skeys, text, rbg)
+        if grp is not None:
+            return [grp]
         star = self._key_combo
         if star in skeys and star != skeys:
             # Rules using the star should have that key separate from their text.
             leftover = skeys.replace(star, "")
             cbg = bg or self._bg.combo
-            grp = self._rule_groups(leftover, text, cbg)
-            if grp:
-                return self._key_groups(star, cbg) + grp
+            grp = self._rule_group(leftover, text, cbg)
+            if grp is not None:
+                return [*self._iter_key_groups(star, cbg), grp]
         return []
 
     def _find_groups(self, rule:StenoRule, show_letters:bool, bg:str=None) -> GroupList:
@@ -132,10 +136,10 @@ class BoardEngine:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
             If no aspect ratio is given, a ratio of 0.0001 ensures that all boards end up in one column.
             Copy the group list to to avoid possible cache corruption. """
-        stroke_count = sum([not grp for grp in groups]) + 1
-        rows, cols = self._layout.arrange(stroke_count, aspect_ratio or 0.0001)
-        offsets = self._layout.offsets(stroke_count, cols)
-        viewbox = self._layout.viewbox(rows, cols)
+        stroke_count = groups.count(SEPARATOR) + 1
+        ncols = self._layout.column_count(stroke_count, aspect_ratio or 0.0001)
+        offsets = self._layout.offsets(stroke_count, ncols)
+        viewbox = self._layout.viewbox(stroke_count, ncols)
         return self._factory.build_svg([*groups], offsets, viewbox)
 
     def draw_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:

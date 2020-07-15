@@ -19,12 +19,12 @@ JSON_DATA_CLASSES = [RESTDisplay, RESTDisplayPage, RESTUpdate]
 
 def build_app(spectra:Spectra) -> RESTGUIApplication:
     """ Start with standard command-line options and build the app. """
-    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine
     board_engine = spectra.board_engine
     gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
+    io = spectra.resource_io
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
     gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path)
