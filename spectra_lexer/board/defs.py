@@ -1,4 +1,4 @@
-from typing import Dict, get_origin, List
+from typing import Dict, List
 
 IntDict = Dict[str, int]
 StrDict = Dict[str, str]
@@ -34,20 +34,14 @@ class StenoBoardDefinitions:
         self.keys = keys        # Dict of single steno s-keys mapped to full definitions of their appearance.
         self.rules = rules      # Dict of s-keys sequences mapped to compound key shapes with space for rule text.
 
-    _param_types = __init__.__annotations__
-
-    def _type_check(self, k:str) -> None:
-        """ Check if field <k> matches the type in the signature of __init__. """
-        tp = self._param_types[k]
-        origin = get_origin(tp)
-        if origin is not None:
-            tp = origin
-        v_tp = type(getattr(self, k))
-        if not issubclass(v_tp, tp):
-            raise TypeError(f'Field "{k}" must be {tp.__name__}, got {v_tp.__name__}.')
+    _field_types = __init__.__annotations__
 
     def verify(self) -> None:
-        """ Perform basic type checks on instance fields. """
-        for k in vars(self):
-            if k in self._param_types:
-                self._type_check(k)
+        """ Perform type checks on instance fields using the signature of __init__. """
+        for k, v in vars(self).items():
+            if k in self._field_types:
+                # isinstance() breaks if a type check is made for Dict[whatever].
+                # just check for "dict" until the typing module gets its shit together.
+                sig_tp = dict
+                if not isinstance(v, sig_tp):
+                    raise TypeError(f'Field "{k}" must be {sig_tp.__name__}, got {type(v).__name__}.')

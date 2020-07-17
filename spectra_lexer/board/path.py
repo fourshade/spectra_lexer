@@ -2,10 +2,10 @@ from cmath import phase, pi, rect
 from math import ceil
 from typing import List
 
-from . import IPathCanvas
+from . import IPathCanvas, IPathConnector
 
 
-class ArrowPathGenerator:
+class ArrowPathGenerator(IPathConnector):
     """ Draws curved arrows using quadratic Bezier curves. """
 
     endpoint_shift = 12.0      # Amount to "shrink" the arrow endpoints away from their given values.
@@ -47,7 +47,7 @@ class ArrowPathGenerator:
         path.line_to(p_pos)
 
 
-class ChainPathGenerator:
+class ChainPathGenerator(IPathConnector):
     """ For correct overlap, the entire chain must be divided into a top and bottom half.
         There are two major complications with this:
         1. For a given half of a single link, all of its layers must be composited before its successor is started.

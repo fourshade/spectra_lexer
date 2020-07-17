@@ -61,7 +61,7 @@ def main() -> int:
     opts.add("http-dir", HTTP_PUBLIC_DEFAULT, "Root directory for public HTTP file service.")
     spectra = Spectra(opts)
     log = spectra.logger.log
-    log("Loading...")
+    log("Loading HTTP server...")
     app = build_app(spectra)
     dispatcher = build_dispatcher(app, opts.http_dir, log)
     server = ThreadedTCPServer(dispatcher)

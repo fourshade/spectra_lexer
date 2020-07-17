@@ -1,5 +1,4 @@
 from spectra_lexer.board.defs import FillColors, StenoBoardDefinitions
-from spectra_lexer.board.factory import SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.tfrm import TextTransformer
 from spectra_lexer.lexer import LexerRule
@@ -12,10 +11,10 @@ from spectra_lexer.options import SpectraOptions
 from spectra_lexer.resource.json import JSONDictionaryIO
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule, StenoRuleList
-from spectra_lexer.spc_board import BoardEngine
+from spectra_lexer.spc_board import BoardEngine, SVGBoardFactory
 from spectra_lexer.spc_graph import GraphEngine
-from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_lexer import StenoAnalyzer
+from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.log import open_logger, StreamLogger
 

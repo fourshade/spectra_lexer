@@ -1,6 +1,6 @@
 from spectra_lexer.resource.translations import ExamplesDict, TranslationsDict
 from spectra_lexer.spc_lexer import StenoAnalyzer
-from spectra_lexer.spc_resource import ResourceIOError, StenoResourceIO
+from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.config import SimpleConfigDict
 
@@ -20,8 +20,8 @@ class GUIExtension:
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Send a new translations dict to the search engine. Keep a copy in case we need to make an index. """
-        self._last_translations = translations
         self._search_engine.set_translations(translations)
+        self._last_translations = translations
 
     def load_translations(self, *filenames:str) -> None:
         """ Load and merge RTFCRE steno translations from JSON files. """
@@ -59,10 +59,10 @@ class GUIExtension:
         if self._translations_paths:
             try:
                 self.load_translations(*self._translations_paths)
-            except ResourceIOError:
+            except OSError:
                 pass
         if self._examples_path:
             try:
                 self.load_examples(self._examples_path)
-            except ResourceIOError:
+            except OSError:
                 pass

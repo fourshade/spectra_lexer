@@ -1,10 +1,5 @@
 """ Package for constructing SVG steno board diagrams. """
 
-from typing import Sequence, Tuple
-
-Offset = Tuple[int, int]
-OffsetSequence = Sequence[Offset]
-
 
 class IPathCanvas:
     """ Abstract path command canvas. """
@@ -33,6 +28,14 @@ class IPathCanvas:
 
     def close(self) -> None:
         """ After drawing with the above commands, close and fill a complete path. """
+        raise NotImplementedError
+
+
+class IPathConnector:
+    """ Abstract path canvas writer that connects points. """
+
+    def connect(self, start:complex, end:complex, path:IPathCanvas) -> None:
+        """ Draw a shape connecting <start> to <end> on a <path> canvas. """
         raise NotImplementedError
 
 

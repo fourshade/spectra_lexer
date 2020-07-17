@@ -148,7 +148,7 @@ def main() -> int:
     opts.add("command", "spectra", "!command string for Discord users.")
     spectra = Spectra(opts)
     log = spectra.logger.log
-    log("Loading...")
+    log("Loading Discord bot...")
     app = build_app(spectra)
     if not opts.token:
         log("No token given. Opening test console...")

@@ -10,7 +10,7 @@ def main() -> int:
     """ Load basic resources and run an interactive read-eval-print loop in a new console. """
     opts = SpectraOptions("Run Spectra from scratch in an interactive Python console.")
     spectra = Spectra(opts)
-    spectra.logger.log("Loading...")
+    spectra.logger.log("Loading console...")
     namespace = {k: getattr(spectra, k) for k in dir(spectra) if not k.startswith('_')}
     console = SystemConsole.open(namespace)
     console.repl()
