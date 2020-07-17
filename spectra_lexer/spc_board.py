@@ -6,7 +6,7 @@ from spectra_lexer.board.layout import GridLayoutEngine, OffsetSequence
 from spectra_lexer.board.path import ArrowPathGenerator, ChainPathGenerator
 from spectra_lexer.board.svg import SVGElement, SVGElements, SVGElementFactory, SVGPathCanvas, \
     SVGStyle, SVGTransform, SVGTranslation, SVGViewbox
-from spectra_lexer.board.tfrm import TextOrientation, TextOrientations, TextTransformer
+from spectra_lexer.board.tfrm import TextOrientation, TextTransformer
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
 
@@ -134,25 +134,6 @@ class SVGBoardFactory:
         self._defs_elems = []                # Base definitions to add to every document.
         self._base_elems = []                # Base elements to add to every diagram.
 
-    def _shape_path(self, x:float, y:float, path_data:str, bg:str) -> SVGElement:
-        """ Return an SVG path shape with the given path string, fill, and offset. """
-        style = SVGStyle(fill=bg, stroke="#000000")
-        trans = SVGTranslation(x, y)
-        return self._factory.path(path_data, style, trans)
-
-    def _iter_text_paths(self, x:float, y:float, text:str, orients:TextOrientations) -> SVGIterator:
-        """ SVG fonts are not supported on major browsers, so we must draw text using paths. """
-        n = len(text)
-        orient_tfrm = self._text_tf.orient_tfrm(n, orients)
-        char_tfrms = self._text_tf.iter_char_tfrms(n)
-        for k, tfrm in zip(text, char_tfrms):
-            glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
-            tfrm.compose(orient_tfrm)
-            tfrm.translate(x, y)
-            coefs = tfrm.coefs()
-            svg_transform = SVGTransform(*coefs)
-            yield self._factory.path(glyph, self.FONT_STYLE, svg_transform)
-
     def processed_group(self, bg="#FFFFFF", pos=None, shape=None, text=None) -> Group:
         """ Each keyword defines data that positions and/or constructs SVG elements. """
         if pos is None or shape is None:
@@ -160,14 +141,25 @@ class SVGBoardFactory:
         x, y = self._key_positions[pos]
         attrs = self._shape_defs[shape]
         path_data = attrs["d"]
-        elems = [self._shape_path(x, y, path_data, bg)]
-        # Add center offsets for any following text and annotations (such as inversion arrows).
-        cx, cy = attrs["center"]
-        x += cx
-        y += cy
-        if text is not None:
-            orients = [TextOrientation(*item) for item in attrs["orients"]]
-            elems += self._iter_text_paths(x, y, text, orients)
+        style = SVGStyle(fill=bg, stroke="#000000")
+        trans = SVGTranslation(x, y)
+        elems = [self._factory.path(path_data, style, trans)]
+        if text:
+            # SVG fonts are not supported on major browsers, so we must draw text using paths.
+            # Keep track of the text center offset for any following annotations (such as inversion arrows).
+            orients = {TextOrientation(*area["size"], area["angle"]): area["center"] for area in attrs["textareas"]}
+            n = len(text)
+            best = self._text_tf.best_orient(n, orients)
+            char_tfrms = self._text_tf.iter_tfrms(n, best)
+            cx, cy = orients[best]
+            x += cx
+            y += cy
+            for k, tfrm in zip(text, char_tfrms):
+                glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
+                tfrm.translate(x, y)
+                coefs = tfrm.coefs()
+                svg_transform = SVGTransform(*coefs)
+                elems.append(self._factory.path(glyph, self.FONT_STYLE, svg_transform))
         return SimpleGroup(elems, x, y)
 
     def inversion_group(self, *groups:Group) -> Group:

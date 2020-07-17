@@ -48,7 +48,7 @@ class AffineTransform:
 
 
 class TextOrientation:
-    """ Possible orientation for fitting text inside a shape. """
+    """ Possible orientation with bounds for fitting text inside a shape. """
 
     def __init__(self, width:float, height:float, angle:float) -> None:
         self._width = width    # Available width in pixels at this orientation.
@@ -65,41 +65,49 @@ class TextOrientation:
         return self._max_scale(w, h) * (180.0 - abs(self._angle))
 
     def apply(self, tfrm:AffineTransform, w:float, h:float) -> None:
-        """ Apply transformations that will fit text with an area of <w, h> inside this shape.
-            The y-axis must be inverted since typography defines +y=up, but computer graphics is +y=down. """
+        """ Apply transformations that will fit text with an area of <w, h> inside this shape. """
         scale = self._max_scale(w, h)
-        tfrm.scale(scale, -scale)
+        tfrm.scale(scale, scale)
         tfrm.rotate(self._angle)
 
 
 TextOrientations = Sequence[TextOrientation]
+TransformIter = Iterator[AffineTransform]
 
 
 class TextTransformer:
     """ Generates transforms to fit monospaced text glyphs inside irregular shapes.
         Glyphs are defined using standard typography conventions and units. """
 
-    def __init__(self, em_size:int, tracking:int, baseline:int) -> None:
+    def __init__(self, em_size:int, tracking:int, descent:int) -> None:
         self._em_size = em_size    # Total line height in native transform units (1000 is common).
         self._tracking = tracking  # Spacing between glyphs in native units.
-        self._baseline = baseline  # Baseline height above the origin in native units.
+        self._descent = descent    # Descender extent below the baseline in native units.
 
-    def iter_char_tfrms(self, n:int) -> Iterator[AffineTransform]:
-        """ Yield an unscaled transform for each character of an origin-centered string of length <n>. """
-        y = self._baseline - (self._em_size / 2)
+    def _iter_char_tfrms(self, n:int) -> TransformIter:
+        """ Yield a native-scale transform for each character of an origin-centered string of length <n>.
+            The y-axis must be inverted since typography defines +y=up, but computer graphics is +y=down. """
+        y = (self._em_size / 2) - self._descent
         for i in range(n):
             x = (i - n / 2) * self._tracking
             tfrm = AffineTransform()
+            tfrm.scale(1.0, -1.0)
             tfrm.translate(x, y)
             yield tfrm
 
-    def orient_tfrm(self, n:int, orients:TextOrientations) -> AffineTransform:
-        """ Return an affine transform for a complete string of length <n> centered at the origin.
-            Use the best-fitting overall transform from the given sequence of orientations. """
-        tfrm = AffineTransform()
-        if n > 0 and orients:
-            w_max = n * self._tracking
-            h_max = self._em_size
-            best_orient = max(orients, key=lambda o: o.legibility(w_max, h_max))
-            best_orient.apply(tfrm, w_max, h_max)
-        return tfrm
+    def iter_tfrms(self, n:int, orient:TextOrientation) -> TransformIter:
+        """ Yield an affine transform for each character of a complete string of length <n> at some <orient>ation. """
+        w_max = n * self._tracking
+        h_max = self._em_size
+        orient_tfrm = AffineTransform()
+        orient.apply(orient_tfrm, w_max, h_max)
+        for tfrm in self._iter_char_tfrms(n):
+            tfrm.compose(orient_tfrm)
+            yield tfrm
+
+    def best_orient(self, n:int, orients:TextOrientations) -> TextOrientation:
+        """ Return the best-fitting overall transform from the given sequence of orientations. """
+        assert orients
+        w_max = n * self._tracking
+        h_max = self._em_size
+        return max(orients, key=lambda o: o.legibility(w_max, h_max))
