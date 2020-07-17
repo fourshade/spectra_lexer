@@ -1,33 +1,44 @@
-from typing import Dict, List
+from typing import Dict, List, NoReturn
 
 IntDict = Dict[str, int]
 StrDict = Dict[str, str]
 ProcsDict = Dict[str, StrDict]
 
 
-class FillColors:
+class Struct:
+    """ Basic immutable attribute-based data structure. """
+
+    def __init__(self, **attrs) -> None:
+        self.__dict__.update(attrs)
+
+    def __setattr__(self, *args) -> NoReturn:
+        raise AttributeError('Structure is immutable.')
+
+
+class FillColors(Struct):
     """ Namespace for background colors as HTML/SVG hex strings. """
 
-    base = "#7F7F7F"
-    matched = "#007FFF"
-    unmatched = "#DFDFDF"
-    letters = "#00AFFF"
-    alt = "#00AFAF"
-    rare = "#9FCFFF"
-    combo = "#8F8FFF"
-    number = "#3F8F00"
-    symbol = "#AFAF00"
-    spelling = "#7FFFFF"
-    brief = "#FF7F00"
+    base: str
+    matched: str
+    unmatched: str
+    letters: str
+    alt: str
+    rare: str
+    combo: str
+    number: str
+    symbol: str
+    spelling: str
+    brief: str
 
 
 class StenoBoardDefinitions:
     """ Contains various graphical definitions required to draw steno board diagrams. """
 
-    def __init__(self, *, bounds:IntDict, offsets:Dict[str, List[int]], shapes:Dict[str, dict],
+    def __init__(self, *, bounds:IntDict, offsets:Dict[str, List[int]], colors:StrDict, shapes:Dict[str, dict],
                  font:IntDict, glyphs:StrDict, keys:ProcsDict, rules:ProcsDict, **unused) -> None:
         self.bounds = bounds    # Coordinates of the bounding box for a single board diagram (before transforms).
         self.offsets = offsets  # Dict of [x, y] offset coordinates for the upper-left corner of every key on the board.
+        self.colors = colors    # Dict of background colors for steno key shapes.
         self.shapes = shapes    # Dict of instructions for creating each key shape in SVG.
         self.font = font        # Dict of font sizing properties for raw glyphs.
         self.glyphs = glyphs    # Dict of single Unicode characters mapped to SVG path data strings with their outlines.

@@ -1,3 +1,7 @@
+14.1.0
+------
+* Text is allowed in more places on board diagrams.
+
 14.0.0
 ------
 * Main software components are now loaded only on demand

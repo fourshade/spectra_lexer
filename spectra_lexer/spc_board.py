@@ -1,8 +1,9 @@
 from functools import lru_cache
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Tuple
 
+from spectra_lexer.board import Offset, OffsetSequence
 from spectra_lexer.board.defs import FillColors, ProcsDict
-from spectra_lexer.board.layout import GridLayoutEngine, OffsetSequence
+from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.path import ArrowPathGenerator, ChainPathGenerator
 from spectra_lexer.board.svg import SVGElement, SVGElements, SVGElementFactory, SVGPathCanvas, \
     SVGStyle, SVGTransform, SVGTranslation, SVGViewbox
@@ -124,38 +125,54 @@ class SVGBoardFactory:
 
     FONT_STYLE = SVGStyle(fill="#000000")
 
-    def __init__(self, text_tf:TextTransformer, key_positions:Dict[str, List[int]],
+    def __init__(self, text_tf:TextTransformer, key_positions:Dict[str, Offset],
                  shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
         self._factory = SVGElementFactory()  # Standard SVG element factory.
         self._text_tf = text_tf              # Transform generator for shape text.
-        self._key_positions = key_positions  # Contains offsets of the board layout.
+        self._key_positions = key_positions  # Contains offsets for each basic key on the board layout.
         self._shape_defs = shape_defs        # Defines paths forming the shape and inside area of steno keys.
         self._glyph_table = glyph_table      # Defines paths for each valid text glyph (and a default).
         self._defs_elems = []                # Base definitions to add to every document.
         self._base_elems = []                # Base elements to add to every diagram.
 
-    def processed_group(self, bg="#FFFFFF", pos=None, shape=None, text=None) -> Group:
+    def _group_offset(self, pos_id:str) -> Offset:
+        """ Return the base offset for an element group relative to the top-left corner of the board. """
+        return self._key_positions[pos_id]
+
+    def _shape_path(self, shape_id:str) -> str:
+        """ Return the SVG path data for a shape by ID. """
+        return self._shape_defs[shape_id]["d"]
+
+    def _shape_orientation(self, shape_id:str, n:int) -> Tuple[TextOrientation, Offset]:
+        """ Return the best orientation and center for a shape by ID. """
+        areas = self._shape_defs[shape_id]["textareas"]
+        orient_map = {TextOrientation(*area["size"], area["angle"]): area for area in areas}
+        best_orient = self._text_tf.best_orient(n, orient_map)
+        best_area = orient_map[best_orient]
+        return best_orient, best_area["center"]
+
+    def _glyph_path(self, char:str) -> str:
+        """ Return the SVG path data for a single text character. """
+        return self._glyph_table.get(char) or self._glyph_table["DEFAULT"]
+
+    def processed_group(self, bg="#FFFFFF", *, pos:str, shape:str, text=None) -> Group:
         """ Each keyword defines data that positions and/or constructs SVG elements. """
-        if pos is None or shape is None:
-            return SimpleGroup()
-        x, y = self._key_positions[pos]
-        attrs = self._shape_defs[shape]
-        path_data = attrs["d"]
+        x, y = self._group_offset(pos)
+        path_data = self._shape_path(shape)
         style = SVGStyle(fill=bg, stroke="#000000")
         trans = SVGTranslation(x, y)
         elems = [self._factory.path(path_data, style, trans)]
         if text:
             # SVG fonts are not supported on major browsers, so we must draw text using paths.
             # Keep track of the text center offset for any following annotations (such as inversion arrows).
-            orients = {TextOrientation(*area["size"], area["angle"]): area["center"] for area in attrs["textareas"]}
             n = len(text)
-            best = self._text_tf.best_orient(n, orients)
-            char_tfrms = self._text_tf.iter_tfrms(n, best)
-            cx, cy = orients[best]
+            orient, center = self._shape_orientation(shape, n)
+            cx, cy = center
             x += cx
             y += cy
-            for k, tfrm in zip(text, char_tfrms):
-                glyph = self._glyph_table.get(k) or self._glyph_table["DEFAULT"]
+            char_tfrms = self._text_tf.iter_tfrms(n, orient)
+            for char, tfrm in zip(text, char_tfrms):
+                glyph = self._glyph_path(char)
                 tfrm.translate(x, y)
                 coefs = tfrm.coefs()
                 svg_transform = SVGTransform(*coefs)
@@ -212,13 +229,16 @@ class BoardEngine:
                  key_procs:ProcsDict, rule_procs:ProcsDict,
                  bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
         self._to_skeys = to_skeys      # Converts user RTFCRE steno strings to s-keys.
-        self._key_sep = key_sep
+        self._key_sep = key_sep        # Key to replace with a separator sentinel group.
         self._key_combo = key_combo    # Key designated to combine with others without contributing to text.
         self._bg = bg                  # Namespace with background colors.
         self._factory = factory        # Factory for complete SVG board diagrams.
         self._layout = layout          # Layout for multi-stroke diagrams.
         self._key_procs = key_procs    # Procedures for constructing and positioning single keys.
         self._rule_procs = rule_procs  # Procedures for constructing and positioning key combos.
+        base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
+                       for grp in factory.processed_group(bg.base, **procs)]
+        factory.set_base(*base_groups)
 
     def _iter_key_groups(self, keys:str, bg:str) -> GroupIter:
         """ Generate groups of elements from a set of steno keys. """

@@ -1,5 +1,5 @@
 from math import cos, pi, sin
-from typing import Iterator, Sequence
+from typing import Iterable, Iterator, Sequence
 
 
 class AffineTransform:
@@ -71,7 +71,6 @@ class TextOrientation:
         tfrm.rotate(self._angle)
 
 
-TextOrientations = Sequence[TextOrientation]
 TransformIter = Iterator[AffineTransform]
 
 
@@ -105,9 +104,8 @@ class TextTransformer:
             tfrm.compose(orient_tfrm)
             yield tfrm
 
-    def best_orient(self, n:int, orients:TextOrientations) -> TextOrientation:
-        """ Return the best-fitting overall transform from the given sequence of orientations. """
-        assert orients
+    def best_orient(self, n:int, orients:Iterable[TextOrientation]) -> TextOrientation:
+        """ Return the best-fitting overall text orientation from <orients>. """
         w_max = n * self._tracking
         h_max = self._em_size
         return max(orients, key=lambda o: o.legibility(w_max, h_max))

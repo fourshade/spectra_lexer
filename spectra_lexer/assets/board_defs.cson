@@ -13,6 +13,20 @@
     "S2": [0, 30], "K": [30, 30], "W": [60, 30], "R": [90, 30], "*2": [120, 30], "r": [150, 30], "b": [180, 30], "g": [210, 30], "s": [240, 30], "z": [270, 30],
                                        "A": [70, 60], "O": [100, 60],       "E": [140, 60], "U": [170, 60]},
 
+  # Background colors for steno key shapes.
+  "colors": {
+    "base":      "#7F7F7F",
+    "matched":   "#007FFF",
+    "unmatched": "#DFDFDF",
+    "letters":   "#00AFFF",
+    "alt":       "#00AFAF",
+    "rare":      "#9FCFFF",
+    "combo":     "#8F8FFF",
+    "number":    "#3F8F00",
+    "symbol":    "#AFAF00",
+    "spelling":  "#7FFFFF",
+    "brief":     "#FF7F00"},
+
   # Data for SVG paths composing key shapes and the areas that text may occupy on them.
   "shapes": {
     "number": {"d": "M0,0h296v16h-296v-16z",
@@ -51,9 +65,11 @@
                "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0},
                              {"center": [58, 6.5],  "size": [110, 12], "angle": 0}]},
     "v_v":    {"d": "M0,0h96v13a13,13,0,0,1,-26,0h-44a13,13,0,0,1,-26,0v-13z",
-               "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0}]},
+               "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0},
+                             {"center": [48, 6.5],  "size": [90, 12],  "angle": 0}]},
     "v__v":   {"d": "M0,0h126v13a13,13,0,0,1,-26,0h-74a13,13,0,0,1,-26,0v-13z",
-               "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0}]},
+               "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0},
+                             {"center": [63, 6.5],  "size": [120, 12], "angle": 0}]},
     "vA":     {"d": "M0,0h126v13a13,13,0,0,1,-13,13h-30a13,13,0,0,1,-13,-13h-44a13,13,0,0,1,-26,0v-13zM26,6h95z",
                "textareas": [{"center": [13, 13],   "size": [20, 24],  "angle": 0}]},
     "vO":     {"d": "M0,0h66v13a13,13,0,0,1,-26,0h-14a13,13,0,0,1,-26,0v-13zM26,6h35z",

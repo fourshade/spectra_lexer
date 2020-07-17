@@ -1,8 +1,7 @@
 from math import ceil
-from typing import Sequence, Tuple
+from typing import Tuple
 
-Offset = Tuple[int, int]
-OffsetSequence = Sequence[Offset]
+from . import Offset, OffsetSequence
 
 
 class GridLayoutEngine:
