@@ -5,6 +5,22 @@ StrDict = Dict[str, str]
 ProcsDict = Dict[str, StrDict]
 
 
+class FillColors:
+    """ Namespace for background colors as HTML/SVG hex strings. """
+
+    base = "#7F7F7F"
+    matched = "#007FFF"
+    unmatched = "#DFDFDF"
+    letters = "#00AFFF"
+    alt = "#00AFAF"
+    rare = "#9FCFFF"
+    combo = "#8F8FFF"
+    number = "#3F8F00"
+    symbol = "#AFAF00"
+    spelling = "#7FFFFF"
+    brief = "#FF7F00"
+
+
 class StenoBoardDefinitions:
     """ Contains various graphical definitions required to draw steno board diagrams. """
 

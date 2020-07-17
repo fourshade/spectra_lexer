@@ -1,28 +1,12 @@
 from functools import lru_cache
 
+from spectra_lexer.board.defs import FillColors, ProcsDict
 from spectra_lexer.board.factory import Group, GroupIter, GroupList, SEPARATOR, SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
-from spectra_lexer.resource.board import ProcsDict
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
 
 BoardDiagram = str  # Marker type for an SVG steno board diagram.
-
-
-class FillColors:
-    """ Namespace for background colors as HTML/SVG hex strings. """
-
-    base = "#7F7F7F"
-    matched = "#007FFF"
-    unmatched = "#DFDFDF"
-    letters = "#00AFFF"
-    alt = "#00AFAF"
-    rare = "#9FCFFF"
-    combo = "#8F8FFF"
-    number = "#3F8F00"
-    symbol = "#AFAF00"
-    spelling = "#7FFFFF"
-    brief = "#FF7F00"
 
 
 class BoardEngine:

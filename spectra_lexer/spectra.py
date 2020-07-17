@@ -1,3 +1,4 @@
+from spectra_lexer.board.defs import FillColors, StenoBoardDefinitions
 from spectra_lexer.board.factory import SVGBoardFactory
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.tfrm import TextTransformer
@@ -8,12 +9,12 @@ from spectra_lexer.lexer.lexer import StenoLexer
 from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.options import SpectraOptions
-from spectra_lexer.resource.board import StenoBoardDefinitions
-from spectra_lexer.resource.io import StenoResourceIO
+from spectra_lexer.resource.json import JSONDictionaryIO
 from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule, StenoRuleList
-from spectra_lexer.spc_board import BoardEngine, FillColors
+from spectra_lexer.spc_board import BoardEngine
 from spectra_lexer.spc_graph import GraphEngine
+from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.log import open_logger, StreamLogger
@@ -29,7 +30,6 @@ class Spectra:
         if parse_args:
             opts.parse()
         self._opts = opts
-        self.resource_io = StenoResourceIO()
         self.translations_paths = opts.translations_paths()
         self.index_path = opts.index_path()
         self.cfg_path = opts.config_path()
@@ -50,6 +50,12 @@ class Spectra:
         """ Open a thread-safe logger that writes to both stdout and a log file. """
         log_path = self._opts.log_path()
         return open_logger(log_path, to_stdout=True)
+
+    @Component
+    def resource_io(self) -> StenoResourceIO:
+        """ Build the loader for JSON file-based resources. """
+        json_io = JSONDictionaryIO()
+        return StenoResourceIO(json_io)
 
     @Component
     def keymap(self) -> StenoKeyLayout:
