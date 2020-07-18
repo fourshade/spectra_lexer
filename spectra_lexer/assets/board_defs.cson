@@ -309,6 +309,6 @@
     "ls":     {"pos": "l",   "shape": "diag-"},
     "SPW":    {"pos": "S",   "shape": "H"},
     "SKP":    {"pos": "S2",  "shape": "and"},
-    "KPA":    {"pos": "T",   "shape": "kpa"},
+    "KPA":    {"pos": "S",   "shape": "kpa"},
     "A*U":    {"pos": "*",   "shape": "v_*_v"}}
 }
