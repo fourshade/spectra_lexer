@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import AbstractSet, Iterable, Iterator, List
+from typing import Container, Iterable, Iterator, List, Sequence
 
 from .sub import TextSubstitutionParser
 
@@ -37,14 +37,15 @@ class StenoRule:
     is_linked = Flag("LINK")    # Rule that uses keys from two strokes. This complicates stroke delimiting.
     is_unmatched = Flag("BAD")  # Placeholder for keys inside a compound rule that do not belong to another child rule.
 
-    def __init__(self, keys:str, letters:str, info:str, flags:AbstractSet[str]=frozenset(), r_id="", alt="") -> None:
-        self.keys = keys        # Raw string of steno keys that make up the rule.
-        self.letters = letters  # Raw English text of the word.
-        self.info = info        # Textual description of the rule.
-        self._flags = flags     # Set of string flags that apply to the rule.
-        self._rulemap = []      # List of child rules mapped to letter positions *in order*.
-        self.id = r_id          # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
-        self.alt = alt          # Alternate text specifically for display in diagrams.
+    def __init__(self, keys:str, letters:str, info:str,
+                 flags:Container[str], rulemap:Sequence[Connection], r_id:str, alt:str) -> None:
+        self.keys = keys         # RTFCRE steno keys that make up the rule.
+        self.letters = letters   # Raw English text of the word.
+        self.info = info         # Textual description of the rule.
+        self._flags = flags      # Set of string flags that apply to the rule.
+        self._rulemap = rulemap  # Sequence of child rules mapped to letter positions *in order*.
+        self.id = r_id           # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
+        self.alt = alt           # Alternate text specifically for display in diagrams.
 
     def __bool__(self) -> bool:
         """ Return True if this rule is compound, meaning it is composed of smaller child rules. """
@@ -54,43 +55,11 @@ class StenoRule:
         """ Yield each child rule connection in order. """
         return iter(self._rulemap)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """ The standard string representation of a rule is its keys -> letters mapping. """
-        return f"{self.keys} → {self.letters}"
+        return f'<StenoRule: {self.keys} → {self.letters}>'
 
-    def add_connection(self, child:"StenoRule", start:int, length:int) -> None:
-        """ Connect a <child> rule to this one at <start>. Must be done in order. <length> may be 0. """
-        item = self.Connection(child, start, length)
-        self._rulemap.append(item)
-
-    @classmethod
-    def join(cls, rules:Iterable["StenoRule"], info="Compound rule.") -> "StenoRule":
-        """ Join several rules into one. """
-        self = cls("", "", info)
-        offset = 0
-        for r in rules:
-            self.keys += r.keys
-            self.letters += r.letters
-            length = len(r.letters)
-            self.add_connection(r, offset, length)
-            offset += length
-        return self
-
-    @classmethod
-    def unmatched(cls, unmatched_keys:str) -> "StenoRule":
-        """ Placeholder rule mapping leftover keys to an empty string of letters. """
-        return cls(unmatched_keys, "", unmatched_keys + ": unmatched keys", {cls.is_unmatched})
-
-    def add_unmatched(self, unmatched_keys:str) -> None:
-        """ Add a placeholder child rule mapping leftover keys to an empty string of letters. """
-        if self._rulemap:
-            last_item = self._rulemap[-1]
-            last_child_end = last_item.start + last_item.length
-        else:
-            last_child_end = 0
-        remaining_length = len(self.letters) - last_child_end
-        child = self.unmatched(unmatched_keys)
-        self.add_connection(child, last_child_end, remaining_length)
+    __str__ = __repr__
 
     def verify(self, valid_rtfcre:Iterable[str], delimiters:Iterable[str]) -> None:
         """ Perform integrity checks on this rule. """
@@ -119,6 +88,58 @@ class StenoRule:
             assert not -counter, f"Rule {self.id} has fewer keys than its child rules: {-counter}"
 
 
+class StenoRuleFactory:
+
+    def __init__(self, *, rule_cls=StenoRule) -> None:
+        self._rule_cls = rule_cls
+        self._head = []   # Current rulemap; the head of the stack.
+        self._stack = []  # The rest of the stack.
+
+    def push(self) -> None:
+        """ Push a new rulemap onto the stack. """
+        self._stack.append(self._head)
+        self._head = []
+
+    def build(self, keys:str, letters:str, info:str, flags:Container[str]=frozenset(), r_id="", alt="") -> StenoRule:
+        """ Pop the current rulemap from the stack and build a new rule using it. """
+        rulemap = self._head
+        self._head = self._stack.pop()
+        return self._rule_cls(keys, letters, info, flags, rulemap, r_id, alt)
+
+    def connect(self, child:StenoRule, start:int, length:int) -> None:
+        """ Add a <child> rule to the rulemap at <start>. Must be done in order. <length> may be 0. """
+        item = self._rule_cls.Connection(child, start, length)
+        self._head.append(item)
+
+    def connect_unmatched(self, unmatched_keys:str, nletters:int) -> None:
+        """ Add a special (empty) rule at the end with <unmatched_keys> taking up the rest of <nletters>. """
+        if self._head:
+            last_item = self._head[-1]
+            last_child_end = last_item.start + last_item.length
+        else:
+            last_child_end = 0
+        remaining_length = nletters - last_child_end
+        self.push()
+        info = f'{unmatched_keys}: unmatched keys'
+        flags = {self._rule_cls.is_unmatched}
+        child = self.build(unmatched_keys, "", info, flags)
+        self.connect(child, last_child_end, remaining_length)
+
+    def join(self, rules:Iterable[StenoRule]) -> StenoRule:
+        """ Join several rules into one. """
+        keys = letters = ""
+        offset = 0
+        self.push()
+        for r in rules:
+            keys += r.keys
+            letters += r.letters
+            length = len(r.letters)
+            self.connect(r, offset, length)
+            offset += length
+        info = f'{keys} → {letters}'
+        return self.build(keys, letters, info)
+
+
 StenoRuleList = List[StenoRule]
 
 
@@ -126,9 +147,10 @@ class StenoRuleParser:
     """ Converts steno rules from JSON arrays to StenoRule objects.
         In order to recursively resolve references, all rule data should be added before any parsing is done. """
 
-    def __init__(self, sub_parser:TextSubstitutionParser=None) -> None:
+    def __init__(self, factory:StenoRuleFactory, *, sub_parser:TextSubstitutionParser=None) -> None:
         if sub_parser is None:
             sub_parser = TextSubstitutionParser()
+        self._factory = factory        # Creates steno rules from JSON data.
         self._sub_parser = sub_parser  # Parser specifically for the pattern field.
         self._rule_data = {}           # Dict of other steno rule data fields from JSON.
         self._rule_memo = {}           # Memo of finished rules.
@@ -167,11 +189,12 @@ class StenoRuleParser:
             info = f'{keys} → {letters}: {desc}'
         else:
             # Base rule info includes only the keys to the left of the description.
-            info = f"{keys}: {desc}"
-        rule = memo[r_id] = StenoRule(keys, letters, info, flags, r_id, alt)
+            info = f'{keys}: {desc}'
+        self._factory.push()
         for sub in subs:
             child = self._parse(sub.ref)
-            rule.add_connection(child, sub.start, sub.length)
+            self._factory.connect(child, sub.start, sub.length)
+        rule = memo[r_id] = self._factory.build(keys, letters, info, flags, r_id, alt)
         return rule
 
     def parse(self) -> StenoRuleList:

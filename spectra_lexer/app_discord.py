@@ -91,7 +91,7 @@ class DiscordApplication:
         if not any([k for k, w in translations]):
             return self._text_message('No suggestions.')
         analysis = self._analyzer.compound_query(translations)
-        caption = str(analysis)
+        caption = f'{analysis.keys} → {analysis.letters}'
         board_data = self._board_engine.draw_rule(analysis, aspect_ratio=self._board_AR, show_letters=show_letters)
         return self._board_message(caption, board_data)
 

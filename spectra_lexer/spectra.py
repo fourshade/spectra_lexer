@@ -9,7 +9,7 @@ from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.options import SpectraOptions
 from spectra_lexer.resource.json import JSONDictionaryIO
 from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.rules import StenoRule, StenoRuleList
+from spectra_lexer.resource.rules import StenoRuleFactory, StenoRuleList
 from spectra_lexer.spc_board import BoardEngine, SVGBoardFactory
 from spectra_lexer.spc_graph import GraphEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
@@ -50,10 +50,16 @@ class Spectra:
         return open_logger(log_path, to_stdout=True)
 
     @Component
+    def rule_factory(self) -> StenoRuleFactory:
+        """ Rules are the most highly coupled data type; they need their own factory to keep things sane. """
+        return StenoRuleFactory()
+
+    @Component
     def resource_io(self) -> StenoResourceIO:
         """ Build the loader for JSON file-based resources. """
         json_io = JSONDictionaryIO()
-        return StenoResourceIO(json_io)
+        rule_factory = self.rule_factory
+        return StenoResourceIO(json_io, rule_factory)
 
     @Component
     def keymap(self) -> StenoKeyLayout:
@@ -94,6 +100,7 @@ class Spectra:
         """ Distribute rules and build the rule matchers, lexer and analyzer. """
         refmap = {}
         matcher_groups = []
+        rule_factory = self.rule_factory
         keymap = self.keymap
         rules = self.rules
         key_sep = keymap.separator_key()
@@ -104,7 +111,8 @@ class Spectra:
         # Separators are force-matched before the normal matchers can waste cycles on them.
         sep_matcher = DelimiterMatcher()
         lr_sep = LexerRule(key_sep, "", 0)
-        rule_sep = StenoRule(key_sep, "", "stroke separator")
+        rule_factory.push()
+        rule_sep = rule_factory.build(key_sep, "", "stroke separator")
         refmap[lr_sep] = rule_sep
         sep_matcher.add(lr_sep)
         matcher_groups.append([sep_matcher])
@@ -148,7 +156,8 @@ class Spectra:
             # Rules with special behavior must be handled case-by-case.
             lr = LexerRule(key_special, "", 0)
             info = key_special + ": " + pred.desc
-            rule = StenoRule(key_special, "", info, set(), "", pred.repl)
+            rule_factory.push()
+            rule = rule_factory.build(key_special, "", info, set(), "", pred.repl)
             refmap[lr] = rule
             special_matcher.add_test(lr, pred)
         matcher_groups.append([special_matcher])
@@ -156,7 +165,7 @@ class Spectra:
         # Each matcher group is tried in order of priority (separators first, specials last).
         matcher = PriorityRuleMatcher(*matcher_groups)
         lexer = StenoLexer(matcher)
-        return StenoAnalyzer(to_skeys, to_rtfcre, lexer, rule_sep, refmap, idmap)
+        return StenoAnalyzer(to_skeys, to_rtfcre, lexer, rule_factory, rule_sep, refmap, idmap)
 
     @Component
     def graph_engine(self) -> GraphEngine:
