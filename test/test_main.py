@@ -35,9 +35,10 @@ DELIMS = '/-'
 
 def _verify_analysis(analysis) -> None:
     """ An analysis test fails if the output rule is malformed or the lexer can't match all the keys. """
-    assert analysis
+    rulemap = analysis.rulemap
+    assert rulemap
     analysis.verify(RTFCRE_CHARS, DELIMS)
-    for item in analysis:
+    for item in rulemap:
         assert not item.child.is_unmatched, f"Lexer failed to match all keys on {analysis.keys} -> {analysis.letters}."
 
 
@@ -61,7 +62,7 @@ def test_compound(n) -> None:
     seq = TEST_TRANSLATION_PAIRS[:n]
     compound_rule = ANALYZER.compound_query(seq)
     _verify_analysis(compound_rule)
-    assert len(list(compound_rule)) == (2 * len(seq) - 1)
+    assert len(compound_rule.rulemap) == (2 * len(seq) - 1)
 
 
 def test_index() -> None:

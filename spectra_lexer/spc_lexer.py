@@ -43,16 +43,15 @@ class TranslationFilter:
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
-    def __init__(self, to_skeys:StenoKeyConverter, to_rtfcre:StenoKeyConverter,
-                 lexer:StenoLexer, factory:StenoRuleFactory, rule_sep:StenoRule,
+    def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory, rule_sep:StenoRule,
                  refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
-        self._to_skeys = to_skeys    # Converts user RTFCRE steno strings to s-keys.
-        self._to_rtfcre = to_rtfcre  # Converts s-keys back to RTFCRE.
-        self._lexer = lexer          # Main analysis engine; operates only on s-keys.
-        self._factory = factory      # Creates steno rules from analysis data.
-        self._rule_sep = rule_sep    # Stroke separator rule.
-        self._refmap = refmap        # Mapping of lexer rule objects to their original StenoRules.
-        self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
+        self._to_skeys = converter.rtfcre_to_skeys   # Converts user RTFCRE steno strings to s-keys.
+        self._to_rtfcre = converter.skeys_to_rtfcre  # Converts s-keys back to RTFCRE.
+        self._lexer = lexer        # Main analysis engine; operates only on s-keys.
+        self._factory = factory    # Creates steno rules from analysis data.
+        self._rule_sep = rule_sep  # Stroke separator rule.
+        self._refmap = refmap      # Mapping of lexer rule objects to their original StenoRules.
+        self._idmap = idmap        # Mapping of lexer rule objects to valid example rule IDs.
 
     @staticmethod
     def _result_info(result:LexerResult) -> str:
@@ -82,7 +81,6 @@ class StenoAnalyzer:
         if unmatched_skeys:
             unmatched_keys = self._to_rtfcre(unmatched_skeys)
             nletters = len(letters)
-            info = f'{unmatched_keys}: unmatched keys'
             self._factory.connect_unmatched(unmatched_keys, nletters)
         keys = self._to_rtfcre(skeys)
         info = self._result_info(result)

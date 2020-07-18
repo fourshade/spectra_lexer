@@ -1,18 +1,12 @@
-from types import SimpleNamespace
-from typing import Dict, List, NoReturn
+from typing import Dict, List, Mapping
+
+from . import FrozenStruct
 
 IntDict = Dict[str, int]
 StrDict = Dict[str, str]
 OffsetDict = Dict[str, List[int]]
 ShapeDict = Dict[str, dict]
 ProcsDict = Dict[str, StrDict]
-
-
-class FrozenStruct(SimpleNamespace):
-    """ Immutable attribute-based data structure. """
-
-    def __setattr__(self, *args) -> NoReturn:
-        raise AttributeError('Structure is immutable.')
 
 
 class FillColors(FrozenStruct):
@@ -47,8 +41,8 @@ class StenoBoardDefinitions(FrozenStruct):
         """ Perform type checks on instance fields using annotations. """
         for k, v in vars(self).items():
             if k in self.__annotations__:
-                # isinstance() breaks if a type check is made for Dict[whatever].
-                # just check for "dict" until the typing module gets its shit together.
-                sig_tp = dict
+                # isinstance() breaks if a type check is made for Mapping[whatever].
+                # they are all mappings; just check the base type until the typing module gets its shit together.
+                sig_tp = Mapping
                 if not isinstance(v, sig_tp):
                     raise TypeError(f'Field "{k}" must be {sig_tp.__name__}, got {type(v).__name__}.')

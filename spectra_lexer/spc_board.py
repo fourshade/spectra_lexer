@@ -1,12 +1,12 @@
 from functools import lru_cache
 from typing import Iterator, List, Tuple
 
-from spectra_lexer.board.defs import FillColors, OffsetDict, ProcsDict, ShapeDict, StrDict
 from spectra_lexer.board.layout import GridLayoutEngine, Offset, OffsetSequence
 from spectra_lexer.board.path import ArrowPathGenerator, ChainPathGenerator
 from spectra_lexer.board.svg import SVGElement, SVGElements, SVGElementFactory, SVGPathCanvas, \
     SVGStyle, SVGTransform, SVGTranslation, SVGViewbox
 from spectra_lexer.board.tfrm import TextOrientation, TextTransformer
+from spectra_lexer.resource.board import FillColors, OffsetDict, ProcsDict, ShapeDict, StrDict
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
 
@@ -224,10 +224,10 @@ class SVGBoardFactory:
 class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
-    def __init__(self, to_skeys:StenoKeyConverter, key_sep:str, key_combo:str,
+    def __init__(self, converter:StenoKeyConverter, key_sep:str, key_combo:str,
                  key_procs:ProcsDict, rule_procs:ProcsDict,
                  bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
-        self._to_skeys = to_skeys      # Converts user RTFCRE steno strings to s-keys.
+        self._to_skeys = converter.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
         self._key_sep = key_sep        # Key to replace with a separator sentinel group.
         self._key_combo = key_combo    # Key designated to combine with others without contributing to text.
         self._bg = bg                  # Namespace with background colors.
@@ -287,7 +287,7 @@ class BoardEngine:
         keys = rule.keys
         letters = rule.letters.strip()
         alt_text = rule.alt
-        children = [item.child for item in rule]
+        children = [item.child for item in rule.rulemap]
         if letters and not any(map(str.isalpha, letters)):
             bg = self._bg.symbol if not any(map(str.isdigit, letters)) else self._bg.number
             if not alt_text:

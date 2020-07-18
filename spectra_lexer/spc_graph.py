@@ -148,7 +148,7 @@ class GraphEngine:
     def _build_body(self, rule:StenoRule) -> IBody:
         """ Make a node display body. The text is shifted left if it starts with an ignored token. """
         keys = rule.keys
-        if rule:
+        if rule.rulemap:
             body = BoldBody(rule.letters)
         elif keys == self._key_sep:
             body = SeparatorBody(keys)
@@ -166,7 +166,7 @@ class GraphEngine:
         elif rule.is_linked:
             # Node for a child rule that uses keys from two strokes. This complicates stroke delimiting.
             connectors = LinkedConnectors(length, width)
-        elif rule:
+        elif rule.rulemap:
             connectors = ThickConnectors(length, width)
         elif rule.keys == self._key_sep:
             connectors = NullConnectors()
@@ -180,7 +180,7 @@ class GraphEngine:
         """ Build a display node tree recursively from a rule's properties, position, and descendants. """
         ref = str(len(tree_map))
         tree_map[ref] = rule
-        children = [self._build_tree(tree_map, c.child, c.start, c.length) for c in rule]
+        children = [self._build_tree(tree_map, item.child, item.start, item.length) for item in rule.rulemap]
         body = self._build_body(rule)
         width = body.width()
         connectors = self._build_connectors(rule, length, width)

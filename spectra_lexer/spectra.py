@@ -1,4 +1,3 @@
-from spectra_lexer.board.defs import FillColors, StenoBoardDefinitions
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.tfrm import TextTransformer
 from spectra_lexer.lexer.composite import PriorityRuleMatcher
@@ -7,13 +6,13 @@ from spectra_lexer.lexer.lexer import LexerRule, StenoLexer
 from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.options import SpectraOptions
-from spectra_lexer.resource.json import JSONDictionaryIO
-from spectra_lexer.resource.keys import StenoKeyLayout
-from spectra_lexer.resource.rules import StenoRuleFactory, StenoRuleList
+from spectra_lexer.resource.board import FillColors, StenoBoardDefinitions
+from spectra_lexer.resource.keys import StenoKeyConverter, StenoKeyLayout
+from spectra_lexer.resource.rules import StenoRuleFactory
 from spectra_lexer.spc_board import BoardEngine, SVGBoardFactory
 from spectra_lexer.spc_graph import GraphEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
-from spectra_lexer.spc_resource import StenoResourceIO
+from spectra_lexer.spc_resource import StenoResourceIO, StenoRuleList
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.log import open_logger, StreamLogger
 
@@ -57,9 +56,8 @@ class Spectra:
     @Component
     def resource_io(self) -> StenoResourceIO:
         """ Build the loader for JSON file-based resources. """
-        json_io = JSONDictionaryIO()
         rule_factory = self.rule_factory
-        return StenoResourceIO(json_io, rule_factory)
+        return StenoResourceIO(rule_factory)
 
     @Component
     def keymap(self) -> StenoKeyLayout:
@@ -70,13 +68,18 @@ class Spectra:
         return keymap
 
     @Component
+    def key_converter(self) -> StenoKeyConverter:
+        """ Build a formatter to convert between dictionary and lexer key formats. """
+        return StenoKeyConverter.from_keymap(self.keymap)
+
+    @Component
     def rules(self) -> StenoRuleList:
         """ Load and verify the built-in steno rules. """
         rules_path = self._opts.rules_path()
         rules = self.resource_io.load_rules(rules_path)
         keymap = self.keymap
-        valid_rtfcre = keymap.valid_rtfcre()
-        delimiters = {keymap.separator_key(), keymap.divider_key()}
+        delimiters = {keymap.sep, keymap.split}
+        valid_rtfcre = delimiters.union(keymap.left, keymap.center, keymap.right)
         for rule in rules:
             rule.verify(valid_rtfcre, delimiters)
         return rules
@@ -92,7 +95,7 @@ class Spectra:
     @Component
     def search_engine(self) -> SearchEngine:
         """ For translation-based searches, spaces and hyphens should be stripped off each end. """
-        strip_chars = " " + self.keymap.divider_key()
+        strip_chars = " " + self.keymap.split
         return SearchEngine(strip_chars)
 
     @Component
@@ -102,11 +105,10 @@ class Spectra:
         matcher_groups = []
         rule_factory = self.rule_factory
         keymap = self.keymap
+        converter = self.key_converter
         rules = self.rules
-        key_sep = keymap.separator_key()
-        key_special = keymap.special_key()
-        to_skeys = keymap.rtfcre_to_skeys
-        to_rtfcre = keymap.skeys_to_rtfcre
+        key_sep = keymap.sep
+        key_special = keymap.special
 
         # Separators are force-matched before the normal matchers can waste cycles on them.
         sep_matcher = DelimiterMatcher()
@@ -127,7 +129,7 @@ class Spectra:
             # Rare rules are uncommon in usage and/or prone to causing false positives.
             # They have slightly reduced weight so that other rules with equal letter count are chosen first.
             # Word rules may be otherwise equal to some prefixes and suffixes; they need *more* weight to win.
-            skeys = to_skeys(rule.keys)
+            skeys = converter.rtfcre_to_skeys(rule.keys)
             letters = rule.letters
             weight = 10 * len(letters) - rule.is_rare + rule.is_word
             lr = LexerRule(skeys, letters, weight)
@@ -157,7 +159,7 @@ class Spectra:
             lr = LexerRule(key_special, "", 0)
             info = key_special + ": " + pred.desc
             rule_factory.push()
-            rule = rule_factory.build(key_special, "", info, set(), "", pred.repl)
+            rule = rule_factory.build(key_special, "", info, pred.repl)
             refmap[lr] = rule
             special_matcher.add_test(lr, pred)
         matcher_groups.append([special_matcher])
@@ -165,23 +167,23 @@ class Spectra:
         # Each matcher group is tried in order of priority (separators first, specials last).
         matcher = PriorityRuleMatcher(*matcher_groups)
         lexer = StenoLexer(matcher)
-        return StenoAnalyzer(to_skeys, to_rtfcre, lexer, rule_factory, rule_sep, refmap, idmap)
+        return StenoAnalyzer(converter, lexer, rule_factory, rule_sep, refmap, idmap)
 
     @Component
     def graph_engine(self) -> GraphEngine:
         """ The graph engine should ignore hyphens so that consecutive right-side keys are adjacent. """
         keymap = self.keymap
-        key_sep = keymap.separator_key()
-        ignored_chars = {keymap.divider_key()}
+        key_sep = keymap.sep
+        ignored_chars = {keymap.split}
         return GraphEngine(key_sep, ignored_chars)
 
     @Component
     def board_engine(self) -> BoardEngine:
         """ Set the base defintions with all single keys unlabeled. """
         keymap = self.keymap
-        to_skeys = keymap.rtfcre_to_skeys
-        key_sep = keymap.separator_key()
-        key_combo = keymap.special_key()
+        key_sep = keymap.sep
+        key_combo = keymap.special
+        converter = self.key_converter
         board_defs = self.board_defs
         key_procs = board_defs.keys
         rule_procs = board_defs.rules
@@ -189,4 +191,4 @@ class Spectra:
         text_tf = TextTransformer(**board_defs.font)
         factory = SVGBoardFactory(text_tf, board_defs.offsets, board_defs.shapes, board_defs.glyphs)
         layout = GridLayoutEngine(**board_defs.bounds)
-        return BoardEngine(to_skeys, key_sep, key_combo, key_procs, rule_procs, bg, factory, layout)
+        return BoardEngine(converter, key_sep, key_combo, key_procs, rule_procs, bg, factory, layout)
