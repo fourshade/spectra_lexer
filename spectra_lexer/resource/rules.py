@@ -96,8 +96,7 @@ class StenoRuleFactory:
             last_child_end = 0
         remaining_length = nletters - last_child_end
         self.push()
-        info = f'{unmatched_keys}: unmatched keys'
-        child = self.build(unmatched_keys, "", info, is_unmatched=True)
+        child = self.build(unmatched_keys, "", "unmatched keys", is_unmatched=True)
         self.connect(child, last_child_end, remaining_length)
 
     def join(self, rules:Iterable[StenoRule]) -> StenoRule:
@@ -111,5 +110,4 @@ class StenoRuleFactory:
             length = len(r.letters)
             self.connect(r, offset, length)
             offset += length
-        info = f'{keys} → {letters}'
-        return self.build(keys, letters, info)
+        return self.build(keys, letters, "combined rules")

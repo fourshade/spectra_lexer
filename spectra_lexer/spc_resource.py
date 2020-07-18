@@ -31,40 +31,33 @@ class StenoRuleParser:
             keys:    RTFCRE formatted string of steno strokes.
             pattern: English text pattern string, consisting of raw letters as well as references to other rules.
             flags:   Optional sequence of flag strings.
-            desc:    Optional description string for when the rule is displayed in the GUI. """
+            info:    Optional description string for when the rule is displayed in the GUI. """
         try:
             keys, pattern, *optional = fields
         except ValueError as e:
             raise ValueError(f"Not enough data fields for rule {r_id}") from e
         flags = optional.pop(0) if optional else ()
-        desc = optional.pop(0) if optional else "No description"
+        info = optional.pop(0) if optional else "No description"
         if optional:
             raise ValueError(f"Too many data fields for rule {r_id}: extra = {optional}")
         alt = ""
         if "(" not in pattern and "|" in pattern:
             pattern, alt = pattern.split("|", 1)
         self._sub_parser.add_mapping(r_id, pattern)
-        self._rule_data[r_id] = [keys, flags, desc, alt]
+        self._rule_data[r_id] = [keys, flags, info, alt]
 
     def parse(self, r_id:str) -> StenoRule:
         """ Return a rule by ID if finished, else parse it recursively. """
         memo = self._rule_memo
         if r_id in memo:
             return memo[r_id]
-        keys, flags, desc, alt = self._rule_data[r_id]
+        keys, flags, info, alt = self._rule_data[r_id]
         sub_result = self._sub_parser.parse(r_id)
-        subs = sub_result.subs
-        letters = sub_result.text
-        if subs and letters:
-            # Compound rule info includes the complete mapping of keys to letters.
-            info = f'{keys} → {letters}: {desc}'
-        else:
-            # Base rule info includes only the keys to the left of the description.
-            info = f'{keys}: {desc}'
         self._factory.push()
-        for sub in subs:
+        for sub in sub_result.subs:
             child = self.parse(sub.ref)
             self._factory.connect(child, sub.start, sub.length)
+        letters = sub_result.text
         flag_kwargs = {self.FLAGS[s]: True for s in flags}
         rule = memo[r_id] = self._factory.build(keys, letters, info, alt, r_id, **flag_kwargs)
         return rule

@@ -132,6 +132,20 @@ class GraphTree(RuleMapping):
         """ Use the root node as a default. """
         return self._tree_map.get(k, self._root_rule)
 
+    def caption(self, ref="") -> str:
+        """ Generate a caption for the node at <ref>. The root node shows its info only. Others also show the keys.
+            Nodes with children show the complete mapping of keys to letters. """
+        rule = self[ref]
+        keys = rule.keys
+        letters = rule.letters
+        info = rule.info
+        if rule is self._root_rule:
+            return info
+        elif rule.rulemap and letters:
+            return f'{keys} → {letters}: {info}'
+        else:
+            return f'{keys}: {info}'
+
     def draw(self, ref="", *, intense=False) -> HTMLGraph:
         """ Return an HTML text graph with <ref> highlighted.
             Highlight nothing if <ref> is blank. Use brighter highlighting colors if <intense> is True. """

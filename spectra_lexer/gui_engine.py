@@ -100,12 +100,11 @@ class GUIEngine:
         keys, letters = (match, mapping) if self._opts.search_mode_strokes else (mapping, match)
         return self._query(keys, letters)
 
+    def get_caption(self, ref="") -> str:
+        return self._graph.caption(ref)
+
     def draw_graph(self, ref="", intense=False) -> HTMLGraph:
         return self._graph.draw(ref, intense=intense)
-
-    def get_caption(self, ref="") -> str:
-        rule = self._graph[ref]
-        return rule.info
 
     def draw_board(self, ref="") -> BoardDiagram:
         rule = self._graph[ref]
