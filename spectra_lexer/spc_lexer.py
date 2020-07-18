@@ -43,25 +43,36 @@ class TranslationFilter:
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
+    # Rule info strings for analysis results.
+    INFO_COMPLETE = "Found complete match."
+    INFO_INCOMPLETE = "Incomplete match. Not reliable."
+    INFO_EMPTY = "No matches found."
+
     def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory, rule_sep:StenoRule,
                  refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
-        self._to_skeys = converter.rtfcre_to_skeys   # Converts user RTFCRE steno strings to s-keys.
-        self._to_rtfcre = converter.skeys_to_rtfcre  # Converts s-keys back to RTFCRE.
-        self._lexer = lexer        # Main analysis engine; operates only on s-keys.
-        self._factory = factory    # Creates steno rules from analysis data.
-        self._rule_sep = rule_sep  # Stroke separator rule.
-        self._refmap = refmap      # Mapping of lexer rule objects to their original StenoRules.
-        self._idmap = idmap        # Mapping of lexer rule objects to valid example rule IDs.
+        self._converter = converter  # Converts between RTFCRE and s-keys formats.
+        self._lexer = lexer          # Main analysis engine; operates only on s-keys.
+        self._factory = factory      # Creates steno rules from analysis data.
+        self._rule_sep = rule_sep    # Stroke separator rule.
+        self._refmap = refmap        # Mapping of lexer rule objects to their original StenoRules.
+        self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
 
-    @staticmethod
-    def _result_info(result:LexerResult) -> str:
+    def _to_skeys(self, keys:str) -> str:
+        # Convert user RTFCRE steno <keys> to s-keys.
+        return self._converter.rtfcre_to_skeys(keys)
+
+    def _to_rtfcre(self, skeys:str) -> str:
+        # Convert <skeys> back to RTFCRE format.
+        return self._converter.skeys_to_rtfcre(skeys)
+
+    def _result_info(self, result:LexerResult) -> str:
         """ Return an info string for this result. The output is nowhere near reliable if some keys are unmatched. """
         if not result.unmatched_skeys:
-            info = "Found complete match."
+            info = self.INFO_COMPLETE
         elif result.rules:
-            info = "Incomplete match. Not reliable."
+            info = self.INFO_INCOMPLETE
         else:
-            info = "No matches found."
+            info = self.INFO_EMPTY
         return info
 
     def query(self, keys:str, letters:str, *, strict_mode=False) -> StenoRule:
@@ -81,22 +92,10 @@ class StenoAnalyzer:
         if unmatched_skeys:
             unmatched_keys = self._to_rtfcre(unmatched_skeys)
             nletters = len(letters)
-            self._factory.connect_unmatched(unmatched_keys, nletters)
+            self._factory.connect_unmatched(unmatched_keys, nletters, "unmatched keys")
         keys = self._to_rtfcre(skeys)
         info = self._result_info(result)
         return self._factory.build(keys, letters, info)
-
-    def compound_query(self, translations:TranslationPairs, **kwargs) -> StenoRule:
-        """ Return a compound lexer analysis of several translations joined together. """
-        rules = [self.query(keys, letters, **kwargs) for keys, letters in translations]
-        n = len(rules)
-        if not n:
-            raise ValueError("Need at least 1 translation, got 0.")
-        if n == 1:
-            return rules[0]
-        delimited_seq = [self._rule_sep] * (2 * n - 1)
-        delimited_seq[::2] = rules
-        return self._factory.join(delimited_seq)
 
     def best_translation(self, keys_iter:Iterable[str], letters:str) -> str:
         """ Return the best (most accurate) match to <letters> out of <keys_iter> according to lexer ranking. """
@@ -137,6 +136,14 @@ class StenoAnalyzer:
             for r_id in rule_ids:
                 index[r_id][keys] = letters
         return index
+
+    def join(self, rules:Iterable[StenoRule]) -> StenoRule:
+        """ Join several rules into one with stroke separators. """
+        rules = list(rules)
+        delimited = rules[:1]
+        for r in rules[1:]:
+            delimited += [self._rule_sep, r]
+        return self._factory.join(delimited)
 
     def normalize_keys(self, keys:str) -> str:
         """ Normalize a set of RTFCRE keys by converting back and forth. """

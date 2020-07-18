@@ -54,15 +54,11 @@ def test_analysis(keys, letters) -> None:
         assert graph.draw(ref, intense=True)
         assert BOARD_ENGINE.draw_keys(rule.keys)
         assert BOARD_ENGINE.draw_rule(rule)
-
-
-@pytest.mark.parametrize("n", range(2, len(TEST_TRANSLATION_PAIRS)))
-def test_compound(n) -> None:
-    """ Make sure compound analysis works on full sequences of translations. """
-    seq = TEST_TRANSLATION_PAIRS[:n]
-    compound_rule = ANALYZER.compound_query(seq)
+    # Join should work on arbitrary sequences of translations.
+    rep = (hash(keys) % 10) + 1
+    compound_rule = ANALYZER.join([analysis] * rep)
     _verify_analysis(compound_rule)
-    assert len(compound_rule.rulemap) == (2 * len(seq) - 1)
+    assert len(compound_rule.rulemap) == (2 * rep - 1)
 
 
 def test_index() -> None:

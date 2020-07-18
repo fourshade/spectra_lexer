@@ -87,7 +87,7 @@ class StenoRuleFactory:
         item = self._rule_cls.Connection(child=child, start=start, length=length)
         self._head.append(item)
 
-    def connect_unmatched(self, unmatched_keys:str, nletters:int) -> None:
+    def connect_unmatched(self, unmatched_keys:str, nletters:int, info:str) -> None:
         """ Add a special (empty) rule at the end with <unmatched_keys> taking up the rest of <nletters>. """
         if self._head:
             last_item = self._head[-1]
@@ -96,11 +96,11 @@ class StenoRuleFactory:
             last_child_end = 0
         remaining_length = nletters - last_child_end
         self.push()
-        child = self.build(unmatched_keys, "", "unmatched keys", is_unmatched=True)
+        child = self.build(unmatched_keys, "", info, is_unmatched=True)
         self.connect(child, last_child_end, remaining_length)
 
     def join(self, rules:Iterable[StenoRule]) -> StenoRule:
-        """ Join several rules into one. """
+        """ Join several rules into one by concatenation of keys and letters. """
         keys = letters = ""
         offset = 0
         self.push()

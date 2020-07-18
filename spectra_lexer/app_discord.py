@@ -90,7 +90,8 @@ class DiscordApplication:
         translations = list(self._search_words(letters))
         if not any([k for k, w in translations]):
             return self._text_message('No suggestions.')
-        analysis = self._analyzer.compound_query(translations)
+        rules = [self._analyzer.query(k, w) for k, w in translations]
+        analysis = self._analyzer.join(rules)
         caption = f'{analysis.keys} → {analysis.letters}'
         board_data = self._board_engine.draw_rule(analysis, aspect_ratio=self._board_AR, show_letters=show_letters)
         return self._board_message(caption, board_data)
