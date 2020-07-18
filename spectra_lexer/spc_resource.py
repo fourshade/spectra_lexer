@@ -9,36 +9,26 @@ class StenoResourceIO:
     """ Top-level IO for steno resources. All structures are parsed from JSON in some form.
         Built-in assets include a key layout, rules, and board graphics. """
 
-    def __init__(self, io:JSONDictionaryIO=None) -> None:
-        self._io = io or JSONDictionaryIO()  # I/O for JSON/CSON files.
+    def __init__(self, io:JSONDictionaryIO) -> None:
+        self._io = io  # I/O for JSON/CSON files.
 
     def load_keymap(self, filename:str) -> StenoKeyLayout:
-        """ Load and verify a steno key layout from CSON. """
+        """ Load a steno key layout from CSON. """
         d = self._io.load_json_dict(filename)
-        keymap = StenoKeyLayout(**d)
-        keymap.verify()
-        return keymap
+        return StenoKeyLayout(**d)
 
-    def load_rules(self, filename:str, keymap:StenoKeyLayout=None) -> StenoRuleList:
-        """ Load steno rules from CSON. A keymap is required to perform verification. """
+    def load_rules(self, filename:str) -> StenoRuleList:
+        """ Load steno rules from CSON. """
         d = self._io.load_json_dict(filename)
         parser = StenoRuleParser()
         for name, data in d.items():
             parser.add_json_data(name, data)
-        rules = parser.parse()
-        if keymap is not None:
-            valid_rtfcre = keymap.valid_rtfcre()
-            delimiters = {keymap.separator_key(), keymap.divider_key()}
-            for rule in rules:
-                rule.verify(valid_rtfcre, delimiters)
-        return rules
+        return parser.parse()
 
     def load_board_defs(self, filename:str) -> StenoBoardDefinitions:
-        """ Load and verify steno board graphics definitions from CSON. """
+        """ Load steno board graphics definitions from CSON. """
         d = self._io.load_json_dict(filename)
-        board_defs = StenoBoardDefinitions(**d)
-        board_defs.verify()
-        return board_defs
+        return StenoBoardDefinitions(**d)
 
     def load_json_translations(self, *filenames:str) -> TranslationsDict:
         """ Load and merge RTFCRE steno translations from JSON files. """
