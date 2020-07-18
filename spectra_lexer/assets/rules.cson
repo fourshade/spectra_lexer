@@ -592,6 +592,12 @@
   "-":   ["H-PB",   "-",       [], "- (hyphen)"],
   ".":   ["-FPLT",  ".",       [], ". (period)"],
   ",":   ["-RBGS",  ",",       [], ", (comma)"],
+  "?":   ["STPH",  "?",        [], "? (question mark)"],
+  "!":   ["STKPWHR-FPLT","!",  [], "! (exclamation mark)"],
+  ":":   ["STPH-FPLT", ":",    [], ": (colon)"],
+  ";":   ["STPH*FPLT", ";",    [], "; (semicolon)"],
+  "...": ["SKWR-RBGS", "...",  [], "... (ellipsis points)"],
+  "CAP": ["KPA", "{}",   ["STRK"], "Capitalizes next word"],
   " ":   ["SP-S",   "",  ["RARE"], "explicit space (usually in dictionary by mistake)"],
 
   # number reference rules
