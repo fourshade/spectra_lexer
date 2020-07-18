@@ -12,53 +12,41 @@ class StenoRuleParser:
     """ Converts steno rules from JSON arrays to StenoRule objects.
         In order to recursively resolve references, all rule data should be added before any parsing is done. """
 
-    # Acceptable string values for rule flags, as read from JSON.
-    FLAGS = {"REF":  'is_reference',
-             "STRK": 'is_stroke',
-             "WORD": 'is_word',
-             "RARE": 'is_rare',
-             "INV":  'is_inversion',
-             "LINK": 'is_linked'}
-
     def __init__(self, factory:StenoRuleFactory, sub_parser:TextSubstitutionParser) -> None:
         self._factory = factory        # Creates steno rules from JSON data.
         self._sub_parser = sub_parser  # Parser specifically for the pattern field.
         self._rule_data = {}           # Dict of other steno rule data fields from JSON.
         self._rule_memo = {}           # Memo of finished rules.
 
-    def add_json_data(self, r_id:str, fields:list) -> None:
+    def add_json_data(self, r_id:str, fields:List[str]) -> None:
         """ Add JSON data for a single rule. The fields, in order, are:
             keys:    RTFCRE formatted string of steno strokes.
             pattern: English text pattern string, consisting of raw letters as well as references to other rules.
-            flags:   Optional sequence of flag strings.
-            info:    Optional description string for when the rule is displayed in the GUI. """
+            alt:     Alternate display text for diagrams (may be empty).
+            flags:   String of whitespace-separated flag identifiers (may be empty).
+            info:    Description string for when the rule is displayed in the GUI. """
         try:
-            keys, pattern, *optional = fields
+            keys, pattern, alt, flags, info, *extra = fields
         except ValueError as e:
-            raise ValueError(f"Not enough data fields for rule {r_id}") from e
-        flags = optional.pop(0) if optional else ()
-        info = optional.pop(0) if optional else "No description"
-        if optional:
-            raise ValueError(f"Too many data fields for rule {r_id}: extra = {optional}")
-        alt = ""
-        if "(" not in pattern and "|" in pattern:
-            pattern, alt = pattern.split("|", 1)
+            raise ValueError(f"Not enough data fields in rule {r_id}") from e
+        if extra:
+            raise ValueError(f"Too many data fields in rule {r_id}: extra = {extra}")
         self._sub_parser.add_mapping(r_id, pattern)
-        self._rule_data[r_id] = [keys, flags, info, alt]
+        self._rule_data[r_id] = fields
 
     def parse(self, r_id:str) -> StenoRule:
         """ Return a rule by ID if finished, else parse it recursively. """
         memo = self._rule_memo
         if r_id in memo:
             return memo[r_id]
-        keys, flags, info, alt = self._rule_data[r_id]
+        keys, _, alt, flags, info = self._rule_data[r_id]
         sub_result = self._sub_parser.parse(r_id)
         self._factory.push()
         for sub in sub_result.subs:
             child = self.parse(sub.ref)
             self._factory.connect(child, sub.start, sub.length)
         letters = sub_result.text
-        flag_kwargs = {self.FLAGS[s]: True for s in flags}
+        flag_kwargs = {'is_'+s.lower(): True for s in flags.split()}
         rule = memo[r_id] = self._factory.build(keys, letters, info, alt, r_id, **flag_kwargs)
         return rule
 

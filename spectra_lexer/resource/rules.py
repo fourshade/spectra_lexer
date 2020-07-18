@@ -34,7 +34,7 @@ class StenoRule(FrozenStruct):
 
     # Appearance-related flags:
     is_inversion = False  # Inversion of steno order. Child rule keys will be out of order with respect to parent.
-    is_linked = False     # Uses keys from two strokes. This complicates stroke delimiting.
+    is_split = False      # Uses keys from two strokes. This complicates stroke delimiting.
     is_unmatched = False  # Placeholder for keys inside a compound rule that do not belong to another child rule.
 
     def verify(self, valid_rtfcre:Iterable[str], delimiters:Iterable[str]) -> None:
@@ -76,7 +76,7 @@ class StenoRuleFactory:
         self._stack.append(self._head)
         self._head = []
 
-    def build(self, keys:str, letters:str, info:str, alt="", r_id="", **flags:bool) -> StenoRule:
+    def build(self, keys:str, letters:str, info="no description", alt="", r_id="", **flags:bool) -> StenoRule:
         """ Pop the current rulemap from the stack and build a new rule using it. """
         rulemap = tuple(self._head)
         self._head = self._stack.pop()

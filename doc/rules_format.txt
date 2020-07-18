@@ -8,9 +8,9 @@ These files may also be parsed as valid YAML, but YAML parsers are *much* slower
 Out of the files needed to run the lexer, the steno rule file is detailed here. It contains a single JSON object.
 Inside the object, each line contains a key/value pair with a single steno rule, a comment, or nothing.
 The key strings are rule IDs, which are only internally used and not displayed in any way to the user.
-The body of each rule is an array containing between 2 and 4 values. Numbers, true, false, and null are not allowed.
+The body of each rule is an array containing 5 string values.
 
-At a minimum, a rule must include a series of steno keys and the English characters they map to.
+A rule generally maps a series of steno keys to English characters.
 Some rules may be built off of others, in which case their characters contain references to one or more "child" rules.
 The order of rule definitions does not matter for the purpose of references, but there cannot be any reference cycles.
 References may not be nested. Keeping references on a single level of nesting simplifies parsing greatly.
@@ -38,12 +38,8 @@ block     ::=  comments rule
 comments  ::=  "" | comment comments
 comment   ::=  ws '#' chars <newline>
 chars     ::=  "" | <char> chars
-rule      ::=  ws id ':' ws '[' keys delim '"' pattern '"' optional ']' <newline>
-pattern   ::=  letters | letters '|' alt
-optional  ::=  "" | delim '[' opt_flags ']' opt_info
-opt_flags ::=  "" | flags
-flags     ::=  flag | flag delim flags
-opt_info  ::=  "" | delim info
+rule      ::=  ws id ':' ws '[' keys delim letters delim alt delim '"' flags '"' delim info']' <newline>
+flags     ::=  "" | flag ws flags
 delim     ::=  ',' ws
 ws        ::=  "" | ' ' ws
 string    ::=  '"' s_chars '"'
@@ -71,17 +67,11 @@ letters   ::=  s_chars
 ; "(xx)"         = substitutes letters from the rule with ID `xx`
 ; "(letters|xx)" = indicates usage of the rule with ID `xx`, but translating to the literal `letters`
 
-alt       ::=  s_chars
+alt       ::=  string
 ; Contains alternate display text for use in diagrams.
 
-flag      ::=  string
-; Contains one of the following constants. Only one of each flag is allowed, and some are mutually exclusive:
-; "REF"  = rule used internally by other rules as a reference, do not match directly using lexer
-; "STRK" = only matches a full stroke (e.g. fingerspelling)
-; "WORD" = only matches a full word (e.g. common briefs)
-; "RARE" = rarely found in practice and/or may cause false positives. Matches are less reliable.
-; "INV"  = rule with an inversion of steno order. The keys of rule references will not be in order if joined.
-; "LINK" = rule that uses keys from two strokes. Anything that parses strokes individually must handle these carefully.
+flag      ::=  s_chars
+; Contains a flag identifier. Flags are boolean values where presence of the identifier means 'true'.
 
 info      ::=  string
 ; Contains an English description of the rule and its application.

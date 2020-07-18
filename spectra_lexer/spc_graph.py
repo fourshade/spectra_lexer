@@ -177,7 +177,7 @@ class GraphEngine:
         if rule.is_inversion:
             # Node for an inversion of steno order. Connectors should indicate some kind of "reversal".
             connectors = InversionConnectors(length, width)
-        elif rule.is_linked:
+        elif rule.is_split:
             # Node for a child rule that uses keys from two strokes. This complicates stroke delimiting.
             connectors = LinkedConnectors(length, width)
         elif rule.rulemap:

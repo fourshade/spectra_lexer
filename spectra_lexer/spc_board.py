@@ -292,7 +292,7 @@ class BoardEngine:
             bg = self._bg.symbol if not any(map(str.isdigit, letters)) else self._bg.number
             if not alt_text:
                 alt_text = letters
-        if rule.is_linked:
+        if rule.is_split:
             # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
             strokes = [self._find_groups(child, show_letters, bg) for child in children]
             first, *_, last = strokes
