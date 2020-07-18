@@ -1,8 +1,7 @@
 from collections import defaultdict
 from typing import Iterable, List, Mapping
 
-from spectra_lexer.lexer import LexerRule
-from spectra_lexer.lexer.lexer import LexerResult, StenoLexer
+from spectra_lexer.lexer.lexer import LexerResult, LexerRule, StenoLexer
 from spectra_lexer.lexer.parallel import ParallelMapper
 from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule

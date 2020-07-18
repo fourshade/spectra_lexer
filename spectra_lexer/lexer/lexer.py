@@ -3,7 +3,19 @@
 from operator import attrgetter
 from typing import List, Sequence, Union
 
-from . import IRuleMatcher, LexerRule
+from . import IRule, IRuleMatcher
+
+
+class LexerRule(IRule):
+    """ Lexer rule data sortable by weight. """
+
+    def __init__(self, skeys:str, letters:str, weight:int) -> None:
+        self.skeys = skeys      # Steno keys matched by the rule, in "s-keys" format (one unique character per key).
+        self.letters = letters  # Orthographic characters (i.e. English letters) matched by the rule.
+        self.weight = weight    # Weighting level for accuracy comparisons.
+
+    def __repr__(self) -> str:
+        return f'LexerRule{(self.skeys, self.letters, self.weight)!r}'
 
 
 class LexerResult:

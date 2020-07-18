@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-from . import IRuleMatcher, LexerRule, RuleMatches
+from . import IRule, IRuleMatcher, RuleMatches
 
 
 class DelimiterMatcher(IRuleMatcher):
@@ -11,7 +11,7 @@ class DelimiterMatcher(IRuleMatcher):
     def __init__(self) -> None:
         self._delim_rules = {}
 
-    def add(self, rule:LexerRule) -> None:
+    def add(self, rule:IRule) -> None:
         """ Add a delimiter rule. It may not have letters. """
         skey = rule.skeys
         if len(skey) != 1:
@@ -80,7 +80,7 @@ class SpecialMatcher(IRuleMatcher):
             (The key by itself will still match a 2-character slice if it is the only key left.) """
         self._valid_next_two_chars |= {skey, skey + self._key_sep}
 
-    def add_test(self, rule:LexerRule, pred:Predicate) -> None:
+    def add_test(self, rule:IRule, pred:Predicate) -> None:
         """ Add a special rule test. Special rules must use only one steno key and no letters.
             For pickleability, predicates cannot be nested functions, but bound methods will work. """
         skey = rule.skeys

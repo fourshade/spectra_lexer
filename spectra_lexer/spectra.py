@@ -1,10 +1,9 @@
 from spectra_lexer.board.defs import FillColors, StenoBoardDefinitions
 from spectra_lexer.board.layout import GridLayoutEngine
 from spectra_lexer.board.tfrm import TextTransformer
-from spectra_lexer.lexer import LexerRule
 from spectra_lexer.lexer.composite import PriorityRuleMatcher
 from spectra_lexer.lexer.exact import StrokeMatcher, WordMatcher
-from spectra_lexer.lexer.lexer import StenoLexer
+from spectra_lexer.lexer.lexer import LexerRule, StenoLexer
 from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.options import SpectraOptions

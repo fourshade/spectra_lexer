@@ -1,6 +1,6 @@
 """ Module for exact string rule matching. """
 
-from . import IRuleMatcher, LexerRule, RuleMatches
+from . import IRule, IRuleMatcher, RuleMatches
 
 
 class StrokeMatcher(IRuleMatcher):
@@ -10,7 +10,7 @@ class StrokeMatcher(IRuleMatcher):
         self._key_sep = key_sep     # Steno stroke delimiter.
         self._rules_by_stroke = {}  # Contains rules that match a full stroke only.
 
-    def add(self, rule:LexerRule) -> None:
+    def add(self, rule:IRule) -> None:
         self._rules_by_stroke[rule.skeys] = rule
 
     def match(self, skeys:str, letters:str, all_skeys:str, *_) -> RuleMatches:
@@ -32,7 +32,7 @@ class WordMatcher(IRuleMatcher):
     def __init__(self) -> None:
         self._rules_by_word = {}  # Contains rules that match a full word only.
 
-    def add(self, rule:LexerRule) -> None:
+    def add(self, rule:IRule) -> None:
         self._rules_by_word[rule.letters] = rule
 
     def match(self, skeys:str, letters:str, all_skeys:str, *_) -> RuleMatches:

@@ -2,7 +2,7 @@
 
 from typing import Generic, Sequence, TypeVar
 
-from . import IRuleMatcher, LexerRule, RuleMatches
+from . import IRule, IRuleMatcher, RuleMatches
 
 E = TypeVar("E")  # Trie element type.
 V = TypeVar("V")  # Trie value type.
@@ -47,7 +47,7 @@ class PrefixMatcher(IRuleMatcher):
     def __init__(self) -> None:
         self._tree = PrefixTree()  # Prefix tree for all rules.
 
-    def add(self, rule:LexerRule) -> None:
+    def add(self, rule:IRule) -> None:
         """ Index a rule, its skeys length, and its letters under the skeys.
             To match sentence beginnings and proper names, the letters must be converted to lowercase. """
         skeys = rule.skeys
@@ -76,7 +76,7 @@ class UnorderedPrefixMatcher(IRuleMatcher):
         self._tree = PrefixTree()                  # Prefix tree for all rules.
         self._ordered_matcher = PrefixMatcher()    # Matches rules with only ordered keys.
 
-    def add(self, rule:LexerRule) -> None:
+    def add(self, rule:IRule) -> None:
         """ Index a rule, its skeys string, its letters, and its unordered keys under only the ordered keys.
             The ordered keys may be derived by removing the unordered keys from the full string one-at-a-time.
             To match sentence beginnings and proper names, the letters must be converted to lowercase. """

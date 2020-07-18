@@ -8,20 +8,15 @@
 from typing import Iterable, Tuple
 
 
-class LexerRule:
-    """ Lexer rule data. Must be interpreted by rule matchers. """
+class IRule:
+    """ Abstract lexer rule data. Must be interpreted by rule matchers. """
 
-    def __init__(self, skeys:str, letters:str, weight:int) -> None:
-        self.skeys = skeys      # Steno keys matched by the rule, in "s-keys" format (one unique character per key).
-        self.letters = letters  # Orthographic characters (i.e. English letters) matched by the rule.
-        self.weight = weight    # Weighting level for accuracy comparisons.
-
-    def __repr__(self) -> str:
-        return f'LexerRule{(self.skeys, self.letters, self.weight)!r}'
+    skeys: str    # Steno keys matched by the rule, in "s-keys" format (one unique character per key).
+    letters: str  # Orthographic characters (i.e. English letters) matched by the rule.
 
 
-RuleMatch = Tuple[LexerRule, str, int]  # Rule match data type: (rule, unmatched keys, start offset in word).
-RuleMatches = Iterable[RuleMatch]       # Iterable of rule matches (with no particular ordering).
+RuleMatch = Tuple[IRule, str, int]  # Rule match data type: (rule, unmatched keys, start offset in word).
+RuleMatches = Iterable[RuleMatch]   # Iterable of rule matches (with no particular ordering).
 
 
 class IRuleMatcher:
