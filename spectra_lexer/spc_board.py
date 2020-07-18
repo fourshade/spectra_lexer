@@ -1,9 +1,8 @@
 from functools import lru_cache
-from typing import Dict, Iterator, List, Tuple
+from typing import Iterator, List, Tuple
 
-from spectra_lexer.board import Offset, OffsetSequence
-from spectra_lexer.board.defs import FillColors, ProcsDict
-from spectra_lexer.board.layout import GridLayoutEngine
+from spectra_lexer.board.defs import FillColors, OffsetDict, ProcsDict, ShapeDict, StrDict
+from spectra_lexer.board.layout import GridLayoutEngine, Offset, OffsetSequence
 from spectra_lexer.board.path import ArrowPathGenerator, ChainPathGenerator
 from spectra_lexer.board.svg import SVGElement, SVGElements, SVGElementFactory, SVGPathCanvas, \
     SVGStyle, SVGTransform, SVGTranslation, SVGViewbox
@@ -125,8 +124,8 @@ class SVGBoardFactory:
 
     FONT_STYLE = SVGStyle(fill="#000000")
 
-    def __init__(self, text_tf:TextTransformer, key_positions:Dict[str, Offset],
-                 shape_defs:Dict[str, dict], glyph_table:Dict[str, str]) -> None:
+    def __init__(self, text_tf:TextTransformer, key_positions:OffsetDict,
+                 shape_defs:ShapeDict, glyph_table:StrDict) -> None:
         self._factory = SVGElementFactory()  # Standard SVG element factory.
         self._text_tf = text_tf              # Transform generator for shape text.
         self._key_positions = key_positions  # Contains offsets for each basic key on the board layout.
