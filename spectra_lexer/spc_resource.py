@@ -48,6 +48,10 @@ class StenoResourceIO:
             translations.update(d)
         return translations
 
+    def save_json_translations(self, filename:str, translations:TranslationsDict) -> None:
+        """ Save RTFCRE steno translations as a dict in JSON. """
+        self._io.save_json_dict(filename, translations)
+
     def load_json_examples(self, filename:str) -> ExamplesDict:
         """ Load an examples index from a JSON file formatted as a dict of dicts. """
         examples = self._io.load_json_dict(filename)

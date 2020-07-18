@@ -59,5 +59,5 @@ class JSONDictionaryIO:
         """ Save a string dict to a JSON file. Key sorting helps some algorithms run faster.
             ensure_ascii=False is required to preserve Unicode symbols. """
         check_dict(d)
-        s = json.dumps(d, sort_keys=True, ensure_ascii=False)
+        s = json.dumps(d, sort_keys=True, ensure_ascii=False, indent=0)
         self._io.write(filename, s)
