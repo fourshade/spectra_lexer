@@ -1,3 +1,9 @@
+14.0.0
+------
+* Main software components are now loaded only on demand
+* Sentinel keys no longer appear as actual search results
+* Board diagrams may now have chains connecting any number of keys
+
 13.1.0
 ------
 * Stack traces are now hidden from the user

@@ -4,7 +4,7 @@ import os
 import sys
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.gui_engine import GUIEngine, SearchResults
+from spectra_lexer.gui_engine import GUIEngine
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.gui_rest import RESTDisplay, RESTDisplayPage, RESTGUIApplication, RESTUpdate
 from spectra_lexer.http.connect import HTTPConnectionHandler
@@ -14,17 +14,17 @@ from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzi
 from spectra_lexer.http.tcp import ThreadedTCPServer
 
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
-JSON_DATA_CLASSES = [RESTDisplay, RESTDisplayPage, RESTUpdate, SearchResults]
+JSON_DATA_CLASSES = [RESTDisplay, RESTDisplayPage, RESTUpdate]
 
 
 def build_app(spectra:Spectra) -> RESTGUIApplication:
     """ Start with standard command-line options and build the app. """
-    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine
     board_engine = spectra.board_engine
     gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
+    io = spectra.resource_io
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
     gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path)
@@ -59,9 +59,9 @@ def main() -> int:
     opts.add("http-addr", "", "IP address or hostname for server.")
     opts.add("http-port", 80, "TCP port to listen for connections.")
     opts.add("http-dir", HTTP_PUBLIC_DEFAULT, "Root directory for public HTTP file service.")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     log = spectra.logger.log
-    log("Loading...")
+    log("Loading HTTP server...")
     app = build_app(spectra)
     dispatcher = build_dispatcher(app, opts.http_dir, log)
     server = ThreadedTCPServer(dispatcher)

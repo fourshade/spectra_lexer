@@ -1,7 +1,7 @@
 from typing import Callable, Sequence
 
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults, SearchResults
+from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
@@ -85,10 +85,6 @@ class QtGUIApplication:
         self._board.set_data("")
         self._set_example_id("")
 
-    def _update_search(self, results:SearchResults) -> None:
-        """ Update each GUI search component with new results. """
-        self._search.update_results(results.matches, can_expand=not results.is_complete)
-
     def _find_same_example(self, refs:Sequence[str]):
         """ Attempt to find a graph ref that has the same link target as the last selection. """
         if self._last_example_id:
@@ -135,7 +131,7 @@ class QtGUIApplication:
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
         search_results = self._engine.search(pattern, pages)
-        self._update_search(search_results)
+        self._search.update_results(search_results)
 
     def gui_query(self, keys_or_seq:Sequence[str], letters:str) -> None:
         """ Run a lexer query and update the GUI with any results. """
@@ -148,7 +144,7 @@ class QtGUIApplication:
         if pattern:
             self._search.update_input(pattern)
             search_results = self._engine.search(pattern)
-            self._update_search(search_results)
+            self._search.update_results(search_results)
             query_results = self._engine.query_random(search_results)
             self._update_display(query_results)
 

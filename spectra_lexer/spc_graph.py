@@ -8,15 +8,13 @@ from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors
                                            SimpleConnectors, ThickConnectors, UnmatchedConnectors
 from spectra_lexer.graph.format import HTMLFormatter
 from spectra_lexer.graph.layout import CascadedGraphLayout, CompressedGraphLayout, GraphLayout, LayoutParams
-from spectra_lexer.resource.keys import StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRule
 
-HTMLGraph = str                       # Marker type for an HTML text graph.
-SuccessorsDict = Dict[int, Set[str]]  # Dictionary of a node's successor references by depth.
-TextCanvas = GridCanvas[TextElement]  # Text graph element canvas.
-EMPTY_ELEMENT = TextElement(" ")      # Blank text graph element with no markup or references.
-RuleMapping = Mapping[str, StenoRule]
-RuleDict = Dict[str, StenoRule]
+HTMLGraph = str                        # Marker type for an HTML text graph.
+SuccessorsDict = Dict[int, Set[str]]   # Dictionary of a node's successor references by depth.
+TextCanvas = GridCanvas[TextElement]   # Text graph element canvas.
+EMPTY_ELEMENT = TextElement(" ")       # Blank text graph element with no markup or references.
+RuleMapping = Mapping[str, StenoRule]  # Mapping of graph reference strings to steno rules.
 
 
 class GraphNode:
@@ -178,7 +176,7 @@ class GraphEngine:
             connectors = SimpleConnectors(length, width)
         return connectors
 
-    def _build_tree(self, tree_map:RuleDict, rule:StenoRule, start:int, length:int) -> GraphNode:
+    def _build_tree(self, tree_map:Dict[str, StenoRule], rule:StenoRule, start:int, length:int) -> GraphNode:
         """ Build a display node tree recursively from a rule's properties, position, and descendants. """
         ref = str(len(tree_map))
         tree_map[ref] = rule
@@ -200,9 +198,3 @@ class GraphEngine:
         grid = canvas.to_lists()
         formatter = HTMLFormatter(grid, compat=compat)
         return GraphTree(rule, tree_map, formatter)
-
-
-def build_graph_engine(keymap:StenoKeyLayout) -> GraphEngine:
-    key_sep = keymap.separator_key()
-    ignored_chars = {keymap.divider_key()}
-    return GraphEngine(key_sep, ignored_chars)

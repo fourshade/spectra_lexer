@@ -13,7 +13,7 @@ QueryCallback = Callable[[StringSeq, str], None]
 class SearchPanel:
     """ Controls the three main search widgets. """
 
-    _MORE_TEXT = "(more...)"  # Text displayed as the final match, allowing the user to expand the search.
+    _MORE_TEXT = "[more...]"  # Text displayed as the final match, allowing the user to expand the search.
 
     def __init__(self, w_input:QLineEdit, w_matches:StringListView, w_mappings:StringListView,
                  w_strokes:QCheckBox, w_regex:QCheckBox) -> None:
@@ -112,14 +112,11 @@ class SearchPanel:
     def update_input(self, value:str) -> None:
         return self._w_input.setText(value)
 
-    def update_results(self, matches:SearchResults, *, can_expand=False) -> None:
+    def update_results(self, matches:SearchResults) -> None:
         """ Replace the current set of search results.
-            If <can_expand> is True, add a final list item to allow search expansion.
             If there was only one match, select it and proceed with a query as if the user had clicked it. """
         self._matches = matches
         match_list = list(matches)
-        if can_expand:
-            match_list.append(self._MORE_TEXT)
         self._set_matches(match_list)
         self._set_mappings([])
         if len(match_list) == 1:

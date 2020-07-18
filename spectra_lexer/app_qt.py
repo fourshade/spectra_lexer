@@ -24,16 +24,15 @@ from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLog
 
 def build_app(spectra:Spectra) -> QtGUIApplication:
     """ Build the interactive Qt GUI application with all necessary components. """
-    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine
     board_engine = spectra.board_engine
+    gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
+    io = spectra.resource_io
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
     cfg_path = spectra.cfg_path
-    log = spectra.logger.log
-    gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
     gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
     tasks = QtTaskExecutor()
     w_window = QMainWindow()
@@ -50,7 +49,8 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     board = BoardPanel(ui.w_board, ui.w_caption, ui.w_slider, ui.w_link_save, ui.w_link_examples)
     app = QtGUIApplication(gui_engine, gui_ext, tasks, dialogs, window, menu, title, search, graph, board)
     exc_handler = CompositeExceptionHandler()
-    exc_handler.add(ExceptionLogger(log))
+    exc_logger = ExceptionLogger(spectra.logger.log)
+    exc_handler.add(exc_logger)
     exc_handler.add(app.on_exception)
     sys.excepthook = exc_handler
     f_menu = menu.get_section("File")
@@ -71,7 +71,7 @@ def main() -> int:
     """ In standalone mode, we must create a QApplication and run a GUI event loop indefinitely. """
     q_app = QApplication(sys.argv)
     opts = SpectraOptions("Run Spectra as a standalone GUI application.")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     app = build_app(spectra)
     app.start()
     return q_app.exec_()

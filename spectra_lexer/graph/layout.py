@@ -47,7 +47,7 @@ class CompressedGraphLayout(GraphLayout):
         Since nodes belonging to different strokes may occupy the same row, no stroke separators are drawn. """
 
     def __init__(self, max_width=50, max_height=50) -> None:
-        self._max_width = max_width   # Graphs should never be wider than this many columns.
+        self._max_width = max_width    # Graphs should never be wider than this many columns.
         self._max_height = max_height  # Graphs should never be taller than this many rows.
 
     def arrange(self, params_iter:LayoutIn) -> LayoutOut:

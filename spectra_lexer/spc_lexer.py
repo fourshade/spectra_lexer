@@ -2,13 +2,9 @@ from collections import defaultdict
 from typing import Iterable, List, Mapping
 
 from spectra_lexer.lexer import LexerRule
-from spectra_lexer.lexer.composite import PriorityRuleMatcher
-from spectra_lexer.lexer.exact import StrokeMatcher, WordMatcher
 from spectra_lexer.lexer.lexer import LexerResult, StenoLexer
 from spectra_lexer.lexer.parallel import ParallelMapper
-from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
-from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
-from spectra_lexer.resource.keys import StenoKeyLayout
+from spectra_lexer.resource.keys import StenoKeyConverter
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translation
 
@@ -48,14 +44,14 @@ class TranslationFilter:
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
-    def __init__(self, keymap:StenoKeyLayout, lexer:StenoLexer, rule_sep:StenoRule,
-                 refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
-        self._to_skeys = keymap.rtfcre_to_skeys   # Converts user RTFCRE steno strings to s-keys.
-        self._to_rtfcre = keymap.skeys_to_rtfcre  # Converts s-keys back to RTFCRE.
-        self._lexer = lexer                       # Main analysis engine; operates only on s-keys.
-        self._rule_sep = rule_sep                 # Stroke separator rule.
-        self._refmap = refmap                     # Mapping of lexer rule objects to their original StenoRules.
-        self._idmap = idmap                       # Mapping of lexer rule objects to valid example rule IDs.
+    def __init__(self, to_skeys:StenoKeyConverter, to_rtfcre:StenoKeyConverter, lexer:StenoLexer,
+                 rule_sep:StenoRule, refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
+        self._to_skeys = to_skeys    # Converts user RTFCRE steno strings to s-keys.
+        self._to_rtfcre = to_rtfcre  # Converts s-keys back to RTFCRE.
+        self._lexer = lexer          # Main analysis engine; operates only on s-keys.
+        self._rule_sep = rule_sep    # Stroke separator rule.
+        self._refmap = refmap        # Mapping of lexer rule objects to their original StenoRules.
+        self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
 
     @staticmethod
     def _result_info(result:LexerResult) -> str:
@@ -145,68 +141,3 @@ class StenoAnalyzer:
         """ Normalize a set of RTFCRE keys by converting back and forth. """
         skeys = self._to_skeys(keys)
         return self._to_rtfcre(skeys)
-
-
-def build_analyzer(keymap:StenoKeyLayout, rules:Iterable[StenoRule]) -> StenoAnalyzer:
-    """ Distribute rules and build the rule matchers, lexer and analyzer. """
-    refmap = {}
-    matcher_groups = []
-    key_sep = keymap.separator_key()
-    key_special = keymap.special_key()
-
-    # Separators are force-matched before the normal matchers can waste cycles on them.
-    sep_matcher = DelimiterMatcher()
-    lr_sep = LexerRule(key_sep, "", 0)
-    rule_sep = StenoRule(key_sep, "", "stroke separator")
-    refmap[lr_sep] = rule_sep
-    sep_matcher.add(lr_sep)
-    matcher_groups.append([sep_matcher])
-
-    # Matchers for rules without special behavior are processed as one group.
-    prefix_matcher = UnorderedPrefixMatcher(key_sep, key_special)
-    stroke_matcher = StrokeMatcher(key_sep)
-    word_matcher = WordMatcher()
-    idmap = {}
-    for rule in rules:
-        # Convert each rule to lexer format. Rule weight is assigned based on letters matched.
-        # Rare rules are uncommon in usage and/or prone to causing false positives.
-        # They have slightly reduced weight so that other rules with equal letter count are chosen first.
-        # Word rules may be otherwise equal to some prefixes and suffixes; they need *more* weight to win.
-        skeys = keymap.rtfcre_to_skeys(rule.keys)
-        letters = rule.letters
-        weight = 10 * len(letters) - rule.is_rare + rule.is_word
-        lr = LexerRule(skeys, letters, weight)
-        # Map every lexer-format rule to the original so we can convert back.
-        refmap[lr] = rule
-        # Rules without special behavior should be in example indices.
-        idmap[lr] = rule.id
-        # Add the lexer rule to one of the rule matchers based on flags.
-        if rule.is_reference:
-            # Reference-only rules are not matched directly.
-            pass
-        elif rule.is_stroke:
-            # Stroke rules are matched only by complete strokes.
-            stroke_matcher.add(lr)
-        elif rule.is_word:
-            # Word rules are matched only by whole words (but still case-insensitive).
-            word_matcher.add(lr)
-        else:
-            # All other rules are added to the tree-based prefix matcher.
-            prefix_matcher.add(lr)
-    matcher_groups.append([prefix_matcher, stroke_matcher, word_matcher])
-
-    # Use the special matcher only if absolutely nothing else has worked.
-    special_matcher = SpecialMatcher(key_sep)
-    for pred in SpecialMatcher.Predicate.LIST:
-        # Rules with special behavior must be handled case-by-case.
-        lr = LexerRule(key_special, "", 0)
-        info = key_special + ": " + pred.desc
-        rule = StenoRule(key_special, "", info, set(), "", pred.repl)
-        refmap[lr] = rule
-        special_matcher.add_test(lr, pred)
-    matcher_groups.append([special_matcher])
-
-    # Each matcher group is tried in order of priority (separators first, specials last).
-    matcher = PriorityRuleMatcher(*matcher_groups)
-    lexer = StenoLexer(matcher)
-    return StenoAnalyzer(keymap, lexer, rule_sep, refmap, idmap)

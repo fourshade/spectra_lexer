@@ -46,6 +46,18 @@ class StenoRule:
         self.id = r_id          # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
         self.alt = alt          # Alternate text specifically for display in diagrams.
 
+    def __bool__(self) -> bool:
+        """ Return True if this rule is compound, meaning it is composed of smaller child rules. """
+        return bool(self._rulemap)
+
+    def __iter__(self) -> Iterator[Connection]:
+        """ Yield each child rule connection in order. """
+        return iter(self._rulemap)
+
+    def __str__(self) -> str:
+        """ The standard string representation of a rule is its keys -> letters mapping. """
+        return f"{self.keys} → {self.letters}"
+
     def add_connection(self, child:"StenoRule", start:int, length:int) -> None:
         """ Connect a <child> rule to this one at <start>. Must be done in order. <length> may be 0. """
         item = self.Connection(child, start, length)
@@ -65,7 +77,7 @@ class StenoRule:
         return self
 
     @classmethod
-    def unmatched(cls, unmatched_keys:str) -> None:
+    def unmatched(cls, unmatched_keys:str) -> "StenoRule":
         """ Placeholder rule mapping leftover keys to an empty string of letters. """
         return cls(unmatched_keys, "", unmatched_keys + ": unmatched keys", {cls.is_unmatched})
 
@@ -79,18 +91,6 @@ class StenoRule:
         remaining_length = len(self.letters) - last_child_end
         child = self.unmatched(unmatched_keys)
         self.add_connection(child, last_child_end, remaining_length)
-
-    def __bool__(self) -> bool:
-        """ Return True if this rule is compound, meaning it is composed of smaller child rules. """
-        return bool(self._rulemap)
-
-    def __iter__(self) -> Iterator[Connection]:
-        """ Yield each child rule connection in order. """
-        return iter(self._rulemap)
-
-    def __str__(self) -> str:
-        """ The standard string representation of a rule is its keys -> letters mapping. """
-        return f"{self.keys} → {self.letters}"
 
     def verify(self, valid_rtfcre:Iterable[str], delimiters:Iterable[str]) -> None:
         """ Perform integrity checks on this rule. """

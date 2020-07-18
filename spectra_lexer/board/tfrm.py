@@ -1,94 +1,105 @@
-from math import ceil, cos, pi, sin
-from typing import Sequence, Tuple
+from math import cos, pi, sin
+from typing import Iterator, Sequence
 
 
-class TransformData:
-    """ Data for a 2D affine transformation. """
+class AffineTransform:
+    """ 2D affine transformation.
+        Any transform with scaling, rotation, translation, etc. can be composed into at most six coefficients.
+        [ax, bx, cx]
+        [ay, by, cy]
+        [ 0,  0,  1] """
+
+    __slots__ = ("_coefs",)
 
     def __init__(self) -> None:
-        self._scale_x = 1.0
-        self._shear_y = 0.0
-        self._shear_x = 0.0
-        self._scale_y = 1.0
-        self._dx = 0.0
-        self._dy = 0.0
-        self._simple = True
+        """ Start with the identity transform. """
+        self._coefs = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)  # Transform coefficients [ax, ay, bx, by, cx, cy].
 
-    @classmethod
-    def translation(cls, dx:float, dy:float) -> "TransformData":
-        """ Shortcut for creating a blank transform and translating it. """
-        self = cls()
-        self.translate(dx, dy)
-        return self
-
-    def offset(self) -> complex:
-        """ Return the current translation offset in complex form. """
-        return self._dx + self._dy * 1j
+    def _mul(self, x1:float, y1:float, x2:float, y2:float, x3:float, y3:float) -> None:
+        """ Apply a transform by matrix multiplication.
+            [x1, x2, x3][ax, bx, cx]   [ax*x1+ay*x2, bx*x1+by*x2, cx*x1+cy*x2+x3]
+            [y1, y2, y3][ay, by, cy] = [ax*y1+ay*y2, bx*y1+by*y2, cx*y1+cy*y2+y3]
+            [ 0,  0,  1][ 0,  0,  1]   [          0,           0,              1] """
+        ax, ay, bx, by, cx, cy = self._coefs
+        self._coefs = (ax*x1+ay*x2, ax*y1+ay*y2, bx*x1+by*x2, bx*y1+by*y2, cx*x1+cy*x2+x3, cx*y1+cy*y2+y3)
 
     def rotate(self, degrees:float) -> None:
         """ Rotate the system <degrees> counterclockwise. """
-        theta = degrees * pi / 180
-        self._scale_x = cos(theta)
-        self._shear_y = -sin(theta)
-        self._shear_x = sin(theta)
-        self._scale_y = cos(theta)
-        self._simple = False
+        theta = degrees * pi / 180.0
+        c = cos(theta)
+        s = sin(theta)
+        self._mul(c, -s, s, c, 0.0, 0.0)
 
     def scale(self, scale_x:float, scale_y:float) -> None:
-        """ Scale the system by a decimal amount. """
-        self._scale_x *= scale_x
-        self._scale_y *= scale_y
-        self._simple = False
+        """ Grow or shrink the system by decimal scaling factors. """
+        self._mul(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0)
 
-    def translate(self, dx:float, dy:float) -> None:
-        """ Translate (move) the system by an additional offset of <dx, dy>. """
-        self._dx += dx
-        self._dy += dy
+    def translate(self, x:float, y:float) -> None:
+        """ Translate (move) the system by an additional offset of <x, y>. """
+        self._mul(1.0, 0.0, 0.0, 1.0, x, y)
 
-    def to_string(self) -> str:
-        """ A linear transform with scaling, rotation, translation, etc. can be done in one step with a matrix. """
-        dx = self._dx
-        dy = self._dy
-        if self._simple:
-            # If only one type of transformation is involved, use the simpler attributes.
-            if not dx and not dy:
-                return ''
-            return f'translate({dx}, {dy})'
-        return f'matrix({self._scale_x}, {self._shear_y}, {self._shear_x}, {self._scale_y}, {dx}, {dy})'
+    def compose(self, other:'AffineTransform') -> None:
+        """ Combine the effects of another transform with this one. """
+        self._mul(*other._coefs)
+
+    def coefs(self) -> Sequence[float]:
+        """ Return all six transform coefficients in standard order. """
+        return self._coefs
 
 
-class GridLayoutEngine:
-    """ Calculates dimensions and transforms for items arranged in a grid. """
+class TextOrientation:
+    """ Possible orientation for fitting text inside a shape. """
 
-    def __init__(self, left:int, top:int, width:int, height:int) -> None:
-        self._left = left      # X offset for the full grid.
-        self._top = top        # Y offset for the full grid.
-        self._width = width    # Width of a single cell.
-        self._height = height  # Height of a single cell.
+    def __init__(self, width:float, height:float, angle:float) -> None:
+        self._width = width    # Available width in pixels at this orientation.
+        self._height = height  # Available height in pixels at this orientation.
+        self._angle = angle    # Rotation angle in degrees, CCW positive from horizontal.
 
-    def arrange(self, count:int, aspect_ratio:float) -> Tuple[int, int]:
-        """ Calculate the best arrangement of <count> cells in rows and columns
-            for the best possible scale in a viewing area of <aspect_ratio>. """
-        diagram_ratio = self._width / self._height
-        # rel_ratio is the aspect ratio of one cell divided by that of the viewing area.
-        rel_ratio = diagram_ratio / aspect_ratio
-        r = min(rel_ratio, 1 / rel_ratio)
-        s = int((count * r) ** 0.5) or 1
-        if r * ceil(count / s) > (s + 1):
-            s += 1
-        t = ceil(count / s)
-        return (s, t) if rel_ratio < 1 else (t, s)
+    def _max_scale(self, w:float, h:float) -> float:
+        """ Return the maximum scale factor that fits a rectangular area of <w, h> inside this shape. """
+        return min(self._width / w, self._height / h)
 
-    def _offset_tfrm(self, i:int, ncols:int) -> TransformData:
-        """ Create a (dx, dy) translation for row-major cell <i> in a grid with <ncols> columns. """
-        dx = self._width * (i % ncols)
-        dy = self._height * (i // ncols)
-        return TransformData.translation(dx, dy)
+    def legibility(self, w:float, h:float) -> float:
+        """ Return a 'legibility' score based on both the scale and tilt angle for text inside this shape.
+            Relative legibility by angle is: horizontal=1, vertical=1/2, upside down=0. """
+        return self._max_scale(w, h) * (180.0 - abs(self._angle))
 
-    def transforms(self, count:int, ncols:int) -> Sequence[TransformData]:
-        """ Create evenly spaced offset transformations for a grid with <count> cells in <ncols> columns. """
-        return [self._offset_tfrm(i, ncols) for i in range(count)]
+    def apply(self, tfrm:AffineTransform, w:float, h:float) -> None:
+        """ Apply transformations that will fit text with an area of <w, h> inside this shape.
+            The y-axis must be inverted since typography defines +y=up, but computer graphics is +y=down. """
+        scale = self._max_scale(w, h)
+        tfrm.scale(scale, -scale)
+        tfrm.rotate(self._angle)
 
-    def viewbox(self, rows:int, cols:int) -> Tuple[int, int, int, int]:
-        """ Return the final offset and dimensions for a grid of size <rows, cols>. """
-        return (self._left, self._top, self._width * cols, self._height * rows)
+
+TextOrientations = Sequence[TextOrientation]
+
+
+class TextTransformer:
+    """ Generates transforms to fit monospaced text glyphs inside irregular shapes.
+        Glyphs are defined using standard typography conventions and units. """
+
+    def __init__(self, em_size:int, tracking:int, baseline:int) -> None:
+        self._em_size = em_size    # Total line height in native transform units (1000 is common).
+        self._tracking = tracking  # Spacing between glyphs in native units.
+        self._baseline = baseline  # Baseline height above the origin in native units.
+
+    def iter_char_tfrms(self, n:int) -> Iterator[AffineTransform]:
+        """ Yield an unscaled transform for each character of an origin-centered string of length <n>. """
+        y = self._baseline - (self._em_size / 2)
+        for i in range(n):
+            x = (i - n / 2) * self._tracking
+            tfrm = AffineTransform()
+            tfrm.translate(x, y)
+            yield tfrm
+
+    def orient_tfrm(self, n:int, orients:TextOrientations) -> AffineTransform:
+        """ Return an affine transform for a complete string of length <n> centered at the origin.
+            Use the best-fitting overall transform from the given sequence of orientations. """
+        tfrm = AffineTransform()
+        if n > 0 and orients:
+            w_max = n * self._tracking
+            h_max = self._em_size
+            best_orient = max(orients, key=lambda o: o.legibility(w_max, h_max))
+            best_orient.apply(tfrm, w_max, h_max)
+        return tfrm

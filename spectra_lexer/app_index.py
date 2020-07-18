@@ -13,9 +13,9 @@ def main() -> int:
     fcls = TranslationFilter
     opts.add("size", fcls.SIZE_MEDIUM, f"Relative size of generated index ({fcls.SIZE_MINIMUM}-{fcls.SIZE_MAXIMUM}).")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
-    spectra = Spectra.compile(opts)
+    spectra = Spectra(opts)
     log = spectra.logger.log
-    log("Operation started...")
+    log("Compiling examples index...")
     start_time = time()
     io = spectra.resource_io
     analyzer = spectra.analyzer
@@ -26,7 +26,7 @@ def main() -> int:
     examples = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)
     io.save_json_examples(file_out, examples)
     total_time = time() - start_time
-    log(f"Operation done in {total_time:.1f} seconds.")
+    log(f"Index complete in {total_time:.1f} seconds.")
     return 0
 
 

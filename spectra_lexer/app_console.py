@@ -7,10 +7,11 @@ from spectra_lexer.console.system import SystemConsole
 
 
 def main() -> int:
-    """ Run an interactive read-eval-print loop in a new console. """
+    """ Load basic resources and run an interactive read-eval-print loop in a new console. """
     opts = SpectraOptions("Run Spectra from scratch in an interactive Python console.")
-    spectra = Spectra.compile(opts)
-    namespace = {**vars(spectra)}
+    spectra = Spectra(opts)
+    spectra.logger.log("Loading console...")
+    namespace = {k: getattr(spectra, k) for k in dir(spectra) if not k.startswith('_')}
     console = SystemConsole.open(namespace)
     console.repl()
     return 0

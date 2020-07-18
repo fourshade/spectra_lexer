@@ -8,14 +8,6 @@ from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import MatchDict, SearchEngine
 
 
-class SearchResults:
-    """ Data class for all results of a search. """
-
-    def __init__(self, matches:MatchDict, is_complete=True) -> None:
-        self.matches = matches          # Dict of matched strings with a sequence of mappings for each.
-        self.is_complete = is_complete  # If True, no more results are available. Asking for more pages will not help.
-
-
 class QueryResults:
     """ Data class for query results usable by the GUI. """
 
@@ -31,7 +23,6 @@ class GUIOptions:
     search_mode_strokes: bool = False       # If True, search for strokes instead of translations.
     search_mode_regex: bool = False         # If True, perform search using regex characters.
     search_match_limit: int = 100           # Maximum number of matches returned on one page of a search.
-    search_index_delim: str = ";"           # Delimiter between rule name and query for example index searches.
     lexer_strict_mode: bool = False         # Only return lexer results that match every key in a translation.
     board_aspect_ratio: float = None        # Aspect ratio for board viewing area (None means pure horizontal layout).
     board_show_compound: bool = True        # Show compound keys on board with alt labels (i.e. F instead of TP).
@@ -69,39 +60,17 @@ class GUIEngine:
     def set_options(self, opts:GUIOptions) -> None:
         self._opts = opts
 
-    def _search(self, pattern:str, count:int) -> MatchDict:
+    def search(self, pattern:str, pages=1) -> MatchDict:
+        """ Perform a search based on the current options. """
+        count = pages * self._opts.search_match_limit
         mode_strokes = self._opts.search_mode_strokes
         mode_regex = self._opts.search_mode_regex
         return self._search_engine.search(pattern, count, mode_strokes=mode_strokes, mode_regex=mode_regex)
 
-    def _search_examples(self, link_ref:str, pattern:str) -> MatchDict:
-        count = self._opts.search_match_limit
-        mode_strokes = self._opts.search_mode_strokes
-        return self._search_engine.search_examples(link_ref, pattern, count, mode_strokes=mode_strokes)
-
-    def search(self, pattern:str, pages=1) -> SearchResults:
-        """ Perform a search based on the current options and/or presence of the index delimiter. """
-        index_delim = self._opts.search_index_delim
-        if not pattern or pattern.isspace():
-            matches = {}
-            is_complete = True
-        elif index_delim in pattern:
-            link_ref, tr_pattern = pattern.split(index_delim, 1)
-            matches = self._search_examples(link_ref, tr_pattern)
-            is_complete = True
-        else:
-            count = pages * self._opts.search_match_limit
-            matches = self._search(pattern, count)
-            is_complete = len(matches) < count
-        return SearchResults(matches, is_complete)
-
     def random_pattern(self, example_id:str) -> str:
         """ Return a valid example search pattern for <example_id> centered on a random translation if one exists. """
         mode_strokes = self._opts.search_mode_strokes
-        matches = self._search_engine.random_examples(example_id, 1, mode_strokes=mode_strokes)
-        if not matches:
-            return ""
-        return example_id + self._opts.search_index_delim + [*matches][0]
+        return self._search_engine.random_pattern(example_id, mode_strokes=mode_strokes)
 
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
@@ -123,9 +92,8 @@ class GUIEngine:
             keys = self._analyzer.best_translation(keys, letters)
         return self._query(keys, letters)
 
-    def query_random(self, results:SearchResults) -> QueryResults:
-        """ Execute a lexer query on a translation randomly chosen from <results>. """
-        matches = results.matches
+    def query_random(self, matches:MatchDict) -> QueryResults:
+        """ Execute a lexer query on a translation randomly chosen from <matches>. """
         assert matches
         match = random.choice(list(matches))
         mapping = matches[match][0]

@@ -21,7 +21,7 @@ class HTMLFormat:
 
 GRAPH_CSS_CLASS = "stenoGraph"
 
-# Formats text using preformatted whitespace with normal line breaks.
+# Format using preformatted whitespace with normal line breaks.
 # Adds additional styles needed for monospacing.
 STANDARD_FORMAT = HTMLFormat(
     header=f'<div class="{GRAPH_CSS_CLASS}">',
@@ -31,7 +31,7 @@ STANDARD_FORMAT = HTMLFormat(
     stylesheet=f'.{GRAPH_CSS_CLASS} {{white-space: pre;}} '
                f'.{GRAPH_CSS_CLASS} a {{color: black; text-decoration: none;}} ')
 
-# Formats text using explicit HTML tables. Useful for browsers that have trouble lining up monospace fonts.
+# Format using explicit HTML tables. Useful for browsers that have trouble lining up monospace fonts.
 # Adds additional styles needed for table elements.
 COMPAT_FORMAT = HTMLFormat(
     header=f'<table class="{GRAPH_CSS_CLASS}"><tr><td>',
