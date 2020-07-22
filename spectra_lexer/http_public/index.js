@@ -174,7 +174,7 @@ function SpectraClient() {
         return false;
     });
 
-    function updateSearch(matches) {
+    function updateMatches(matches) {
         lastMatches = matches;
         let keys = Object.keys(matches);
         matchSelector.update(keys);
@@ -216,12 +216,12 @@ function SpectraClient() {
         }
         setPage(startPage);
     }
-    function updateGUI({search_results, display_data}) {
-        if(search_results) {  // New items in the search lists.
-            updateSearch(search_results)
+    function updateGUI({matches, display) {
+        if(matches) {  // New items in the search lists.
+            updateMatches(matches)
         }
-        if(display_data) {  // New graphical objects.
-            updateDisplay(display_data)
+        if(display) {  // New graphical objects.
+            updateDisplay(display)
         }
     }
 

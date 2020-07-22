@@ -28,12 +28,12 @@ class RESTDisplay:
         self.default_page = default_page  # Default starting analysis page. May also be included in pages_by_ref.
 
 
-class RESTUpdate:
-    """ Data class that contains an entire REST GUI update. All fields are optional. """
+class RESTUpdates:
+    """ Data class for a set of REST GUI updates. All fields are optional. """
 
-    def __init__(self, search_results:MatchDict=None, display_data:RESTDisplay=None) -> None:
-        self.search_results = search_results  # Product of a search action.
-        self.display_data = display_data      # Product of a query action.
+    def __init__(self, matches:MatchDict=None, display:RESTDisplay=None) -> None:
+        self.matches = matches  # New items in the search lists.
+        self.display = display  # New graphical objects.
 
 
 class RESTGUIApplication:
@@ -43,57 +43,54 @@ class RESTGUIApplication:
         All display pages for to a single rule or lexer query are further stored in a single data object.
         This allows for fewer HTTP requests and more opportunities for caching. """
 
-    def __init__(self, gui:GUIEngine) -> None:
-        self._gui = gui
+    def __init__(self, engine:GUIEngine) -> None:
+        self._engine = engine
         self._lock = Lock()
 
-    def run(self, action:str, args:Iterable=(), options:dict=None) -> RESTUpdate:
+    def run(self, action:str, args:Iterable=(), options:dict=None) -> RESTUpdates:
         """ Perform a REST app action. Input data includes an action method, its arguments (if any), and GUI options.
             Option and graph state is not thread-safe, so we need a lock. """
         opts = GUIOptions(options)
         with self._lock:
-            self._gui.set_options(opts)
+            self._engine.set_options(opts)
             method = getattr(self, "REST_" + action)
-            return method(*args)
+            updates = method(*args)
+            return RESTUpdates(**updates)
 
     def _draw_page(self, ref="") -> RESTDisplayPage:
         """ Create a display page for a rule <ref>erence, or a default page if ref is empty or invalid. """
-        ngraph = self._gui.draw_graph(ref)
-        igraph = self._gui.draw_graph(ref, intense=True)
-        caption = self._gui.get_caption(ref)
-        board = self._gui.draw_board(ref)
-        r_id = self._gui.get_example_id(ref)
+        ngraph = self._engine.draw_graph(ref)
+        igraph = self._engine.draw_graph(ref, intense=True)
+        caption = self._engine.get_caption(ref)
+        board = self._engine.draw_board(ref)
+        r_id = self._engine.get_example_id(ref)
         return RESTDisplayPage(ngraph, igraph, caption, board, r_id)
 
     def _display(self, keys:str, letters:str) -> RESTDisplay:
         """ Run a query and return a full set of display data, including all possible selections. """
-        refs = self._gui.query(keys, letters)
+        refs = self._engine.query(keys, letters)
         pages = {ref: self._draw_page(ref) for ref in refs}
         default_page = self._draw_page()
         return RESTDisplay(keys, letters, pages, default_page)
 
-    def REST_search(self, pattern:str, pages=1) -> RESTUpdate:
+    def REST_search(self, pattern:str, pages=1) -> dict:
         """ Do a new search and return results (unless the pattern is just whitespace). """
-        search_results = self._gui.search(pattern, pages)
-        return RESTUpdate(search_results=search_results)
+        return {"matches": self._engine.search(pattern, pages)}
 
-    def REST_query(self, keys:str, letters:str) -> RESTUpdate:
+    def REST_query(self, keys:str, letters:str) -> dict:
         """ Execute and return a full display of a lexer query. """
-        display_data = self._display(keys, letters)
-        return RESTUpdate(display_data=display_data)
+        return {"display": self._display(keys, letters)}
 
-    def REST_query_match(self, match:str, mappings:Sequence[str]) -> RESTUpdate:
+    def REST_query_match(self, match:str, mappings:Sequence[str]) -> dict:
         """ Query and display the best translation in a match-mappings pair from search. """
-        keys, letters = self._gui.best_translation(match, mappings)
-        return self.REST_query(keys, letters)
+        keys, letters = self._engine.best_translation(match, mappings)
+        return {"display": self._display(keys, letters)}
 
-    def REST_search_examples(self, link_ref:str) -> RESTUpdate:
+    def REST_search_examples(self, link_ref:str) -> dict:
         """ Search for examples of the named rule and display one at random. """
-        pattern = self._gui.random_pattern(link_ref)
+        pattern = self._engine.random_pattern(link_ref)
         if not pattern:
-            search_results = display_data = None
-        else:
-            search_results = self._gui.search(pattern)
-            keys, letters = self._gui.random_translation(search_results)
-            display_data = self._display(keys, letters)
-        return RESTUpdate(search_results=search_results, display_data=display_data)
+            return {}
+        matches = self._engine.search(pattern)
+        keys, letters = self._engine.random_translation(matches)
+        return {"matches": matches, "display": self._display(keys, letters)}

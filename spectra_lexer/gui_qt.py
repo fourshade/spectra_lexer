@@ -51,8 +51,7 @@ class QtGUIApplication:
         self._board.set_caption(caption)
 
     def _set_translation(self, keys:str, letters:str) -> None:
-        """ Format a translation and show it in the search boxes and/or title bar. """
-        self._search.select_translation(keys, letters)
+        """ Format a translation and show it in the title bar. """
         tr_text = " ".join([keys, self.TR_DELIMITER, letters])
         self._set_title(tr_text)
 
@@ -117,29 +116,21 @@ class QtGUIApplication:
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
-        search_results = self._engine.search(pattern, pages)
-        self._search.update_results(search_results)
+        matches = self._engine.search(pattern, pages)
+        self._search.update_results(matches)
 
     def gui_query(self, keys:str, letters:str) -> None:
         """ Run a lexer query and update the GUI with the new analysis.
             Attempt to show a page using the last link target, otherwise show the default.
             Forcibly reset the graph's focus before setting the start page. """
+        match, mapping = [keys, letters] if self._search.is_mode_strokes() else [letters, keys]
+        self._search.select(match, mapping)
         self._set_translation(keys, letters)
         refs = self._engine.query(keys, letters)
         start_ref = self._find_same_example(refs)
         intense = bool(start_ref)
         self._graph.set_focus(intense)
         self._show_page(start_ref, intense)
-
-    def gui_search_examples(self) -> None:
-        """ Run an example search based on the last valid link reference and update the GUI with any results. """
-        pattern = self._engine.random_pattern(self._last_example_id)
-        if pattern:
-            self._search.update_input(pattern)
-            search_results = self._engine.search(pattern)
-            self._search.update_results(search_results)
-            keys, letters = self._engine.random_translation(search_results)
-            self.gui_query(keys, letters)
 
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
@@ -159,6 +150,26 @@ class QtGUIApplication:
         self.set_options()
         self.gui_query(keys, letters)
 
+    def _on_search_input(self, pattern:str, pages:int) -> None:
+        self.set_options()
+        self.gui_search(pattern, pages)
+
+    def _on_search_query(self, match:str, mappings:Sequence[str]) -> None:
+        self.set_options()
+        keys, letters = self._engine.best_translation(match, mappings)
+        self.gui_query(keys, letters)
+
+    def _on_request_examples(self) -> None:
+        """ Run an example search and update the GUI with any results. """
+        self.set_options()
+        pattern = self._engine.random_pattern(self._last_example_id)
+        if pattern:
+            self._search.update_input(pattern)
+            results = self._engine.search(pattern)
+            self._search.update_results(results)
+            keys, letters = self._engine.random_translation(results)
+            self.gui_query(keys, letters)
+
     def _on_graph_action(self, node_ref:str, intense:bool) -> None:
         """ On mouse actions, change the current analysis page to the one under <node_ref>. """
         self._show_page(node_ref, intense)
@@ -175,19 +186,6 @@ class QtGUIApplication:
         filename = self._dialogs.save_file("Save Board Diagram", "svg|png", "board.svg")
         if filename:
             self._board.dump_image(filename)
-
-    def _on_search_input(self, pattern:str, pages:int) -> None:
-        self.set_options()
-        self.gui_search(pattern, pages)
-
-    def _on_search_query(self, match:str, mappings:Sequence[str]) -> None:
-        self.set_options()
-        keys, letters = self._engine.best_translation(match, mappings)
-        self.gui_query(keys, letters)
-
-    def _on_request_examples(self) -> None:
-        self.set_options()
-        self.gui_search_examples()
 
     def _connect_signals(self) -> None:
         self._title.connect_signals(self._on_translation_edit, self._on_translation_submit)

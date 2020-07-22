@@ -63,16 +63,6 @@ class GUIEngine:
         mode_strokes = self._opts.search_mode_strokes
         return self._search_engine.random_pattern(example_id, mode_strokes=mode_strokes)
 
-    def random_translation(self, matches:MatchDict) -> Translation:
-        """ Return a translation randomly chosen from <matches>. """
-        assert matches
-        match = random.choice(list(matches))
-        mapping = matches[match][0]
-        if self._opts.search_mode_strokes:
-            return match, mapping
-        else:
-            return mapping, match
-
     def best_translation(self, match:str, mappings:Sequence[str]) -> Translation:
         """ Return the best translation in a match-mappings pair from search. """
         if self._opts.search_mode_strokes:
@@ -83,6 +73,13 @@ class GUIEngine:
             keys = self._analyzer.best_translation(mappings, match)
             letters = match
         return keys, letters
+
+    def random_translation(self, matches:MatchDict) -> Translation:
+        """ Return a translation randomly chosen from <matches>. """
+        assert matches
+        match = random.choice(list(matches))
+        mappings = matches[match]
+        return self.best_translation(match, mappings)
 
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)

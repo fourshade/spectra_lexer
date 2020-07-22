@@ -117,9 +117,8 @@ class SearchPanel:
     def clear_results(self) -> None:
         self.update_results({})
 
-    def select_translation(self, keys:str, letters:str) -> None:
-        """ Set the current selections to match the analyzed translation if possible. Do not send queries. """
-        match, mapping = [keys, letters] if self.is_mode_strokes() else [letters, keys]
+    def select(self, match:str, mapping="") -> None:
+        """ Set the current selections to <match> and <mapping> if possible. Do not send queries. """
         if match in self._matches:
             mappings = self._matches[match]
             self._select_match(match)
