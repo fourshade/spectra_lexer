@@ -189,20 +189,18 @@ function SpectraClient() {
             onSelectMatch(match);
         }
     }
-    function updateDisplay({keys, letters, pages_by_ref, default_page}) {
-        currentPages = pages_by_ref;
-        currentDefaultPage = default_page;
-        displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
-        // Set the current selections to match the translation if possible.
-        let strokes = searchModeStrokes.checked;
-        let match = strokes ? keys : letters;
-        let mapping = strokes ? letters : keys;
+    function updateSelections({match, mapping}) {
         let mappings = lastMatches[match];
         if(mappings) {
             matchSelector.selectText(match);
             mappingSelector.update(mappings);
             mappingSelector.selectText(mapping);
         }
+    }
+    function updateDisplay({keys, letters, pages_by_ref, default_page}) {
+        displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
+        currentPages = pages_by_ref;
+        currentDefaultPage = default_page;
         let startPage = default_page;
         graphFocused = false;
         if(currentLink) {
@@ -216,9 +214,12 @@ function SpectraClient() {
         }
         setPage(startPage);
     }
-    function updateGUI({matches, display) {
+    function updateGUI({matches, selections, display}) {
         if(matches) {  // New items in the search lists.
             updateMatches(matches)
+        }
+        if(selections) {  // New selections in the search lists.
+            updateSelections(selections)
         }
         if(display) {  // New graphical objects.
             updateDisplay(display)

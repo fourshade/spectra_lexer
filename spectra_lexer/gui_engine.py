@@ -81,6 +81,9 @@ class GUIEngine:
         mappings = matches[match]
         return self.best_translation(match, mappings)
 
+    def search_selection(self, keys:str, letters:str):
+        return [keys, letters] if self._opts.search_mode_strokes else [letters, keys]
+
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
 

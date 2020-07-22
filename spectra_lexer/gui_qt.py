@@ -123,7 +123,7 @@ class QtGUIApplication:
         """ Run a lexer query and update the GUI with the new analysis.
             Attempt to show a page using the last link target, otherwise show the default.
             Forcibly reset the graph's focus before setting the start page. """
-        match, mapping = [keys, letters] if self._search.is_mode_strokes() else [letters, keys]
+        match, mapping = self._engine.search_selection(keys, letters)
         self._search.select(match, mapping)
         self._set_translation(keys, letters)
         refs = self._engine.query(keys, letters)

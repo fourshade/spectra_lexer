@@ -7,6 +7,13 @@ from spectra_lexer.spc_graph import HTMLGraph
 from spectra_lexer.spc_search import MatchDict
 
 
+class RESTSelections:
+
+    def __init__(self, match:str, mapping:str) -> None:
+        self.match = match
+        self.mapping = mapping
+
+
 class RESTDisplayPage:
     """ Data class that contains two HTML formatted graphs, a caption, an SVG board, and a rule ID reference. """
 
@@ -31,9 +38,10 @@ class RESTDisplay:
 class RESTUpdates:
     """ Data class for a set of REST GUI updates. All fields are optional. """
 
-    def __init__(self, matches:MatchDict=None, display:RESTDisplay=None) -> None:
-        self.matches = matches  # New items in the search lists.
-        self.display = display  # New graphical objects.
+    def __init__(self, matches:MatchDict=None, selections:RESTSelections=None, display:RESTDisplay=None) -> None:
+        self.matches = matches        # New items in the search lists.
+        self.selections = selections  # New selections in the search lists.
+        self.display = display        # New graphical objects.
 
 
 class RESTGUIApplication:
@@ -73,6 +81,10 @@ class RESTGUIApplication:
         default_page = self._draw_page()
         return RESTDisplay(keys, letters, pages, default_page)
 
+    def _select(self, keys:str, letters:str) -> RESTSelections:
+        match, mapping = self._engine.search_selection(keys, letters)
+        return RESTSelections(match, mapping)
+
     def REST_search(self, pattern:str, pages=1) -> dict:
         """ Do a new search and return results (unless the pattern is just whitespace). """
         return {"matches": self._engine.search(pattern, pages)}
@@ -84,7 +96,8 @@ class RESTGUIApplication:
     def REST_query_match(self, match:str, mappings:Sequence[str]) -> dict:
         """ Query and display the best translation in a match-mappings pair from search. """
         keys, letters = self._engine.best_translation(match, mappings)
-        return {"display": self._display(keys, letters)}
+        return {"selections": self._select(keys, letters),
+                "display": self._display(keys, letters)}
 
     def REST_search_examples(self, link_ref:str) -> dict:
         """ Search for examples of the named rule and display one at random. """
@@ -93,4 +106,6 @@ class RESTGUIApplication:
             return {}
         matches = self._engine.search(pattern)
         keys, letters = self._engine.random_translation(matches)
-        return {"matches": matches, "display": self._display(keys, letters)}
+        return {"matches": matches,
+                "selections": self._select(keys, letters),
+                "display": self._display(keys, letters)}
