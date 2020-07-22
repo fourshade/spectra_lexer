@@ -1,7 +1,7 @@
 from typing import Callable, Sequence
 
 from spectra_lexer.console.qt import ConsoleDialog
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults
+from spectra_lexer.gui_engine import GUIEngine, GUIOptions
 from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
@@ -85,23 +85,13 @@ class QtGUIApplication:
         self._board.set_data("")
         self._set_example_id("")
 
-    def _find_same_example(self, refs:Sequence[str]):
+    def _find_same_example(self, refs:Sequence[str]) -> str:
         """ Attempt to find a graph ref that has the same link target as the last selection. """
         if self._last_example_id:
             for ref in refs:
                 if self._last_example_id == self._engine.get_example_id(ref):
                     return ref
         return ""
-
-    def _update_display(self, results:QueryResults) -> None:
-        """ Update the GUI display with a new analysis.
-            Attempt to show a page using the last link target, otherwise show the default.
-            Forcibly reset the graph's focus before setting the start page. """
-        self._set_translation(results.keys, results.letters)
-        start_ref = self._find_same_example(results.refs)
-        intense = bool(start_ref)
-        self._graph.set_focus(intense)
-        self._show_page(start_ref, intense)
 
     def _get_config(self) -> dict:
         return self._ext.get_config()
@@ -125,18 +115,21 @@ class QtGUIApplication:
             vars(opts).update(kwargs)
         self._engine.set_options(opts)
 
-    def set_translations(self, *args) -> None:
-        self._ext.set_translations(*args)
-
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
         search_results = self._engine.search(pattern, pages)
         self._search.update_results(search_results)
 
-    def gui_query(self, keys_or_seq:Sequence[str], letters:str) -> None:
-        """ Run a lexer query and update the GUI with any results. """
-        query_results = self._engine.query(keys_or_seq, letters)
-        self._update_display(query_results)
+    def gui_query(self, keys:str, letters:str) -> None:
+        """ Run a lexer query and update the GUI with the new analysis.
+            Attempt to show a page using the last link target, otherwise show the default.
+            Forcibly reset the graph's focus before setting the start page. """
+        self._set_translation(keys, letters)
+        refs = self._engine.query(keys, letters)
+        start_ref = self._find_same_example(refs)
+        intense = bool(start_ref)
+        self._graph.set_focus(intense)
+        self._show_page(start_ref, intense)
 
     def gui_search_examples(self) -> None:
         """ Run an example search based on the last valid link reference and update the GUI with any results. """
@@ -145,8 +138,8 @@ class QtGUIApplication:
             self._search.update_input(pattern)
             search_results = self._engine.search(pattern)
             self._search.update_results(search_results)
-            query_results = self._engine.query_random(search_results)
-            self._update_display(query_results)
+            keys, letters = self._engine.random_translation(search_results)
+            self.gui_query(keys, letters)
 
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
@@ -187,9 +180,10 @@ class QtGUIApplication:
         self.set_options()
         self.gui_search(pattern, pages)
 
-    def _on_search_query(self, keys_or_seq:Sequence[str], letters:str) -> None:
+    def _on_search_query(self, match:str, mappings:Sequence[str]) -> None:
         self.set_options()
-        self.gui_query(keys_or_seq, letters)
+        keys, letters = self._engine.best_translation(match, mappings)
+        self.gui_query(keys, letters)
 
     def _on_request_examples(self) -> None:
         self.set_options()
@@ -255,6 +249,9 @@ class QtGUIApplication:
 
     def async_finish(self, msg_finish:str) -> None:
         self.async_queue(self._unblock, msg_finish)
+
+    def set_translations(self, *args) -> None:
+        self._ext.set_translations(*args)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """

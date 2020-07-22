@@ -1,20 +1,11 @@
 import random
-from typing import Iterable, List
+from typing import List, Sequence
 
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_graph import GraphEngine, HTMLGraph
-from spectra_lexer.spc_lexer import StenoAnalyzer
+from spectra_lexer.spc_lexer import StenoAnalyzer, Translation
 from spectra_lexer.spc_search import MatchDict, SearchEngine
-
-
-class QueryResults:
-    """ Data class for query results usable by the GUI. """
-
-    def __init__(self, keys:str, letters:str, refs:List[str]) -> None:
-        self.keys = keys
-        self.letters = letters
-        self.refs = refs
 
 
 class GUIOptions:
@@ -72,6 +63,27 @@ class GUIEngine:
         mode_strokes = self._opts.search_mode_strokes
         return self._search_engine.random_pattern(example_id, mode_strokes=mode_strokes)
 
+    def random_translation(self, matches:MatchDict) -> Translation:
+        """ Return a translation randomly chosen from <matches>. """
+        assert matches
+        match = random.choice(list(matches))
+        mapping = matches[match][0]
+        if self._opts.search_mode_strokes:
+            return match, mapping
+        else:
+            return mapping, match
+
+    def best_translation(self, match:str, mappings:Sequence[str]) -> Translation:
+        """ Return the best translation in a match-mappings pair from search. """
+        if self._opts.search_mode_strokes:
+            # There can only be one mapping in strokes mode.
+            keys = match
+            letters = mappings[0]
+        else:
+            keys = self._analyzer.best_translation(mappings, match)
+            letters = match
+        return keys, letters
+
     def _analyze(self, keys:str, letters:str) -> StenoRule:
         return self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
 
@@ -80,25 +92,10 @@ class GUIEngine:
         self._graph = self._graph_engine.graph(analysis, compressed=self._opts.graph_compressed_layout,
                                                compat=self._opts.graph_compatibility_mode)
 
-    def _query(self, keys:str, letters:str) -> QueryResults:
+    def query(self, keys:str, letters:str) -> List[str]:
         analysis = self._analyze(keys, letters)
         self._build_graph(analysis)
-        refs = list(self._graph)
-        return QueryResults(keys, letters, refs)
-
-    def query(self, keys:Iterable[str], letters:str) -> QueryResults:
-        """ Execute a lexer query. <keys> may be either a single string or an iterable of strings. """
-        if not isinstance(keys, str):
-            keys = self._analyzer.best_translation(keys, letters)
-        return self._query(keys, letters)
-
-    def query_random(self, matches:MatchDict) -> QueryResults:
-        """ Execute a lexer query on a translation randomly chosen from <matches>. """
-        assert matches
-        match = random.choice(list(matches))
-        mapping = matches[match][0]
-        keys, letters = (match, mapping) if self._opts.search_mode_strokes else (mapping, match)
-        return self._query(keys, letters)
+        return list(self._graph)
 
     def get_caption(self, ref="") -> str:
         return self._graph.caption(ref)

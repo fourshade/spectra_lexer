@@ -93,6 +93,10 @@ function SpectraClient() {
         lastPageCount = 1;
         doSearch();
     }
+    function querySelection(match, mappings) {
+        sendRequest({action: "query_match",
+                     args: [match, mappings]});
+    }
     function onSelectMatch(match) {
         if(match == MORE_TEXT) {
             lastPageCount++;
@@ -110,13 +114,6 @@ function SpectraClient() {
             let match = matchSelector.value;
             querySelection(match, [mapping]);
         }
-    }
-    function querySelection(match, mappings) {
-        // The order of lexer parameters depends on the strokes mode.
-        // Currently, strokes can never have more than one mapping.
-        let strokes = searchModeStrokes.checked;
-        sendRequest({action: "query",
-                     args: strokes ? [match, mappings[0]]: [mappings, match]});
     }
     searchModeStrokes.addEventListener("change", newSearch);
     searchModeRegex.addEventListener("change", newSearch);

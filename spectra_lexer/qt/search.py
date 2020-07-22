@@ -7,7 +7,7 @@ from .widgets import StringListView
 StringSeq = Sequence[str]
 SearchResults = Mapping[str, StringSeq]  # Ordered mapping of strings matched in a search to their possible values.
 SearchCallback = Callable[[str, int], None]
-QueryCallback = Callable[[StringSeq, str], None]
+QueryCallback = Callable[[str, StringSeq], None]
 
 
 class SearchPanel:
@@ -44,16 +44,6 @@ class SearchPanel:
         input_text = self._w_input.text()
         self._call_search(input_text, self._page_count)
 
-    def _send_query(self, match:str, mappings:StringSeq) -> None:
-        """ Send a lexer query for one or more translations.
-            The order of lexer parameters must be reversed for strokes mode.
-            Currently, strokes can never have more than one mapping. """
-        assert mappings
-        if self.is_mode_strokes():
-            self._call_query([match], mappings[0])
-        else:
-            self._call_query(mappings, match)
-
     def _new_search(self) -> None:
         """ Reset the page count and run a new search. """
         self._page_count = 1
@@ -77,13 +67,13 @@ class SearchPanel:
             mappings = self._matches[match]
             self._set_mappings(mappings)
             if mappings:
-                self._send_query(match, mappings)
+                self._call_query(match, mappings)
 
     def _on_user_select_mapping(self, mapping:str) -> None:
         """ When the user selects a <mapping>, send a lexer query for this specific translation. """
         if mapping:
             match = self._w_matches.selectedValue()
-            self._send_query(match, [mapping])
+            self._call_query(match, [mapping])
 
     def connect_signals(self, call_search:SearchCallback, call_query:QueryCallback) -> None:
         """ Connect all Qt signals for user actions and set the callback functions. """

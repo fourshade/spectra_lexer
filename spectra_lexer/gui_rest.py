@@ -1,7 +1,7 @@
 from threading import Lock
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Sequence
 
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions, QueryResults
+from spectra_lexer.gui_engine import GUIEngine, GUIOptions
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
 from spectra_lexer.spc_search import MatchDict
@@ -65,22 +65,27 @@ class RESTGUIApplication:
         r_id = self._gui.get_example_id(ref)
         return RESTDisplayPage(ngraph, igraph, caption, board, r_id)
 
-    def _display(self, query_results:QueryResults) -> RESTDisplay:
-        """ Return a full set of display data for a query, including all possible selections. """
-        pages = {ref: self._draw_page(ref) for ref in query_results.refs}
+    def _display(self, keys:str, letters:str) -> RESTDisplay:
+        """ Run a query and return a full set of display data, including all possible selections. """
+        refs = self._gui.query(keys, letters)
+        pages = {ref: self._draw_page(ref) for ref in refs}
         default_page = self._draw_page()
-        return RESTDisplay(query_results.keys, query_results.letters, pages, default_page)
+        return RESTDisplay(keys, letters, pages, default_page)
 
     def REST_search(self, pattern:str, pages=1) -> RESTUpdate:
         """ Do a new search and return results (unless the pattern is just whitespace). """
         search_results = self._gui.search(pattern, pages)
         return RESTUpdate(search_results=search_results)
 
-    def REST_query(self, keys:Iterable[str], letters:str) -> RESTUpdate:
+    def REST_query(self, keys:str, letters:str) -> RESTUpdate:
         """ Execute and return a full display of a lexer query. """
-        query_results = self._gui.query(keys, letters)
-        display_data = self._display(query_results)
+        display_data = self._display(keys, letters)
         return RESTUpdate(display_data=display_data)
+
+    def REST_query_match(self, match:str, mappings:Sequence[str]) -> RESTUpdate:
+        """ Query and display the best translation in a match-mappings pair from search. """
+        keys, letters = self._gui.best_translation(match, mappings)
+        return self.REST_query(keys, letters)
 
     def REST_search_examples(self, link_ref:str) -> RESTUpdate:
         """ Search for examples of the named rule and display one at random. """
@@ -89,6 +94,6 @@ class RESTGUIApplication:
             search_results = display_data = None
         else:
             search_results = self._gui.search(pattern)
-            query_results = self._gui.query_random(search_results)
-            display_data = self._display(query_results)
+            keys, letters = self._gui.random_translation(search_results)
+            display_data = self._display(keys, letters)
         return RESTUpdate(search_results=search_results, display_data=display_data)
