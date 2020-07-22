@@ -98,16 +98,3 @@ class StenoRuleFactory:
         self.push()
         child = self.build(unmatched_keys, "", info, is_unmatched=True)
         self.connect(child, last_child_end, remaining_length)
-
-    def join(self, rules:Iterable[StenoRule]) -> StenoRule:
-        """ Join several rules into one by concatenation of keys and letters. """
-        keys = letters = ""
-        offset = 0
-        self.push()
-        for r in rules:
-            keys += r.keys
-            letters += r.letters
-            length = len(r.letters)
-            self.connect(r, offset, length)
-            offset += length
-        return self.build(keys, letters, "combined rules")

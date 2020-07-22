@@ -43,17 +43,16 @@ class TranslationFilter:
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
-    # Rule info strings for analysis results.
+    # Rule info strings for analysis results. The output is nowhere near reliable if some keys are unmatched.
     INFO_COMPLETE = "Found complete match."
     INFO_INCOMPLETE = "Incomplete match. Not reliable."
     INFO_EMPTY = "No matches found."
 
-    def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory, rule_sep:StenoRule,
+    def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory,
                  refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
         self._converter = converter  # Converts between RTFCRE and s-keys formats.
         self._lexer = lexer          # Main analysis engine; operates only on s-keys.
         self._factory = factory      # Creates steno rules from analysis data.
-        self._rule_sep = rule_sep    # Stroke separator rule.
         self._refmap = refmap        # Mapping of lexer rule objects to their original StenoRules.
         self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
 
@@ -65,36 +64,26 @@ class StenoAnalyzer:
         # Convert <skeys> back to RTFCRE format.
         return self._converter.skeys_to_rtfcre(skeys)
 
-    def _result_info(self, result:LexerResult) -> str:
-        """ Return an info string for this result. The output is nowhere near reliable if some keys are unmatched. """
-        if not result.unmatched_skeys:
-            info = self.INFO_COMPLETE
-        elif result.rules:
-            info = self.INFO_INCOMPLETE
-        else:
-            info = self.INFO_EMPTY
-        return info
-
     def query(self, keys:str, letters:str, *, strict_mode=False) -> StenoRule:
         """ Return a lexer analysis matching <keys> to <letters> in standard steno rule format.
             If <strict_mode> is True and the best result is missing keys, return a fully unmatched result instead. """
         skeys = self._to_skeys(keys)
         result = self._lexer.query(skeys, letters)
         self._factory.push()
+        if strict_mode and result.unmatched_skeys:
+            result = LexerResult([], [], skeys)
+        for lr, start in zip(result.rules, result.rule_positions):
+            child = self._refmap[lr]
+            length = len(lr.letters)
+            self._factory.connect(child, start, length)
+        info = self.INFO_COMPLETE
         unmatched_skeys = result.unmatched_skeys
-        if strict_mode and unmatched_skeys:
-            unmatched_skeys = skeys
-        else:
-            for lr, start in zip(result.rules, result.rule_positions):
-                child = self._refmap[lr]
-                length = len(lr.letters)
-                self._factory.connect(child, start, length)
         if unmatched_skeys:
+            info = self.INFO_INCOMPLETE if result.rules else self.INFO_EMPTY
             unmatched_keys = self._to_rtfcre(unmatched_skeys)
             nletters = len(letters)
             self._factory.connect_unmatched(unmatched_keys, nletters, "unmatched keys")
         keys = self._to_rtfcre(skeys)
-        info = self._result_info(result)
         return self._factory.build(keys, letters, info)
 
     def best_translation(self, keys_iter:Iterable[str], letters:str) -> str:
@@ -137,13 +126,28 @@ class StenoAnalyzer:
                 index[r_id][keys] = letters
         return index
 
+    def delimit(self, rules:Iterable[StenoRule], keys_delim:str, letters_delim="") -> List[StenoRule]:
+        """ Delimit a sequence of rules with <keys_delim> and <letters_delim>. """
+        self._factory.push()
+        rule_delim = self._factory.build(keys_delim, letters_delim, "delimiter")
+        delimited = []
+        for r in rules:
+            delimited += [r, rule_delim]
+        return delimited[:-1]
+
     def join(self, rules:Iterable[StenoRule]) -> StenoRule:
-        """ Join several rules into one with stroke separators. """
-        rules = list(rules)
-        delimited = rules[:1]
-        for r in rules[1:]:
-            delimited += [self._rule_sep, r]
-        return self._factory.join(delimited)
+        """ Join several rules into one by concatenation. """
+        skeys = letters = ""
+        offset = 0
+        self._factory.push()
+        for r in rules:
+            skeys += self._to_skeys(r.keys)
+            letters += r.letters
+            length = len(r.letters)
+            self._factory.connect(r, offset, length)
+            offset += length
+        keys = self._to_rtfcre(skeys)
+        return self._factory.build(keys, letters, "combined rules")
 
     def normalize_keys(self, keys:str) -> str:
         """ Normalize a set of RTFCRE keys by converting back and forth. """

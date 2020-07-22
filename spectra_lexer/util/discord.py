@@ -11,16 +11,24 @@ class DiscordMessage:
     """ Contains all data that makes up a Discord text channel message. """
 
     def __init__(self, content:str) -> None:
-        self._content = content
-        self._file = None
+        self._content = content  # Text content of the message.
+        self._file = None        # Optional file attachment.
+        self._attach_size = 0    # Total size of attachments in bytes.
 
     def __str__(self) -> str:
-        return self._content
+        s = repr(self._content)
+        if self._attach_size:
+            s += f' + {self._attach_size} bytes'
+        return s
+
+    def __repr__(self) -> str:
+        return f'<Message: {self}>'
 
     def attach_as_file(self, data:bytes, filename:str) -> None:
         """ Attach an arbitrary string of bytes to this message as a file. """
         fstream = io.BytesIO(data)
         self._file = discord.File(fstream, filename)
+        self._attach_size = len(data)
 
     async def send(self, channel:discord.TextChannel) -> None:
         """ Send the message to a Discord text channel. """
@@ -57,17 +65,17 @@ class DiscordBot:
         if message.author == self._client.user:
             return
         content = message.content
-        if not content.startswith("!"):
+        if not content.startswith('!'):
             return
         cmd_name, *cmd_body = content[1:].split(None, 1)
         cmd_func = self._cmds.get(cmd_name)
         if cmd_func is None:
             return
-        arg_string = cmd_body[0].strip() if cmd_body else ""
-        self._log(f"Command: {cmd_name} {arg_string}")
+        arg_string = cmd_body[0].strip() if cmd_body else ''
+        self._log(f'Command: {cmd_name} {arg_string}')
         try:
             reply = cmd_func(arg_string)
-            self._log(f"Reply: {reply}")
+            self._log(f'Reply: {reply}')
         except Exception:
             reply = DiscordMessage('Command parse error.')
             self._log(format_exc())

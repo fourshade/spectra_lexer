@@ -118,14 +118,14 @@ class StenoKeyConverter:
         """ Transform an s-keys string back to RTFCRE. """
         return self._stroke_map(s, self._stroke_skeys_to_rtfcre)
 
-    @classmethod
-    def from_keymap(cls, keymap:StenoKeyLayout) -> 'StenoKeyConverter':
-        """ Use a key layout to compute the necessary fields. Use sets for the fastest membership tests."""
-        left = keymap.left
-        center = keymap.center
-        right_skeys = keymap.right.lower()
-        skeys = [*left, *center, *right_skeys]
-        sk_order = {sk: i for i, sk in enumerate(skeys)}
-        aliases = dict(zip(skeys, skeys), **keymap.aliases)
-        alias_trans = defaultdict(type(None), str.maketrans(aliases))
-        return cls(keymap.sep, keymap.split, set(center), set(right_skeys), sk_order, alias_trans)
+
+def converter_from_keymap(keymap:StenoKeyLayout) -> StenoKeyConverter:
+    """ Use a key layout to compute the necessary fields for a converter. Use sets for the fastest membership tests. """
+    left = keymap.left
+    center = keymap.center
+    right_skeys = keymap.right.lower()
+    skeys = [*left, *center, *right_skeys]
+    sk_order = {sk: i for i, sk in enumerate(skeys)}
+    aliases = dict(zip(skeys, skeys), **keymap.aliases)
+    alias_trans = defaultdict(type(None), str.maketrans(aliases))
+    return StenoKeyConverter(keymap.sep, keymap.split, set(center), set(right_skeys), sk_order, alias_trans)

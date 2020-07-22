@@ -7,7 +7,7 @@ from spectra_lexer.lexer.prefix import UnorderedPrefixMatcher
 from spectra_lexer.lexer.special import DelimiterMatcher, SpecialMatcher
 from spectra_lexer.options import SpectraOptions
 from spectra_lexer.resource.board import FillColors, StenoBoardDefinitions
-from spectra_lexer.resource.keys import StenoKeyConverter, StenoKeyLayout
+from spectra_lexer.resource.keys import converter_from_keymap, StenoKeyConverter, StenoKeyLayout
 from spectra_lexer.resource.rules import StenoRuleFactory
 from spectra_lexer.spc_board import BoardEngine, SVGBoardFactory
 from spectra_lexer.spc_graph import GraphEngine
@@ -49,14 +49,14 @@ class Spectra:
         return open_logger(log_path, to_stdout=True)
 
     @Component
-    def rule_factory(self) -> StenoRuleFactory:
+    def _rule_factory(self) -> StenoRuleFactory:
         """ Rules are the most highly coupled data type; they need their own factory to keep things sane. """
         return StenoRuleFactory()
 
     @Component
     def resource_io(self) -> StenoResourceIO:
         """ Build the loader for JSON file-based resources. """
-        rule_factory = self.rule_factory
+        rule_factory = self._rule_factory
         return StenoResourceIO(rule_factory)
 
     @Component
@@ -68,9 +68,9 @@ class Spectra:
         return keymap
 
     @Component
-    def key_converter(self) -> StenoKeyConverter:
+    def _key_converter(self) -> StenoKeyConverter:
         """ Build a formatter to convert between dictionary and lexer key formats. """
-        return StenoKeyConverter.from_keymap(self.keymap)
+        return converter_from_keymap(self.keymap)
 
     @Component
     def rules(self) -> StenoRuleList:
@@ -103,9 +103,9 @@ class Spectra:
         """ Distribute rules and build the rule matchers, lexer and analyzer. """
         refmap = {}
         matcher_groups = []
-        rule_factory = self.rule_factory
+        rule_factory = self._rule_factory
         keymap = self.keymap
-        converter = self.key_converter
+        converter = self._key_converter
         rules = self.rules
         key_sep = keymap.sep
         key_special = keymap.special
@@ -167,7 +167,7 @@ class Spectra:
         # Each matcher group is tried in order of priority (separators first, specials last).
         matcher = PriorityRuleMatcher(*matcher_groups)
         lexer = StenoLexer(matcher)
-        return StenoAnalyzer(converter, lexer, rule_factory, rule_sep, refmap, idmap)
+        return StenoAnalyzer(converter, lexer, rule_factory, refmap, idmap)
 
     @Component
     def graph_engine(self) -> GraphEngine:
@@ -183,7 +183,7 @@ class Spectra:
         keymap = self.keymap
         key_sep = keymap.sep
         key_combo = keymap.special
-        converter = self.key_converter
+        converter = self._key_converter
         board_defs = self.board_defs
         key_procs = board_defs.keys
         rule_procs = board_defs.rules

@@ -37,13 +37,14 @@ class DiscordApplication:
     """ Spectra engine application that accepts string input from Discord users. """
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 board_engine:BoardEngine, msg_factory:MessageFactory, *,
+                 board_engine:BoardEngine, msg_factory:MessageFactory, key_sep:str, *,
                  query_max_chars:int=None, query_trans:dict=None, search_depth=1, board_AR:float=None) -> None:
         self._search_engine = search_engine
         self._analyzer = analyzer
         self._board_engine = board_engine
         self._text_message = msg_factory.text_message
         self._board_message = msg_factory.board_message
+        self._key_sep = key_sep
         self._query_max_chars = query_max_chars  # Optional limit for # of characters allowed in a user query string.
         self._query_trans = query_trans or {}    # Translation table to remove characters before searching for words.
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
@@ -64,34 +65,27 @@ class DiscordApplication:
                 return matches[m]
         return ()
 
-    def _best_translation(self, word:str) -> str:
-        """ Find the best pairing between a word and its possible stroke matches. """
-        matches = self._find_matches(word)
-        if not matches:
-            keys = ""
-        elif len(matches) == 1:
-            keys = matches[0]
-        else:
-            keys = self._analyzer.best_translation(matches, word)
-        return keys
-
     def _search_words(self, letters:str) -> TranslationPairs:
-        """ Do an advanced lookup to yield the best strokes for each word in <letters>. """
+        """ Do an advanced lookup to yield the best strokes to pair with each word in <letters>. """
         for word in letters.split():
-            keys = self._best_translation(word)
-            if not keys:
+            matches = self._find_matches(word)
+            if not matches:
+                keys = ""
                 word = "-" * len(word)
-            yield keys, word + " "
+            else:
+                keys = self._analyzer.best_translation(matches, word)
+            yield keys, word
 
     def _query_text(self, text:str) -> DiscordMessage:
         """ Parse a user query string as English text and make diagrams from each strokes/word pair we find. """
-        show_letters = not text.startswith('+')
         letters = text.translate(self._query_trans)
         translations = list(self._search_words(letters))
         if not any([k for k, w in translations]):
             return self._text_message('No suggestions.')
         rules = [self._analyzer.query(k, w) for k, w in translations]
-        analysis = self._analyzer.join(rules)
+        delimited = self._analyzer.delimit(rules, self._key_sep, " ")
+        analysis = self._analyzer.join(delimited)
+        show_letters = not text.startswith('+')
         caption = f'{analysis.keys} → {analysis.letters}'
         board_data = self._board_engine.draw_rule(analysis, aspect_ratio=self._board_AR, show_letters=show_letters)
         return self._board_message(caption, board_data)
@@ -129,6 +123,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
+    key_sep = spectra.keymap.sep
     svg_engine = SVGRasterEngine(background_rgba=(0, 0, 0, 0))
     msg_factory = MessageFactory(svg_engine=svg_engine)
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
@@ -138,7 +133,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     stripped_values = [v.strip(' {<&>}') for v in translations.values()]
     translations = {k: v for k, v in zip(translations, stripped_values) if v}
     search_engine.set_translations(translations)
-    return DiscordApplication(search_engine, analyzer, board_engine, msg_factory,
+    return DiscordApplication(search_engine, analyzer, board_engine, msg_factory, key_sep,
                               query_max_chars=100, query_trans=map_to_space, search_depth=3, board_AR=1.5)
 
 
