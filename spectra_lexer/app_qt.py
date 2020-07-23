@@ -19,6 +19,7 @@ from spectra_lexer.qt.search import SearchPanel
 from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
+from spectra_lexer.util.config import SimpleConfigDict
 from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLogger
 
 
@@ -32,8 +33,9 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     io = spectra.resource_io
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
+    gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path)
     cfg_path = spectra.cfg_path
-    gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path, cfg_path)
+    config = SimpleConfigDict(cfg_path, "app_qt")
     tasks = QtTaskExecutor()
     w_window = QMainWindow()
     ui = Ui_MainWindow()
@@ -47,7 +49,7 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     search = SearchPanel(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
     graph = GraphPanel(ui.w_graph)
     board = BoardPanel(ui.w_board, ui.w_caption, ui.w_slider, ui.w_link_save, ui.w_link_examples)
-    app = QtGUIApplication(gui_engine, gui_ext, tasks, dialogs, window, menu, title, search, graph, board)
+    app = QtGUIApplication(gui_engine, gui_ext, config, tasks, dialogs, window, menu, title, search, graph, board)
     exc_handler = CompositeExceptionHandler()
     exc_logger = ExceptionLogger(spectra.logger.log)
     exc_handler.add(exc_logger)

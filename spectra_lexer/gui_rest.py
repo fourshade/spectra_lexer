@@ -1,7 +1,7 @@
 from threading import Lock
 from typing import Dict, Iterable, Sequence
 
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions
+from spectra_lexer.gui_engine import GUIEngine
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
 from spectra_lexer.spc_search import MatchDict
@@ -58,9 +58,8 @@ class RESTGUIApplication:
     def run(self, action:str, args:Iterable=(), options:dict=None) -> RESTUpdates:
         """ Perform a REST app action. Input data includes an action method, its arguments (if any), and GUI options.
             Option and graph state is not thread-safe, so we need a lock. """
-        opts = GUIOptions(options)
         with self._lock:
-            self._engine.set_options(opts)
+            self._engine.set_options(options or {})
             method = getattr(self, "REST_" + action)
             updates = method(*args)
             return RESTUpdates(**updates)

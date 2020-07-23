@@ -15,6 +15,7 @@ from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.spc_lexer import TranslationFilter
+from spectra_lexer.util.config import SimpleConfigDict
 
 
 class QtGUIApplication:
@@ -27,11 +28,12 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:GUIEngine, ext:GUIExtension, tasks:QtTaskExecutor, dialogs:DialogManager,
-                 window:WindowController, menu:MenuController, title:TitleDisplay,
-                 search:SearchPanel, graph:GraphPanel, board:BoardPanel) -> None:
+    def __init__(self, engine:GUIEngine, ext:GUIExtension, config:SimpleConfigDict,
+                 tasks:QtTaskExecutor, dialogs:DialogManager, window:WindowController, menu:MenuController,
+                 title:TitleDisplay, search:SearchPanel, graph:GraphPanel, board:BoardPanel) -> None:
         self._engine = engine
         self._ext = ext
+        self._config = config
         self._tasks = tasks
         self._dialogs = dialogs
         self._window = window
@@ -90,27 +92,19 @@ class QtGUIApplication:
         self._set_board("")
         self._set_link_visible(False)
 
-    def _get_config(self) -> dict:
-        return self._ext.get_config()
-
-    def _update_config(self, options:dict) -> None:
-        self._ext.update_config(options)
-
-    def _base_options(self) -> GUIOptions:
-        """ Config settings form the base for a set of GUI engine options. """
-        return GUIOptions(self._get_config())
+    def _gui_options(self) -> dict:
+        """ Return all engine options derived from GUI controls. """
+        return {"search_mode_strokes": self._search.is_mode_strokes(),
+                "search_mode_regex":   self._search.is_mode_regex(),
+                "board_aspect_ratio":  self._board.aspect_ratio(),
+                "board_show_compound": self._board.is_compound(),
+                "board_show_letters":  self._board.shows_letters()}
 
     def set_options(self, **kwargs) -> None:
-        """ Set all options that may be needed by the steno engine. Overriding options may be given as kwargs. """
-        opts = self._base_options()
-        opts.search_mode_strokes = self._search.is_mode_strokes()
-        opts.search_mode_regex = self._search.is_mode_regex()
-        opts.board_aspect_ratio = self._board.aspect_ratio()
-        opts.board_show_compound = self._board.is_compound()
-        opts.board_show_letters = self._board.shows_letters()
-        if kwargs:
-            vars(opts).update(kwargs)
-        self._engine.set_options(opts)
+        """ Set all options that may be needed by the steno engine from various sources.
+            Source priority is: config file < GUI controls < keyword arguments. """
+        options = {**self._config, **self._gui_options(), **kwargs}
+        self._engine.set_options(options)
 
     def gui_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
@@ -271,17 +265,38 @@ class QtGUIApplication:
             self.async_run(self._ext.load_examples, filename)
             self.async_finish("Loaded index from file dialog.")
 
+    # Info for engine options which should be saved in a CFG file.
+    CONFIG_INFO = {
+        "search_match_limit": ["Match Limit", "Maximum number of matches returned on one page of a search."],
+        "lexer_strict_mode": ["Strict Mode", "Only return lexer results that match every key in a translation."],
+        "graph_compressed_layout": ["Compressed Layout", "Compress the graph layout vertically to save space."]
+    }
+
+    def _config_load(self) -> None:
+        """ Load config options from disk. """
+        self._config.read()
+
+    def _config_update(self, options:dict) -> None:
+        """ Update the config options and save them to disk. """
+        self._config.update(options)
+        self._config.write()
+
+    def _config_set_defaults(self) -> None:
+        """ Update the config options with default values used by the engine. """
+        defaults = {key: getattr(GUIOptions, key) for key in self.CONFIG_INFO}
+        self._config_update(defaults)
+
     def _config_edited(self, options:dict) -> None:
-        self._update_config(options)
+        """ Update the config options with values from the user dialog. """
+        self._config_update(options)
         self.set_status("Configuration saved.")
 
     def config_editor(self) -> None:
         """ Create and show the GUI configuration manager dialog with info from all active components. """
         dialog = self._dialogs.load(ConfigDialog)
         if dialog is not None:
-            opts = self._base_options()
-            for key, name, description in opts.CFG_OPTIONS:
-                value = getattr(opts, key)
+            for key, (name, description) in self.CONFIG_INFO.items():
+                value = self._config.get(key)
                 dialog.add_option(key, value, "General", name, description)
                 dialog.call_on_options_accept(self._config_edited)
             dialog.show()
@@ -325,9 +340,9 @@ class QtGUIApplication:
             If the config settings are blank, this is the first time the program has been run.
             Add the default config values and present an index generation dialog in this case. """
         self._connect_signals()
-        if not self._get_config():
-            defaults = {key: getattr(GUIOptions, key) for key, *_ in GUIOptions.CFG_OPTIONS}
-            self._update_config(defaults)
+        self._config_load()
+        if not self._config:
+            self._config_set_defaults()
             self.confirm_startup_index()
 
     def start(self) -> None:

@@ -1,18 +1,16 @@
 from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_search import ExamplesDict, SearchEngine, TranslationsDict
-from spectra_lexer.util.config import SimpleConfigDict
 
 
 class GUIExtension:
     """ Layer for user GUI actions that may require disk access or other higher permissions. """
 
     def __init__(self, io:StenoResourceIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 translations_paths=(), examples_path="", cfg_path="") -> None:
+                 translations_paths=(), examples_path="") -> None:
         self._io = io
         self._search_engine = search_engine
         self._analyzer = analyzer
-        self._config = SimpleConfigDict(cfg_path, "app_qt")
         self._translations_paths = translations_paths  # Starting translation file paths.
         self._examples_path = examples_path            # User examples index file path.
         self._last_translations = {}                   # Most recently loaded translations (for indexing).
@@ -42,19 +40,8 @@ class GUIExtension:
         self.set_examples(examples)
         self._io.save_json_examples(self._examples_path, examples)
 
-    def load_config(self) -> None:
-        self._config.read()
-
-    def get_config(self) -> dict:
-        return {**self._config}
-
-    def update_config(self, options:dict) -> None:
-        self._config.update(options)
-        self._config.write()
-
     def load_initial(self) -> None:
         """ Load optional startup resources. Ignore I/O errors since any of them may be missing. """
-        self.load_config()
         if self._translations_paths:
             try:
                 self.load_translations(*self._translations_paths)

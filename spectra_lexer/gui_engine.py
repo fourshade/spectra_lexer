@@ -1,6 +1,7 @@
 import random
 from typing import List, Sequence
 
+from spectra_lexer.resource import FrozenStruct
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_graph import GraphEngine, HTMLGraph
@@ -8,7 +9,7 @@ from spectra_lexer.spc_lexer import StenoAnalyzer, Translation
 from spectra_lexer.spc_search import MatchDict, SearchEngine
 
 
-class GUIOptions:
+class GUIOptions(FrozenStruct):
     """ Namespace for all GUI-related steno engine options. """
 
     search_mode_strokes: bool = False       # If True, search for strokes instead of translations.
@@ -21,22 +22,11 @@ class GUIOptions:
     graph_compressed_layout: bool = True    # Compress the graph layout vertically to save space.
     graph_compatibility_mode: bool = False  # Force correct spacing in the graph using HTML tables.
 
-    # These user options should be saved in a CFG file.
-    CFG_OPTIONS = [("search_match_limit", "Match Limit",
-                    "Maximum number of matches returned on one page of a search."),
-                   ("lexer_strict_mode", "Strict Mode",
-                    "Only return lexer results that match every key in a translation."),
-                   ("graph_compressed_layout", "Compressed Layout",
-                    "Compress the graph layout vertically to save space.")]
-
-    def __init__(self, options:dict=None) -> None:
-        """ Update option attributes from an input dict. """
-        if options is not None:
-            self.__dict__.update(options)
-
 
 class GUIEngine:
     """ Layer for executing common user GUI actions. """
+
+    _opts = GUIOptions()  # Current (frozen) user options.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  graph_engine:GraphEngine, board_engine:BoardEngine) -> None:
@@ -44,12 +34,12 @@ class GUIEngine:
         self._analyzer = analyzer
         self._graph_engine = graph_engine
         self._board_engine = board_engine
-        self._opts = GUIOptions()  # Current user options.
         empty_graph = graph_engine.graph(analyzer.query("", ""))
         self._graph = empty_graph  # Graph of current analysis.
 
-    def set_options(self, opts:GUIOptions) -> None:
-        self._opts = opts
+    def set_options(self, options:dict) -> None:
+        """ Replace all <options> at once. """
+        self._opts = GUIOptions(**options)
 
     def search(self, pattern:str, pages=1) -> MatchDict:
         """ Perform a search based on the current options. """
