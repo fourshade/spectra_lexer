@@ -5,7 +5,6 @@ import sys
 
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.gui_engine import GUIEngine
-from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.gui_rest import RESTGUIApplication
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.json import CustomJSONEncoder, JSONBinaryWrapper, RestrictedJSONDecoder
@@ -18,16 +17,15 @@ HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 def build_app(spectra:Spectra) -> RESTGUIApplication:
     """ Start with standard command-line options and build the app. """
+    io = spectra.resource_io
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     graph_engine = spectra.graph_engine
     board_engine = spectra.board_engine
-    gui_engine = GUIEngine(search_engine, analyzer, graph_engine, board_engine)
-    io = spectra.resource_io
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
-    gui_ext = GUIExtension(io, search_engine, analyzer, translations_paths, index_path)
-    gui_ext.load_initial()
+    gui_engine = GUIEngine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
+    gui_engine.load_initial()
     return RESTGUIApplication(gui_engine)
 
 

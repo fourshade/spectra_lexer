@@ -2,7 +2,6 @@ from typing import Callable, Sequence
 
 from spectra_lexer.console.qt import ConsoleDialog
 from spectra_lexer.gui_engine import GUIEngine, GUIOptions
-from spectra_lexer.gui_ext import GUIExtension
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.config import ConfigDialog
@@ -28,11 +27,10 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:GUIEngine, ext:GUIExtension, config:SimpleConfigDict,
-                 tasks:QtTaskExecutor, dialogs:DialogManager, window:WindowController, menu:MenuController,
+    def __init__(self, engine:GUIEngine, config:SimpleConfigDict, tasks:QtTaskExecutor, dialogs:DialogManager,
+                 window:WindowController, menu:MenuController,
                  title:TitleDisplay, search:SearchPanel, graph:GraphPanel, board:BoardPanel) -> None:
         self._engine = engine
-        self._ext = ext
         self._config = config
         self._tasks = tasks
         self._dialogs = dialogs
@@ -247,14 +245,14 @@ class QtGUIApplication:
         self.async_queue(self._unblock, msg_finish)
 
     def set_translations(self, *args) -> None:
-        self._ext.set_translations(*args)
+        self._engine.set_translations(*args)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
         filenames = self._dialogs.open_files("Load Translations", "json")
         if filenames:
             self.async_start("Loading files...")
-            self.async_run(self._ext.load_translations, *filenames)
+            self.async_run(self._engine.load_translations, *filenames)
             self.async_finish("Loaded translations from file dialog.")
 
     def open_index(self) -> None:
@@ -262,7 +260,7 @@ class QtGUIApplication:
         filename = self._dialogs.open_file("Load Index", "json")
         if filename:
             self.async_start("Loading file...")
-            self.async_run(self._ext.load_examples, filename)
+            self.async_run(self._engine.load_examples, filename)
             self.async_finish("Loaded index from file dialog.")
 
     # Info for engine options which should be saved in a CFG file.
@@ -304,7 +302,7 @@ class QtGUIApplication:
     def _make_index(self, size:int) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
         self.async_start("Making new index...")
-        self.async_run(self._ext.compile_examples, size)
+        self.async_run(self._engine.compile_examples, size)
         self.async_finish("Successfully created index!")
 
     def confirm_startup_index(self) -> None:
@@ -348,7 +346,7 @@ class QtGUIApplication:
     def start(self) -> None:
         """ Show the window and load initial data asynchronously on a new thread to keep the GUI responsive. """
         self._block("Loading...")
-        self.async_run(self._ext.load_initial)
+        self.async_run(self._engine.load_initial)
         self.async_finish("Loading complete.")
         self.async_queue(self._on_ready)
         self.show()
