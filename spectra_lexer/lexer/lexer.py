@@ -57,7 +57,7 @@ class StenoLexer:
         patterns it can find, then sorts among them to find what it considers the most likely to be correct. """
 
     def __init__(self, rule_matcher:IRuleMatcher) -> None:
-        self._match_rules = rule_matcher.match
+        self._rule_matcher = rule_matcher  # Root rule matcher (most likely a composite).
 
     def query(self, skeys:str, letters:str) -> LexerResult:
         """ Return a list of the best rules that map <skeys> to <letters>,
@@ -92,12 +92,13 @@ class StenoLexer:
         complete = []
         q_put = q.append
         complete_put = complete.append
+        match_rules = self._rule_matcher.match
         wordptr = 0
         for skeys_left, *rmap in q:
             if rmap:
                 wordptr = rmap[-1] + len(rmap[-2].letters)
             letters_left = letters[wordptr:]
-            for rule, unmatched_keys, word_offset in self._match_rules(skeys_left, letters_left, skeys, letters):
+            for rule, unmatched_keys, word_offset in match_rules(skeys_left, letters_left, skeys, letters):
                 # Make a state item with the remaining keys and the rulemap with the new item added.
                 # Add it to the complete results if there are no more keys, otherwise push it on the queue.
                 state = [unmatched_keys, *rmap, rule, wordptr + word_offset]

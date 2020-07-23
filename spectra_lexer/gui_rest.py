@@ -8,10 +8,11 @@ from spectra_lexer.spc_search import MatchDict
 
 
 class RESTSelections:
+    """ Data class that contains a specific selection in the search lists. """
 
     def __init__(self, match:str, mapping:str) -> None:
-        self.match = match
-        self.mapping = mapping
+        self.match = match      # Top list selection.
+        self.mapping = mapping  # Bottom list selection.
 
 
 class RESTDisplayPage:

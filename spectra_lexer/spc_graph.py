@@ -6,7 +6,7 @@ from spectra_lexer.graph.body import BoldBody, SeparatorBody, ShiftedBody, Stand
 from spectra_lexer.graph.canvas import GridCanvas
 from spectra_lexer.graph.connectors import InversionConnectors, LinkedConnectors, NullConnectors, \
                                            SimpleConnectors, ThickConnectors, UnmatchedConnectors
-from spectra_lexer.graph.format import HTMLFormatter
+from spectra_lexer.graph.format import HTML_COMPAT, HTML_STANDARD, HTMLFormatter
 from spectra_lexer.graph.layout import CascadedGraphLayout, CompressedGraphLayout, GraphLayout, LayoutParams
 from spectra_lexer.resource.rules import StenoRule
 
@@ -210,5 +210,6 @@ class GraphEngine:
         canvas = TextCanvas(EMPTY_ELEMENT)
         root.draw(canvas)
         grid = canvas.to_lists()
-        formatter = HTMLFormatter(grid, compat=compat)
+        fmt = HTML_COMPAT if compat else HTML_STANDARD
+        formatter = HTMLFormatter(grid, fmt)
         return GraphTree(rule, tree_map, formatter)

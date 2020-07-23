@@ -225,9 +225,9 @@ class BoardEngine:
     """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
 
     def __init__(self, converter:StenoKeyConverter, key_sep:str, key_combo:str,
-                 key_procs:ProcsDict, rule_procs:ProcsDict,
-                 bg:FillColors, factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
-        self._to_skeys = converter.rtfcre_to_skeys  # Converts user RTFCRE steno strings to s-keys.
+                 key_procs:ProcsDict, rule_procs:ProcsDict, bg:FillColors,
+                 factory:SVGBoardFactory, layout:GridLayoutEngine) -> None:
+        self._converter = converter    # Converts between RTFCRE and s-keys formats.
         self._key_sep = key_sep        # Key to replace with a separator sentinel group.
         self._key_combo = key_combo    # Key designated to combine with others without contributing to text.
         self._bg = bg                  # Namespace with background colors.
@@ -238,6 +238,10 @@ class BoardEngine:
         base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
                        for grp in factory.processed_group(bg.base, **procs)]
         factory.set_base(*base_groups)
+
+    def _to_skeys(self, keys:str) -> str:
+        """ Convert user RTFCRE steno <keys> to s-keys. """
+        return self._converter.rtfcre_to_skeys(keys)
 
     def _iter_key_groups(self, keys:str, bg:str) -> GroupIter:
         """ Generate groups of elements from a set of steno keys. """

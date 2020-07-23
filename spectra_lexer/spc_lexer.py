@@ -57,11 +57,11 @@ class StenoAnalyzer:
         self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
 
     def _to_skeys(self, keys:str) -> str:
-        # Convert user RTFCRE steno <keys> to s-keys.
+        """ Convert user RTFCRE steno <keys> to s-keys. """
         return self._converter.rtfcre_to_skeys(keys)
 
     def _to_rtfcre(self, skeys:str) -> str:
-        # Convert <skeys> back to RTFCRE format.
+        """ Convert <skeys> back to RTFCRE format. """
         return self._converter.skeys_to_rtfcre(skeys)
 
     def query(self, keys:str, letters:str, *, strict_mode=False) -> StenoRule:
