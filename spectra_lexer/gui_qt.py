@@ -41,7 +41,6 @@ class QtGUIApplication:
         self._graph = graph
         self._board = board
         self._last_graph_ref = None
-        self._last_example_id = ""
 
     def _set_title(self, text:str) -> None:
         self._title.set_static_text(text)
@@ -55,10 +54,12 @@ class QtGUIApplication:
         tr_text = " ".join([keys, self.TR_DELIMITER, letters])
         self._set_title(tr_text)
 
-    def _set_example_id(self, example_id:str) -> None:
-        """ Save the current example ID and show/hide the link based on its contents. """
-        self._last_example_id = example_id
-        if example_id:
+    def _set_board(self, board:str) -> None:
+        self._board.set_data(board)
+
+    def _set_link_visible(self, visible:bool) -> None:
+        """ Show/hide the link. """
+        if visible:
             self._board.show_examples_link()
         else:
             self._board.hide_examples_link()
@@ -71,26 +72,23 @@ class QtGUIApplication:
         caption = self._engine.get_caption(ref)
         self._set_caption(caption)
         board = self._engine.draw_board(ref)
-        self._board.set_data(board)
+        self._set_board(board)
         example_id = self._engine.get_example_id(ref)
-        self._set_example_id(example_id)
+        self._set_link_visible(bool(example_id))
+
+    def _show_start_page(self, start_ref:str) -> None:
+        """ Forcibly reset the graph's focus before setting the start page. """
+        intense = bool(start_ref)
+        self._graph.set_focus(intense)
+        self._show_page(start_ref, intense)
 
     def _clear_page(self) -> None:
         """ Clear the current display data. """
         self._last_graph_ref = None
-        self._last_example_id = ""
         self._graph.set_plaintext("")
         self._set_caption("")
-        self._board.set_data("")
-        self._set_example_id("")
-
-    def _find_same_example(self, refs:Sequence[str]) -> str:
-        """ Attempt to find a graph ref that has the same link target as the last selection. """
-        if self._last_example_id:
-            for ref in refs:
-                if self._last_example_id == self._engine.get_example_id(ref):
-                    return ref
-        return ""
+        self._set_board("")
+        self._set_link_visible(False)
 
     def _get_config(self) -> dict:
         return self._ext.get_config()
@@ -126,11 +124,15 @@ class QtGUIApplication:
         match, mapping = self._engine.search_selection(keys, letters)
         self._search.select(match, mapping)
         self._set_translation(keys, letters)
+        last_id = self._engine.get_example_id(self._last_graph_ref or "")
         refs = self._engine.query(keys, letters)
-        start_ref = self._find_same_example(refs)
-        intense = bool(start_ref)
-        self._graph.set_focus(intense)
-        self._show_page(start_ref, intense)
+        start_ref = ""
+        if last_id:
+            for ref in refs:
+                if last_id == self._engine.get_example_id(ref):
+                    start_ref = ref
+                    break
+        self._show_start_page(start_ref)
 
     def _on_translation_edit(self, _:str) -> None:
         """ Display user entry instructions in the caption. """
@@ -161,14 +163,16 @@ class QtGUIApplication:
 
     def _on_request_examples(self) -> None:
         """ Run an example search and update the GUI with any results. """
-        self.set_options()
-        pattern = self._engine.random_pattern(self._last_example_id)
-        if pattern:
-            self._search.update_input(pattern)
-            results = self._engine.search(pattern)
-            self._search.update_results(results)
-            keys, letters = self._engine.random_translation(results)
-            self.gui_query(keys, letters)
+        if self._last_graph_ref is not None:
+            self.set_options()
+            example_id = self._engine.get_example_id(self._last_graph_ref)
+            pattern = self._engine.random_pattern(example_id)
+            if pattern:
+                self._search.update_input(pattern)
+                results = self._engine.search(pattern)
+                self._search.update_results(results)
+                keys, letters = self._engine.random_translation(results)
+                self.gui_query(keys, letters)
 
     def _on_graph_action(self, node_ref:str, intense:bool) -> None:
         """ On mouse actions, change the current analysis page to the one under <node_ref>. """
@@ -179,7 +183,7 @@ class QtGUIApplication:
         if self._last_graph_ref is not None:
             self.set_options()
             board = self._engine.draw_board(self._last_graph_ref)
-            self._board.set_data(board)
+            self._set_board(board)
 
     def _on_board_save(self) -> None:
         """ Save the current board diagram on link click. """
