@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Iterator, List, Tuple
+from typing import Iterator, Sequence, Tuple
 
 from spectra_lexer.board.layout import GridLayoutEngine, Offset, OffsetSequence
 from spectra_lexer.board.path import ArrowPathGenerator, ChainPathGenerator
@@ -25,8 +25,10 @@ class Group:
         return iter(())
 
 
-GroupIter = Iterator[Group]
-GroupList = List[Group]
+GroupIterator = Iterator[Group]
+GroupSequence = Sequence[Group]
+Stroke = GroupSequence
+StrokeSequence = Sequence[Stroke]
 
 
 class SimpleGroup(Group):
@@ -48,7 +50,7 @@ class InversionGroup(Group):
                     SVGStyle(fill="none", stroke="#FF0000", stroke_width="1.5px")]
     LAYER_SHIFT = -1j
 
-    def __init__(self, factory:SVGElementFactory, *groups:Group) -> None:
+    def __init__(self, factory:SVGElementFactory, groups:GroupSequence) -> None:
         self._factory = factory
         self._groups = groups   # Element groups in order of connection.
 
@@ -81,7 +83,7 @@ class LinkedGroup(Group):
     LAYER_STYLES = [SVGStyle(fill="none", stroke="#000000", stroke_width="5.0px"),
                     SVGStyle(fill="none", stroke="#B0B0B0", stroke_width="2.0px")]
 
-    def __init__(self, factory:SVGElementFactory, *strokes:GroupList) -> None:
+    def __init__(self, factory:SVGElementFactory, strokes:StrokeSequence) -> None:
         self._factory = factory
         self._strokes = strokes  # Element group containers from one or more strokes.
 
@@ -92,7 +94,7 @@ class LinkedGroup(Group):
         for style in self.LAYER_STYLES:
             yield self._factory.path(path, style)
 
-    def _transformed_stroke(self, stroke:GroupList, x:float, y:float) -> SVGElement:
+    def _transformed_stroke(self, stroke:GroupSequence, x:float, y:float) -> SVGElement:
         """ Create a new SVG group with every element in <stroke> at offset <x, y>. """
         elems = []
         for g in stroke:
@@ -113,9 +115,6 @@ class LinkedGroup(Group):
                 p1 = p2
         for stroke, offset in pairs:
             yield self._transformed_stroke(stroke, *offset)
-
-
-SEPARATOR = Group()  # Stroke separator sentinel group.
 
 
 class SVGBoardFactory:
@@ -178,51 +177,46 @@ class SVGBoardFactory:
                 elems.append(self._factory.path(glyph, self.FONT_STYLE, svg_transform))
         return SimpleGroup(elems, x, y)
 
-    def inversion_group(self, *groups:Group) -> Group:
+    def inversion_group(self, groups:GroupSequence) -> Group:
         """ Return a group with arrow paths connecting the elements in other groups. """
-        return InversionGroup(self._factory, *groups)
+        return InversionGroup(self._factory, groups)
 
-    def linked_group(self, *strokes:GroupList) -> Group:
+    def linked_group(self, strokes:StrokeSequence) -> Group:
         """ Return a group with chains connecting one or more strokes. """
-        return LinkedGroup(self._factory, *strokes)
+        return LinkedGroup(self._factory, strokes)
 
-    def set_base(self, *groups:Group, base_id="_BASE") -> None:
+    def set_base(self, groups:GroupSequence, *, base_id="_BASE") -> None:
         """ Set the base definitions with all elements in <groups>. """
         elems = [elem for grp in groups for elem in grp]
         ref_base = self._factory.group(elems, elem_id=base_id)
         self._defs_elems = [self._factory.defs(ref_base)]
         self._base_elems = [self._factory.use(base_id)]
 
-    def build_svg(self, groups:GroupList, offsets:OffsetSequence, viewbox:SVGViewbox) -> str:
-        """ Separate elements in <groups> into strokes using SEPARATOR as a delimiter sentinel.
-            Translate each stroke group using data at the matching index from <offsets>.
+    def build_svg(self, strokes:StrokeSequence, offsets:OffsetSequence, viewbox:SVGViewbox) -> str:
+        """ Translate each diagram in <strokes> using data at the matching index from <offsets>.
             Add overlays (if any), put it all in a new SVG document, and return it in string form. """
         root_elems = [*self._defs_elems]
-        if groups:
-            overlays = []
-            elems = []
-            i = 0
-            if groups[-1] is not SEPARATOR:
-                groups.append(SEPARATOR)
-            for grp in groups:
-                if grp is SEPARATOR:
-                    x, y = offsets[i]
-                    trans = SVGTranslation(x, y)
-                    stroke = self._factory.group(self._base_elems + elems, trans)
-                    root_elems.append(stroke)
-                    elems = []
-                    i += 1
-                else:
-                    elems += grp
-                    if grp.iter_overlays is not None:
-                        overlays += grp.iter_overlays(offsets[i:])
-            root_elems += overlays
+        overlays = []
+        for i, grps in enumerate(strokes):
+            elems = [*self._base_elems]
+            for grp in grps:
+                elems += grp
+                if grp.iter_overlays is not None:
+                    overlays += grp.iter_overlays(offsets[i:])
+            x, y = offsets[i]
+            trans = SVGTranslation(x, y)
+            diagram = self._factory.group(elems, trans)
+            root_elems.append(diagram)
+        root_elems += overlays
         document = self._factory.svg(root_elems, viewbox)
         return str(document)
 
 
 class BoardEngine:
-    """ Returns steno board diagrams corresponding to key strings and/or steno rules. """
+    """ Returns steno board diagrams corresponding to key strings and/or steno rules.
+        Some function outputs are cached; these functions should return tuples so the cache can't be mutated. """
+
+    _SEPARATOR = object()  # Stroke separator sentinel.
 
     def __init__(self, converter:StenoKeyConverter, key_sep:str, key_combo:str,
                  key_procs:ProcsDict, rule_procs:ProcsDict, bg:FillColors,
@@ -237,29 +231,40 @@ class BoardEngine:
         self._rule_procs = rule_procs  # Procedures for constructing and positioning key combos.
         base_groups = [grp for skeys, procs in rule_procs.items() if len(skeys) == 1
                        for grp in factory.processed_group(bg.base, **procs)]
-        factory.set_base(*base_groups)
+        factory.set_base(base_groups)
+
+    def _group_strokes(self, groups:GroupSequence) -> StrokeSequence:
+        """ Separate <groups> into strokes using the delimiter sentinel. """
+        strokes = []
+        s = 0
+        for i, grp in enumerate(groups):
+            if grp is self._SEPARATOR:
+                strokes.append(groups[s:i])
+                s = i + 1
+        strokes.append(groups[s:])
+        return strokes
 
     def _to_skeys(self, keys:str) -> str:
         """ Convert user RTFCRE steno <keys> to s-keys. """
         return self._converter.rtfcre_to_skeys(keys)
 
-    def _iter_key_groups(self, keys:str, bg:str) -> GroupIter:
-        """ Generate groups of elements from a set of steno keys. """
+    def _iter_key_groups(self, keys:str, bg:str) -> GroupIterator:
+        """ Generate groups of elements and/or separator sentinels from a set of steno keys. """
         skeys = self._to_skeys(keys)
         sep = self._key_sep
         for s in skeys:
             if s == sep:
-                yield SEPARATOR
+                yield self._SEPARATOR
             elif s in self._key_procs:
                 yield self._factory.processed_group(bg, **self._key_procs[s])
 
     @lru_cache(maxsize=None)
-    def _matched_key_groups(self, keys:str) -> GroupList:
-        return [*self._iter_key_groups(keys, self._bg.matched)]
+    def _matched_key_groups(self, keys:str) -> GroupSequence:
+        return tuple(self._iter_key_groups(keys, self._bg.matched))
 
     @lru_cache(maxsize=None)
-    def _unmatched_key_groups(self, keys:str) -> GroupList:
-        return [*self._iter_key_groups(keys, self._bg.unmatched)]
+    def _unmatched_key_groups(self, keys:str) -> GroupSequence:
+        return tuple(self._iter_key_groups(keys, self._bg.unmatched))
 
     def _rule_group(self, skeys:str, text:str, bg:str) -> Group:
         """ Generate a group of elements from a rule's text if procs using its s-keys exist. """
@@ -267,15 +272,15 @@ class BoardEngine:
             return self._factory.processed_group(bg, text=text, **self._rule_procs[skeys])
 
     @lru_cache(maxsize=None)
-    def _find_shape(self, keys:str, letters:str, alt_text:str, bg:str=None) -> GroupList:
+    def _find_shape(self, keys:str, letters:str, alt_text:str, bg:str=None) -> GroupSequence:
         text = letters or alt_text
         if not text:
-            return []
+            return ()
         rbg = bg or (self._bg.letters if letters else self._bg.alt)
         skeys = self._to_skeys(keys)
         grp = self._rule_group(skeys, text, rbg)
         if grp is not None:
-            return [grp]
+            return (grp,)
         star = self._key_combo
         if star in skeys and star != skeys:
             # Rules using the star should have that key separate from their text.
@@ -283,33 +288,28 @@ class BoardEngine:
             cbg = bg or self._bg.combo
             grp = self._rule_group(leftover, text, cbg)
             if grp is not None:
-                return [*self._iter_key_groups(star, cbg), grp]
-        return []
+                return (*self._iter_key_groups(star, cbg), grp)
+        return ()
 
-    def _find_groups(self, rule:StenoRule, show_letters:bool, bg:str=None) -> GroupList:
+    def _find_groups(self, rule:StenoRule, show_letters:bool, bg:str=None) -> GroupSequence:
         """ Generate board diagram elements from a steno rule recursively. Propagate any background colors. """
         keys = rule.keys
         letters = rule.letters.strip()
         alt_text = rule.alt
-        children = [item.child for item in rule.rulemap]
         if letters and not any(map(str.isalpha, letters)):
             bg = self._bg.symbol if not any(map(str.isdigit, letters)) else self._bg.number
             if not alt_text:
                 alt_text = letters
         if rule.is_split:
-            # A rule using linked strokes must follow this pattern: (.first)(~/~)(last.)
-            strokes = [self._find_groups(child, show_letters, bg) for child in children]
-            first, *_, last = strokes
-            chain_grp = self._factory.linked_group(first, last)
-            grps = [elem for grp in strokes for elem in grp]
+            # A rule split between strokes connects all groups with chains below.
+            grps = self._find_child_groups(rule, show_letters, bg)
+            strokes = self._group_strokes(grps)
+            chain_grp = self._factory.linked_group(strokes)
             return [chain_grp, *grps]
         elif rule.is_inversion:
-            # A rule using inversion connects the first two elements with arrows on top.
-            grps = []
-            for child in children:
-                grps += self._find_groups(child, show_letters, bg)
-            first, second = grps[:2]
-            inv_grp = self._factory.inversion_group(first, second)
+            # A rule using inversion connects the first two groups with arrows on top.
+            grps = self._find_child_groups(rule, show_letters, bg)
+            inv_grp = self._factory.inversion_group(grps[:2])
             return [*grps, inv_grp]
         elif rule.is_unmatched:
             return self._unmatched_key_groups(keys)
@@ -320,8 +320,9 @@ class BoardEngine:
         elif rule.is_word:
             bg = self._bg.brief
         # A rule with one child using the same letters is usually an analysis. It should be unwrapped.
-        if len(children) == 1:
-            child = children[0]
+        rulemap = rule.rulemap
+        if len(rulemap) == 1:
+            child = rulemap[0].child
             if letters == child.letters:
                 return self._find_groups(child, show_letters, bg)
         # Try to find an existing key shape for this rule. If we find one, we're done.
@@ -329,21 +330,25 @@ class BoardEngine:
         if groups:
             return groups
         # If there are children, add elements recursively from each one.
-        if children:
-            return [elem for child in children
-                    for elem in self._find_groups(child, show_letters, bg)]
+        if rulemap:
+            return self._find_child_groups(rule, show_letters, bg)
         # There may not be compound elements for everything; in that case, use elements for each raw key.
         return self._matched_key_groups(keys)
 
-    def _make_svg(self, groups:GroupList, aspect_ratio:float=None) -> BoardDiagram:
+    def _find_child_groups(self, rule:StenoRule, show_letters:bool, bg:str=None) -> GroupSequence:
+        """ Generate board diagram elements from a compound rule's children recursively. """
+        return [grp for item in rule.rulemap
+                for grp in self._find_groups(item.child, show_letters, bg)]
+
+    def _make_svg(self, groups:GroupSequence, aspect_ratio:float=None) -> BoardDiagram:
         """ Arrange all SVG elements in a document with a separate diagram for each stroke.
-            If no aspect ratio is given, a ratio of 0.0001 ensures that all boards end up in one column.
-            Copy the group list to to avoid possible cache corruption. """
-        stroke_count = groups.count(SEPARATOR) + 1
+            If no aspect ratio is given, a ratio of 0.0001 ensures that all boards end up in one column. """
+        strokes = self._group_strokes(groups)
+        stroke_count = len(strokes)
         ncols = self._layout.column_count(stroke_count, aspect_ratio or 0.0001)
         offsets = self._layout.offsets(stroke_count, ncols)
         viewbox = self._layout.viewbox(stroke_count, ncols)
-        return self._factory.build_svg([*groups], offsets, viewbox)
+        return self._factory.build_svg(strokes, offsets, viewbox)
 
     def draw_keys(self, keys:str, aspect_ratio:float=None) -> BoardDiagram:
         """ Generate a board diagram from a steno key string arranged according to <aspect ratio>. """
