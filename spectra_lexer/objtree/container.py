@@ -4,9 +4,9 @@ import builtins
 import dis
 import io
 import types
-from types import CodeType, FrameType, FunctionType, MethodType
+from types import CodeType, FrameType, FunctionType
 from typing import AbstractSet, Any, Callable, Iterator, List, Mapping, MutableMapping, MutableSequence, MutableSet, \
-    Sequence, Type, Union, Hashable
+    Sequence, Type, Hashable
 
 
 class BaseContainer(Mapping):
@@ -260,12 +260,18 @@ class ClassContainer(GeneratedContainer):
         return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
 
-@CONTAINER_TYPES.register(hasattr, "__self__")
-class MethodContainer(GeneratedContainer):
-    """ A container that exposes the targets of bound methods. """
+@CONTAINER_TYPES.register(hasattr, "__func__")
+class WrapperContainer(GeneratedContainer):
+    """ A container that exposes the contents of function wrappers. """
 
     def _gen_dict(self, obj:Any) -> dict:
-        return {"self": obj.__self__}
+        """ Also expose targets of bound methods. Suppress any attributes set to None. """
+        d = {}
+        for k in ("__self__", "__func__"):
+            v = getattr(obj, k, None)
+            if v is not None:
+                d[k] = v
+        return d
 
 
 @CONTAINER_TYPES.register(isinstance, BaseException)
@@ -289,10 +295,10 @@ class ExceptionContainer(GeneratedContainer):
 
 @CONTAINER_TYPES.register(isinstance, FrameType)
 class FrameContainer(GeneratedContainer):
-    """ Shows all information about a stack frame. """
+    """ Shows inspectable information about a stack frame. """
 
     def _gen_dict(self, f:FrameType) -> dict:
-        """ Add only the most important inspectable information. """
+        """ Add only the most usable information. """
         code = f.f_code
         return {"name": code.co_name, "filename": code.co_filename, "lineno": f.f_lineno,
                 "globals": f.f_globals, "locals": f.f_locals, "code": code}
@@ -317,15 +323,11 @@ class instruction:
             return f'{instr.arg} ({instr.argrepr})'
 
 
-# Types known to consist of or contain inspectable bytecode.
-_CODE_TYPES = (MethodType, FunctionType, CodeType, classmethod, staticmethod)
-
-
-@CONTAINER_TYPES.register(isinstance, _CODE_TYPES)
+@CONTAINER_TYPES.register(isinstance, (FunctionType, CodeType))
 class CodeContainer(GeneratedContainer):
     """ Shows disassembly of a code object. """
 
-    def _gen_dict(self, obj:Union[_CODE_TYPES]) -> dict:
+    def _gen_dict(self, obj:Any) -> dict:
         """ To display bytecode properly in the tree, make a special display object for each instruction found.
             If an instruction has a code object as its argument, add that instead. """
         d = {}

@@ -1,3 +1,9 @@
+14.2.0
+------
+* Simplified rules format to just an array of strings
+* Added more key shapes to board engine
+* Fixed disassembler in object tree dialog
+
 14.1.0
 ------
 * Text is allowed in more places on board diagrams.
