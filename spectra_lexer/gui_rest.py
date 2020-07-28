@@ -1,52 +1,72 @@
-from threading import Lock
-from typing import Dict, Iterable, Sequence
+from typing import Dict, Sequence
 
 from spectra_lexer.gui_engine import GUIEngine
+from spectra_lexer.http.json import JSONApplication
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
 from spectra_lexer.spc_search import MatchDict
 
 
-class RESTSelections:
-    """ Data class that contains a specific selection in the search lists. """
+class RESTObject(dict):
+    """ Record-type dictionary designed for serialization as a JSON object.
+        Subclasses add annotations to specify required and optional fields. """
 
-    def __init__(self, match:str, mapping:str) -> None:
-        self.match = match      # Top list selection.
-        self.mapping = mapping  # Bottom list selection.
-
-
-class RESTDisplayPage:
-    """ Data class that contains two HTML formatted graphs, a caption, an SVG board, and a rule ID reference. """
-
-    def __init__(self, graph:HTMLGraph, intense_graph:HTMLGraph, caption:str, board:BoardDiagram, rule_id="") -> None:
-        self.graph = graph                  # HTML graph text for this selection.
-        self.intense_graph = intense_graph  # Brighter HTML text graph for this selection.
-        self.caption = caption              # Text characters drawn as a caption (possibly on a tooltip).
-        self.board = board                  # XML string containing this rule's SVG board diagram.
-        self.rule_id = rule_id              # If the selection uses a valid rule, its rule ID, else an empty string.
+    def __init__(self, **kwargs) -> None:
+        """ Check annotations for required fields and copy default values for optional ones. """
+        super().__init__(kwargs)
+        for k in self.__annotations__:
+            if k not in self:
+                try:
+                    self[k] = getattr(self, k)
+                except AttributeError:
+                    raise TypeError(f'Missing required field "{k}"')
+        self.__dict__ = self
 
 
-class RESTDisplay:
-    """ Data class that contains graphical data for an entire analysis. """
+class RESTInput(RESTObject):
+    """ Contains user input data. """
 
-    def __init__(self, keys:str, letters:str, pages:Dict[str, RESTDisplayPage], default_page:RESTDisplayPage) -> None:
-        self.keys = keys                  # Translation keys in RTFCRE.
-        self.letters = letters            # Translation letters.
-        self.pages_by_ref = pages         # Analysis pages keyed by HTML anchor reference.
-        self.default_page = default_page  # Default starting analysis page. May also be included in pages_by_ref.
+    action: str    # Name of an action method to call.
+    args: list     # Positional arguments for the method.
+    options: dict  # GUI engine options to set before calling the method.
 
 
-class RESTUpdates:
-    """ Data class for a set of REST GUI updates. All fields are optional. """
+class RESTSelections(RESTObject):
+    """ Contains a specific selection in the search lists. """
 
-    def __init__(self, matches:MatchDict=None, selections:RESTSelections=None, display:RESTDisplay=None) -> None:
-        self.matches = matches        # New items in the search lists.
-        self.selections = selections  # New selections in the search lists.
-        self.display = display        # New graphical objects.
+    match: str    # Top list selection.
+    mapping: str  # Bottom list selection.
 
 
-class RESTGUIApplication:
-    """ Thread-safe GUI application for use in a web server.
+class RESTDisplayPage(RESTObject):
+    """ Contains graphical data for one selection in an analysis. """
+
+    graph: HTMLGraph          # HTML graph text for this selection.
+    intense_graph: HTMLGraph  # Brighter HTML text graph for this selection.
+    caption: str              # Text characters drawn as a caption (possibly on a tooltip).
+    board: BoardDiagram       # XML string containing this rule's SVG board diagram.
+    rule_id: str              # If the selection uses a valid rule, its rule ID, else an empty string.
+
+
+class RESTDisplay(RESTObject):
+    """ Contains a translation and graphical data for its entire analysis. """
+
+    keys: str                                 # Translation keys in RTFCRE.
+    letters: str                              # Translation letters.
+    pages_by_ref: Dict[str, RESTDisplayPage]  # Analysis pages keyed by HTML anchor reference.
+    default_page: RESTDisplayPage             # Default starting analysis page. May also be included in pages_by_ref.
+
+
+class RESTUpdates(RESTObject):
+    """ Contains a set of GUI updates. All fields are optional. """
+
+    matches: MatchDict = None          # New items in the search lists.
+    selections: RESTSelections = None  # New selections in the search lists.
+    display: RESTDisplay = None        # New graphical objects.
+
+
+class RESTGUIApplication(JSONApplication):
+    """ Backend for the AJAX GUI web application. Actions are independent and effectively "stateless".
         Steno rules may be parsed into a tree of nodes, each of which may have several forms of representation.
         All information for a single node is combined into a display "page" which can be used for GUI updates.
         All display pages for to a single rule or lexer query are further stored in a single data object.
@@ -54,58 +74,56 @@ class RESTGUIApplication:
 
     def __init__(self, engine:GUIEngine) -> None:
         self._engine = engine
-        self._lock = Lock()
 
-    def run(self, action:str, args:Iterable=(), options:dict=None) -> RESTUpdates:
-        """ Perform a REST app action. Input data includes an action method, its arguments (if any), and GUI options.
-            Option and graph state is not thread-safe, so we need a lock. """
-        with self._lock:
-            self._engine.set_options(options or {})
-            method = getattr(self, "REST_" + action)
-            updates = method(*args)
-            return RESTUpdates(**updates)
+    def run(self, d:dict) -> dict:
+        """ Perform a REST app action. Engine state must be reset each time. """
+        obj = RESTInput(**d)
+        self._engine.set_options(obj.options)
+        method = getattr(self, "REST_" + obj.action)
+        return method(*obj.args)
 
     def _draw_page(self, ref="") -> RESTDisplayPage:
         """ Create a display page for a rule <ref>erence, or a default page if ref is empty or invalid. """
-        ngraph = self._engine.draw_graph(ref)
-        igraph = self._engine.draw_graph(ref, intense=True)
-        caption = self._engine.get_caption(ref)
-        board = self._engine.draw_board(ref)
-        r_id = self._engine.get_example_id(ref)
-        return RESTDisplayPage(ngraph, igraph, caption, board, r_id)
+        return RESTDisplayPage(graph=self._engine.draw_graph(ref),
+                               intense_graph=self._engine.draw_graph(ref, intense=True),
+                               caption=self._engine.get_caption(ref),
+                               board=self._engine.draw_board(ref),
+                               rule_id=self._engine.get_example_id(ref))
 
     def _display(self, keys:str, letters:str) -> RESTDisplay:
         """ Run a query and return a full set of display data, including all possible selections. """
         refs = self._engine.query(keys, letters)
-        pages = {ref: self._draw_page(ref) for ref in refs}
-        default_page = self._draw_page()
-        return RESTDisplay(keys, letters, pages, default_page)
+        return RESTDisplay(keys=keys,
+                           letters=letters,
+                           pages_by_ref={ref: self._draw_page(ref) for ref in refs},
+                           default_page=self._draw_page())
 
     def _select(self, keys:str, letters:str) -> RESTSelections:
         match, mapping = self._engine.search_selection(keys, letters)
-        return RESTSelections(match, mapping)
+        return RESTSelections(match=match,
+                              mapping=mapping)
 
-    def REST_search(self, pattern:str, pages=1) -> dict:
+    def REST_search(self, pattern:str, pages=1) -> RESTUpdates:
         """ Do a new search and return results (unless the pattern is just whitespace). """
-        return {"matches": self._engine.search(pattern, pages)}
+        return RESTUpdates(matches=self._engine.search(pattern, pages))
 
-    def REST_query(self, keys:str, letters:str) -> dict:
+    def REST_query(self, keys:str, letters:str) -> RESTUpdates:
         """ Execute and return a full display of a lexer query. """
-        return {"display": self._display(keys, letters)}
+        return RESTUpdates(display=self._display(keys, letters))
 
-    def REST_query_match(self, match:str, mappings:Sequence[str]) -> dict:
+    def REST_query_match(self, match:str, mappings:Sequence[str]) -> RESTUpdates:
         """ Query and display the best translation in a match-mappings pair from search. """
         keys, letters = self._engine.best_translation(match, mappings)
-        return {"selections": self._select(keys, letters),
-                "display": self._display(keys, letters)}
+        return RESTUpdates(selections=self._select(keys, letters),
+                           display=self._display(keys, letters))
 
-    def REST_search_examples(self, link_ref:str) -> dict:
+    def REST_search_examples(self, link_ref:str) -> RESTUpdates:
         """ Search for examples of the named rule and display one at random. """
         pattern = self._engine.random_pattern(link_ref)
         if not pattern:
-            return {}
+            return RESTUpdates()
         matches = self._engine.search(pattern)
         keys, letters = self._engine.random_translation(matches)
-        return {"matches": matches,
-                "selections": self._select(keys, letters),
-                "display": self._display(keys, letters)}
+        return RESTUpdates(matches=matches,
+                           selections=self._select(keys, letters),
+                           display=self._display(keys, letters))

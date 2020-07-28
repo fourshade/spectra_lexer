@@ -7,6 +7,7 @@
 import gzip
 from mimetypes import MimeTypes
 import os
+from threading import Lock
 
 from .request import HTTPRequest
 from .response import HTTPResponse, HTTPResponseHeaders
@@ -156,24 +157,28 @@ class HTTPFileService(HTTPRequestHandler):
 
 
 class BinaryDataProcessor:
-    """ Interface for a callable that processes raw binary data. """
+    """ Interface for a processor of raw binary data. Thread-safety is not required. """
 
-    def __call__(self, data:bytes) -> bytes:
+    output_type: str  # MIME type of output data.
+
+    def process(self, data:bytes) -> bytes:
         raise NotImplementedError
 
 
 class HTTPDataService(HTTPRequestHandler):
     """ Decodes binary data from HTTP content, processes it, and returns an encoded result. """
 
-    def __init__(self, processor:BinaryDataProcessor, output_type:str) -> None:
-        self._process = processor
-        self._output_type = output_type  # MIME type of output data.
+    def __init__(self, processor:BinaryDataProcessor) -> None:
+        """ The data processor is a thread-safety boundary, so we need a lock. """
+        self._processor = processor
+        self._lock = Lock()
 
     def __call__(self, request:HTTPRequest) -> HTTPResponse:
         """ Process content obtained from a client. If successful, send the returned data back to the client. """
         data_in = request.content
-        data_out = self._process(data_in)
+        with self._lock:
+            data_out = self._processor.process(data_in)
         headers = HTTPResponseHeaders()
-        headers.set_content_type(self._output_type)
+        headers.set_content_type(self._processor.output_type)
         headers.set_content_length(len(data_out))
         return HTTPResponse.OK(headers, data_out)

@@ -1,7 +1,7 @@
 import random
+from types import SimpleNamespace
 from typing import List, Sequence
 
-from spectra_lexer.resource import FrozenStruct
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_graph import GraphEngine, HTMLGraph
@@ -10,7 +10,7 @@ from spectra_lexer.spc_resource import StenoResourceIO
 from spectra_lexer.spc_search import ExamplesDict, MatchDict, SearchEngine, TranslationsDict
 
 
-class GUIOptions(FrozenStruct):
+class GUIOptions(SimpleNamespace):
     """ Namespace for all GUI-related steno engine options. """
 
     search_mode_strokes: bool = False       # If True, search for strokes instead of translations.
@@ -27,8 +27,6 @@ class GUIOptions(FrozenStruct):
 class GUIEngine:
     """ Layer for executing common user GUI actions. """
 
-    _opts = GUIOptions()  # Current (frozen) user options.
-
     def __init__(self, io:StenoResourceIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  graph_engine:GraphEngine, board_engine:BoardEngine, translations_paths=(), examples_path="") -> None:
         self._io = io
@@ -38,6 +36,7 @@ class GUIEngine:
         self._board_engine = board_engine
         self._translations_paths = translations_paths  # Starting translation file paths.
         self._examples_path = examples_path            # User examples index file path.
+        self._opts = GUIOptions()                      # Current user options.
         self._last_translations = {}                   # Most recently loaded translations (for indexing).
         empty_graph = graph_engine.graph(analyzer.query("", ""))
         self._graph = empty_graph                      # Graph of current analysis.

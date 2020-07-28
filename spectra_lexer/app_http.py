@@ -7,7 +7,7 @@ from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.gui_engine import GUIEngine
 from spectra_lexer.gui_rest import RESTGUIApplication
 from spectra_lexer.http.connect import HTTPConnectionHandler
-from spectra_lexer.http.json import CustomJSONEncoder, JSONBinaryWrapper, RestrictedJSONDecoder
+from spectra_lexer.http.json import JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
@@ -32,9 +32,9 @@ def build_app(spectra:Spectra) -> RESTGUIApplication:
 def build_dispatcher(app:RESTGUIApplication, root_dir:str, *args) -> HTTPConnectionHandler:
     """ Build an HTTP server object customized to Spectra's requirements. """
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
-    encoder = CustomJSONEncoder()
-    json_wrapper = JSONBinaryWrapper(app.run, decoder=decoder, encoder=encoder)
-    data_service = HTTPDataService(json_wrapper, "application/json")
+    codec = JSONCodec(decoder)
+    processor = JSONObjectProcessor(app, codec)
+    data_service = HTTPDataService(processor)
     compressed_service = HTTPGzipFilter(data_service, size_threshold=1000)
     file_service = HTTPFileService(root_dir)
     type_router = HTTPContentTypeRouter()
