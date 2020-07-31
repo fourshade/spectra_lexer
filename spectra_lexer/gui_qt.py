@@ -1,6 +1,6 @@
 from typing import Callable, Sequence
 
-from spectra_lexer.console.qt import ConsoleDialog
+from spectra_lexer.console.main import ConsoleDialog
 from spectra_lexer.gui_engine import GUIEngine, GUIOptions
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
@@ -319,11 +319,10 @@ class QtGUIApplication:
             dialog.show()
 
     def debug_console(self) -> None:
-        """ Create and show an interpreter console dialog. """
+        """ Create and show an interpreter console dialog with this app as the namespace. """
         dialog = self._dialogs.load(ConsoleDialog)
         if dialog is not None:
-            namespace = {k: getattr(self, k) for k in dir(self) if not k.startswith('__')}
-            dialog.start_console(namespace)
+            dialog.introspect(self)
             dialog.show()
 
     def debug_tree(self) -> None:

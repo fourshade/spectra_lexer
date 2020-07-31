@@ -3,7 +3,7 @@
 import sys
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.console.system import SystemConsole
+from spectra_lexer.console import introspect
 
 
 def main() -> int:
@@ -11,10 +11,7 @@ def main() -> int:
     opts = SpectraOptions("Run Spectra from scratch in an interactive Python console.")
     spectra = Spectra(opts)
     spectra.logger.log("Loading console...")
-    namespace = {k: getattr(spectra, k) for k in dir(spectra) if not k.startswith('_')}
-    console = SystemConsole.open(namespace)
-    console.repl()
-    return 0
+    return introspect(spectra, include_private=False)
 
 
 if __name__ == '__main__':

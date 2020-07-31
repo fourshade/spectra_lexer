@@ -1,11 +1,12 @@
-from io import TextIOBase
-from typing import Callable
+from typing import Any, Callable
 
 from PyQt5.QtCore import pyqtSignal, QMimeData, Qt
 from PyQt5.QtGui import QFont, QKeyEvent, QTextCursor
 from PyQt5.QtWidgets import QDialog, QTextEdit, QVBoxLayout
 
-from .system import SystemConsole
+# Callbacks for terminal input and keyboard interrupts. Return values are ignored.
+InputCallback = Callable[[str], Any]
+InterruptCallback = Callable[[], Any]
 
 
 class HistoryTracker:
@@ -16,6 +17,11 @@ class HistoryTracker:
         self._lines = [""]  # Tracked sections of text. May include internal newline characters.
         self._pointer = 0   # Pointer to current history line, 0 = earliest line.
 
+    def _move(self, offset:int) -> str:
+        """ Return the line at the pointer after moving it and checking the bounds. """
+        self._pointer = min(max(self._pointer + offset, 0), len(self._lines) - 1)
+        return self._lines[self._pointer]
+
     def add(self, s:str) -> None:
         """ Add a new line to the history and reset the pointer to just *after* the end.
             This means the next access will read this line no matter which way we move. """
@@ -24,104 +30,108 @@ class HistoryTracker:
 
     def prev(self) -> str:
         """ Scroll the history backward and return the next line. """
-        return self.get(-1)
+        return self._move(-1)
 
     def next(self) -> str:
         """ Scroll the history forward and return the next line. """
-        return self.get(1)
-
-    def get(self, increment:int=0) -> str:
-        """ Return the line at the pointer after moving it and checking the bounds. """
-        self._pointer = min(max(self._pointer + increment, 0), len(self._lines) - 1)
-        return self._lines[self._pointer]
-
-
-class StreamWriteAdapter(TextIOBase):
-    """ Wraps a string callable in a text stream interface as write(). """
-
-    def __init__(self, write:Callable[[str], None]) -> None:
-        self._write = write
-
-    def write(self, s:str) -> int:
-        self._write(s)
-        return len(s)
-
-    def writable(self) -> bool:
-        return True
+        return self._move(1)
 
 
 class TerminalTextWidget(QTextEdit):
-    """ Formatted text widget meant to display plaintext interpreter input and output as a terminal.
+    """ Formatted text widget meant to display plaintext interpreter input and output as a line-buffered terminal.
         The text content is composed of two parts. The "base text" includes everything before the prompt.
         This is the terminal's saved output; it may be copied but not be edited.
         The "user text" comes after the prompt; it is freely modifiable by the user.
         When the user presses Enter, the user text is sent in a signal, then frozen into the base text. """
 
-    lineEntered = pyqtSignal([str])  # Sent with the current line of user input upon pressing Enter.
+    lineEntered = pyqtSignal([str])  # Sent with a line of user input on pressing Enter.
+    interrupted = pyqtSignal([])     # Sent when a Ctrl-C interrupt occurs.
 
     def __init__(self, *args) -> None:
         super().__init__(*args)
-        self._history = HistoryTracker()  # Tracks previous keyboard input.
         self._base_text = ""              # Unchangeable base text. User input may only appear after this.
-        self._last_valid_text = ""        # Last valid state of text (including user input).
+        self._user_text = ""              # Last valid state of user input text.
+        self._history = HistoryTracker()  # Tracks previous keyboard input.
         self.setFont(QFont("Courier New", 10))
         self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextEditorInteraction)
         self.textChanged.connect(self._on_edited)
-
-    def _cursor_to_end(self) -> None:
-        """ Reset the cursor to the end of the current text. """
-        c = self.textCursor()
-        c.movePosition(QTextCursor.End)
-        self.setTextCursor(c)
-
-    def _set_content(self, text:str) -> None:
-        """ Set new text content and reset the cursor to the end without triggering signals. """
-        self.blockSignals(True)
-        self.setPlainText(text)
-        self._last_valid_text = text
-        self._cursor_to_end()
-        self.blockSignals(False)
-
-    def _on_edited(self) -> None:
-        """ Undo anything that modifies the base text. """
-        current_text = self.toPlainText()
-        if current_text.startswith(self._base_text):
-            self._last_valid_text = current_text
-        else:
-            self._set_content(self._last_valid_text)
-
-    def add_base_text(self, text:str) -> None:
-        """ Add to the base text of the widget. """
-        self._base_text += text
-        self._set_content(self._base_text)
-        # To keep up with scrolling text, the vertical scroll position is fixed at the bottom.
-        sy = self.horizontalScrollBar()
-        sy.setValue(sy.maximum())
 
     def _set_cursor_valid(self) -> None:
         """ If the cursor is not within the current prompt, move it to the end. """
         c = self.textCursor()
         prompt_start = len(self._base_text)
         if c.position() < prompt_start:
-            self._cursor_to_end()
+            c.movePosition(QTextCursor.End)
+            self.setTextCursor(c)
+
+    def _update(self) -> None:
+        """ Update the widget's text content and reset the cursor without triggering signals. """
+        self.blockSignals(True)
+        self.setPlainText(self._base_text + self._user_text)
+        self._set_cursor_valid()
+        self.blockSignals(False)
+
+    def _on_edited(self) -> None:
+        """ Undo anything that modifies the base text. """
+        current_text = self.toPlainText()
+        start = len(self._base_text)
+        if current_text[:start] == self._base_text:
+            self._user_text = current_text[start:]
+        else:
+            self._update()
+
+    def _submit(self) -> None:
+        """ Add the current user text to the history, freeze it as an echo with a newline, and emit it as a signal. """
+        text = self._user_text
+        self._history.add(text)
+        line = text + "\n"
+        self._base_text += line
+        self._user_text = ""
+        self._update()
+        self.lineEntered.emit(line)
+
+    def _history_prev(self) -> None:
+        """ Overwrite the user text with the previous item in the history. """
+        self._user_text = self._history.prev()
+        self._update()
+
+    def _history_next(self) -> None:
+        """ Overwrite the user text with the next item in the history. """
+        self._user_text = self._history.next()
+        self._update()
+
+    def write(self, text:str) -> None:
+        """ Add to the base text without disturbing the user text.
+            To keep up with scrolling text, the vertical scroll position shifts to the bottom. """
+        self._base_text += text
+        self._update()
+        sy = self.horizontalScrollBar()
+        sy.setValue(sy.maximum())
 
     def keyPressEvent(self, event:QKeyEvent) -> None:
-        """ Check the input for special cases. """
-        # Up/down arrow keys will scroll through the command history.
-        if event.key() == Qt.Key_Up:
-            self._set_content(self._base_text + self._history.prev())
-        elif event.key() == Qt.Key_Down:
-            self._set_content(self._base_text + self._history.next())
-        elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            # If a newline is entered, capture only the user-provided text.
-            # Add it to the history, append it to the base text (with newline), and send it in a signal.
-            user_text = self._last_valid_text[len(self._base_text):]
-            self._history.add(user_text)
-            self.add_base_text(user_text + "\n")
-            self.lineEntered.emit(user_text)
+        """ Parse keyboard input events for special cases. """
+        key = event.key()
+        if key == Qt.Key_Up:
+            # Up - replace user text with the previous command history item.
+            self._history_prev()
+        elif key == Qt.Key_Down:
+            # Down - replace user text with the next command history item.
+            self._history_next()
+        elif key in (Qt.Key_Return, Qt.Key_Enter):
+            # Enter - submit user text as terminal input.
+            self._submit()
+        elif event.modifiers() & Qt.ControlModifier:
+            # Ctrl shortcuts have spurious event text.
+            if key == Qt.Key_C and not self.textCursor().selectedText():
+                # Ctrl-C is an interrupt if no text is selected; otherwise it is a copy.
+                self.interrupted.emit()
+            else:
+                super().keyPressEvent(event)
         else:
-            # In any other case, reset the cursor if necessary and pass the keypress as normal.
-            self._set_cursor_valid()
+            # In all other cases, process the event as normal.
+            if event.text():
+                # Reset the cursor before inserting actual text.
+                self._set_cursor_valid()
             super().keyPressEvent(event)
 
     def insertFromMimeData(self, data:QMimeData) -> None:
@@ -132,29 +142,26 @@ class TerminalTextWidget(QTextEdit):
             plaintext.setText(data.text())
             super().insertFromMimeData(plaintext)
 
-    def to_stream(self) -> TextIOBase:
-        """ Wrap the widget as a writable text stream. """
-        return StreamWriteAdapter(self.add_base_text)
 
-
-class ConsoleDialog(QDialog):
-    """ Qt console dialog window tool. Connects signals between the console, a text widget, and the keyboard. """
+class TerminalDialog(QDialog):
+    """ Qt terminal dialog tool. """
 
     def __init__(self, *args) -> None:
         super().__init__(*args)
         self.setWindowTitle("Python Console")
         self.setMinimumSize(680, 480)
-        self._last_console = None                # Saved console reference (to avoid garbage collection).
-        self._w_text = TerminalTextWidget(self)  # Text widget to process user input and console output.
+        self._w_text = TerminalTextWidget(self)
         layout = QVBoxLayout(self)
         layout.addWidget(self._w_text)
 
-    def start_console(self, namespace:dict=None) -> None:
-        """ Start a new Python console instance with <namespace> as globals, disconnecting any previous console. """
-        file = self._w_text.to_stream()
-        console = SystemConsole.open(namespace, file)
-        line_signal = self._w_text.lineEntered
-        if self._last_console is not None:
-            line_signal.disconnect()
-        line_signal.connect(console.send)
-        self._last_console = console
+    def send(self, text:str) -> None:
+        """ Send output text to the terminal. """
+        self._w_text.write(text)
+
+    def add_input_listener(self, on_input:InputCallback) -> None:
+        """ Connect a callback to receive input text from the terminal. """
+        self._w_text.lineEntered.connect(on_input)
+
+    def add_interrupt_listener(self, on_interrupt:InterruptCallback) -> None:
+        """ Connect a callback to receive interrupts from the terminal. """
+        self._w_text.interrupted.connect(on_interrupt)

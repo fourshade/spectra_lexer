@@ -1,163 +1,112 @@
-""" Base module for interactive system interpreter operations. """
-
-import codeop
-import inspect
+from contextlib import ContextDecorator
+import ctypes
+from io import TextIOBase
+import os
 import sys
-import traceback
+from threading import Thread
+from types import SimpleNamespace
+from typing import Any, Callable
+
+Runnable = Callable[[], Any]
 
 
-class xhelp:
-    """ You asked for help on help, didn't you? Boredom has claimed yet another victim.
-        This object overrides the builtin 'help', which breaks custom Python consoles. """
-
-    _HELP_SECTIONS = [lambda x: [f"OBJECT - {x!r}"],
-                      lambda x: [f"  TYPE - {type(x).__name__}"],
-                      lambda x: ["-----------SIGNATURE------------",
-                                 str(inspect.signature(x))],
-                      lambda x: ["-------PUBLIC ATTRIBUTES--------",
-                                 ', '.join([k for k in dir(x) if not k.startswith('_')]) or "None"],
-                      lambda x: ["--------------INFO--------------",
-                                 *map(str.lstrip, str(x.__doc__).splitlines())]]
-
-    def __init__(self, file=None) -> None:
-        self._file = file or sys.stdout  # Output text stream (stdout by default).
-
-    def __call__(self, *args:object) -> None:
-        """ Write lines from each help section that doesn't raise an exception, in order. """
-        lines = [] if args else [repr(self)]
-        for obj in args:
-            lines.append("")
-            for fn in self._HELP_SECTIONS:
-                try:
-                    lines += fn(obj)
-                except Exception:
-                    # Arbitrary objects may raise arbitrary exceptions. Just skip sections that don't behave.
-                    continue
-            lines.append("")
-        self._file.write("\n".join(lines))
-
-    def __repr__(self) -> str:
-        return "Type help(object) for auto-generated help on any Python object."
+def text_pipe(*, encoding='utf-8'):
+    """ Open file objects for a pipe in text mode. """
+    read_fd, write_fd = os.pipe()
+    fp_in = open(read_fd, 'r', encoding=encoding)
+    fp_out = open(write_fd, 'w', encoding=encoding)
+    return fp_in, fp_out
 
 
-class AttrRedirector:
-    """ Context manager that temporarily overwrites a number of attributes on a target object, then restores them.
-        Only works on objects with a __dict__. The usual case is redirecting streams and hooks from the sys module. """
+class TextIOWriter(TextIOBase):
+    """ Wraps a string callable as a writable stream. """
 
-    def __init__(self, target:object, **attrs) -> None:
-        """ We usually have specific literal attributes to redirect, so **keywords are best. """
-        self._params = vars(target), attrs
+    def __init__(self, write_callback:Callable[[str], Any]) -> None:
+        self._write_callback = write_callback  # Callback with one positional string argument.
 
-    def __exit__(self, *args) -> None:
-        """ Switch the attributes on both dicts. This operation is symmetrical and works for __enter__ as well. """
-        d, attrs = self._params
-        for a in attrs:
-            d[a], attrs[a] = attrs[a], d[a]
+    def write(self, text:str) -> int:
+        self._write_callback(text)
+        return len(text)
 
-    __enter__ = __exit__
+    def writable(self) -> bool:
+        return True
 
 
-class SourceInterpreter:
-    """ Interprets and executes Python source strings. """
+class SysRedirector(SimpleNamespace, ContextDecorator):
+    """ Namespace of attributes to override in the sys module while inside a 'with' block. """
 
-    def __init__(self, namespace:dict=None, filename="<console>", excepthook=None) -> None:
-        self._namespace = namespace or {}  # Globals namespace dict for exec().
-        self._filename = filename          # String shown in exceptions as the file name.
-        self._excepthook = excepthook      # Optional 3-arg callable to handle exceptions instead of propagating them.
+    def _swap(self, *_) -> None:
+        """ Swap out attributes on the sys module to redirect the standard streams.
+            This operation is symmetrical; calling it again will restore the original attributes. """
+        myvars = vars(self)
+        sysvars = vars(sys)
+        replaced = {k: sysvars[k] for k in myvars}
+        sysvars.update(myvars)
+        myvars.update(replaced)
 
-    def run(self, source:str) -> bool:
-        """ Attempt to compile and run a Python <source> code string.
-            Return True if the source makes an incomplete statement. """
+    __enter__ = __exit__ = _swap
+
+
+class InterruptibleThread(Thread):
+    """ Thread that may be interrupted with asynchronous exceptions. """
+
+    def _ctypes_raise_async(self, exc_type:type) -> None:
+        """ Raise an exception type in this thread asynchronously from another using ctypes. """
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(self.ident, ctypes.py_object(exc_type))
+        if res != 1:
+            raise SystemError("PyThreadState_SetAsyncExc failed")
+
+    def raise_async(self, exc_type:type) -> None:
+        """ Raise an exception in the context of this thread asynchronously.
+            Black magic with ctypes seems to be the only way, so extra care must be taken. """
+        if not isinstance(exc_type, type):
+            raise TypeError("Only types can be raised (not instances)")
+        if not issubclass(exc_type, BaseException):
+            raise TypeError("Only subclasses of BaseException can be raised")
+        # The thread must be active to receive exceptions; otherwise don't bother.
+        if self.is_alive():
+            self._ctypes_raise_async(exc_type)
+
+
+class Console:
+    """ Contains streams and a thread for running an asynchronous console application. """
+
+    _func: Runnable  # Console application callable, set by start(). Takes no arguments.
+
+    def __init__(self, file_out:TextIOBase) -> None:
+        fp_in, fp_out = text_pipe()
+        redirector = SysRedirector(stdin=fp_in, stdout=file_out, stderr=file_out, excepthook=sys.__excepthook__)
+        fp_in.read = redirector(fp_in.read)
+        fp_in.readline = redirector(fp_in.readline)
+        target = redirector(self._run)
+        self._thread = InterruptibleThread(target=target, daemon=True)
+        self._fp_in = fp_in    # Read end of pipe.  The thread spends most of its time blocked here.
+        self._fp_out = fp_out  # Write end of pipe. Must be flushed for the read end to see anything.
+
+    def _run(self) -> None:
+        """ Run the application and close the pipe when finished. """
+        with self._fp_in, self._fp_out:
+            self._func()
+
+    def start(self, func:Runnable) -> None:
+        """ Start the thread running <func> as a console program. """
+        self._func = func
+        self._thread.start()
+
+    def send(self, text:str) -> None:
+        """ Write user input and flush. Ignore write errors due to the pipe closing. """
         try:
-            code = codeop.compile_command(source, self._filename)
-            if code is None:
-                # The input is incomplete. Nothing is executed.
-                return True
-            # The input is complete. The code object is executed.
-            self._exec(code)
-        except (OverflowError, SyntaxError, ValueError) as exc:
-            # The input is incorrect. There is no stack, so no traceback either.
-            exc.__traceback__ = None
-            self._handle_exception(exc)
-        return False
+            self._fp_out.write(text)
+            self._fp_out.flush()
+        except OSError:
+            pass
 
-    def _exec(self, code) -> None:
-        """ Execute a <code> object in our namespace. """
-        try:
-            exec(code, self._namespace)
-        except SystemExit:
-            raise
-        except BaseException as exc:
-            # We remove the first stack item from the traceback because it is our own code.
-            exc.__traceback__ = exc.__traceback__.tb_next
-            self._handle_exception(exc)
+    def interrupt(self) -> None:
+        """ Raise KeyboardInterrupt in the context of our thread. """
+        self._thread.raise_async(KeyboardInterrupt)
 
-    def _handle_exception(self, exc:BaseException) -> None:
-        """ If there is an exception hook, call it and swallow the exception. """
-        if self._excepthook is None:
-            raise exc
-        self._excepthook(type(exc), exc, exc.__traceback__)
-
-
-class PromptWriter:
-    """ Writes interactive console prompts to a text stream. """
-
-    def __init__(self, file=None, *, ps1=">>> ", ps2="... ") -> None:
-        self._file = file or sys.stdout  # Output text stream (stdout by default).
-        self._ps1 = ps1                  # Normal interpreter input prompt.
-        self._ps2 = ps2                  # Input prompt when more lines are needed.
-
-    def write(self, need_more=False) -> None:
-        """ Write one of two prompt strings depending on if we <need_more> code to complete a statement.
-            A prompt is not a full line, so the stream must be flushed manually after write. """
-        prompt = self._ps2 if need_more else self._ps1
-        self._file.write(prompt)
-        self._file.flush()
-
-
-class SystemConsole:
-    """ Component for interactive system interpreter operations. """
-
-    # Default opening message (trailing newline required).
-    DEFAULT_BANNER = f"Spectra Console - Python {sys.version}\n"
-
-    def __init__(self, interpreter:SourceInterpreter, redirector:AttrRedirector, prompts:PromptWriter) -> None:
-        self._interpreter = interpreter  # Executes Python source.
-        self._redirector = redirector    # Redirects console output from standard streams.
-        self._prompts = prompts          # Prints Python interpreter prompt strings.
-        self._line_buffer = []           # Buffer for incomplete Python statements.
-
-    def send(self, line:str) -> None:
-        """ When a new line is sent, push it to the interpreter and run it if it makes a complete statement. """
-        self._line_buffer.append(line)
-        source = "\n".join(self._line_buffer)
-        need_more = self._run(source)
-        if not need_more:
-            self._line_buffer = []
-        self._prompts.write(need_more)
-
-    def _run(self, source:str) -> bool:
-        """ Redirect the standard output streams to our file during execution of a Python <source> string. """
-        with self._redirector:
-            return self._interpreter.run(source)
-
-    def repl(self) -> None:
-        """ Run a read-eval-print loop using standard input. """
-        for line in iter(input, "exit"):
-            self.send(line)
-
-    @classmethod
-    def open(cls, namespace:dict=None, file=None, *, banner=DEFAULT_BANNER, **kwargs) -> "SystemConsole":
-        """ Make a new console, override the interactive help(), and print an opening message and prompt. """
-        if namespace is None:
-            namespace = {}
-        if file is None:
-            file = sys.stdout
-        namespace.setdefault("help", xhelp(file))
-        interpreter = SourceInterpreter(namespace, excepthook=traceback.print_exception)
-        redirector = AttrRedirector(sys, stdout=file, stderr=file)
-        prompts = PromptWriter(file, **kwargs)
-        if banner is not None:
-            file.write(banner)
-        prompts.write()
-        return cls(interpreter, redirector, prompts)
+    def terminate(self) -> None:
+        """ Raise SystemExit in the context of our thread to make it exit if currently processing.
+            If it is blocked, the pipe must be closed first. """
+        self._fp_out.close()
+        self._thread.raise_async(SystemExit)

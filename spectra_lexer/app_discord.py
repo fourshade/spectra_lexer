@@ -4,7 +4,7 @@ import sys
 from typing import Optional, Sequence, Type
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.console.system import SystemConsole
+from spectra_lexer.console import introspect
 from spectra_lexer.qt.svg import SVGRasterEngine
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer, TranslationPairs
@@ -110,13 +110,6 @@ class DiscordApplication:
             return self._query_keys(first)
         return self._query_text(query)
 
-    def run_console(self) -> int:
-        """ Run the application in a debug console. """
-        namespace = {k: getattr(self, k) for k in dir(self) if not k.startswith('__')}
-        console = SystemConsole.open(namespace)
-        console.repl()
-        return 0
-
 
 def build_app(spectra:Spectra) -> DiscordApplication:
     io = spectra.resource_io
@@ -148,7 +141,7 @@ def main() -> int:
     app = build_app(spectra)
     if not opts.token:
         log("No token given. Opening test console...")
-        return app.run_console()
+        return introspect(app)
     bot = DiscordBot(opts.token, log)
     bot.add_command(opts.command, app.query)
     log("Discord bot started.")
