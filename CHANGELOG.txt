@@ -1,3 +1,8 @@
+14.2.1
+------
+* Chain links may now connect any number of shapes
+* JSON schema is now more explicit
+
 14.2.0
 ------
 * Simplified rules format to just an array of strings

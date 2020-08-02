@@ -5,7 +5,7 @@ import sys
 
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.gui_engine import GUIEngine
-from spectra_lexer.gui_rest import RESTGUIApplication
+from spectra_lexer.gui_json import JSONGUIApplication
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.json import JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
@@ -15,7 +15,7 @@ from spectra_lexer.http.tcp import ThreadedTCPServer
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 
-def build_app(spectra:Spectra) -> RESTGUIApplication:
+def build_app(spectra:Spectra) -> JSONGUIApplication:
     """ Start with standard command-line options and build the app. """
     io = spectra.resource_io
     search_engine = spectra.search_engine
@@ -26,10 +26,10 @@ def build_app(spectra:Spectra) -> RESTGUIApplication:
     index_path = spectra.index_path
     gui_engine = GUIEngine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
     gui_engine.load_initial()
-    return RESTGUIApplication(gui_engine)
+    return JSONGUIApplication(gui_engine)
 
 
-def build_dispatcher(app:RESTGUIApplication, root_dir:str, *args) -> HTTPConnectionHandler:
+def build_dispatcher(app:JSONGUIApplication, root_dir:str, *args) -> HTTPConnectionHandler:
     """ Build an HTTP server object customized to Spectra's requirements. """
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
     codec = JSONCodec(decoder)

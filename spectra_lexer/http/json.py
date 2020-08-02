@@ -1,11 +1,32 @@
 """ Module for JSON codecs adapted for HTTP data transmission. """
 
 from json import JSONDecodeError, JSONDecoder, JSONEncoder
-from typing import NoReturn, Union
+from typing import Dict, List, NoReturn, Tuple, Union
 
 from .service import BinaryDataProcessor
 
-JSONType = Union[None, bool, int, float, str, tuple, list, dict]  # Python types supported by json module.
+# Spec for Python types directly supported by json module.
+JSONType = Union[None, bool, int, float, str, 'JSONTuple', 'JSONList', 'JSONDict']
+JSONTuple = Tuple[JSONType, ...]
+JSONList = List[JSONType]
+JSONDict = Dict[str, JSONType]
+
+
+class JSONStruct(JSONDict):
+    """ Struct/record type designed for serialization as a JSON object.
+        To do so without a custom parser, it must be a dictionary (if only internally).
+        Subclasses form a schema by adding annotations to specify required and optional fields. """
+
+    def __init__(self, **kwargs:JSONType) -> None:
+        """ Check annotations for required fields and copy default values for optional ones. """
+        super().__init__(kwargs)
+        for k in self.__annotations__:
+            if k not in self:
+                try:
+                    self[k] = getattr(self, k)
+                except AttributeError:
+                    raise TypeError(f'Missing required field "{k}"')
+        self.__dict__ = self
 
 
 class JSONRestrictionError(JSONDecodeError):
@@ -37,28 +58,6 @@ class RestrictedJSONDecoder(JSONDecoder):
         return super().decode(s, **kwargs)
 
 
-class CustomJSONEncoder(JSONEncoder):
-    """ Encodes arbitrary Python data types into JSON using named conversion methods and/or vars(). """
-
-    def default(self, obj:object) -> JSONType:
-        """ Convert a non-standard Python object into a JSON-compatible type if possible.
-            The object must either:
-            - match a conversion method on this encoder by exact type name, or
-            - possess a __dict__ whose values are all JSON-compatible types or other such objects recursively.
-            Since type information is not encoded, this conversion is strictly one-way. """
-        type_name = type(obj).__name__
-        try:
-            method = getattr(self, f'convert_{type_name}', vars)
-            return method(obj)
-        except Exception as e:
-            raise TypeError(f'Could not encode object of type "{type_name}" into JSON.') from e
-
-    # Ranges, sets, and frozensets can be converted into lists with no consequences.
-    convert_range = list
-    convert_set = list
-    convert_frozenset = list
-
-
 class JSONCodec:
     """ Combines a JSON decoder and encoder for binary data using the same character encoding. """
 
@@ -79,14 +78,14 @@ class JSONCodec:
 
 
 class JSONApplication:
-    """ Interface for an application that accepts and returns JSON-compatible dictionaries at its boundary. """
+    """ Interface for an application that accepts and returns JSON-compatible types at its boundary. """
 
-    def run(self, d:dict) -> dict:
+    def run(self, **kwargs:JSONType) -> JSONType:
         raise NotImplementedError
 
 
 class JSONObjectProcessor(BinaryDataProcessor):
-    """ Application wrapper that converts JSON objects to/from binary data. """
+    """ Application wrapper that converts JSON to/from binary data. """
 
     output_type = "application/json"
 
@@ -99,7 +98,5 @@ class JSONObjectProcessor(BinaryDataProcessor):
         obj_in = self._codec.decode(data)
         if not isinstance(obj_in, dict):
             raise TypeError('Top level of input data must be a JSON object.')
-        obj_out = self._app.run(obj_in)
-        if not isinstance(obj_out, dict):
-            raise TypeError('Output must be a dictionary.')
+        obj_out = self._app.run(**obj_in)
         return self._codec.encode(obj_out)
