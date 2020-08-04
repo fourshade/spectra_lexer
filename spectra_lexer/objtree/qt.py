@@ -242,6 +242,8 @@ class SVGIconRenderer:
     def _render(self, data:XMLIconData) -> QIcon:
         """ Create a template image, render the XML data in place, and convert it to an icon.
             Use the viewbox dimensions as pixel sizes. """
+        if isinstance(data, str):
+            data = data.encode('utf-8')
         svg = QSvgRenderer(data)
         viewbox = svg.viewBox().size()
         im = QImage(viewbox, QImage.Format_ARGB32)

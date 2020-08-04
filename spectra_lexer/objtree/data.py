@@ -15,9 +15,9 @@ class ObjectData:
     type_graph = ""                          # Graph display text for MRO of object's data type
     value_text = "undefined"                 # Main display text for object (its string value).
     value_tooltip = ""                       # Popup tooltip for object's value.
-    op_edit: Callable[[str], None] = None
-    op_delete: Callable[[], None] = None
-    op_move: Callable[[str], None] = None
+    op_edit: Callable[[str], None] = None    # Callback to replace the object with the results of eval() on a string.
+    op_delete: Callable[[], None] = None     # Callback to delete the object from its container.
+    op_move: Callable[[str], None] = None    # Callback to move the object to a new key in its container.
     icon_data: SVGIconData = None            # Bytes data for the object's SVG icon (may be None)
     children: Collection["ObjectData"] = ()  # Iterable collection of child data objects.
     item_count: int = None                   # Displayed count of children in the object (None if not displayed).

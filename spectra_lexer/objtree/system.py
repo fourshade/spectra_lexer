@@ -7,46 +7,43 @@ from types import ModuleType
 
 class AutoImporter(dict):
     """ Namespace helper dict that functions as a copy of __builtins__ with extra features.
-        It automatically tries to import missing modules any time code would otherwise throw a NameError. """
+        It automatically tries to import missing modules any time code would otherwise throw a NameError.
+
+        It should *not* be passed directly to eval/exec as the global namespace. If it is, __missing__ will be called
+        *before* any builtin lookup is attempted. This attempts a module import, and either outcome is terrible:
+        - The import succeeds, in which case the builtin is now shadowed.
+        - The import fails, which means the import machinery tried everything and failed.
+          Doing this on *every* builtin access is extremely expensive. """
 
     __slots__ = ()
+
+    def _import(self, k:str) -> ModuleType:
+        return __import__(k, self, locals(), [])
 
     def __missing__(self, k:str) -> ModuleType:
         """ Try to import missing modules before raising a KeyError (which becomes a NameError).
             If successful, attempt to import submodules recursively. """
         try:
-            module = self[k] = __import__(k, self, locals(), [])
+            module = self[k] = self._import(k)
         except Exception:
             raise KeyError(k)
         try:
             for finder, name, ispkg in pkgutil.walk_packages(module.__path__, k + '.'):
-                __import__(name, self, locals(), [])
+                self._import(name)
         except Exception:
             pass
         return module
 
     @classmethod
     def eval_namespace(cls, *args, **kwargs) -> dict:
-        """ Make a globals namespace dict for eval(), within which an auto-importer will function as __builtins__.
-            The auto-import dict, as with normal __builtins__, will be tried only after the namespace fails.
-            The separate namespace is necessary; this class should *not* be used directly as an eval namespace.
-             (If used directly, __missing__ will be called *before* any builtin lookup is attempted.
-              This attempts a module import, and either outcome is terrible:
-              - The import succeeds, in which case the builtin is now shadowed.
-              - The import fails, which means the import machinery tried everything and failed.
-                Doing this on *every* builtin access is extremely expensive.) """
+        """ Make a globals namespace dict for eval(), within which an auto-importer will function as __builtins__. """
         return dict(*args, __builtins__=cls(__builtins__), **kwargs)
 
 
 class package(dict):
-    """ Dict for nesting objects and modules under path-like string keys. Has a special icon. """
+    """ Dict for nesting objects (specifically Python modules) under path-like string keys. Has a special icon. """
 
     __slots__ = ()
-
-    @classmethod
-    def modules(cls) -> "package":
-        """ Make a package with a nested representation of the currently loaded modules. """
-        return cls.nested(sys.modules, delim=".", root_key="__init__")
 
     @classmethod
     def nested(cls, src:dict, delim:str, root_key:str) -> "package":
@@ -68,3 +65,8 @@ class package(dict):
             else:
                 d[last][root_key] = v
         return pkg
+
+    @classmethod
+    def from_modules(cls) -> "package":
+        """ Return a new package with a nested representation of the currently loaded modules. """
+        return cls.nested(sys.modules, delim=".", root_key="__init__")
