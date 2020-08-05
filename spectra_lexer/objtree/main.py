@@ -19,7 +19,7 @@ def build_root(obj:object, root_package:str=None) -> ObjectData:
     value_repr = ValueRepr().repr
     mro_grapher = MROGrapher().draw_graph
     eval_ns = AutoImporter.eval_namespace()
-    factory = ObjectDataFactory(matcher, icon_finder, value_repr, mro_grapher, eval_ns)
+    factory = ObjectDataFactory(matcher, mro_grapher, value_repr, icon_finder, eval_ns)
     return factory.generate(obj)
 
 

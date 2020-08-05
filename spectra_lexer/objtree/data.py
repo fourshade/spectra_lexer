@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Collection, Sequence, Iterator
+from typing import Callable, Collection, Iterator, Sequence
 
 from .container import BaseContainer, ContainerRegistry, MutableContainer, MovableKeyContainer
 from .icons import SVGIconData, SVGIconFinder
@@ -26,12 +26,12 @@ class ObjectData:
 class ObjectDataFactory:
     """ Generates data for displaying the properties and contents of a Python object. """
 
-    def __init__(self, matcher:ContainerRegistry, icon_finder=SVGIconFinder(), value_repr=repr,
-                 mro_grapher:Callable[[type], str]=None, eval_ns:dict=None, exc_color=(192, 0, 0)) -> None:
+    def __init__(self, matcher:ContainerRegistry, mro_grapher:Callable[[type], str], value_repr:Callable[[object], str],
+                 icon_finder=SVGIconFinder(), eval_ns:dict=None, exc_color=(192, 0, 0)) -> None:
         self._matcher = matcher          # Matches objects to containers that can find their contents.
-        self._icon_finder = icon_finder  # Index of SVG XML icons by data type.
-        self._value_repr = value_repr    # Generates strings representing an object's value.
         self._mro_grapher = mro_grapher  # Generates strings representing a graph of an object type's MRO.
+        self._value_repr = value_repr    # Generates strings representing an object's value.
+        self._icon_finder = icon_finder  # Index of SVG XML icons by data type.
         self._eval_ns = eval_ns          # Namespace for evaluation of user input strings as Python code.
         self._exc_color = exc_color      # Exceptions are always bright red, overriding any color due to containers.
 
@@ -77,20 +77,12 @@ class ObjectDataFactory:
     def _add_value(self, data:ObjectData, obj:object) -> None:
         """ Add data related to an object's type and value. """
         tp = type(obj)
-        # A type's icon is chosen from keywords describing it in order from specific to general.
-        # For now, the icon choices are just the names of each type in the MRO in order.
-        mro_names = [cls.__name__ for cls in tp.__mro__]
-        is_metacls = isinstance(obj, type) and issubclass(obj, type)
-        data.icon_data = self._icon_finder.get_best(mro_names, module_name=tp.__module__, is_metacls=is_metacls)
         if issubclass(tp, BaseException):
             data.color = self._exc_color
         data.type_text = tp.__name__
-        if self._mro_grapher is None:
-            graph = " -> ".join(mro_names)
-        else:
-            graph = self._mro_grapher(tp)
-        data.type_graph = graph
+        data.type_graph = self._mro_grapher(tp)
         data.value_text = self._value_repr(obj)
+        data.icon_data = self._icon_finder.get_best(obj)
         # If containers exist, add a new collection with them to handle generating children.
         containers = self._matcher.containers_from(obj)
         if containers:

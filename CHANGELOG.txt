@@ -1,3 +1,8 @@
+14.2.2
+------
+* Thread handling is simplified
+* Python console code is more robust
+
 14.2.1
 ------
 * Chain links may now connect any number of shapes

@@ -2,6 +2,7 @@
 
 import builtins
 import dis
+from functools import partial
 import io
 import types
 from types import CodeType, FrameType, FunctionType
@@ -78,55 +79,53 @@ class GeneratedContainer(BaseContainer):
         return {}
 
 
+ContainerType = Type[BaseContainer]
+
+
 class ContainerRegistry:
     """ Tracks container access classes by their conditions for use. """
 
     # Default data types to treat as atomic/indivisible. Attempting iteration on these is either wasteful or harmful.
-    # Strings are the primary use case; expanding strings into characters is not useful and just makes a mess.
+    # Strings are the primary use case; introspection on individual characters is not useful and just makes a mess.
     # (especially since each character is a string containing *itself*, leading to infinite recursion.)
     ATOMIC_TYPES = {type(None), type(...),      # System singletons.
                     bool, int, float, complex,  # Guaranteed not iterable.
                     str, bytes, bytearray,      # Items are just characters; do not iterate over these.
                     range, slice,               # Items are just a pre-determined mathematical range.
                     filter, map, zip,           # Iteration is destructive.
-                    io.TextIOWrapper}           # Iteration over a blocking input stream may hang the program.
-
-    class Condition:
-        """ A container access condition, tested against some property of an object. """
-        def __init__(self, cmp_func:Callable[[object, object], bool], prop:object) -> None:
-            """ The decorated class is only instantiated if cmp_func(<test object>, prop) is True. """
-            self.cls = None
-            self.cmp_func = cmp_func
-            self.prop = prop
-        def __call__(self, cls:Type[BaseContainer]) -> Type[BaseContainer]:
-            self.cls = cls
-            return cls
+                    io.TextIOWrapper}           # Iteration will hang the program if the stream blocks.
 
     def __init__(self, atomic_types=frozenset(ATOMIC_TYPES)) -> None:
         self._atomic_types = atomic_types  # Data types which are prevented from acting like containers.
-        self._conditions = []              # List of use conditions for various classes.
+        self._conditions = []              # List of container classes and test conditions for their use.
+
+    def register(self, pred:Callable[[object, object], bool], prop:object) -> Callable:
+        """ Decorator to register a new condition for a container access class. These may be nested.
+            The decorated class is only instantiated when pred(<object>, prop) is True. """
+        def decorate(cls:ContainerType) -> ContainerType:
+            def test(obj:object) -> bool:
+                return pred(obj, prop)
+            self._conditions.append((cls, test))
+            return cls
+        return decorate
 
     def containers_from(self, obj:object) -> List[BaseContainer]:
         """ Return container accessors that pass condition checks against <obj>. """
         if type(obj) in self._atomic_types:
             return []
-        # If an class's use condition is met, that class will be instantiated and may provide data from the object.
-        classes = [cond.cls for cond in self._conditions if cond.cmp_func(obj, cond.prop)]
+        # If an class's test condition is met, that class will be instantiated and may provide data from the object.
+        classes = [cls for cls, test in self._conditions if test(obj)]
         # If any classes are in a direct inheritance line, only instantiate the most derived class.
-        return [cls(obj) for cls in classes if cls and sum([issubclass(m, cls) for m in classes]) == 1]
-
-    def register(self, cmp_func:Callable, prop:object) -> Callable:
-        """ Decorator to register a new condition for a container access class. These may be nested. """
-        cond = self.Condition(cmp_func, prop)
-        self._conditions.append(cond)
-        return cond
+        return [cls(obj) for cls in classes if sum([issubclass(m, cls) for m in classes]) == 1]
 
 
 # Every container below must be registered to be found by the data factory.
 CONTAINER_TYPES = ContainerRegistry()
+register_isinstance = partial(CONTAINER_TYPES.register, isinstance)
+register_hasattr = partial(CONTAINER_TYPES.register, hasattr)
 
 
-@CONTAINER_TYPES.register(isinstance, Mapping)
+@register_isinstance(Mapping)
 class UnorderedContainer(BaseContainer):
     """ A sized, unordered iterable item container. The most generic acceptable type of iterable container.
         Items may be sorted for display if they are orderable. Mappings do not need a subclass beyond this. """
@@ -145,12 +144,12 @@ class UnorderedContainer(BaseContainer):
         return iter(self._obj)
 
 
-@CONTAINER_TYPES.register(isinstance, MutableMapping)
+@register_isinstance(MutableMapping)
 class MutableMappingContainer(UnorderedContainer, MovableKeyContainer):
     """ The base mutable container class is already implemented as a mapping. No changes need to be made. """
 
 
-@CONTAINER_TYPES.register(isinstance, AbstractSet)
+@register_isinstance(AbstractSet)
 class SetContainer(UnorderedContainer):
 
     key_tooltip = "Hash value of the object. Cannot be edited."
@@ -166,7 +165,7 @@ class SetContainer(UnorderedContainer):
         return f"#{hash(key)}"
 
 
-@CONTAINER_TYPES.register(isinstance, MutableSet)
+@register_isinstance(MutableSet)
 class MutableSetContainer(SetContainer, MutableContainer):
 
     def __delitem__(self, key:Hashable) -> None:
@@ -179,7 +178,7 @@ class MutableSetContainer(SetContainer, MutableContainer):
         self._obj.add(value)
 
 
-@CONTAINER_TYPES.register(isinstance, Sequence)
+@register_isinstance(Sequence)
 class SequenceContainer(BaseContainer):
 
     show_item_count = True
@@ -193,7 +192,7 @@ class SequenceContainer(BaseContainer):
         return f".{key}"
 
 
-@CONTAINER_TYPES.register(isinstance, tuple)
+@register_isinstance(tuple)
 class TupleContainer(SequenceContainer):
 
     def key_str(self, key:int) -> str:
@@ -203,7 +202,7 @@ class TupleContainer(SequenceContainer):
         return super().key_str(key)
 
 
-@CONTAINER_TYPES.register(isinstance, MutableSequence)
+@register_isinstance(MutableSequence)
 class MutableSequenceContainer(SequenceContainer, MovableKeyContainer):
 
     key_tooltip = "Double-click to move this item to a new index (non-negative integers only)."
@@ -215,7 +214,7 @@ class MutableSequenceContainer(SequenceContainer, MovableKeyContainer):
         del self[old_key + (old_key >= k)]
 
 
-@CONTAINER_TYPES.register(hasattr, "__dict__")
+@register_hasattr("__dict__")
 class AttrContainer(MovableKeyContainer):
     """ A container that displays (and edits) the contents of an object's attribute dict. """
 
@@ -247,7 +246,7 @@ class AttrContainer(MovableKeyContainer):
         setattr(self._obj, key, value)
 
 
-@CONTAINER_TYPES.register(hasattr, "__dict__")
+@register_hasattr("__dict__")
 class ClassContainer(GeneratedContainer):
     """ A container that displays the class hierarchy for instances of user-defined classes.
         Built-in types are excluded; they provide next to nothing useful in their attr listings.
@@ -260,7 +259,7 @@ class ClassContainer(GeneratedContainer):
         return {cls.__name__: cls for cls in type(obj).__mro__ if cls not in self._EXCLUDED_CLASSES}
 
 
-@CONTAINER_TYPES.register(hasattr, "__func__")
+@register_hasattr("__func__")
 class WrapperContainer(GeneratedContainer):
     """ A container that exposes the contents of function wrappers. """
 
@@ -274,7 +273,7 @@ class WrapperContainer(GeneratedContainer):
         return d
 
 
-@CONTAINER_TYPES.register(isinstance, BaseException)
+@register_isinstance(BaseException)
 class ExceptionContainer(GeneratedContainer):
     """ A container for an exception object to show details about the entire stack. """
 
@@ -293,7 +292,7 @@ class ExceptionContainer(GeneratedContainer):
         return d
 
 
-@CONTAINER_TYPES.register(isinstance, FrameType)
+@register_isinstance(FrameType)
 class FrameContainer(GeneratedContainer):
     """ Shows inspectable information about a stack frame. """
 
@@ -323,7 +322,7 @@ class instruction:
             return f'{instr.arg} ({instr.argrepr})'
 
 
-@CONTAINER_TYPES.register(isinstance, (FunctionType, CodeType))
+@register_isinstance((FunctionType, CodeType))
 class CodeContainer(GeneratedContainer):
     """ Shows disassembly of a code object. """
 
