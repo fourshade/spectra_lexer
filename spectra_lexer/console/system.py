@@ -47,27 +47,6 @@ class SysRedirector(SimpleNamespace, ContextDecorator):
     __enter__ = __exit__ = _swap
 
 
-class InterruptibleThread(Thread):
-    """ Thread that may be interrupted with asynchronous exceptions. """
-
-    def _ctypes_raise_async(self, exc_type:type) -> None:
-        """ Raise an exception type in this thread asynchronously from another using ctypes. """
-        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(self.ident, ctypes.py_object(exc_type))
-        if res != 1:
-            raise SystemError("PyThreadState_SetAsyncExc failed")
-
-    def raise_async(self, exc_type:type) -> None:
-        """ Raise an exception in the context of this thread asynchronously.
-            Black magic with ctypes seems to be the only way, so extra care must be taken. """
-        if not isinstance(exc_type, type):
-            raise TypeError("Only types can be raised (not instances)")
-        if not issubclass(exc_type, BaseException):
-            raise TypeError("Only subclasses of BaseException can be raised")
-        # The thread must be active to receive exceptions; otherwise don't bother.
-        if self.is_alive():
-            self._ctypes_raise_async(exc_type)
-
-
 class Console:
     """ Contains streams and a thread for running an asynchronous console application. """
 
@@ -79,7 +58,7 @@ class Console:
         fp_in.read = redirector(fp_in.read)
         fp_in.readline = redirector(fp_in.readline)
         target = redirector(self._run)
-        self._thread = InterruptibleThread(target=target, daemon=True)
+        self._thread = Thread(target=target, daemon=True)
         self._fp_in = fp_in    # Read end of pipe.  The thread spends most of its time blocked here.
         self._fp_out = fp_out  # Write end of pipe. Must be flushed for the read end to see anything.
 
@@ -101,12 +80,25 @@ class Console:
         except OSError:
             pass
 
-    def interrupt(self) -> None:
-        """ Raise KeyboardInterrupt in the context of our thread. """
-        self._thread.raise_async(KeyboardInterrupt)
+    def _raise_async(self, exc_type:type) -> bool:
+        """ Raise an exception type inside the thread asynchronously. Return True if successful.
+            Black magic with ctypes seems to be the only way, so extra care must be taken. """
+        if not isinstance(exc_type, type):
+            raise TypeError("Only types can be raised (not instances)")
+        if not issubclass(exc_type, BaseException):
+            raise TypeError("Only subclasses of BaseException can be raised")
+        # The thread must be active to receive exceptions.
+        if not self._thread.is_alive():
+            return False
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(self._thread.ident, ctypes.py_object(exc_type))
+        return (res == 1)
 
-    def terminate(self) -> None:
-        """ Raise SystemExit in the context of our thread to make it exit if currently processing.
-            If it is blocked, the pipe must be closed first. """
+    def interrupt(self) -> bool:
+        """ Raise KeyboardInterrupt inside the thread. """
+        return self._raise_async(KeyboardInterrupt)
+
+    def terminate(self) -> bool:
+        """ Raise SystemExit inside the thread to make it exit if currently processing.
+            The pipe must be closed first to stop blocking reads. """
         self._fp_out.close()
-        self._thread.raise_async(SystemExit)
+        return self._raise_async(SystemExit)
