@@ -109,7 +109,7 @@ class QtGUIApplication:
         matches = self._engine.search(pattern, pages)
         self._search.update_results(matches)
 
-    def gui_query(self, keys:str, letters:str) -> None:
+    def run_query(self, keys:str, letters:str) -> None:
         """ Run a lexer query and update the GUI with the new analysis.
             Attempt to show a page using the last link target, otherwise show the default.
             Forcibly reset the graph's focus before setting the start page. """
@@ -143,7 +143,7 @@ class QtGUIApplication:
             self._set_caption(self.TR_MSG_EBLANK)
             return
         self.set_options()
-        self.gui_query(keys, letters)
+        self.run_query(keys, letters)
 
     def _on_search_input(self, pattern:str, pages:int) -> None:
         self.set_options()
@@ -152,7 +152,7 @@ class QtGUIApplication:
     def _on_search_query(self, match:str, mappings:Sequence[str]) -> None:
         self.set_options()
         keys, letters = self._engine.best_translation(match, mappings)
-        self.gui_query(keys, letters)
+        self.run_query(keys, letters)
 
     def _on_request_examples(self) -> None:
         """ Run an example search and update the GUI with any results. """
@@ -165,7 +165,7 @@ class QtGUIApplication:
                 results = self._engine.search(pattern)
                 self._search.update_results(results)
                 keys, letters = self._engine.random_translation(results)
-                self.gui_query(keys, letters)
+                self.run_query(keys, letters)
 
     def _on_graph_action(self, node_ref:str, intense:bool) -> None:
         """ On mouse actions, change the current analysis page to the one under <node_ref>. """

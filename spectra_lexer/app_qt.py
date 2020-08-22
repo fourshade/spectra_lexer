@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.engine import Engine
 from spectra_lexer.gui_qt import QtGUIApplication
-from spectra_lexer.qt import WINDOW_ICON_PATH
+from spectra_lexer.qt import ICON_PACKAGE, ICON_PATH
 from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.dialog import DialogManager
 from spectra_lexer.qt.graph import GraphPanel
@@ -40,7 +40,7 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     ui.setupUi(w_window)
     dialogs = DialogManager(w_window)
     window = WindowController(w_window)
-    icon_data = pkgutil.get_data(*WINDOW_ICON_PATH)
+    icon_data = pkgutil.get_data(ICON_PACKAGE, ICON_PATH)
     window.set_icon(icon_data)
     menu = MenuController(ui.w_menubar)
     title = TitleDisplay(ui.w_title)

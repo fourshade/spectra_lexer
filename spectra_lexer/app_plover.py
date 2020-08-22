@@ -3,7 +3,7 @@
 from spectra_lexer import Spectra
 from spectra_lexer.app_qt import build_app
 from spectra_lexer.plover.plugin import EngineWrapper, IPlover, PloverExtension
-from spectra_lexer.qt import WINDOW_ICON_PATH
+from spectra_lexer.qt import ICON_PACKAGE, ICON_PATH
 
 
 class _Dummy:
@@ -23,7 +23,7 @@ class PloverPlugin:
     # Class constants required by Plover for toolbar.
     __doc__ = 'See the breakdown of words using steno rules.'
     TITLE = 'Spectra'
-    ICON = ':'.join(['asset', *WINDOW_ICON_PATH])
+    ICON = ':'.join(['asset', ICON_PACKAGE, ICON_PATH])
     ROLE = 'spectra_dialog'
     SHORTCUT = 'Ctrl+L'
 
@@ -59,7 +59,7 @@ class PloverPlugin:
         if translation is not None and not self._app.has_focus():
             keys, letters = translation
             self._app.set_options(lexer_strict_mode=False)
-            self._app.gui_query(keys, letters)
+            self._app.run_query(keys, letters)
 
     def _connect(self) -> None:
         """ Connect the Plover engine signals. Must be done on the main thread. """
