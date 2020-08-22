@@ -6,7 +6,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.gui_engine import GUIEngine
+from spectra_lexer.engine import Engine
 from spectra_lexer.gui_qt import QtGUIApplication
 from spectra_lexer.qt import WINDOW_ICON_PATH
 from spectra_lexer.qt.board import BoardPanel
@@ -31,7 +31,7 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     board_engine = spectra.board_engine
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
-    gui_engine = GUIEngine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
+    engine = Engine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
     cfg_path = spectra.cfg_path
     config = SimpleConfigDict(cfg_path, "app_qt")
     tasks = QtTaskExecutor()
@@ -47,7 +47,7 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     search = SearchPanel(ui.w_input, ui.w_matches, ui.w_mappings, ui.w_strokes, ui.w_regex)
     graph = GraphPanel(ui.w_graph)
     board = BoardPanel(ui.w_board, ui.w_caption, ui.w_slider, ui.w_link_save, ui.w_link_examples)
-    app = QtGUIApplication(gui_engine, config, tasks, dialogs, window, menu, title, search, graph, board)
+    app = QtGUIApplication(engine, config, tasks, dialogs, window, menu, title, search, graph, board)
     exc_handler = CompositeExceptionHandler()
     exc_logger = ExceptionLogger(spectra.logger.log)
     exc_handler.add(exc_logger)

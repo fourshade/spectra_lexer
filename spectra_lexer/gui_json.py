@@ -1,6 +1,6 @@
 from typing import Dict, Sequence
 
-from spectra_lexer.gui_engine import GUIEngine
+from spectra_lexer.engine import Engine
 from spectra_lexer.http.json import JSONApplication, JSONDict, JSONList, JSONStruct
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
@@ -24,13 +24,16 @@ class DisplayPage(JSONStruct):
     rule_id: str              # If the selection uses a valid rule, its rule ID, else an empty string.
 
 
+DisplayPageDict = Dict[str, DisplayPage]
+
+
 class Display(JSONStruct):
     """ Contains a translation and graphical data for its entire analysis. """
 
-    keys: str                             # Translation keys in RTFCRE.
-    letters: str                          # Translation letters.
-    pages_by_ref: Dict[str, DisplayPage]  # Analysis pages keyed by HTML anchor reference.
-    default_page: DisplayPage             # Default starting analysis page. May also be included in pages_by_ref.
+    keys: str                      # Translation keys in RTFCRE.
+    letters: str                   # Translation letters.
+    pages_by_ref: DisplayPageDict  # Analysis pages keyed by HTML anchor reference.
+    default_page: DisplayPage      # Default starting analysis page. May also be included in pages_by_ref.
 
 
 class Updates(JSONStruct):
@@ -48,7 +51,7 @@ class JSONGUIApplication(JSONApplication):
         All display pages for to a single rule or lexer query are further stored in a single data object.
         This allows for fewer HTTP requests and more opportunities for caching. """
 
-    def __init__(self, engine:GUIEngine) -> None:
+    def __init__(self, engine:Engine) -> None:
         self._engine = engine
 
     def run(self, *, action:str, args:JSONList, options:JSONDict, **_) -> JSONDict:
@@ -61,19 +64,24 @@ class JSONGUIApplication(JSONApplication):
         return method(*args)
 
     def _draw_page(self, ref="") -> DisplayPage:
-        """ Create a display page for a rule <ref>erence, or a default page if ref is empty or invalid. """
+        """ Create a display page for a rule <ref>erence, or a default page if <ref> is empty or invalid. """
         return DisplayPage(graph=self._engine.draw_graph(ref),
                            intense_graph=self._engine.draw_graph(ref, intense=True),
                            caption=self._engine.get_caption(ref),
                            board=self._engine.draw_board(ref),
                            rule_id=self._engine.get_example_id(ref))
 
+    def _compile_pages(self) -> DisplayPageDict:
+        """ Compile a full set of display data including all possible selections. """
+        refs = self._engine.get_refs()
+        return {ref: self._draw_page(ref) for ref in refs}
+
     def _display(self, keys:str, letters:str) -> Display:
-        """ Run a query and return a full set of display data, including all possible selections. """
-        refs = self._engine.query(keys, letters)
+        """ Run a query and return a full set of display data. """
+        self._engine.run_query(keys, letters)
         return Display(keys=keys,
                        letters=letters,
-                       pages_by_ref={ref: self._draw_page(ref) for ref in refs},
+                       pages_by_ref=self._compile_pages(),
                        default_page=self._draw_page())
 
     def _select(self, keys:str, letters:str) -> Selections:

@@ -4,7 +4,7 @@ import os
 import sys
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.gui_engine import GUIEngine
+from spectra_lexer.engine import Engine
 from spectra_lexer.gui_json import JSONGUIApplication
 from spectra_lexer.http.connect import HTTPConnectionHandler
 from spectra_lexer.http.json import JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
@@ -24,9 +24,9 @@ def build_app(spectra:Spectra) -> JSONGUIApplication:
     board_engine = spectra.board_engine
     translations_paths = spectra.translations_paths
     index_path = spectra.index_path
-    gui_engine = GUIEngine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
-    gui_engine.load_initial()
-    return JSONGUIApplication(gui_engine)
+    engine = Engine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
+    engine.load_initial()
+    return JSONGUIApplication(engine)
 
 
 def build_dispatcher(app:JSONGUIApplication, root_dir:str, *args) -> HTTPConnectionHandler:

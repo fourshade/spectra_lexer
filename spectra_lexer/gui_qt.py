@@ -1,7 +1,7 @@
 from typing import Callable, Sequence
 
 from spectra_lexer.console.main import ConsoleDialog
-from spectra_lexer.gui_engine import GUIEngine, GUIOptions
+from spectra_lexer.engine import Engine, EngineOptions
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.config import ConfigDialog
@@ -27,7 +27,7 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:GUIEngine, config:SimpleConfigDict, tasks:QtTaskExecutor, dialogs:DialogManager,
+    def __init__(self, engine:Engine, config:SimpleConfigDict, tasks:QtTaskExecutor, dialogs:DialogManager,
                  window:WindowController, menu:MenuController,
                  title:TitleDisplay, search:SearchPanel, graph:GraphPanel, board:BoardPanel) -> None:
         self._engine = engine
@@ -117,7 +117,8 @@ class QtGUIApplication:
         self._search.select(match, mapping)
         self._set_translation(keys, letters)
         last_id = self._engine.get_example_id(self._last_graph_ref or "")
-        refs = self._engine.query(keys, letters)
+        self._engine.run_query(keys, letters)
+        refs = self._engine.get_refs()
         start_ref = ""
         if last_id:
             for ref in refs:
@@ -281,7 +282,7 @@ class QtGUIApplication:
 
     def _config_set_defaults(self) -> None:
         """ Update the config options with default values used by the engine. """
-        defaults = {key: getattr(GUIOptions, key) for key in self.CONFIG_INFO}
+        defaults = {key: getattr(EngineOptions, key) for key in self.CONFIG_INFO}
         self._config_update(defaults)
 
     def _config_edited(self, options:dict) -> None:
