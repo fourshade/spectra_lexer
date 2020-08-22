@@ -13,27 +13,6 @@ from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.discord import DiscordBot, DiscordMessage
 
 
-class MessageFactory:
-    """ Factory for Discord messages containing content from Spectra. """
-
-    def __init__(self, svg_engine:SVGRasterEngine, *, msg_cls=DiscordMessage) -> None:
-        self._svg_engine = svg_engine
-        self._msg_cls = msg_cls
-
-    def text_message(self, message:str) -> DiscordMessage:
-        """ Generate a Discord message consisting only of text. """
-        return self._msg_cls(message)
-
-    def board_message(self, caption:str, board_data:BoardDiagram) -> DiscordMessage:
-        """ Generate a Discord message with a literal caption and a board diagram.
-            Discord will not embed SVGs directly, so use PNG raster format. """
-        msg = self._msg_cls(f'``{caption}``')
-        self._svg_engine.loads(board_data)
-        png_data = self._svg_engine.encode_image(fmt="PNG")
-        msg.attach_as_file(png_data, "board.png")
-        return msg
-
-
 class DiscordApplication:
     """ Spectra engine application that accepts string input from Discord users. """
 
@@ -41,18 +20,31 @@ class DiscordApplication:
     TR_DELIMS = ["→", "->"]  # Possible delimiters between strokes and text in a query. Captions use the first one.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 board_engine:BoardEngine, msg_factory:MessageFactory, key_sep:str, *,
+                 board_engine:BoardEngine, svg_engine:SVGRasterEngine, key_sep:str, *, msg_cls=DiscordMessage,
                  query_max_chars:int=None, query_trans:dict=None, search_depth=1, board_AR:float=None) -> None:
         self._search_engine = search_engine
         self._analyzer = analyzer
         self._board_engine = board_engine
-        self._text_message = msg_factory.text_message
-        self._board_message = msg_factory.board_message
+        self._svg_engine = svg_engine
         self._key_sep = key_sep
+        self._msg_cls = msg_cls                  # Factory for Discord messages.
         self._query_max_chars = query_max_chars  # Optional limit for # of characters allowed in a user query string.
         self._query_trans = query_trans or {}    # Translation table to remove characters before searching for words.
         self._search_depth = search_depth        # Maximum number of search results to analyze at once.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
+
+    def _text_message(self, message:str) -> DiscordMessage:
+        """ Generate a Discord message consisting only of text. """
+        return self._msg_cls(message)
+
+    def _board_message(self, caption:str, board_data:BoardDiagram) -> DiscordMessage:
+        """ Generate a Discord message with a literal caption and a board diagram.
+            Discord will not embed SVGs directly, so use PNG raster format. """
+        msg = self._msg_cls(f'``{caption}``')
+        self._svg_engine.loads(board_data)
+        png_data = self._svg_engine.encode_image(fmt="PNG")
+        msg.attach_as_file(png_data, "board.png")
+        return msg
 
     def _find_matches(self, word:str) -> Sequence[str]:
         """ Search for possible stroke matches for a <word>. """
@@ -130,9 +122,8 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
-    key_sep = spectra.keymap.sep
     svg_engine = SVGRasterEngine(background_rgba=(0, 0, 0, 0))
-    msg_factory = MessageFactory(svg_engine)
+    key_sep = spectra.keymap.sep
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')
     translations = io.load_json_translations(*spectra.translations_paths)
@@ -140,7 +131,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     stripped_values = [v.strip(' {<&>}') for v in translations.values()]
     translations = {k: v for k, v in zip(translations, stripped_values) if v}
     search_engine.set_translations(translations)
-    return DiscordApplication(search_engine, analyzer, board_engine, msg_factory, key_sep,
+    return DiscordApplication(search_engine, analyzer, board_engine, svg_engine, key_sep,
                               query_max_chars=100, query_trans=map_to_space, search_depth=3, board_AR=1.5)
 
 
