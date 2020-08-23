@@ -54,7 +54,7 @@ class Console:
 
     def __init__(self, file_out:TextIOBase) -> None:
         fp_in, fp_out = text_pipe()
-        redirector = SysRedirector(stdin=fp_in, stdout=file_out, stderr=file_out, excepthook=sys.__excepthook__)
+        redirector = SysRedirector(stdin=fp_in, stdout=file_out, stderr=file_out)
         fp_in.read = redirector(fp_in.read)
         fp_in.readline = redirector(fp_in.readline)
         target = redirector(self._run)
