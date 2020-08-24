@@ -10,16 +10,8 @@ from typing import Any, Callable
 Runnable = Callable[[], Any]
 
 
-def text_pipe(*, encoding='utf-8'):
-    """ Open file objects for a pipe in text mode. """
-    read_fd, write_fd = os.pipe()
-    fp_in = open(read_fd, 'r', encoding=encoding)
-    fp_out = open(write_fd, 'w', encoding=encoding)
-    return fp_in, fp_out
-
-
 class TextIOWriter(TextIOBase):
-    """ Wraps a string callable as a writable stream. """
+    """ Wraps a string callable as a writable text stream. """
 
     def __init__(self, write_callback:Callable[[str], Any]) -> None:
         self._write_callback = write_callback  # Callback with one positional string argument.
@@ -30,6 +22,38 @@ class TextIOWriter(TextIOBase):
 
     def writable(self) -> bool:
         return True
+
+
+class TextIOCropper(TextIOBase):
+    """ Wraps a writable text stream to crop writes to a maximum size. """
+
+    def __init__(self, file_out:TextIOBase, max_chars:int, *, fill_width=78) -> None:
+        self._file_out = file_out      # Wrapped text stream.
+        self._max_chars = max_chars    # Maximum number of characters to add in one write without cropping.
+        self._fill_width = fill_width  # Width of crop filler row in columns.
+
+    def write(self, text:str) -> int:
+        """ Write <text> to the terminal. Crop it if larger than max_chars, but pretend it was all written.
+            Replace cropped text with a filler row. Do not crop if this would *increase* the total text size. """
+        n = len(text)
+        cropcount = n - self._max_chars
+        if cropcount > self._fill_width:
+            half = self._max_chars // 2
+            msg = f'[CROPPED {cropcount} CHARACTERS]'.center(self._fill_width, '-')
+            text = '\n'.join([text[:half], msg, text[-half:]])
+        self._file_out.write(text)
+        return n
+
+    def __getattr__(self, name:str) -> Any:
+        return getattr(self._file_out, name)
+
+
+def text_pipe(*, encoding='utf-8'):
+    """ Open file objects for a pipe in text mode. """
+    read_fd, write_fd = os.pipe()
+    fp_in = open(read_fd, 'r', encoding=encoding)
+    fp_out = open(write_fd, 'w', encoding=encoding)
+    return fp_in, fp_out
 
 
 class SysRedirector(SimpleNamespace, ContextDecorator):
