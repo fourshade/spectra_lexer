@@ -1,3 +1,8 @@
+14.2.3
+------
+* Added arrow-delimited queries to Discord bot
+* Python console exceptions are handled better
+
 14.2.2
 ------
 * Thread handling is simplified

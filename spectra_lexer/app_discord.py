@@ -1,13 +1,14 @@
 """ Main module for the Discord bot application. """
 
 import sys
-from typing import Optional, Sequence, Type
+from typing import Iterator, Optional, Sequence
 
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.console import introspect
 from spectra_lexer.qt.svg import SVGRasterEngine
+from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
-from spectra_lexer.spc_lexer import StenoAnalyzer, TranslationPairs
+from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.discord import DiscordBot, DiscordMessage
 
@@ -15,17 +16,17 @@ from spectra_lexer.util.discord import DiscordBot, DiscordMessage
 class MessageFactory:
     """ Factory for Discord messages containing content from Spectra. """
 
-    def __init__(self, *, msg_cls:Type[DiscordMessage]=None, svg_engine:SVGRasterEngine=None) -> None:
-        self._msg_cls = msg_cls or DiscordMessage
-        self._svg_engine = svg_engine or SVGRasterEngine()
+    def __init__(self, svg_engine:SVGRasterEngine, *, msg_cls=DiscordMessage) -> None:
+        self._svg_engine = svg_engine
+        self._msg_cls = msg_cls
 
     def text_message(self, message:str) -> DiscordMessage:
         """ Generate a Discord message consisting only of text. """
         return self._msg_cls(message)
 
     def board_message(self, caption:str, board_data:BoardDiagram) -> DiscordMessage:
-        """ Generate a Discord message with a board diagram in PNG raster format with good dimensions.
-            Discord will not embed SVGs directly. """
+        """ Generate a Discord message with a literal caption and a board diagram.
+            Discord will not embed SVGs directly, so use PNG raster format. """
         msg = self._msg_cls(f'``{caption}``')
         self._svg_engine.loads(board_data)
         png_data = self._svg_engine.encode_image(fmt="PNG")
@@ -35,6 +36,9 @@ class MessageFactory:
 
 class DiscordApplication:
     """ Spectra engine application that accepts string input from Discord users. """
+
+    FILLER_CHAR = "-"        # Replaces all characters in a word with no matches.
+    TR_DELIMS = ["→", "->"]  # Possible delimiters between strokes and text in a query. Captions use the first one.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  board_engine:BoardEngine, msg_factory:MessageFactory, key_sep:str, *,
@@ -65,40 +69,41 @@ class DiscordApplication:
                 return matches[m]
         return ()
 
-    def _search_words(self, letters:str) -> TranslationPairs:
-        """ Do an advanced lookup to yield the best strokes to pair with each word in <letters>. """
+    def _missing_word(self, word:str) -> str:
+        """ Return filler text to replace a word without any matches. """
+        return self.FILLER_CHAR * len(word)
+
+    def _words_to_rules(self, letters:str) -> Iterator[StenoRule]:
+        """ Do an advanced lookup and yield an analysis using the best strokes paired with each word in <letters>. """
         for word in letters.split():
             matches = self._find_matches(word)
             if not matches:
                 keys = ""
-                word = "-" * len(word)
+                word = self._missing_word(word)
             else:
                 keys = self._analyzer.best_translation(matches, word)
-            yield keys, word
+            yield self._analyzer.query(keys, word)
 
-    def _query_text(self, text:str) -> DiscordMessage:
-        """ Parse a user query string as English text and make diagrams from each strokes/word pair we find. """
-        letters = text.translate(self._query_trans)
-        translations = list(self._search_words(letters))
-        if not any([k for k, w in translations]):
-            return self._text_message('No suggestions.')
-        rules = [self._analyzer.query(k, w) for k, w in translations]
+    def _query_search(self, query:str) -> StenoRule:
+        """ Parse a user query string as English text and analyze each strokes/word pair we find. """
+        letters = query.translate(self._query_trans)
+        rules = self._words_to_rules(letters)
         delimited = self._analyzer.delimit(rules, self._key_sep, " ")
-        analysis = self._analyzer.join(delimited)
-        show_letters = not text.startswith('+')
-        caption = f'{analysis.keys} → {analysis.letters}'
-        board_data = self._board_engine.draw_rule(analysis, aspect_ratio=self._board_AR, show_letters=show_letters)
-        return self._board_message(caption, board_data)
+        return self._analyzer.join(delimited)
 
-    def _query_keys(self, keys:str) -> DiscordMessage:
-        """ Parse a user query string as a set of RTFCRE steno keys. """
-        keys = self._analyzer.normalize_keys(keys)
-        if not keys:
-            return self._text_message('Invalid key sequence.')
-        board_data = self._board_engine.draw_keys(keys, aspect_ratio=self._board_AR)
-        return self._board_message(keys, board_data)
+    def _query_delimited(self, query:str, delim:str) -> StenoRule:
+        """ Parse a user query string as delimited strokes and English text. """
+        keys, letters = query.split(delim, 1)
+        return self._analyzer.query(keys.strip(), letters.strip())
 
-    def query(self, query:str) -> Optional[DiscordMessage]:
+    def _query(self, query:str) -> StenoRule:
+        """ Parse a user query string using the steno analyzer. """
+        for delim in self.TR_DELIMS:
+            if delim in query:
+                return self._query_delimited(query, delim)
+        return self._query_search(query)
+
+    def run(self, query:str) -> Optional[DiscordMessage]:
         """ Parse a user query string and return a Discord bot message, possibly with a board PNG attached. """
         query = query.strip()
         if not query:
@@ -107,8 +112,17 @@ class DiscordApplication:
             return self._text_message('Query is too long.')
         first, *others = query.split(None, 1)
         if not others and first == first.upper():
-            return self._query_keys(first)
-        return self._query_text(query)
+            keys = self._analyzer.normalize_keys(first)
+            if keys:
+                board_data = self._board_engine.draw_keys(keys, aspect_ratio=self._board_AR)
+                return self._board_message(keys, board_data)
+        analysis = self._query(query)
+        if analysis.keys:
+            show_letters = not query.startswith('+')
+            caption = f'{analysis.keys} {self.TR_DELIMS[0]} {analysis.letters}'
+            board_data = self._board_engine.draw_rule(analysis, aspect_ratio=self._board_AR, show_letters=show_letters)
+            return self._board_message(caption, board_data)
+        return self._text_message('No suggestions.')
 
 
 def build_app(spectra:Spectra) -> DiscordApplication:
@@ -118,7 +132,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     board_engine = spectra.board_engine
     key_sep = spectra.keymap.sep
     svg_engine = SVGRasterEngine(background_rgba=(0, 0, 0, 0))
-    msg_factory = MessageFactory(svg_engine=svg_engine)
+    msg_factory = MessageFactory(svg_engine)
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')
     translations = io.load_json_translations(*spectra.translations_paths)
@@ -143,7 +157,7 @@ def main() -> int:
         log("No token given. Opening test console...")
         return introspect(app)
     bot = DiscordBot(opts.token, log)
-    bot.add_command(opts.command, app.query)
+    bot.add_command(opts.command, app.run)
     log("Discord bot started.")
     return bot.run()
 
