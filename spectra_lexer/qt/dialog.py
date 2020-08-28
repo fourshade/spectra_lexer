@@ -1,9 +1,9 @@
-""" Wrapper functions for various Qt file selection dialogs. """
-
-from typing import List, Optional, Type
+from typing import Callable, List
 from weakref import WeakValueDictionary
 
-from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox, QWidget
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget
+
+DialogOpener = Callable[[], QDialog]
 
 
 def _filter_str(file_exts="") -> str:
@@ -17,24 +17,31 @@ def _filter_str(file_exts="") -> str:
 
 
 class DialogManager:
-    """ Tracks standard dialogs and opens common modal dialogs and returns their results. """
+    """ Opens and tracks Qt dialogs. """
 
     def __init__(self, parent:QWidget) -> None:
-        self._parent = parent                         # All dialogs will be children of this widget.
-        self._dialogs_by_cls = WeakValueDictionary()  # Contains the current instance of each dialog class.
+        self._parent = parent                  # All dialogs will be children of this widget.
+        self._dialogs = WeakValueDictionary()  # Tracks a single instance of each dialog by its opener.
 
-    def load(self, dlg_cls:Type[QDialog]) -> Optional[QDialog]:
-        """ If a previous <dlg_cls> is open, set focus on it and return None, otherwise return a new one. """
-        dialog = self._dialogs_by_cls.get(dlg_cls)
+    def attach(self, dialog:QDialog) -> None:
+        """ Attach <dialog> to our parent, preserving its window flags. """
+        flags = dialog.windowFlags()
+        dialog.setParent(self._parent)
+        dialog.setWindowFlags(flags)
+
+    def open_unique(self, opener:DialogOpener) -> None:
+        """ If a previous dialog is open, set focus on it, otherwise open a new one using <opener>. """
+        key = getattr(opener, '__qualname__', id(opener))
+        dialog = self._dialogs.get(key)
         if dialog is not None and not dialog.isHidden():
-            dialog.show()
             dialog.activateWindow()
-            return None
-        dialog = self._dialogs_by_cls[dlg_cls] = dlg_cls(self._parent)
-        return dialog
+        else:
+            dialog = self._dialogs[key] = opener()
+            self.attach(dialog)
+            dialog.show()
 
     def yes_or_no(self, title:str, message:str) -> bool:
-        """ Present a yes/no dialog and return the user's response as a bool. """
+        """ Present a modal yes/no dialog and return the user's response as True/False. """
         yes, no = QMessageBox.Yes, QMessageBox.No
         button = QMessageBox.question(self._parent, title, message, yes | no)
         return button == yes

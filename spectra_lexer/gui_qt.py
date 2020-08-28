@@ -1,5 +1,7 @@
 from typing import Callable, Sequence
 
+from PyQt5.QtWidgets import QDialog
+
 from spectra_lexer.console.main import ConsoleDialog
 from spectra_lexer.engine import Engine, EngineOptions
 from spectra_lexer.objtree.main import NamespaceTreeDialog
@@ -264,6 +266,27 @@ class QtGUIApplication:
             self.async_run(self._engine.load_examples, filename)
             self.async_finish("Loaded index from file dialog.")
 
+    def _make_index(self, size:int=None) -> None:
+        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
+        self.async_start("Making new index...")
+        self.async_run(self._engine.compile_examples, size)
+        self.async_finish("Successfully created index!")
+
+    def confirm_startup_index(self) -> None:
+        """ Present a modal dialog for the user to approve making a default-sized index on first start. """
+        if self._dialogs.yes_or_no("Make Index", INDEX_STARTUP_MESSAGE):
+            self._make_index()
+
+    def _index_opener(self) -> QDialog:
+        """ Create and show a dialog for the index size slider that submits a positive number on accept. """
+        dialog = IndexSizeDialog()
+        dialog.setup(TranslationFilter.SIZES)
+        dialog.call_on_size_accept(self._make_index)
+        return dialog
+
+    def custom_index(self) -> None:
+        self._dialogs.open_unique(self._index_opener)
+
     # Info for engine options which should be saved in a CFG file.
     CONFIG_INFO = {
         "search_match_limit": ["Match Limit", "Maximum number of matches returned on one page of a search."],
@@ -290,48 +313,35 @@ class QtGUIApplication:
         self._config_update(options)
         self.set_status("Configuration saved.")
 
+    def _config_opener(self) -> QDialog:
+        """ Create the configuration manager dialog with info from all active components. """
+        dialog = ConfigDialog()
+        for key, (name, description) in self.CONFIG_INFO.items():
+            value = self._config.get(key)
+            dialog.add_option(key, value, "General", name, description)
+            dialog.call_on_options_accept(self._config_edited)
+        return dialog
+
     def config_editor(self) -> None:
-        """ Create and show the GUI configuration manager dialog with info from all active components. """
-        dialog = self._dialogs.load(ConfigDialog)
-        if dialog is not None:
-            for key, (name, description) in self.CONFIG_INFO.items():
-                value = self._config.get(key)
-                dialog.add_option(key, value, "General", name, description)
-                dialog.call_on_options_accept(self._config_edited)
-            dialog.show()
+        self._dialogs.open_unique(self._config_opener)
 
-    def _make_index(self, size:int) -> None:
-        """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
-        self.async_start("Making new index...")
-        self.async_run(self._engine.compile_examples, size)
-        self.async_finish("Successfully created index!")
-
-    def confirm_startup_index(self) -> None:
-        """ Present a modal dialog for the user to approve making a default-sized index on first start. """
-        if self._dialogs.yes_or_no("Make Index", INDEX_STARTUP_MESSAGE):
-            self._make_index(TranslationFilter.SIZE_MEDIUM)
-
-    def custom_index(self) -> None:
-        """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        dialog = self._dialogs.load(IndexSizeDialog)
-        if dialog is not None:
-            dialog.setup(TranslationFilter.SIZES)
-            dialog.call_on_size_accept(self._make_index)
-            dialog.show()
+    def _debug_opener(self) -> QDialog:
+        """ Create an interpreter console dialog with this app as the namespace. """
+        dialog = ConsoleDialog()
+        dialog.introspect(self)
+        return dialog
 
     def debug_console(self) -> None:
-        """ Create and show an interpreter console dialog with this app as the namespace. """
-        dialog = self._dialogs.load(ConsoleDialog)
-        if dialog is not None:
-            dialog.introspect(self)
-            dialog.show()
+        self._dialogs.open_unique(self._debug_opener)
+
+    def _tree_opener(self) -> QDialog:
+        """ Create a debug tree dialog with this app's vars. """
+        dialog = NamespaceTreeDialog()
+        dialog.set_namespace(vars(self), root_package=__package__)
+        return dialog
 
     def debug_tree(self) -> None:
-        """ Create and show the debug tree dialog with this app's vars. """
-        dialog = self._dialogs.load(NamespaceTreeDialog)
-        if dialog is not None:
-            dialog.set_namespace(vars(self), root_package=__package__)
-            dialog.show()
+        self._dialogs.open_unique(self._tree_opener)
 
     def _on_ready(self) -> None:
         """ When all major resources are ready, load the config and connect the GUI callbacks.
