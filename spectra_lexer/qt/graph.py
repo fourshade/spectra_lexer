@@ -50,9 +50,15 @@ class GraphPanel:
         self._has_focus = enabled
 
     def set_html(self, text:str) -> None:
-        """ Enable graph interaction and replace the current text with new HTML formatted graph text. """
+        """ Enable graph interaction and replace the current text with new HTML formatted graph text.
+            The scroll values must be manually saved and restored to negate any scrolling effect. """
         self._mouse_enabled = True
-        self._w_graph.setHtml(text, no_scroll=True)
+        sx = self._w_graph.horizontalScrollBar()
+        sy = self._w_graph.verticalScrollBar()
+        px, py = sx.value(), sy.value()
+        self._w_graph.setHtml(text)
+        sx.setValue(px)
+        sy.setValue(py)
 
     def set_plaintext(self, text:str) -> None:
         """ Disable graph interaction and replace the current text with new plaintext. """

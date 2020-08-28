@@ -59,16 +59,6 @@ class HyperlinkTextBrowser(QTextBrowser):
         self._url = QUrl()  # Current link URL the mouse is over
         self.highlighted.connect(self._hoverLink)
 
-    def setHtml(self, text:str, *, no_scroll=False) -> None:
-        """ Scroll position is automatically reset to the top when the text is set in this widget.
-            The scroll values must be manually saved and restored to negate any scrolling effect. """
-        sx, sy = self.horizontalScrollBar(), self.verticalScrollBar()
-        px, py = sx.value(), sy.value()
-        super().setHtml(text)
-        if no_scroll:
-            sx.setValue(px)
-            sy.setValue(py)
-
     def _hoverLink(self, url:QUrl) -> None:
         """ In general, if the mouse has moved over a new hyperlink, we save it and send the mouseover signal.
             An empty URL is given when the mouse moves off a hyperlink, which counts as a deselection.

@@ -6,7 +6,7 @@ class WindowController:
     """ Wrapper class with methods for manipulating the main window. """
 
     def __init__(self, w_window:QMainWindow) -> None:
-        self._w_window = w_window  # Main Qt window. All dialogs must be children of this widget.
+        self._w_window = w_window  # Main Qt window.
 
     def show(self) -> None:
         """ Show the window, move it in front of other windows, and activate focus.

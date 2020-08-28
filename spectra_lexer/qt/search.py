@@ -114,9 +114,6 @@ class SearchPanel:
             self._select_match(match)
             self._on_user_select_match(match)
 
-    def clear_results(self) -> None:
-        self.update_results({})
-
     def select(self, match:str, mapping="") -> None:
         """ Set the current selections to <match> and <mapping> if possible. Do not send queries. """
         if match in self._matches:

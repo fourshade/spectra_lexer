@@ -51,11 +51,6 @@ class QtGUIApplication:
         """ Show a caption above the board diagram. """
         self._board.set_caption(caption)
 
-    def _set_translation(self, keys:str, letters:str) -> None:
-        """ Format a translation and show it in the title bar. """
-        tr_text = " ".join([keys, self.TR_DELIMITER, letters])
-        self._set_title(tr_text)
-
     def _set_board(self, board:str) -> None:
         self._board.set_data(board)
 
@@ -106,18 +101,19 @@ class QtGUIApplication:
         options = {**self._config, **self._gui_options(), **kwargs}
         self._engine.set_options(options)
 
-    def gui_search(self, pattern:str, pages:int) -> None:
+    def run_search(self, pattern:str, pages:int) -> None:
         """ Run a translation search and update the GUI with any results. """
         matches = self._engine.search(pattern, pages)
         self._search.update_results(matches)
 
     def run_query(self, keys:str, letters:str) -> None:
-        """ Run a lexer query and update the GUI with the new analysis.
+        """ Run a lexer query and update the GUI with the new analysis. Show the translation in the title bar.
             Attempt to show a page using the last link target, otherwise show the default.
             Forcibly reset the graph's focus before setting the start page. """
         match, mapping = self._engine.search_selection(keys, letters)
         self._search.select(match, mapping)
-        self._set_translation(keys, letters)
+        tr_text = " ".join([keys, self.TR_DELIMITER, letters])
+        self._set_title(tr_text)
         last_id = self._engine.get_example_id(self._last_graph_ref or "")
         self._engine.run_query(keys, letters)
         refs = self._engine.get_refs()
@@ -149,7 +145,7 @@ class QtGUIApplication:
 
     def _on_search_input(self, pattern:str, pages:int) -> None:
         self.set_options()
-        self.gui_search(pattern, pages)
+        self.run_search(pattern, pages)
 
     def _on_search_query(self, match:str, mappings:Sequence[str]) -> None:
         self.set_options()
@@ -215,7 +211,7 @@ class QtGUIApplication:
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all display widgets. Invalidate the current search, graph, and board on disable. """
         if not enabled:
-            self._search.clear_results()
+            self._search.update_results({})
             self._clear_page()
         self._menu.set_enabled(enabled)
         self._title.set_enabled(enabled)
@@ -362,10 +358,11 @@ class QtGUIApplication:
         self.show()
         self._tasks.start()
 
-    def on_exception(self, exc_type, exc_value, _) -> bool:
+    def on_exception(self, exc_type:type, exc_value:Exception, _) -> bool:
         """ Display an error message with an appropriate title. Save the exception afterward to allow debugging. """
-        self._set_title("EXCEPTION - " + exc_type.__name__)
-        text = str(exc_value) + '\n\nIn the menu, go to "Debug -> View Object Tree..." for debug details.'
+        title = f'EXCEPTION - {exc_type.__name__}'
+        text = f'{exc_value}\n\nIn the menu, go to "Debug -> View Object Tree..." for debug details.'
+        self._set_title(title)
         self._graph.set_plaintext(text)
         self.last_exception = exc_value
         return True
