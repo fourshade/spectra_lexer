@@ -12,6 +12,41 @@ from PyQt5.QtWidgets import QDialog, QTreeView, QVBoxLayout
 TreeItemData = TypeVar("TreeItemData")  # Marker class for a data structure with row formatting info.
 
 
+class SVGIconRenderer:
+    """ Renders SVG bytes data on bitmap images to create QIcons and caches the results. """
+
+    XMLIconData = Union[bytes, bytearray, str]    # Valid input data types for QSvgRenderer.
+    TRANSPARENT_COLOR = QColor(255, 255, 255, 0)  # Transparent white default background color.
+
+    # Icons are small but important. Use these render hints by default for best quality.
+    _HQ_RENDER_HINTS = QPainter.Antialiasing | QPainter.SmoothPixmapTransform
+
+    def __init__(self, bg_color=TRANSPARENT_COLOR, *, render_hints=_HQ_RENDER_HINTS) -> None:
+        self._bg_color = bg_color          # Background color for icons (transparent by default).
+        self._render_hints = render_hints  # Render quality hints for the SVG painter/renderer.
+        self._cache = {}                   # Cache of icons already rendered, keyed by the XML data that generated it.
+
+    def render(self, data:XMLIconData) -> QIcon:
+        """ If we have the SVG rendered, return the icon from the cache. Otherwise, render and cache it first. """
+        if data not in self._cache:
+            self._cache[data] = self._render(data)
+        return self._cache[data]
+
+    def _render(self, data:XMLIconData) -> QIcon:
+        """ Create a template image, render the XML data in place, and convert it to an icon.
+            Use the viewbox dimensions as pixel sizes. """
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        svg = QSvgRenderer(data)
+        viewbox = svg.viewBox().size()
+        im = QImage(viewbox, QImage.Format_ARGB32)
+        im.fill(self._bg_color)
+        with QPainter(im) as p:
+            p.setRenderHints(self._render_hints)
+            svg.render(p)
+        return QIcon(QPixmap.fromImage(im))
+
+
 class TreeItem:
     """ A single item in the tree. Contains model data in attributes and role data in the dict. """
 
@@ -195,9 +230,10 @@ class TreeItemModel(QAbstractItemModel):
 class TreeDialog(QDialog):
     """ Qt tree dialog window tool. """
 
-    def __init__(self, *args) -> None:
-        """ Lay out an empty tree dialog with the default title and size. """
-        super().__init__(*args)
+    DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
+
+    def __init__(self, parent=None, flags=DEFAULT_FLAGS) -> None:
+        super().__init__(parent, flags)
         self.setWindowTitle("Python Object Tree View")
         self.setMinimumSize(600, 450)
         self._w_view = w_view = QTreeView(self)
@@ -217,38 +253,3 @@ class TreeDialog(QDialog):
             width = size_hint.width()
             if width:
                 header.resizeSection(i, width)
-
-
-class SVGIconRenderer:
-    """ Renders SVG bytes data on bitmap images to create QIcons and caches the results. """
-
-    XMLIconData = Union[bytes, bytearray, str]    # Valid input data types for QSvgRenderer.
-    TRANSPARENT_COLOR = QColor(255, 255, 255, 0)  # Transparent white default background color.
-
-    # Icons are small but important. Use these render hints by default for best quality.
-    _HQ_RENDER_HINTS = QPainter.Antialiasing | QPainter.SmoothPixmapTransform
-
-    def __init__(self, bg_color=TRANSPARENT_COLOR, *, render_hints=_HQ_RENDER_HINTS) -> None:
-        self._bg_color = bg_color          # Background color for icons (transparent by default).
-        self._render_hints = render_hints  # Render quality hints for the SVG painter/renderer.
-        self._cache = {}                   # Cache of icons already rendered, keyed by the XML data that generated it.
-
-    def render(self, data:XMLIconData) -> QIcon:
-        """ If we have the SVG rendered, return the icon from the cache. Otherwise, render and cache it first. """
-        if data not in self._cache:
-            self._cache[data] = self._render(data)
-        return self._cache[data]
-
-    def _render(self, data:XMLIconData) -> QIcon:
-        """ Create a template image, render the XML data in place, and convert it to an icon.
-            Use the viewbox dimensions as pixel sizes. """
-        if isinstance(data, str):
-            data = data.encode('utf-8')
-        svg = QSvgRenderer(data)
-        viewbox = svg.viewBox().size()
-        im = QImage(viewbox, QImage.Format_ARGB32)
-        im.fill(self._bg_color)
-        with QPainter(im) as p:
-            p.setRenderHints(self._render_hints)
-            svg.render(p)
-        return QIcon(QPixmap.fromImage(im))

@@ -146,8 +146,10 @@ class TerminalTextWidget(QTextEdit):
 class TerminalDialog(QDialog):
     """ Qt terminal dialog tool. """
 
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+    DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
+
+    def __init__(self, parent=None, flags=DEFAULT_FLAGS) -> None:
+        super().__init__(parent, flags)
         self.setWindowTitle("Python Console")
         self.setMinimumSize(680, 480)
         self._w_text = TerminalTextWidget(self)

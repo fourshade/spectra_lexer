@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, \
     QTabWidget, QVBoxLayout, QWidget
 
@@ -52,8 +52,10 @@ class ConfigDialog(QDialog):
 
     _sig_accept = pyqtSignal([dict])  # Signal to return config values on dialog accept.
 
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+    DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
+
+    def __init__(self, parent=None, flags=DEFAULT_FLAGS) -> None:
+        super().__init__(parent, flags)
         self.setWindowTitle("Configuration Options")
         self.setMinimumSize(250, 300)
         self.setMaximumSize(250, 300)

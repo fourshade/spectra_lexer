@@ -50,8 +50,10 @@ class IndexSizeDialog(QDialog):
 
     _sig_accept = pyqtSignal([int])  # Signal to return the index size on dialog accept.
 
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+    DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
+
+    def __init__(self, parent=None, flags=DEFAULT_FLAGS) -> None:
+        super().__init__(parent, flags)
         self.setWindowTitle("Choose Index Size")
         self.set_size(360, 320)
         self._heading = heading = QLabel(self)       # Index size description label.
