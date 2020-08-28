@@ -3,11 +3,12 @@ from types import SimpleNamespace
 from typing import List, Sequence
 
 from spectra_lexer.resource.rules import StenoRule
+from spectra_lexer.resource.translations import ExamplesDict, Translation, TranslationsDict, TranslationFilter
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_graph import GraphEngine, GraphTree, HTMLGraph
-from spectra_lexer.spc_lexer import StenoAnalyzer, Translation
+from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_resource import StenoResourceIO
-from spectra_lexer.spc_search import ExamplesDict, MatchDict, SearchEngine, TranslationsDict
+from spectra_lexer.spc_search import MatchDict, SearchEngine
 
 
 class EngineOptions(SimpleNamespace):
@@ -66,9 +67,13 @@ class Engine:
         examples = self._io.load_json_examples(filename)
         self.set_examples(examples)
 
-    def compile_examples(self, size:int=None) -> None:
-        """ Make an examples index, set it as active, and save it as JSON. """
-        examples = self._analyzer.compile_index(self._translations.items(), size=size)
+    def compile_examples(self, filt:TranslationFilter=None) -> None:
+        """ Make an examples index for the current translations with an optional <filt>er.
+            Set the new index as active and save it as JSON. """
+        pairs = self._translations.items()
+        if filt is not None:
+            pairs = filt.filter(pairs)
+        examples = self._analyzer.compile_index(pairs)
         self.set_examples(examples)
         self._io.save_json_examples(self._examples_path, examples)
 

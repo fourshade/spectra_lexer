@@ -4,14 +4,13 @@ import sys
 from time import time
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.spc_lexer import TranslationFilter
+from spectra_lexer.resource.translations import TranslationFilter as Fcls
 
 
 def main() -> int:
     """ Analyze translations files and create an examples index from them. Time the execution. """
     opts = SpectraOptions("Batch script for creating an examples index.")
-    fcls = TranslationFilter
-    opts.add("size", fcls.SIZE_MEDIUM, f"Relative size of generated index ({fcls.SIZE_MINIMUM}-{fcls.SIZE_MAXIMUM}).")
+    opts.add("size", Fcls.SIZE_DEFAULT, f"Relative size of generated index ({Fcls.SIZE_MINIMUM}-{Fcls.SIZE_MAXIMUM}).")
     opts.add("processes", 0, "Number of processes used for parallel execution (0 = one per CPU core).")
     spectra = Spectra(opts)
     log = spectra.logger.log
@@ -22,8 +21,8 @@ def main() -> int:
     files_in = spectra.translations_paths
     file_out = spectra.index_path
     translations = io.load_json_translations(*files_in)
-    pairs = translations.items()
-    examples = analyzer.compile_index(pairs, size=opts.size, process_count=opts.processes)
+    pairs = Fcls(opts.size).filter(translations.items())
+    examples = analyzer.compile_index(pairs, process_count=opts.processes)
     io.save_json_examples(file_out, examples)
     total_time = time() - start_time
     log(f"Index complete in {total_time:.1f} seconds.")

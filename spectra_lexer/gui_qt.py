@@ -9,14 +9,25 @@ from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.config import ConfigDialog
 from spectra_lexer.qt.dialog import DialogManager
 from spectra_lexer.qt.graph import GraphPanel
-from spectra_lexer.qt.index import INDEX_STARTUP_MESSAGE, IndexSizeDialog
+from spectra_lexer.qt.index_dialog import index_size_dialog
 from spectra_lexer.qt.menu import MenuController
 from spectra_lexer.qt.search import SearchPanel
 from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
-from spectra_lexer.spc_lexer import TranslationFilter
+from spectra_lexer.resource.translations import TranslationsDict, TranslationFilter
 from spectra_lexer.util.config import SimpleConfigDict
+
+INDEX_STARTUP_MESSAGE = """<p>
+In order to cross-reference examples of specific steno rules, this program must create an index
+using your Plover dictionary. The default file size is around 10 MB, and can take anywhere
+between 5 seconds and 5 minutes depending on the speed of your machine and hard disk.
+</p><p>
+Would you like to create one now? You will not be asked again.
+</p><p>
+(If you cancel, all other features will still work. You can always create the index later from
+the Tools menu, and can expand it from the default size as well if it is not sufficient).
+</p>"""
 
 
 class QtGUIApplication:
@@ -243,8 +254,8 @@ class QtGUIApplication:
     def async_finish(self, msg_finish:str) -> None:
         self.async_queue(self._unblock, msg_finish)
 
-    def set_translations(self, *args) -> None:
-        self._engine.set_translations(*args)
+    def set_translations(self, translations:TranslationsDict) -> None:
+        self._engine.set_translations(translations)
 
     def open_translations(self) -> None:
         """ Present a dialog for the user to select translation files and attempt to load them all unless cancelled. """
@@ -265,7 +276,7 @@ class QtGUIApplication:
     def _make_index(self, size:int=None) -> None:
         """ Make a custom-sized index. Disable the GUI while processing and show a success message when done. """
         self.async_start("Making new index...")
-        self.async_run(self._engine.compile_examples, size)
+        self.async_run(self._engine.compile_examples, TranslationFilter(size))
         self.async_finish("Successfully created index!")
 
     def confirm_startup_index(self) -> None:
@@ -274,11 +285,11 @@ class QtGUIApplication:
             self._make_index()
 
     def _index_opener(self) -> QDialog:
-        """ Create and show a dialog for the index size slider that submits a positive number on accept. """
-        dialog = IndexSizeDialog()
-        dialog.setup(TranslationFilter.SIZES)
-        dialog.call_on_size_accept(self._make_index)
-        return dialog
+        """ Open a dialog with an index size slider that submits a positive number on accept. """
+        return index_size_dialog(min_size=TranslationFilter.SIZE_MINIMUM,
+                                 max_size=TranslationFilter.SIZE_MAXIMUM,
+                                 default_size=TranslationFilter.SIZE_DEFAULT,
+                                 on_accept=self._make_index)
 
     def custom_index(self) -> None:
         self._dialogs.open_unique(self._index_opener)
