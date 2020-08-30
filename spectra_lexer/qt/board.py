@@ -1,13 +1,52 @@
 from typing import Callable
 
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QGuiApplication, QImage
-from PyQt5.QtWidgets import QLabel, QMenu, QSlider
+from PyQt5.QtCore import pyqtSignal, QPoint, QRect, QSize, Qt
+from PyQt5.QtGui import QContextMenuEvent, QGuiApplication, QImage, QPainter, QPicture
+from PyQt5.QtWidgets import QLabel, QMenu, QSlider, QWidget
 
 from .svg import QtSVGData, SVGRasterEngine
-from .widgets import PictureWidget
 
 LinkCallback = Callable[[], None]
+
+
+class BoardWidget(QWidget):
+    """ Widget using a QPicture as a paint buffer. """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._picture = QPicture()  # Last saved picture rendering.
+
+    def __enter__(self) -> QPicture:
+        """ Reset the current picture, size it to match the widget, and return it for rendering. """
+        self._picture = picture = QPicture()
+        rect = QRect()
+        rect.setSize(self.size())
+        picture.setBoundingRect(rect)
+        return picture
+
+    def __exit__(self, *_) -> None:
+        """ Repaint the widget after rendering is complete. """
+        self.update()
+
+    def paintEvent(self, *_) -> None:
+        """ Paint the saved picture on this widget when GUI repaint occurs. """
+        with QPainter(self) as p:
+            self._picture.play(p)
+
+    # should be inherited from a: """ Mixin to send a signal on a context menu request (right-click). """
+
+    contextMenuRequest = pyqtSignal([QPoint])
+
+    def contextMenuEvent(self, event:QContextMenuEvent) -> None:
+        pos = event.globalPos()
+        self.contextMenuRequest.emit(pos)
+
+    # should be inherited from a: """ Mixin to send a signal on any widget size change. """
+
+    resized = pyqtSignal()
+
+    def resizeEvent(self, *_) -> None:
+        self.resized.emit()
 
 
 class Clipboard:
@@ -29,7 +68,7 @@ class Clipboard:
 class BoardPanel:
     """ Displays all of the keys that make up one or more steno strokes pictorally. """
 
-    def __init__(self, w_board:PictureWidget, w_caption:QLabel, w_slider:QSlider,
+    def __init__(self, w_board:BoardWidget, w_caption:QLabel, w_slider:QSlider,
                  w_link_save:QLabel, w_link_examples:QLabel, *, dynamic_resize=True) -> None:
         self._w_board = w_board                  # Board diagram container widget.
         self._w_caption = w_caption              # Label with caption containing rule keys/letters/description.

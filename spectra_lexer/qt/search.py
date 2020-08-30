@@ -1,8 +1,8 @@
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Iterable, Mapping, Sequence
 
-from PyQt5.QtWidgets import QCheckBox, QLineEdit
-
-from .widgets import StringListView
+from PyQt5.QtCore import pyqtSignal, QItemSelection, QStringListModel, Qt
+from PyQt5.QtGui import QWheelEvent
+from PyQt5.QtWidgets import QCheckBox, QLineEdit, QListView
 
 StringSeq = Sequence[str]
 SearchResults = Mapping[str, StringSeq]  # Ordered mapping of strings matched in a search to their possible values.
@@ -10,12 +10,72 @@ SearchCallback = Callable[[str, int], None]
 QueryCallback = Callable[[str, StringSeq], None]
 
 
+class SearchListWidget(QListView):
+    """ QListView extension with strings that sends a signal when the selection has changed. """
+
+    itemSelected = pyqtSignal([str])  # Sent when a new list item is selected, with that item's string value.
+
+    def __init__(self, *args, min_font_size=5, max_font_size=100) -> None:
+        super().__init__(*args)
+        self._min_font_size = min_font_size  # Minimum font size for list items in points.
+        self._max_font_size = max_font_size  # Maximum font size for list items in points.
+        self.setModel(QStringListModel([]))
+
+    def setItems(self, str_iter:Iterable[str]) -> None:
+        """ Replace the list of items. This deselects every item, even ones that didn't change. """
+        self.model().setStringList(str_iter)
+
+    def selectByValue(self, value:str=None, *, center_selection=False) -> None:
+        """ Programmatically select a specific item by value if it exists. If it doesn't, clear the selection.
+            Suppress signals to keep from tripping the selectionChanged event. """
+        self.blockSignals(True)
+        try:
+            model = self.model()
+            list_idx = model.stringList().index(value)
+            model_idx = model.index(list_idx, 0)
+            sel_model = self.selectionModel()
+            sel_model.select(model_idx, sel_model.SelectCurrent)
+            if center_selection:
+                # Put the selection as close as possible to the center of the viewing area.
+                self.scrollTo(model_idx, self.PositionAtCenter)
+        except ValueError:
+            self.clearSelection()
+        self.blockSignals(False)
+
+    def selectedValue(self) -> str:
+        """ Return the value of the first selected item (if any). """
+        idxs = self.selectedIndexes()
+        if not idxs:
+            return ""
+        return self.model().data(idxs[0], Qt.DisplayRole)
+
+    def selectionChanged(self, selected:QItemSelection, deselected:QItemSelection) -> None:
+        """ Send a signal on selection change with the first selected item (if any). """
+        super().selectionChanged(selected, deselected)
+        item_str = self.selectedValue()
+        if item_str:
+            self.itemSelected.emit(item_str)
+
+    def wheelEvent(self, event:QWheelEvent) -> None:
+        """ Change the font size if Ctrl is held down, otherwise scroll the list as usual. """
+        if not event.modifiers() & Qt.ControlModifier:
+            return super().wheelEvent(event)
+        delta = event.angleDelta().y()
+        sign = (delta // abs(delta)) if delta else 0
+        font = self.font()
+        new_size = font.pointSize() + sign
+        if self._min_font_size <= new_size <= self._max_font_size:
+            font.setPointSize(new_size)
+            self.setFont(font)
+        event.accept()
+
+
 class SearchPanel:
     """ Controls the three main search widgets. """
 
     _MORE_TEXT = "[more...]"  # Text displayed as the final match, allowing the user to expand the search.
 
-    def __init__(self, w_input:QLineEdit, w_matches:StringListView, w_mappings:StringListView,
+    def __init__(self, w_input:QLineEdit, w_matches:SearchListWidget, w_mappings:SearchListWidget,
                  w_strokes:QCheckBox, w_regex:QCheckBox) -> None:
         self._w_input = w_input
         self._w_matches = w_matches

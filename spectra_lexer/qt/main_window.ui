@@ -60,7 +60,7 @@
      </widget>
     </item>
     <item row="1" column="0">
-     <widget class="StringListView" name="w_matches">
+     <widget class="SearchListWidget" name="w_matches">
       <property name="autoScroll">
        <bool>false</bool>
       </property>
@@ -73,7 +73,7 @@
      </widget>
     </item>
     <item row="1" column="1">
-     <widget class="HyperlinkTextBrowser" name="w_graph">
+     <widget class="GraphWidget" name="w_graph">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
@@ -131,7 +131,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="StringListView" name="w_mappings">
+        <widget class="SearchListWidget" name="w_mappings">
          <property name="autoScroll">
           <bool>false</bool>
          </property>
@@ -334,7 +334,7 @@
           </widget>
          </item>
          <item>
-          <widget class="PictureWidget" name="w_board" native="true">
+          <widget class="BoardWidget" name="w_board">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -343,7 +343,7 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>0</width>
+             <width>200</width>
              <height>100</height>
             </size>
            </property>
@@ -399,20 +399,19 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>StringListView</class>
+   <class>SearchListWidget</class>
    <extends>QListView</extends>
-   <header>.widgets</header>
+   <header>.search</header>
   </customwidget>
   <customwidget>
-   <class>PictureWidget</class>
+   <class>BoardWidget</class>
    <extends>QWidget</extends>
-   <header>.widgets</header>
-   <container>1</container>
+   <header>.board</header>
   </customwidget>
   <customwidget>
-   <class>HyperlinkTextBrowser</class>
+   <class>GraphWidget</class>
    <extends>QTextBrowser</extends>
-   <header>.widgets</header>
+   <header>.graph</header>
   </customwidget>
  </customwidgets>
  <resources/>
