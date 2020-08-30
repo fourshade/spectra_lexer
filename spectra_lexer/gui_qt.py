@@ -2,11 +2,11 @@ from typing import Callable, Sequence
 
 from PyQt5.QtWidgets import QDialog
 
+from spectra_lexer.config.main import QtConfigManager
 from spectra_lexer.console.main import ConsoleDialog
-from spectra_lexer.engine import Engine, EngineOptions
+from spectra_lexer.engine import Engine
 from spectra_lexer.objtree.main import NamespaceTreeDialog
 from spectra_lexer.qt.board import BoardPanel
-from spectra_lexer.qt.config import ConfigDialog
 from spectra_lexer.qt.dialog import DialogManager
 from spectra_lexer.qt.graph import GraphPanel
 from spectra_lexer.qt.index_dialog import index_size_dialog
@@ -16,7 +16,6 @@ from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.resource.translations import TranslationsDict, TranslationFilter
-from spectra_lexer.util.config import SimpleConfigDict
 
 INDEX_STARTUP_MESSAGE = """<p>
 In order to cross-reference examples of specific steno rules, this program must create an index
@@ -29,6 +28,8 @@ Would you like to create one now? You will not be asked again.
 the Tools menu, and can expand it from the default size as well if it is not sufficient).
 </p>"""
 
+CONFIG_SECTION = "app_qt"  # We only need one CFG section; this is its name.
+
 
 class QtGUIApplication:
     """ Top-level object for Qt GUI operations. Contains all components for the application as a whole. """
@@ -40,7 +41,7 @@ class QtGUIApplication:
 
     last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
 
-    def __init__(self, engine:Engine, config:SimpleConfigDict, tasks:QtTaskExecutor, dialogs:DialogManager,
+    def __init__(self, engine:Engine, config:QtConfigManager, tasks:QtTaskExecutor, dialogs:DialogManager,
                  window:WindowController, menu:MenuController,
                  title:TitleDisplay, search:SearchPanel, graph:GraphPanel, board:BoardPanel) -> None:
         self._engine = engine
@@ -98,18 +99,16 @@ class QtGUIApplication:
         self._set_board("")
         self._set_link_visible(False)
 
-    def _gui_options(self) -> dict:
-        """ Return all engine options derived from GUI controls. """
-        return {"search_mode_strokes": self._search.is_mode_strokes(),
-                "search_mode_regex":   self._search.is_mode_regex(),
-                "board_aspect_ratio":  self._board.aspect_ratio(),
-                "board_show_compound": self._board.is_compound(),
-                "board_show_letters":  self._board.shows_letters()}
-
     def set_options(self, **kwargs) -> None:
         """ Set all options that may be needed by the steno engine from various sources.
             Source priority is: config file < GUI controls < keyword arguments. """
-        options = {**self._config, **self._gui_options(), **kwargs}
+        options = {**self._config.get_section(CONFIG_SECTION),
+                   "search_mode_strokes": self._search.is_mode_strokes(),
+                   "search_mode_regex":   self._search.is_mode_regex(),
+                   "board_aspect_ratio":  self._board.aspect_ratio(),
+                   "board_show_compound": self._board.is_compound(),
+                   "board_show_letters":  self._board.shows_letters(),
+                   **kwargs}
         self._engine.set_options(options)
 
     def run_search(self, pattern:str, pages:int) -> None:
@@ -294,39 +293,13 @@ class QtGUIApplication:
     def custom_index(self) -> None:
         self._dialogs.open_unique(self._index_opener)
 
-    # Info for engine options which should be saved in a CFG file.
-    CONFIG_INFO = {
-        "search_match_limit": ["Match Limit", "Maximum number of matches returned on one page of a search."],
-        "lexer_strict_mode": ["Strict Mode", "Only return lexer results that match every key in a translation."],
-        "graph_compressed_layout": ["Compressed Layout", "Compress the graph layout vertically to save space."]
-    }
-
-    def _config_load(self) -> None:
-        """ Load config options from disk. """
-        self._config.read()
-
-    def _config_update(self, options:dict) -> None:
-        """ Update the config options and save them to disk. """
-        self._config.update(options)
-        self._config.write()
-
-    def _config_set_defaults(self) -> None:
-        """ Update the config options with default values used by the engine. """
-        defaults = {key: getattr(EngineOptions, key) for key in self.CONFIG_INFO}
-        self._config_update(defaults)
-
-    def _config_edited(self, options:dict) -> None:
-        """ Update the config options with values from the user dialog. """
-        self._config_update(options)
+    def _on_config_updated(self) -> None:
         self.set_status("Configuration saved.")
 
     def _config_opener(self) -> QDialog:
-        """ Create the configuration manager dialog with info from all active components. """
-        dialog = ConfigDialog()
-        for key, (name, description) in self.CONFIG_INFO.items():
-            value = self._config.get(key)
-            dialog.add_option(key, value, "General", name, description)
-            dialog.call_on_options_accept(self._config_edited)
+        """ Create a configuration manager dialog. """
+        dialog = self._config.open_dialog()
+        dialog.accepted.connect(self._on_config_updated)
         return dialog
 
     def config_editor(self) -> None:
@@ -353,11 +326,10 @@ class QtGUIApplication:
     def _on_ready(self) -> None:
         """ When all major resources are ready, load the config and connect the GUI callbacks.
             If the config settings are blank, this is the first time the program has been run.
-            Add the default config values and present an index generation dialog in this case. """
+            Create the config file and present an index generation dialog in this case. """
         self._connect_signals()
-        self._config_load()
-        if not self._config:
-            self._config_set_defaults()
+        if not self._config.load():
+            self._config.save()
             self.confirm_startup_index()
 
     def start(self) -> None:

@@ -6,8 +6,10 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.engine import Engine
-from spectra_lexer.gui_qt import QtGUIApplication
+from spectra_lexer.config.main import QtConfigManager
+from spectra_lexer.config.spec import BoolOption, ConfigSpec, IntOption
+from spectra_lexer.engine import Engine, EngineOptions
+from spectra_lexer.gui_qt import CONFIG_SECTION, QtGUIApplication
 from spectra_lexer.qt import ICON_PACKAGE, ICON_PATH
 from spectra_lexer.qt.board import BoardPanel
 from spectra_lexer.qt.dialog import DialogManager
@@ -18,8 +20,25 @@ from spectra_lexer.qt.search import SearchPanel
 from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.title import TitleDisplay
 from spectra_lexer.qt.window import WindowController
-from spectra_lexer.util.config import SimpleConfigDict
 from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLogger
+
+
+def get_config_spec() -> ConfigSpec:
+    """ Return a spec for engine options which should be saved in a CFG file. """
+    return ConfigSpec(name=CONFIG_SECTION, title='General', options=[
+        IntOption(name="search_match_limit",
+                  default=EngineOptions.search_match_limit,
+                  title="Match Limit",
+                  description="Maximum number of matches returned on one page of a search."),
+        BoolOption(name="lexer_strict_mode",
+                   default=EngineOptions.lexer_strict_mode,
+                   title="Strict Mode",
+                   description="Only return lexer results that match every key in a translation."),
+        BoolOption(name="graph_compressed_layout",
+                   default=EngineOptions.graph_compressed_layout,
+                   title="Compressed Layout",
+                   description="Compress the graph layout vertically to save space.")
+    ])
 
 
 def build_app(spectra:Spectra) -> QtGUIApplication:
@@ -33,7 +52,8 @@ def build_app(spectra:Spectra) -> QtGUIApplication:
     index_path = spectra.index_path
     engine = Engine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
     cfg_path = spectra.cfg_path
-    config = SimpleConfigDict(cfg_path, "app_qt")
+    spec = get_config_spec()
+    config = QtConfigManager(cfg_path, [spec])
     tasks = QtTaskExecutor()
     w_window = QMainWindow()
     ui = Ui_MainWindow()

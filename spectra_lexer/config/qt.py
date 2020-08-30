@@ -48,9 +48,9 @@ class OptionWidgets:
 
 
 class ConfigDialog(QDialog):
-    """ Qt config dialog window tool. Adds standard submission form buttons. """
+    """ Qt config manager dialog tool with standard submission form buttons. """
 
-    _sig_accept = pyqtSignal([dict])  # Signal to return config values on dialog accept.
+    submitted = pyqtSignal([dict])  # Signal to return config values on dialog accept.
 
     DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
 
@@ -70,7 +70,21 @@ class ConfigDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self._tabs)
         layout.addWidget(button_box)
-        self.call_on_options_accept = self._sig_accept.connect
+
+    def _show_error(self, message:str) -> None:
+        QMessageBox.warning(self, "Config Error", message)
+
+    def _check_accept(self) -> None:
+        """ Compile the new config values into a dict on dialog accept and close the window.
+            If there are one or more errors, show a popup without closing the window. """
+        try:
+            d = self._widgets.compile()
+            self.submitted.emit(d)
+            self.accept()
+        except TypeError:
+            self._show_error("One or more config types are invalid.")
+        except ValueError:
+            self._show_error("One or more config values are invalid.")
 
     def add_option(self, key:str, value:Any, sect_name:str, opt_name:str, description="") -> None:
         """ Create a widget for a new config info row based on these attributes:
@@ -96,18 +110,3 @@ class ConfigDialog(QDialog):
             page = self._pages[name] = QFormLayout(w_frame)
             self._tabs.addTab(w_frame, name)
         return page
-
-    def _check_accept(self) -> None:
-        """ Compile the new config values into a dict on dialog accept and close the window.
-            If there are one or more errors, show a popup without closing the window. """
-        try:
-            d = self._widgets.compile()
-            self._sig_accept.emit(d)
-            self.accept()
-        except TypeError:
-            self._show_error("One or more config types are invalid.")
-        except ValueError:
-            self._show_error("One or more config values are invalid.")
-
-    def _show_error(self, message:str) -> None:
-        QMessageBox.warning(self, "Config Error", message)
