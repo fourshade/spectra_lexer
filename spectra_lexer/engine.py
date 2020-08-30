@@ -30,6 +30,7 @@ class Engine:
 
     _analysis: StenoRule  # Current analysis.
     _graph: GraphTree     # Graph of current analysis.
+    _ref: str             # Most recently selected graph node reference.
 
     def __init__(self, io:StenoResourceIO, search_engine:SearchEngine, analyzer:StenoAnalyzer,
                  graph_engine:GraphEngine, board_engine:BoardEngine, translations_paths=(), examples_path="") -> None:
@@ -120,22 +121,32 @@ class Engine:
         mappings = matches[match]
         return self.best_translation(match, mappings)
 
-    def search_selection(self, keys:str, letters:str):
+    def search_selection(self, keys:str, letters:str) -> List[str]:
         return [keys, letters] if self._opts.search_mode_strokes else [letters, keys]
 
     def run_query(self, keys:str, letters:str) -> None:
-        """ Run an analysis and build a node graph of every rule in it. """
+        """ Run a lexer analysis and build a node graph of every rule in it recursively. """
         self._analysis = self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
         self._graph = self._graph_engine.graph(self._analysis, compressed=self._opts.graph_compressed_layout,
                                                compat=self._opts.graph_compatibility_mode)
+        self._ref = ""
 
     def get_refs(self) -> List[str]:
+        """ Return a list of all valid graph node reference strings. """
         return list(self._graph)
 
-    def get_caption(self, ref="") -> str:
-        """ Generate a caption for the rule at <ref>. The root analysis shows its info only. Others also show the keys.
+    def select_ref(self, ref:str) -> None:
+        """ Choose a graph node by reference as the current display target. """
+        self._ref = ref
+
+    def _current_rule(self) -> StenoRule:
+        """ Get the current node's rule, or the root analysis by default. """
+        return self._graph.get(self._ref, self._analysis)
+
+    def get_caption(self) -> str:
+        """ Generate a caption for the current rule. The root analysis shows its info only. Others also show the keys.
             Rules with children show the complete mapping of keys to letters. """
-        rule = self._graph[ref]
+        rule = self._current_rule()
         keys = rule.keys
         letters = rule.letters
         info = rule.info
@@ -146,11 +157,13 @@ class Engine:
         else:
             return f'{keys}: {info}'
 
-    def draw_graph(self, ref="", intense=False) -> HTMLGraph:
-        return self._graph.draw(ref, intense=intense)
+    def draw_graph(self, *, intense=False) -> HTMLGraph:
+        """ Generate an HTML text graph for the current rule. """
+        return self._graph.draw(self._ref, intense=intense)
 
-    def draw_board(self, ref="") -> BoardDiagram:
-        rule = self._graph[ref]
+    def draw_board(self) -> BoardDiagram:
+        """ Generate a board diagram for the current rule. """
+        rule = self._current_rule()
         aspect_ratio = self._opts.board_aspect_ratio
         if self._opts.board_show_compound:
             board = self._board_engine.draw_rule(rule, aspect_ratio, show_letters=self._opts.board_show_letters)
@@ -158,9 +171,9 @@ class Engine:
             board = self._board_engine.draw_keys(rule.keys, aspect_ratio)
         return board
 
-    def get_example_id(self, ref="") -> str:
-        """ Return a rule ID usable in an example link, but only for rules that actually have examples. """
-        rule = self._graph[ref]
+    def get_example_id(self) -> str:
+        """ Return a rule ID usable in an example link, but only if the current rule actually has examples. """
+        rule = self._current_rule()
         r_id = rule.id
         if not self._search_engine.has_examples(r_id):
             r_id = ""

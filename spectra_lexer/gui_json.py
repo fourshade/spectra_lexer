@@ -63,26 +63,26 @@ class JSONGUIApplication(JSONApplication):
         method = getattr(self, "do_" + action)
         return method(*args)
 
-    def _draw_page(self, ref="") -> DisplayPage:
-        """ Create a display page for a rule <ref>erence, or a default page if <ref> is empty or invalid. """
-        return DisplayPage(graph=self._engine.draw_graph(ref),
-                           intense_graph=self._engine.draw_graph(ref, intense=True),
-                           caption=self._engine.get_caption(ref),
-                           board=self._engine.draw_board(ref),
-                           rule_id=self._engine.get_example_id(ref))
-
-    def _compile_pages(self) -> DisplayPageDict:
-        """ Compile a full set of display data including all possible selections. """
-        refs = self._engine.get_refs()
-        return {ref: self._draw_page(ref) for ref in refs}
+    def _draw_page(self) -> DisplayPage:
+        """ Create a display page for the current rule reference. """
+        return DisplayPage(graph=self._engine.draw_graph(),
+                           intense_graph=self._engine.draw_graph(intense=True),
+                           caption=self._engine.get_caption(),
+                           board=self._engine.draw_board(),
+                           rule_id=self._engine.get_example_id())
 
     def _display(self, keys:str, letters:str) -> Display:
-        """ Run a query and return a full set of display data. """
+        """ Run a query and return a full set of display data including all possible selections. """
         self._engine.run_query(keys, letters)
+        default_page = self._draw_page()
+        pages_by_ref = {}
+        for ref in self._engine.get_refs():
+            self._engine.select_ref(ref)
+            pages_by_ref[ref] = self._draw_page()
         return Display(keys=keys,
                        letters=letters,
-                       pages_by_ref=self._compile_pages(),
-                       default_page=self._draw_page())
+                       pages_by_ref=pages_by_ref,
+                       default_page=default_page)
 
     def _select(self, keys:str, letters:str) -> Selections:
         match, mapping = self._engine.search_selection(keys, letters)

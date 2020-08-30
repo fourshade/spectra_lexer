@@ -117,8 +117,7 @@ class GraphTree(RuleMapping):
     """ A self-contained object to draw text graphs of a steno rule and optionally highlight any descendant.
         Implements the mapping protocol for ref strings to steno rules. """
 
-    def __init__(self, root_rule:StenoRule, tree_map:RuleMapping, formatter:HTMLFormatter) -> None:
-        self._root_rule = root_rule
+    def __init__(self, tree_map:RuleMapping, formatter:HTMLFormatter) -> None:
         self._tree_map = tree_map
         self._formatter = formatter
 
@@ -129,8 +128,7 @@ class GraphTree(RuleMapping):
         return iter(self._tree_map)
 
     def __getitem__(self, k:str) -> StenoRule:
-        """ Use the root node as a default. """
-        return self._tree_map.get(k, self._root_rule)
+        return self._tree_map[k]
 
     def draw(self, ref="", *, intense=False) -> HTMLGraph:
         """ Return an HTML text graph with <ref> highlighted.
@@ -198,4 +196,4 @@ class GraphEngine:
         grid = canvas.to_lists()
         fmt = HTML_COMPAT if compat else HTML_STANDARD
         formatter = HTMLFormatter(grid, fmt)
-        return GraphTree(rule, tree_map, formatter)
+        return GraphTree(tree_map, formatter)

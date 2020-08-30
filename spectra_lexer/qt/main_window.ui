@@ -44,7 +44,7 @@
      </widget>
     </item>
     <item row="0" column="1">
-     <widget class="QLineEdit" name="w_title">
+     <widget class="TitleWidget" name="w_title">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
@@ -412,6 +412,11 @@
    <class>GraphWidget</class>
    <extends>QTextBrowser</extends>
    <header>.graph</header>
+  </customwidget>
+  <customwidget>
+   <class>TitleWidget</class>
+   <extends>QLineEdit</extends>
+   <header>.title</header>
   </customwidget>
  </customwidgets>
  <resources/>

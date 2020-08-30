@@ -1,13 +1,14 @@
-from typing import Callable, Iterable, Mapping, Sequence
+from typing import Iterable, Mapping, Sequence
 
-from PyQt5.QtCore import pyqtSignal, QItemSelection, QStringListModel, Qt
+from PyQt5.QtCore import pyqtSignal, QItemSelection, QObject, QStringListModel, Qt
 from PyQt5.QtGui import QWheelEvent
-from PyQt5.QtWidgets import QCheckBox, QLineEdit, QListView
+from PyQt5.QtWidgets import QLineEdit, QListView
 
+StringIter = Iterable[str]
 StringSeq = Sequence[str]
 SearchResults = Mapping[str, StringSeq]  # Ordered mapping of strings matched in a search to their possible values.
-SearchCallback = Callable[[str, int], None]
-QueryCallback = Callable[[str, StringSeq], None]
+
+MORE_TEXT = "[more...]"  # Show this text as the last item in the match list to allow the user to expand the search.
 
 
 class SearchListWidget(QListView):
@@ -21,7 +22,7 @@ class SearchListWidget(QListView):
         self._max_font_size = max_font_size  # Maximum font size for list items in points.
         self.setModel(QStringListModel([]))
 
-    def setItems(self, str_iter:Iterable[str]) -> None:
+    def setItems(self, str_iter:StringIter) -> None:
         """ Replace the list of items. This deselects every item, even ones that didn't change. """
         self.model().setStringList(str_iter)
 
@@ -70,27 +71,28 @@ class SearchListWidget(QListView):
         event.accept()
 
 
-class SearchPanel:
+class SearchPanel(QObject):
     """ Controls the three main search widgets. """
 
-    _MORE_TEXT = "[more...]"  # Text displayed as the final match, allowing the user to expand the search.
+    searchRequested = pyqtSignal([str, int])     # Emitted when a search operation is needed to refresh the lists.
+    queryRequested = pyqtSignal([str, str])      # Emitted when a query should be made with a single translation.
+    queryAllRequested = pyqtSignal([str, list])  # Emitted when a query should be made with multiple translations.
 
-    def __init__(self, w_input:QLineEdit, w_matches:SearchListWidget, w_mappings:SearchListWidget,
-                 w_strokes:QCheckBox, w_regex:QCheckBox) -> None:
+    def __init__(self, w_input:QLineEdit, w_matches:SearchListWidget, w_mappings:SearchListWidget) -> None:
+        super().__init__(w_input)
         self._w_input = w_input
         self._w_matches = w_matches
         self._w_mappings = w_mappings
-        self._w_strokes = w_strokes
-        self._w_regex = w_regex
         self._matches = {}
         self._page_count = 1
-        self._call_search = lambda *_: None
-        self._call_query = lambda *_: None
+        w_input.textEdited.connect(self.invalidate)
+        w_matches.itemSelected.connect(self._on_user_select_match)
+        w_mappings.itemSelected.connect(self._on_user_select_mapping)
 
-    def _set_matches(self, matches:StringSeq) -> None:
+    def _set_matches(self, matches:StringIter) -> None:
         self._w_matches.setItems(matches)
 
-    def _set_mappings(self, mappings:StringSeq) -> None:
+    def _set_mappings(self, mappings:StringIter) -> None:
         self._w_mappings.setItems(mappings)
 
     def _select_match(self, match:str) -> None:
@@ -102,7 +104,7 @@ class SearchPanel:
     def _send_search(self) -> None:
         """ Run a new search with the current input text and page count. """
         input_text = self._w_input.text()
-        self._call_search(input_text, self._page_count)
+        self.searchRequested.emit(input_text, self._page_count)
 
     def _new_search(self) -> None:
         """ Reset the page count and run a new search. """
@@ -114,59 +116,43 @@ class SearchPanel:
         self._page_count += 1
         self._send_search()
 
-    def _on_invalidate_search(self, *_) -> None:
-        """ Do a new search on certain signals (disregard their arguments). """
-        self._new_search()
-
     def _on_user_select_match(self, match:str) -> None:
         """ If the user clicked "more", search again with another page.
             Otherwise, update the mappings list with the items corresponding to <match> and pick the best one. """
-        if match == self._MORE_TEXT:
+        if match == MORE_TEXT:
             self._expanded_search()
         elif match in self._matches:
             mappings = self._matches[match]
             self._set_mappings(mappings)
             if mappings:
-                self._call_query(match, mappings)
+                self.queryAllRequested.emit(match, [*mappings])
 
     def _on_user_select_mapping(self, mapping:str) -> None:
         """ When the user selects a <mapping>, send a lexer query for this specific translation. """
         if mapping:
             match = self._w_matches.selectedValue()
-            self._call_query(match, [mapping])
+            self.queryRequested.emit(match, mapping)
 
-    def connect_signals(self, call_search:SearchCallback, call_query:QueryCallback) -> None:
-        """ Connect all Qt signals for user actions and set the callback functions. """
-        self._call_search = call_search
-        self._call_query = call_query
-        self._w_strokes.toggled.connect(self._on_invalidate_search)
-        self._w_regex.toggled.connect(self._on_invalidate_search)
-        self._w_input.textEdited.connect(self._on_invalidate_search)
-        self._w_matches.itemSelected.connect(self._on_user_select_match)
-        self._w_mappings.itemSelected.connect(self._on_user_select_mapping)
-
-    def is_mode_strokes(self) -> bool:
-        return self._w_strokes.isChecked()
-
-    def is_mode_regex(self) -> bool:
-        return self._w_regex.isChecked()
+    def invalidate(self, *_) -> None:
+        """ Do a new search if something happens to invalidate the previous one. """
+        self._new_search()
 
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all search widgets. """
         self._w_input.setEnabled(enabled)
         self._w_matches.setEnabled(enabled)
         self._w_mappings.setEnabled(enabled)
-        self._w_strokes.setEnabled(enabled)
-        self._w_regex.setEnabled(enabled)
 
     def update_input(self, value:str) -> None:
-        return self._w_input.setText(value)
+        self._w_input.setText(value)
 
-    def update_results(self, matches:SearchResults) -> None:
-        """ Replace the current set of search results.
+    def update_results(self, matches:SearchResults, *, can_expand=False) -> None:
+        """ Replace the current set of search results. Add a special item to allow search expansion on click.
             If there was only one match, select it and proceed with a query as if the user had clicked it. """
         self._matches = matches
         match_list = list(matches)
+        if can_expand:
+            match_list.append(MORE_TEXT)
         self._set_matches(match_list)
         self._set_mappings([])
         if len(match_list) == 1:
@@ -174,7 +160,7 @@ class SearchPanel:
             self._select_match(match)
             self._on_user_select_match(match)
 
-    def select(self, match:str, mapping="") -> None:
+    def select(self, match:str, mapping:str) -> None:
         """ Set the current selections to <match> and <mapping> if possible. Do not send queries. """
         if match in self._matches:
             mappings = self._matches[match]

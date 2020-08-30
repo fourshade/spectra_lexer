@@ -1,12 +1,8 @@
-from typing import Callable
-
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QColor, QContextMenuEvent, QGuiApplication, QImage, QPaintDevice, QPainter, QPixmap
-from PyQt5.QtWidgets import QLabel, QMenu, QSlider, QWidget
+from PyQt5.QtWidgets import QMenu, QWidget
 
 from .svg import QtSVGData, SVGEngine
-
-LinkCallback = Callable[[], None]
 
 
 class Clipboard:
@@ -28,7 +24,7 @@ class Clipboard:
 
 
 class BoardWidget(QWidget):
-    """ SVG-based widget with a manual paint buffer. """
+    """ Displays SVG diagrams of all of the keys that make up one or more steno strokes. """
 
     PAINT_BG = QColor(0, 0, 0, 0)         # Transparent background for widget painting.
     COPY_BG = QColor(255, 255, 255, 255)  # White background for the clipboard.
@@ -91,65 +87,3 @@ class BoardWidget(QWidget):
         """ Rerender on any widget size change and send a signal. """
         self._render()
         self.resized.emit()
-
-
-class BoardPanel:
-    """ Displays all of the keys that make up one or more steno strokes pictorally. """
-
-    def __init__(self, w_board:BoardWidget, w_caption:QLabel, w_slider:QSlider,
-                 w_link_save:QLabel, w_link_examples:QLabel) -> None:
-        self._w_board = w_board                  # Board diagram container widget.
-        self._w_caption = w_caption              # Label with caption containing rule keys/letters/description.
-        self._w_slider = w_slider                # Slider to control board rendering options.
-        self._w_link_save = w_link_save          # Hyperlink to save diagram as file.
-        self._w_link_examples = w_link_examples  # Hyperlink to show examples of the current rule.
-
-    def connect_signals(self, call_invalid:LinkCallback, call_save:LinkCallback,
-                        call_examples:LinkCallback, *, dynamic_resize=True) -> None:
-        """ Connect Qt signals (none of their arguments are used). """
-        # Invalidate the board on any size change (expensive, only if dynamic_resize=True)
-        if dynamic_resize:
-            self._w_board.resized.connect(call_invalid)
-        # On slider movements, declare the board invalid to get new data.
-        self._w_slider.valueChanged.connect(lambda *_: call_invalid())
-        # Save the current diagram on link click.
-        self._w_link_save.linkActivated.connect(lambda *_: call_save())
-        # Start an example search for the current rule on link click.
-        self._w_link_examples.linkActivated.connect(lambda *_: call_examples())
-
-    def aspect_ratio(self) -> float:
-        """ Return the width / height aspect ratio of the board widget. """
-        size = self._w_board.size()
-        return size.width() / size.height()
-
-    def is_compound(self) -> bool:
-        """ The board is compound if not in keys mode (slider at top, value=0). """
-        return self._w_slider.value() > 0
-
-    def shows_letters(self) -> bool:
-        """ The board uses letters only if in letters mode (slider at bottom, value=2). """
-        return self._w_slider.value() > 1
-
-    def set_enabled(self, enabled:bool) -> None:
-        self._w_slider.setEnabled(enabled)
-
-    def set_caption(self, caption:str) -> None:
-        """ Show a new caption above the board diagram. """
-        self._w_caption.setText(caption)
-
-    def set_data(self, data:QtSVGData) -> None:
-        """ Load the renderer with new SVG data and redraw the board. """
-        self._w_board.setSvgData(data)
-        self._w_link_save.setVisible(bool(data))
-
-    def dump_image(self, filename:str) -> None:
-        """ Save the current diagram to an SVG file (or other format). """
-        self._w_board.saveImage(filename)
-
-    def show_examples_link(self) -> None:
-        """ Show the link in the bottom-right corner of the diagram. """
-        self._w_link_examples.setVisible(True)
-
-    def hide_examples_link(self) -> None:
-        """ Hide the link in the bottom-right corner of the diagram. """
-        self._w_link_examples.setVisible(False)
