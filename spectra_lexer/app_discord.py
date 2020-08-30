@@ -5,7 +5,7 @@ from typing import Iterator, Optional, Sequence
 
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.console import introspect
-from spectra_lexer.qt.svg import SVGRasterEngine
+from spectra_lexer.qt.svg import SVGEngine
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
@@ -20,7 +20,7 @@ class DiscordApplication:
     TR_DELIMS = ["→", "->"]  # Possible delimiters between strokes and text in a query. Captions use the first one.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 board_engine:BoardEngine, svg_engine:SVGRasterEngine, key_sep:str, *, msg_cls=DiscordMessage,
+                 board_engine:BoardEngine, svg_engine:SVGEngine, key_sep:str, *, msg_cls=DiscordMessage,
                  query_max_chars:int=None, query_trans:dict=None, search_depth=1, board_AR:float=None) -> None:
         self._search_engine = search_engine
         self._analyzer = analyzer
@@ -122,7 +122,7 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
-    svg_engine = SVGRasterEngine(background_rgba=(0, 0, 0, 0))
+    svg_engine = SVGEngine(background_rgba=(0, 0, 0, 0))
     key_sep = spectra.keymap.sep
     excluded_chars = r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''
     map_to_space = dict.fromkeys(map(ord, excluded_chars), ' ')

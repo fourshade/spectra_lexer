@@ -10,12 +10,13 @@ QtSVGData = Union[bytes, str]  # Valid formats for an SVG data string. The XML h
 
 
 class SVGEngine:
-    """ Renders SVG data on Qt paint devices. """
+    """ Renders SVG data on Qt paint devices and/or raster images. """
 
-    def __init__(self, *, render_hints=QPainter.Antialiasing) -> None:
-        self._data = b""                   # Current XML SVG binary data.
-        self._renderer = QSvgRenderer()    # Qt SVG renderer.
-        self._render_hints = render_hints  # SVG rendering quality hints (such as anti-aliasing).
+    def __init__(self, *, render_hints=QPainter.Antialiasing, background_rgba=(255, 255, 255, 255)) -> None:
+        self._data = b""                         # Current XML SVG binary data.
+        self._renderer = QSvgRenderer()          # Qt SVG renderer.
+        self._render_hints = render_hints        # SVG rendering quality hints (such as anti-aliasing).
+        self._background_rgba = background_rgba  # Color to use for raster backgrounds in RGBA 0-255 format.
 
     def loads(self, data:QtSVGData) -> None:
         """ Load the renderer with SVG data. """
@@ -30,6 +31,15 @@ class SVGEngine:
             data = fp.read()
         self.loads(data)
 
+    def dumps(self) -> str:
+        """ Return the current SVG data as a string. """
+        return self._data.decode('utf-8')
+
+    def dump(self, filename:str) -> None:
+        """ Save the current SVG data directly to disk. """
+        with open(filename, 'wb') as fp:
+            fp.write(self._data)
+
     def viewbox_size(self) -> QSize:
         """ If no valid viewbox is defined, 100x100 is a typical default. """
         size = self._renderer.viewBox().size()
@@ -37,12 +47,11 @@ class SVGEngine:
             size = QSize(100, 100)
         return size
 
-    def render(self, target:QPaintDevice, bounds:QRectF=None) -> None:
-        """ Render the current SVG data on <target> with optional <bounds> on the area. """
-        args = () if bounds is None else (bounds,)
+    def render(self, target:QPaintDevice, bounds:QRectF) -> None:
+        """ Render the current SVG data on <target>, scaled to fit inside <bounds>. """
         with QPainter(target) as p:
             p.setRenderHints(self._render_hints)
-            self._renderer.render(p, *args)
+            self._renderer.render(p, bounds)
 
     def render_fit(self, target:QPaintDevice) -> None:
         """ Render the current SVG data on <target>, centered at maximum scale while preserving aspect ratio. """
@@ -59,36 +68,14 @@ class SVGEngine:
         bounds = QRectF(rx, ry, rw, rh)
         self.render(target, bounds)
 
-    def dumps(self) -> str:
-        """ Return the current SVG data as a string. """
-        return self._data.decode('utf-8')
-
-    def dump(self, filename:str) -> None:
-        """ Save the current SVG data directly to disk. """
-        with open(filename, 'wb') as fp:
-            fp.write(self._data)
-
-
-class SVGRasterEngine(SVGEngine):
-    """ Adds raster image formatting capabilities to the SVG engine. """
-
-    def __init__(self, *, background_rgba=(255, 255, 255, 255), **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._background_rgba = background_rgba  # Color to use for raster backgrounds in RGBA 0-255 format.
-
-    def _new_image(self, size:QSize) -> QImage:
-        """ Create a new bitmap image of <size> filled with the current background color. """
-        im = QImage(size, QImage.Format_ARGB32)
-        bg_color = QColor(*self._background_rgba)
-        im.fill(bg_color)
-        return im
-
     def draw_image(self, size:QSize=None) -> QImage:
-        """ Create a new bitmap image of <size> and render the SVG data to it.
+        """ Create a new bitmap image of <size> with the current background color and render the SVG data to it.
             If <size> is None, treat the viewbox as pixel dimensions. """
         if size is None:
             size = self.viewbox_size()
-        im = self._new_image(size)
+        im = QImage(size, QImage.Format_ARGB32)
+        bg_color = QColor(*self._background_rgba)
+        im.fill(bg_color)
         self.render_fit(im)
         return im
 
