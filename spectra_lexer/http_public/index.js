@@ -145,38 +145,46 @@ function SpectraClient() {
         return false;
     });
 
-    var currentPages = null;
+    var currentPages = {};
     var currentDefaultPage = null;
-    var currentNodeRef = null;
-    function graphAction(nodeRef) {
-        if(currentPages) {
-            currentNodeRef = nodeRef;
-            setPage(currentPages[nodeRef] || currentDefaultPage);
+    var lastNodeRef = null;
+    function graphAction(nodeRef, isFocused) {
+        let page = currentPages[nodeRef] || currentDefaultPage;
+        if(page) {
+            lastNodeRef = nodeRef;
+            graphFocused = isFocused;
+            setPage(page);
         }
+    }
+    function anchorFragment(elem) {
+        return elem.href.split("#").pop();
     }
     $(displayText).on("mouseenter", NODE_SELECTOR, function(){
         if(!graphFocused) {
-            let nodeRef = this.href.split("#").pop();
-            if(nodeRef != currentNodeRef) {
-                graphAction(nodeRef);
+            let nodeRef = anchorFragment(this);
+            if(nodeRef != lastNodeRef) {
+                graphAction(nodeRef, false);
             }
         }
         return false;
     }).on("click", NODE_SELECTOR, function(){
-        let nodeRef = this.href.split("#").pop();
-        graphFocused = true;
-        graphAction(nodeRef);
+        let nodeRef = anchorFragment(this);
+        graphAction(nodeRef, true);
         return false;
     }).click(function(){
-        let nodeRef = "";
-        graphFocused = false;
-        graphAction(nodeRef);
+        graphAction(null, false);
         return false;
     });
 
-    function updateMatches(matches) {
-        lastMatches = matches;
-        let keys = Object.keys(matches);
+    function updateMatches({pattern, results, can_expand}) {
+        if(pattern != searchInput.value) {
+            searchInput.value = pattern
+        }
+        lastMatches = results;
+        let keys = Object.keys(lastMatches);
+        if(can_expand) {
+            keys.push(MORE_TEXT);
+        }
         matchSelector.update(keys);
         // If the new list does not have the previous selection, reset the mappings.
         if(!matchSelector.value) {
@@ -198,23 +206,20 @@ function SpectraClient() {
         }
     }
     function updateDisplay({keys, letters, pages_by_ref, default_page}) {
-        displayTitle.value = keys + ' ' + TR_DELIM + ' ' + letters;
+        let title = keys + ' ' + TR_DELIM + ' ' + letters;
         currentPages = pages_by_ref;
         currentDefaultPage = default_page;
-        let startPage = default_page;
-        graphFocused = false;
-        if(currentLink) {
-            for (let page of Object.values(pages_by_ref)) {
-                if(currentLink == page.rule_id) {
-                    startPage = page;
-                    graphFocused = true;
-                    break;
-                }
-            }
+        if(title != displayTitle.value) {
+            displayTitle.value = title;
+            lastNodeRef = null;
         }
-        setPage(startPage);
+        graphAction(lastNodeRef, false);
     }
-    function updateGUI({matches, selections, display}) {
+    function updateExample(example_ref) {
+        graphAction(example_ref, true);
+    }
+    function updateGUI({matches, selections, display, example_ref}) {
+        // Updates must be done *strictly in this order*.
         if(matches) {  // New items in the search lists.
             updateMatches(matches)
         }
@@ -223,6 +228,9 @@ function SpectraClient() {
         }
         if(display) {  // New graphical objects.
             updateDisplay(display)
+        }
+        if(example_ref) {  // New example focus page.
+            updateExample(example_ref)
         }
     }
 

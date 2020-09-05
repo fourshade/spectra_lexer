@@ -68,10 +68,10 @@ class QtGUIApplication(GUIHooks):
         self._window = window
         self._gui = gui
 
-    def _show_page(self, intense:bool) -> None:
+    def _show_page(self, focused:bool) -> None:
         """ Display the current analysis page. """
-        html_graph = self._engine.draw_graph(intense=intense)
-        self._gui.set_graph(html_graph, focused=intense)
+        html_graph = self._engine.draw_graph(intense=focused)
+        self._gui.set_graph(html_graph, focused=focused)
         caption = self._engine.get_caption()
         self._gui.set_caption(caption)
         board = self._engine.draw_board()
@@ -99,21 +99,14 @@ class QtGUIApplication(GUIHooks):
         self._engine.set_options(options)
 
     def run_query(self, keys:str, letters:str) -> None:
-        """ Run a lexer query and update the GUI with the new analysis. Show the translation in the title bar.
-            Attempt to show a page using the last link target, otherwise show the default. """
+        """ Run a lexer query and update the GUI with the new analysis.
+            Show the translation in the title bar and show the default page, unfocused. """
         match, mapping = self._engine.search_selection(keys, letters)
         self._gui.set_selections(match, mapping)
         tr_text = " ".join([keys, TR_DELIMITER, letters])
         self._gui.set_title(tr_text)
-        last_id = self._engine.get_example_id()
         self._engine.run_query(keys, letters)
-        if last_id:
-            for ref in self._engine.get_refs():
-                self._engine.select_ref(ref)
-                if last_id == self._engine.get_example_id():
-                    self._show_page(True)
-                    return
-        self._show_page(False)
+        self._show_page(focused=False)
 
     def on_translation_edit(self) -> None:
         """ Display user entry instructions in the caption. """
@@ -148,22 +141,10 @@ class QtGUIApplication(GUIHooks):
     def on_search_query(self, match:str, mapping:str) -> None:
         self.on_search_multiquery(match, [mapping])
 
-    def on_request_examples(self) -> None:
-        """ Run an example search and update the GUI with any results. """
-        self.set_options()
-        example_id = self._engine.get_example_id()
-        pattern = self._engine.random_pattern(example_id)
-        if pattern:
-            self._gui.set_input(pattern)
-            results = self._engine.search(pattern)
-            self._gui.set_matches(results)
-            keys, letters = self._engine.random_translation(results)
-            self.run_query(keys, letters)
-
-    def on_graph_action(self, node_ref:str, intense:bool) -> None:
-        """ On mouse actions, change the current analysis page to the one under <node_ref>. """
+    def on_graph_action(self, node_ref:str, focused:bool) -> None:
+        """ On mouse actions, change the current analysis page and/or focus. """
         self._engine.select_ref(node_ref)
-        self._show_page(intense)
+        self._show_page(focused)
 
     def on_board_invalid(self) -> None:
         """ Redraw the last board diagram with new options. """
@@ -176,6 +157,21 @@ class QtGUIApplication(GUIHooks):
         filename = self._dialogs.save_file("Save Board Diagram", "svg|png", "board.svg")
         if filename:
             self._gui.dump_board(filename)
+
+    def on_request_examples(self) -> None:
+        """ Run an example search and update the GUI with any results.
+            Attempt to start with a focused page using the example rule. """
+        self.set_options()
+        example_id = self._engine.get_example_id()
+        pattern = self._engine.random_pattern(example_id)
+        if pattern:
+            self._gui.set_input(pattern)
+            results = self._engine.search(pattern)
+            self._gui.set_matches(results)
+            keys, letters = self._engine.random_translation(results)
+            self.run_query(keys, letters)
+            start_ref = self._engine.find_ref(example_id)
+            self.on_graph_action(start_ref, True)
 
     def has_focus(self) -> bool:
         return self._window.has_focus()

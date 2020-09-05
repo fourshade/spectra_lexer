@@ -4,7 +4,15 @@ from spectra_lexer.engine import Engine
 from spectra_lexer.http.json import JSONApplication, JSONDict, JSONList, JSONStruct
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
-from spectra_lexer.spc_search import MatchDict
+from spectra_lexer.spc_search import EXPAND_KEY, MatchDict
+
+
+class Matches(JSONStruct):
+    """ Contains results for the search lists. """
+
+    pattern: str        # Input pattern string.
+    results: MatchDict  # Dictionary of matched strings and each of their translation mappings.
+    can_expand: bool    # If True, a search with more pages may yield more items.
 
 
 class Selections(JSONStruct):
@@ -33,15 +41,16 @@ class Display(JSONStruct):
     keys: str                      # Translation keys in RTFCRE.
     letters: str                   # Translation letters.
     pages_by_ref: DisplayPageDict  # Analysis pages keyed by HTML anchor reference.
-    default_page: DisplayPage      # Default starting analysis page. May also be included in pages_by_ref.
+    default_page: DisplayPage      # Default analysis page with nothing highlighted.
 
 
 class Updates(JSONStruct):
     """ Contains a set of GUI updates. All fields are optional. """
 
-    matches: MatchDict = None      # New items in the search lists.
+    matches: Matches = None        # New items in the search lists.
     selections: Selections = None  # New selections in the search lists.
     display: Display = None        # New graphical objects.
+    example_ref: str = None        # Focus reference for an example.
 
 
 class JSONGUIApplication(JSONApplication):
@@ -62,6 +71,18 @@ class JSONGUIApplication(JSONApplication):
         self._engine.set_options(options)
         method = getattr(self, "do_" + action)
         return method(*args)
+
+    def _match(self, pattern:str, pages:int) -> Matches:
+        results = self._engine.search(pattern, pages)
+        can_expand = (results.pop(EXPAND_KEY, None) is not None)
+        return Matches(pattern=pattern,
+                       results=results,
+                       can_expand=can_expand)
+
+    def _select(self, keys:str, letters:str) -> Selections:
+        match, mapping = self._engine.search_selection(keys, letters)
+        return Selections(match=match,
+                          mapping=mapping)
 
     def _draw_page(self) -> DisplayPage:
         """ Create a display page for the current rule reference. """
@@ -84,14 +105,9 @@ class JSONGUIApplication(JSONApplication):
                        pages_by_ref=pages_by_ref,
                        default_page=default_page)
 
-    def _select(self, keys:str, letters:str) -> Selections:
-        match, mapping = self._engine.search_selection(keys, letters)
-        return Selections(match=match,
-                          mapping=mapping)
-
-    def do_search(self, pattern:str, pages=1) -> Updates:
+    def do_search(self, pattern:str, pages:int) -> Updates:
         """ Do a new search and return results (unless the pattern is just whitespace). """
-        return Updates(matches=self._engine.search(pattern, pages))
+        return Updates(matches=self._match(pattern, pages))
 
     def do_query(self, keys:str, letters:str) -> Updates:
         """ Execute and return a full display of a lexer query. """
@@ -108,8 +124,9 @@ class JSONGUIApplication(JSONApplication):
         pattern = self._engine.random_pattern(link_ref)
         if not pattern:
             return Updates()
-        matches = self._engine.search(pattern)
-        keys, letters = self._engine.random_translation(matches)
+        matches = self._match(pattern, 1)
+        keys, letters = self._engine.random_translation(matches.results)
         return Updates(matches=matches,
                        selections=self._select(keys, letters),
-                       display=self._display(keys, letters))
+                       display=self._display(keys, letters),
+                       example_ref=self._engine.find_ref(link_ref))

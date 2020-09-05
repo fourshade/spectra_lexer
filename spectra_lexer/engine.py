@@ -178,3 +178,10 @@ class Engine:
         if not self._search_engine.has_examples(r_id):
             r_id = ""
         return r_id
+
+    def find_ref(self, example_id:str) -> str:
+        """ Return the first reference to a node with a specific rule ID, if one exists. """
+        for ref, rule in self._graph.items():
+            if example_id == rule.id:
+                return ref
+        return ""

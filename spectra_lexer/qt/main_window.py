@@ -39,7 +39,7 @@ class GUIHooks:
     def on_request_examples(self) -> None:
         """ Start an example search for the current rule. """
 
-    def on_graph_action(self, node_ref:str, intense:bool) -> None:
+    def on_graph_action(self, node_ref:str, focused:bool) -> None:
         """ Update the graph to reflect focus on a particular node by reference. """
 
     def on_board_invalid(self) -> None:

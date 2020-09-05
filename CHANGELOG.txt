@@ -1,3 +1,8 @@
+15.0.0
+------
+* Code has fewer implicit dependencies (especially in the GUI)
+* Configuration is now easier to maintain
+
 14.2.3
 ------
 * Added arrow-delimited queries to Discord bot
