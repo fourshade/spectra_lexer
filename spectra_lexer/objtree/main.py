@@ -8,7 +8,7 @@ from .qt import SVGIconRenderer, TreeColumn, TreeDialog, TreeItem, TreeItemModel
 from .system import AutoImporter, package
 
 # Relative path to default icon file.
-ICON_PATH = "treeicons.txt"
+ICON_PATH = "treeicons.svg"
 
 
 def build_root(obj:object, root_package:str=None) -> ObjectData:

@@ -13,15 +13,17 @@ class SVGIconFinder:
         self._icon_dict = {}             # Dict of SVG XML icon data keyed by the names of object data types.
 
     def load(self, filename:str, encoding='utf-8') -> None:
-        """ Parse an icon data file. The first and last items define the template. For other items,
-            the first row contains the names of data types that use the icon XML in the following rows. """
+        """ Parse an icon data file. The first and last items define the template. For other items, the first row
+            contains a comment with pipe-delimited names of data types that use the following SVG group as an icon. """
         with open(filename, encoding=encoding) as fp:
             s = ''.join(fp)
         header, *items, footer = s.split('\n\n')
         for item in items:
-            types, xml = item.split('\n', 1)
-            icon = header + xml + footer
-            for name in types.split(','):
+            types, *lines = item.split('\n')
+            lines[0] = header
+            lines[-1] = footer
+            icon = '\n'.join(lines)
+            for name in types.split('|')[1:-1]:
                 self._icon_dict[name] = icon
 
     def _find_ids(self, obj:object) -> Iterator[str]:

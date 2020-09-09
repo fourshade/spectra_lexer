@@ -1,3 +1,7 @@
+15.0.1
+------
+* Fixed object tree icons
+
 15.0.0
 ------
 * Code has fewer implicit dependencies (especially in the GUI)
