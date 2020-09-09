@@ -1,51 +1,27 @@
-import ast
 from configparser import ConfigParser
-from typing import Any, Dict, Mapping
+from typing import Dict
 
-SectionMapping = Mapping[str, Any]            # Config section mapping option names to values.
-ConfigMapping = Mapping[str, SectionMapping]  # Full config mapping by section, then option.
-SectionDict = Dict[str, Any]
-ConfigDict = Dict[str, SectionDict]
-
-
-def eval_str(s:str) -> Any:
-    """ Try to evaluate a string as a Python literal using ast.literal_eval. This fixes crap like bool('False') = True.
-        Strings that are not valid Python literals are returned as-is. """
-    try:
-        return ast.literal_eval(s)
-    except (SyntaxError, ValueError):
-        return s
+SectionStrDict = Dict[str, str]            # Config section mapping option names to string values.
+ConfigStrDict = Dict[str, SectionStrDict]  # String config dictionary by section, then option.
 
 
 class ConfigIO:
-    """ Performs file I/O and data type conversion on the contents of CFG files. """
+    """ Performs string I/O on a single CFG file. """
 
-    def __init__(self, *, from_str=eval_str, to_str=str, encoding='utf-8') -> None:
-        self._from_str = from_str  # Converts input strings to other values (default uses ast.literal_eval).
-        self._to_str = to_str      # Converts output values back to strings. (default calls __str__).
+    def __init__(self, path:str, *, encoding='utf-8') -> None:
+        self._path = path          # Full file path to CFG file.
         self._encoding = encoding  # Character encoding of CFG files.
 
-    def read(self, filename:str) -> ConfigDict:
-        """ Read config settings from a file in .cfg format into a nested dictionary. """
+    def read(self) -> ConfigStrDict:
+        """ Read config options from a file in .cfg format into a nested string dictionary. """
         parser = ConfigParser()
-        with open(filename, 'r', encoding=self._encoding) as fp:
+        with open(self._path, 'r', encoding=self._encoding) as fp:
             parser.read_file(fp)
-        options = {}
-        for sect in parser:
-            page = options[sect] = {}
-            for name, s in parser[sect].items():
-                value = self._from_str(s)
-                page[name] = value
-        return options
+        return {sect: {**parser[sect]} for sect in parser}
 
-    def write(self, filename:str, options:ConfigMapping) -> None:
-        """ Save a nested mapping of config options to a file in .cfg format by section and name. """
+    def write(self, options:ConfigStrDict) -> None:
+        """ Save a nested string dictionary of config options to a file in .cfg format. """
         parser = ConfigParser()
-        for sect, page in options.items():
-            if page:
-                parser.add_section(sect)
-                for name, value in page.items():
-                    s = self._to_str(value)
-                    parser.set(sect, name, s)
-        with open(filename, 'w', encoding=self._encoding) as fp:
+        parser.read_dict(options)
+        with open(self._path, 'w', encoding=self._encoding) as fp:
             parser.write(fp)

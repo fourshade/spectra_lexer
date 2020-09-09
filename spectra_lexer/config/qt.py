@@ -1,112 +1,111 @@
 """ Module for Qt GUI config manager. """
 
-from typing import Any
-
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QLabel, QLineEdit, QMessageBox, \
     QTabWidget, QVBoxLayout, QWidget
 
+from .spec import ConfigDict, ConfigSpec, Option, Section, SectionDict
 
-class OptionWidgets:
-    """ Tracks config options by key and creates a Qt editing widget for each one based on its type. """
 
-    def __init__(self) -> None:
-        self._widgets = {}  # Dict of config option widgets by their original keys.
+class SectionWidget(QFrame):
+    """ Config section container widget. Adds child widgets based on each option's type. """
 
-    def generate(self, key:str, value:Any) -> QWidget:
-        """ Make and return a new option widget based on the type of the original value. Only basic types are supported.
-            Each supported option type uses a specific editing widget with basic getter and setter methods.
-            Unsupported data types use a string-type widget by default, though they will likely raise upon saving. """
-        cls_name = "OptionWidget" + type(value).__name__.title()
-        w_type = getattr(self, cls_name, self.OptionWidgetStr)
-        self._widgets[key] = w_option = w_type()
-        w_option.set(value)
-        return w_option
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._layout = QFormLayout(self)
+        self._getters = []  # List of config option getters with their original keys.
 
-    def compile(self) -> dict:
-        """ Save all option values to a dict. They must be converted back to the original type if different. """
-        return {k: w.get() for k, w in self._widgets.items()}
+    def widget_bool(self, value:bool):
+        """ Return a widget for true/false config options. """
+        w = QCheckBox()
+        w.setChecked(bool(value))
+        return w, w.isChecked
 
-    class OptionWidgetBool(QCheckBox):
-        """ Widget for true/false config options. """
-        def get(self) -> bool:
-            return self.isChecked()
-        def set(self, value:Any) -> None:
-            self.setChecked(bool(value))
+    def widget_str(self, value:str):
+        """ Return a widget for string config options. """
+        w = QLineEdit()
+        w.setText(str(value))
+        return w, w.text
 
-    class OptionWidgetStr(QLineEdit):
-        """ Widget for string config options. Used as default for unknown types (nearly everything has __str__). """
-        def get(self) -> str:
-            return self.text()
-        def set(self, value:Any) -> None:
-            self.setText(str(value))
+    def widget_int(self, value:int):
+        """ Return a string-type widget that casts output values to int. """
+        w, getter = self.widget_str(str(value))
+        return w, (lambda: int(getter()))
 
-    class OptionWidgetInt(OptionWidgetStr):
-        """ String-type widget that casts output values to int. """
-        def get(self) -> int:
-            return int(self.text())
+    def add_option(self, opt:Option, value:object) -> None:
+        """ Add a new option widget. Each supported data type uses a specific editing widget and getter method.
+            Unsupported types use a string-type widget by default, though they will likely raise upon saving. """
+        method = getattr(self, f'widget_{type(opt.default).__name__}', self.widget_str)
+        w_option, getter = method(value)
+        self._getters.append([opt.name, getter])
+        w_label = QLabel(opt.title or opt.name)
+        if opt.description is not None:
+            w_label.setToolTip(opt.description)
+            w_option.setToolTip(opt.description)
+        self._layout.addRow(w_label, w_option)
+
+    def compile(self) -> SectionDict:
+        """ Compile the new config values from all widgets into a dict. Invalid settings will throw exceptions. """
+        return {opt_name: getter() for opt_name, getter in self._getters}
+
+
+class ConfigTabWidget(QTabWidget):
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._sections = []
+
+    def add_section(self, sect:Section, values:SectionDict) -> None:
+        """ Add a tab with child widgets based on a config <sect>ion and a matching dictionary of <values>. """
+        page = SectionWidget()
+        self._sections.append([sect.name, page])
+        for opt in sect.options:
+            page.add_option(opt, values[opt.name])
+        self.addTab(page, sect.title or sect.name)
+
+    def compile(self) -> ConfigDict:
+        """ Compile the config values from all sections into a nested dict. """
+        return {name: page.compile() for name, page in self._sections}
 
 
 class ConfigDialog(QDialog):
-    """ Qt config manager dialog tool with standard submission form buttons. """
+    """ Qt config manager dialog with an option tab widget and standard submission form buttons. """
+
+    WINDOW_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
 
     submitted = pyqtSignal([dict])  # Signal to return config values on dialog accept.
 
-    DEFAULT_FLAGS = Qt.CustomizeWindowHint | Qt.Dialog | Qt.WindowCloseButtonHint | Qt.WindowTitleHint
-
-    def __init__(self, parent=None, flags=DEFAULT_FLAGS) -> None:
+    def __init__(self, parent:QWidget=None, flags=WINDOW_FLAGS) -> None:
         super().__init__(parent, flags)
         self.setWindowTitle("Configuration Options")
         self.setMinimumSize(250, 300)
         self.setMaximumSize(250, 300)
-        self._tabs = QTabWidget()        # Central tab widget for the config info rows.
-        self._widgets = OptionWidgets()  # Contains all active config option widgets.
-        self._pages = {}                 # Contains each tab page layout indexed by name.
+        self._tabs = ConfigTabWidget(self)
         button_box = QDialogButtonBox(self)
         button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.setCenterButtons(True)
-        button_box.accepted.connect(self._check_accept)
+        button_box.accepted.connect(self._submit)
         button_box.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self._tabs)
         layout.addWidget(button_box)
 
+    def add_tabs(self, spec:ConfigSpec, options:ConfigDict) -> None:
+        """ Add config section tabs based on a <spec> and a matching dictionary of config <options>. """
+        for sect in spec:
+            self._tabs.add_section(sect, options[sect.name])
+
     def _show_error(self, message:str) -> None:
         QMessageBox.warning(self, "Config Error", message)
 
-    def _check_accept(self) -> None:
-        """ Compile the new config values into a dict on dialog accept and close the window.
-            If there are one or more errors, show a popup without closing the window. """
+    def _submit(self) -> None:
+        """ Compile and submit the new config values on dialog accept.
+            If there are one or more errors, show a popup without closing the dialog. """
         try:
-            d = self._widgets.compile()
+            d = self._tabs.compile()
             self.submitted.emit(d)
             self.accept()
         except TypeError:
             self._show_error("One or more config types are invalid.")
         except ValueError:
             self._show_error("One or more config values are invalid.")
-
-    def add_option(self, key:str, value:Any, sect_name:str, opt_name:str, description="") -> None:
-        """ Create a widget for a new config info row based on these attributes:
-            key - Key for the option in the final output dict. No effect on appearance.
-            value - Initial value of the option. Determines the widget type.
-            sect_name - Name of tab page under which to put the option.
-            opt_name - Name to display beside the option.
-            description - Optional; short description to display in a tooltip. """
-        w_option = self._widgets.generate(key, value)
-        w_label = QLabel(opt_name)
-        if description:
-            w_label.setToolTip(description)
-            w_option.setToolTip(description)
-        page = self._get_page(sect_name)
-        page.addRow(w_label, w_option)
-
-    def _get_page(self, name:str) -> QFormLayout:
-        """ Get the config page corresponding to the given name. If it doesn't exist, make and add it. """
-        if name in self._pages:
-            page = self._pages[name]
-        else:
-            w_frame = QFrame()
-            page = self._pages[name] = QFormLayout(w_frame)
-            self._tabs.addTab(w_frame, name)
-        return page

@@ -4,7 +4,7 @@ from typing import Callable, Sequence
 from PyQt5.QtWidgets import QDialog, QMainWindow
 
 from spectra_lexer.config.main import QtConfigManager
-from spectra_lexer.config.spec import BoolOption, ConfigSpec, IntOption
+from spectra_lexer.config.spec import BoolOption, ConfigSpec, IntOption, Section
 from spectra_lexer.console.main import ConsoleDialog
 from spectra_lexer.engine import Engine, EngineOptions
 from spectra_lexer.objtree.main import NamespaceTreeDialog
@@ -29,29 +29,35 @@ the Tools menu, and can expand it from the default size as well if it is not suf
 </p>"""
 
 TR_DELIMITER = '->'  # Delimiter between keys and letters of translations shown in title bar.
-TR_MSG_CHANGED = "Press Enter to parse any changes."
+TR_MSG_CHANGED = 'Press Enter to parse any changes.'
 TR_MSG_EDELIMITERS = 'ERROR: An arrow "->" must separate the steno keys and translated text.'
 TR_MSG_EBLANK = 'ERROR: One or both sides is empty.'
 
-CONFIG_SECTION = "app_qt"  # We only need one CFG section; this is its name.
+CONFIG_SECTION_KEY = "app_qt"  # We only need one config section; this is its key for CFG format.
 
 
 def cfg_spec() -> ConfigSpec:
     """ Return a spec for engine options which should be kept in a CFG file (not GUI controlled). """
-    return ConfigSpec(name=CONFIG_SECTION, title='General', options=[
-        IntOption(name="search_match_limit",
-                  default=EngineOptions.search_match_limit,
-                  title="Match Limit",
-                  description="Maximum number of matches returned on one page of a search."),
-        BoolOption(name="lexer_strict_mode",
-                   default=EngineOptions.lexer_strict_mode,
-                   title="Strict Mode",
-                   description="Only return lexer results that match every key in a translation."),
-        BoolOption(name="graph_compressed_layout",
-                   default=EngineOptions.graph_compressed_layout,
-                   title="Compressed Layout",
-                   description="Compress the graph layout vertically to save space.")
-    ])
+    return [
+        Section(
+            name=CONFIG_SECTION_KEY,
+            title="General",
+            options=[
+                IntOption(name="search_match_limit",
+                          default=EngineOptions.search_match_limit,
+                          title="Match Limit",
+                          description="Maximum number of matches returned on one page of a search."),
+                BoolOption(name="lexer_strict_mode",
+                           default=EngineOptions.lexer_strict_mode,
+                           title="Strict Mode",
+                           description="Only return lexer results that match every key in a translation."),
+                BoolOption(name="graph_compressed_layout",
+                           default=EngineOptions.graph_compressed_layout,
+                           title="Compressed Layout",
+                           description="Compress the graph layout vertically to save space.")
+            ]
+        )
+    ]
 
 
 class QtGUIApplication(GUIHooks):
@@ -89,7 +95,7 @@ class QtGUIApplication(GUIHooks):
     def set_options(self, **kwargs) -> None:
         """ Set all options that may be needed by the steno engine from various sources.
             Source priority is: config file < GUI controls < keyword arguments. """
-        options = {**self._config.get_section(CONFIG_SECTION),
+        options = {**self._config[CONFIG_SECTION_KEY],
                    "search_mode_strokes": self._gui.is_mode_strokes(),
                    "search_mode_regex":   self._gui.is_mode_regex(),
                    "board_aspect_ratio":  self._gui.aspect_ratio(),
@@ -308,8 +314,7 @@ class QtGUIApplication(GUIHooks):
 
 
 def build_gui_app(engine:Engine, cfg_path:str) -> QtGUIApplication:
-    spec = cfg_spec()
-    config = QtConfigManager(cfg_path, [spec])
+    config = QtConfigManager(cfg_path, cfg_spec())
     tasks = QtTaskExecutor()
     w_window = QMainWindow()
     dialogs = DialogManager(w_window)
