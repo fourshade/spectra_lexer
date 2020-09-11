@@ -6,5 +6,6 @@ recursive-include spectra_lexer/assets *
 recursive-include spectra_lexer/http_public *
 # Built-in SVG resources such as icons.
 recursive-include spectra_lexer *.svg
-# Do not include tests in distribution builds.
+# Do not include benchmarks or tests in distribution builds.
+exclude benchmarks/*
 exclude test/*
