@@ -79,6 +79,9 @@ class PloverPlugin:
     def show(self) -> None:
         self._app.show()
 
+    def showNormal(self) -> None:
+        self._app.show()
+
     def close(self) -> None:
         self._app.close()
 
