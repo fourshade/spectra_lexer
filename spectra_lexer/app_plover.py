@@ -1,6 +1,6 @@
 """ Main module for the Qt GUI plugin for Plover. """
 
-from spectra_lexer import Spectra
+from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.app_qt import build_app
 from spectra_lexer.plover.plugin import EngineWrapper, IPlover, PloverExtension
 from spectra_lexer.qt import ICON_PACKAGE, ICON_PATH
@@ -25,7 +25,7 @@ class PloverPlugin:
     TITLE = 'Spectra'
     ICON = ':'.join(['asset', ICON_PACKAGE, ICON_PATH])
     ROLE = 'spectra_dialog'
-    SHORTCUT = 'Ctrl+L'
+    SHORTCUT = 'Ctrl+Shift+L'
 
     STROKE_LIMIT = 6  # Maximum strokes to keep in buffer (just so the lexer doesn't shit itself).
 
@@ -34,8 +34,9 @@ class PloverPlugin:
             Command-line arguments are not used (sys.argv belongs to Plover), and translations are not read from files.
             We must create the main application object *and* start it before __init__ returns.
             The extension is added as attribute 'plover' solely to make it visible to the debug tools. """
-        spectra = Spectra(parse_args=False)
-        spectra.translations_paths = ()
+        opts = SpectraOptions()
+        opts.translations = []
+        spectra = Spectra(opts, parse_args=False)
         self._app = app = build_app(spectra)
         self._ext = app.plover = PloverExtension(EngineWrapper(plover_engine), stroke_limit=self.STROKE_LIMIT)
         app.async_run(self._start)

@@ -1,5 +1,6 @@
 15.0.2
 ------
+* Fixed Plover plugin activation and shortcut
 * Updated Discord bot dependency
 
 15.0.1
