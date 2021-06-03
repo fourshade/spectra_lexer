@@ -4,22 +4,15 @@ from _socket import socket, SHUT_WR, SO_REUSEADDR, SOL_SOCKET, SOL_TCP, TCP_NODE
 from io import BufferedReader, RawIOBase
 from select import select
 from threading import Thread
-from typing import BinaryIO
+from typing import BinaryIO, Callable
 
-
-class TCPConnection:
-    """ Data structure for an open TCP connection (in the server role). """
-
-    def __init__(self, stream:BinaryIO, addr:str, port:int) -> None:
-        self.stream = stream  # Raw binary I/O stream.
-        self.addr = addr      # Client IP address.
-        self.port = port      # Client TCP port.
+LineLogger = Callable[[str], None]  # Line-based string callable used for log messages.
 
 
 class TCPConnectionHandler:
     """ Interface for a handler of incoming TCP client connections. """
 
-    def handle_connection(self, conn:TCPConnection) -> None:
+    def handle_connection(self, stream:BinaryIO, log:LineLogger) -> None:
         """ Handle a TCP connection for its entire duration. It will be closed when this method exits. """
         raise NotImplementedError
 
@@ -36,7 +29,7 @@ class _SocketReader(RawIOBase):
 
 
 class _SocketStream(BufferedReader, BinaryIO):
-    """ A raw socket connection which sends/receives data as a binary I/O stream.
+    """ A socket connection which sends/receives data as a binary I/O stream.
         The I/O reader is line-buffered; the writer is raw. """
 
     def __init__(self, sock:socket) -> None:
@@ -57,6 +50,15 @@ class _SocketStream(BufferedReader, BinaryIO):
         except OSError:
             pass
         self._sock.close()
+
+
+class TCPConnection:
+    """ Data structure for an open TCP connection (in the server role). """
+
+    def __init__(self, stream:BinaryIO, addr:str, port:int) -> None:
+        self.stream = stream  # Raw binary I/O stream.
+        self.addr = addr      # Client IP address.
+        self.port = port      # Client TCP port.
 
 
 class TCPServerSocket(socket):
@@ -86,8 +88,9 @@ class TCPServerSocket(socket):
 class TCPServer:
     """ Simple TCP/IP stream server using sockets.  """
 
-    def __init__(self, handler:TCPConnectionHandler, *, timeout=0.5) -> None:
+    def __init__(self, handler:TCPConnectionHandler, *, logger:LineLogger=print, timeout=0.5) -> None:
         self._handler = handler  # Handler of TCP/IP connections.
+        self._logger = logger    # Line-based string callable used to log handler messages.
         self._timeout = timeout  # Timeout in seconds to poll for new socket connections.
         self._running = False    # State variable. When set to False, the server stops after its current polling cycle.
 
@@ -109,9 +112,12 @@ class TCPServer:
                     self.connect(conn)
 
     def connect(self, conn:TCPConnection) -> None:
-        """ Send a newly established TCP connection to the connection handler. Close it when finished. """
+        """ Send a newly established TCP connection stream to the connection handler.
+            Add the client address and port to all log messages. Close the connection when finished. """
+        def log(message:str) -> None:
+            self._logger(f'{conn.addr}:{conn.port} - {message}')
         with conn.stream:
-            self._handler.handle_connection(conn)
+            self._handler.handle_connection(conn.stream, log)
 
     def shutdown(self) -> None:
         """ Halt serving and close any open sockets and files. Must be called by another thread. """
@@ -119,7 +125,7 @@ class TCPServer:
 
 
 class ThreadedTCPServer(TCPServer):
-    """ Handles each connection with a new thread. The handler must be thread-safe. """
+    """ Handles each connection with a new thread. The handler and logger must be thread-safe. """
 
     def connect(self, *args) -> None:
         Thread(target=super().connect, args=args, daemon=True).start()

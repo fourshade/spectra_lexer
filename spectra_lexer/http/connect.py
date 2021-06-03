@@ -1,15 +1,13 @@
 """ Module for servicing HTTP connections and requests using I/O streams. """
 
-import sys
-
 from traceback import format_exc
-from typing import Callable, Iterator, Optional
+from typing import BinaryIO, Iterator, Optional
 
 from .request import HTTPRequest, HTTPRequestReader
 from .response import HTTPResponse, HTTPResponseHeaders, HTTPResponseWriter
 from .status import HTTPError
 from .service import HTTPRequestHandler
-from .tcp import TCPConnection, TCPConnectionHandler
+from .tcp import LineLogger, TCPConnectionHandler
 
 
 class HTTPConnectionHandler(TCPConnectionHandler):
@@ -17,22 +15,15 @@ class HTTPConnectionHandler(TCPConnectionHandler):
         Threading is required to prevent one client from hogging the entire server with a persistent connection.
         To that end, this class is thread-safe to the extent that the request handler and logger are. """
 
-    SERVER_VERSION = f"Spectra/0.5 Python/{sys.version.split()[0]}"
+    def __init__(self, req_handler:HTTPRequestHandler, *, server_version:str=None) -> None:
+        self._req_handler = req_handler        # Handler for all HTTP requests. May delegate to subhandlers.
+        self._server_version = server_version  # Optional server version string sent with each response.
 
-    def __init__(self, req_handler:HTTPRequestHandler, log:Callable[[str], None]=print) -> None:
-        self._req_handler = req_handler  # Handler for all HTTP requests. May delegate to subhandlers.
-        self._log = log                  # Callable used to log all HTTP responses and errors (but not headers).
-
-    def handle_connection(self, conn:TCPConnection) -> None:
-        """ Process all HTTP requests on an open TCP connection. Log all results with the client address and port. """
-        log_header = f'{conn.addr}:{conn.port} - '
-        def log(message:str) -> None:
-            self._log(log_header + message)
+    def handle_connection(self, stream:BinaryIO, log:LineLogger) -> None:
+        """ Process all HTTP requests on an open TCP stream and write log messages until close. """
         try:
             log("Connection opened.")
-            reader = HTTPRequestReader(conn.stream)
-            writer = HTTPResponseWriter(conn.stream, self.SERVER_VERSION)
-            for s in self._process(reader, writer):
+            for s in self._process(stream):
                 log(s)
             log("Connection terminated.")
         except OSError:
@@ -40,10 +31,13 @@ class HTTPConnectionHandler(TCPConnectionHandler):
         except HTTPError:
             log("Connection terminated by error.")
         except Exception:
-            log('Connection terminated with exception:\n' + format_exc())
+            log('Connection terminated with exception:')
+            log(format_exc())
 
-    def _process(self, reader:HTTPRequestReader, writer:HTTPResponseWriter) -> Iterator[str]:
+    def _process(self, stream:BinaryIO) -> Iterator[str]:
         """ Process requests and yield log messages until connection close or error. """
+        reader = HTTPRequestReader(stream)
+        writer = HTTPResponseWriter(stream)
         while True:
             request = None
             try:
@@ -69,15 +63,13 @@ class HTTPConnectionHandler(TCPConnectionHandler):
     def _handle_request(self, request:HTTPRequest, writer:HTTPResponseWriter) -> str:
         """ Call the request handler and write its result. """
         response = self._req_handler(request)
-        writer.write(response)
-        return self._log_str(request, response)
+        return self._send(request, response, writer)
 
-    def _handle_continue(self, request:Optional[HTTPRequest], writer:HTTPResponseWriter) -> str:
+    def _handle_continue(self, request:HTTPRequest, writer:HTTPResponseWriter) -> str:
         """ Write a continue response. This cannot have a message body. """
         headers = HTTPResponseHeaders()
         response = HTTPResponse.CONTINUE(headers)
-        writer.write(response)
-        return self._log_str(request, response)
+        return self._send(request, response, writer)
 
     def _handle_error(self, request:Optional[HTTPRequest], writer:HTTPResponseWriter, e:HTTPError) -> str:
         """ Write an error response. This closes the connection. """
@@ -91,12 +83,16 @@ class HTTPConnectionHandler(TCPConnectionHandler):
             headers.set_content_type('text/html')
             headers.set_content_length(len(content))
         response = HTTPResponse(status, headers, content)
-        writer.write(response)
-        return self._log_str(request, response)
+        return self._send(request, response, writer)
 
-    @staticmethod
-    def _log_str(request:Optional[HTTPRequest], response:HTTPResponse) -> str:
-        """ Return a summary of an HTML transaction for the log. """
+    def _send(self, request:Optional[HTTPRequest], response:HTTPResponse, writer:HTTPResponseWriter) -> str:
+        """ Add server-specific headers to a response and write it.
+            Return a summary of the transaction for the log. """
+        headers = response.headers
+        headers.set_date()
+        if self._server_version is not None:
+            headers.set_server(self._server_version)
+        writer.write(response)
         if request is None:
             return f'BAD REQUEST -> {response.status}'
         return f'{request.method} {request.uri.path} -> {response.status}'

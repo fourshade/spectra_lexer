@@ -39,7 +39,7 @@ HTML_COMPAT = HTMLFormat(
     footer='</td></tr></table>',
     row_delim='</td></tr><tr><td>',
     cell_delim='</td><td>',
-    stylesheet=f'.{ROOT_CSS_CLASS} {{border-spacing: 0;}} '
+    stylesheet=f'.{ROOT_CSS_CLASS} {{white-space: pre; border-spacing: 0;}} '
                f'.{ROOT_CSS_CLASS} a {{color: black; text-decoration: none;}} '
                f'.{ROOT_CSS_CLASS} td {{padding: 0;}} ')
 

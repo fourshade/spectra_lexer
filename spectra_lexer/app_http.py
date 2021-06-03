@@ -12,6 +12,7 @@ from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzi
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
 
+SERVER_VERSION = f"Spectra/0.6 Python/{sys.version.split()[0]}"
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 
@@ -29,7 +30,7 @@ def build_app(spectra:Spectra) -> JSONGUIApplication:
     return JSONGUIApplication(engine)
 
 
-def build_dispatcher(app:JSONGUIApplication, root_dir:str, *args) -> HTTPConnectionHandler:
+def build_dispatcher(app:JSONGUIApplication, root_dir=".") -> HTTPConnectionHandler:
     """ Build an HTTP server object customized to Spectra's requirements. """
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
     codec = JSONCodec(decoder)
@@ -45,7 +46,7 @@ def build_dispatcher(app:JSONGUIApplication, root_dir:str, *args) -> HTTPConnect
     method_router.add_route("GET", file_service)
     method_router.add_route("HEAD", file_service)
     method_router.add_route("POST", post_router)
-    return HTTPConnectionHandler(method_router, *args)
+    return HTTPConnectionHandler(method_router, server_version=SERVER_VERSION)
 
 
 def main() -> int:
@@ -58,8 +59,8 @@ def main() -> int:
     log = spectra.logger.log
     log("Loading HTTP server...")
     app = build_app(spectra)
-    dispatcher = build_dispatcher(app, opts.http_dir, log)
-    server = ThreadedTCPServer(dispatcher)
+    dispatcher = build_dispatcher(app, opts.http_dir)
+    server = ThreadedTCPServer(dispatcher, logger=log)
     log("Server started.")
     try:
         server.start(opts.http_addr, opts.http_port)

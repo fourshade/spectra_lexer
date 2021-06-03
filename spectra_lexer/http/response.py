@@ -4,6 +4,10 @@ from typing import BinaryIO, Iterator
 from .status import HTTPResponseStatus, HTTPStatusMeta
 
 
+def _format_date(timeval:float=None) -> str:
+    return email.utils.formatdate(timeval, usegmt=True)
+
+
 class HTTPResponseHeaders:
     """ Structure for HTTP response headers (other than the status line). """
 
@@ -14,33 +18,29 @@ class HTTPResponseHeaders:
     def __init__(self) -> None:
         self._d = {}  # String dict with each header.
 
-    @staticmethod
-    def _format_date(timeval:float=None) -> str:
-        return email.utils.formatdate(timeval, usegmt=True)
-
     def set_date(self) -> None:
-        self._d["Date"] = self._format_date()
+        self._d['Date'] = _format_date()
 
     def set_server(self, server:str) -> None:
-        self._d["Server"] = server
+        self._d['Server'] = server
 
     def set_connection_close(self) -> None:
-        self._d["Connection"] = "close"
+        self._d['Connection'] = 'close'
 
     def set_last_modified(self, mtime:float) -> None:
-        self._d["Last-Modified"] = self._format_date(mtime)
+        self._d['Last-Modified'] = _format_date(mtime)
 
     def set_content_type(self, mime_type:str) -> None:
-        self._d["Content-Type"] = mime_type
+        self._d['Content-Type'] = mime_type
 
     def set_content_encoding(self, encoding:str) -> None:
-        self._d["Content-Encoding"] = encoding
+        self._d['Content-Encoding'] = encoding
 
     def set_content_length(self, length:int) -> None:
-        self._d["Content-Length"] = str(length)
+        self._d['Content-Length'] = str(length)
 
     def iter_lines(self) -> Iterator[str]:
-        """ Yield each header line in order. """
+        """ Yield each header line in order (without newlines). """
         d = self._d
         for k in self.HEADER_TYPES:
             if k in d:
@@ -59,20 +59,12 @@ class HTTPResponse(metaclass=HTTPStatusMeta):
 class HTTPResponseWriter:
     """ Writes HTTP response headers and content to a binary stream. """
 
-    def __init__(self, stream:BinaryIO, server_version:str=None) -> None:
-        self._stream = stream                  # Writable ISO-8859-1 binary stream.
-        self._server_version = server_version  # Server version string sent with each response.
+    def __init__(self, stream:BinaryIO) -> None:
+        self._stream = stream  # Writable ISO-8859-1 binary stream.
 
     def write(self, response:HTTPResponse) -> None:
-        """ Add standard headers, the status line, and blank line endings.
-            Write everything to the ISO-8859-1 binary stream. """
-        status = response.status
-        headers = response.headers
-        content = response.content
-        headers.set_date()
-        if self._server_version is not None:
-            headers.set_server(self._server_version)
-        header_lines = [status.header(), *headers.iter_lines(), "", ""]
-        header_data = "\r\n".join(header_lines).encode('iso-8859-1', 'strict')
+        """ Write a full HTTP response to the stream. """
+        header_lines = [response.status.header(), *response.headers.iter_lines(), '', '']
+        header_data = '\r\n'.join(header_lines).encode('iso-8859-1', 'strict')
         self._stream.write(header_data)
-        self._stream.write(content)
+        self._stream.write(response.content)

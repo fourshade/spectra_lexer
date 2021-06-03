@@ -120,7 +120,6 @@ def gui_query(n=1000):
 
 def http_query(n=1000):
     from spectra_lexer.app_http import build_dispatcher
-    from spectra_lexer.http.tcp import TCPConnection
     import io, json
     queries = []
     samples = _random_translations(n)
@@ -138,12 +137,11 @@ def http_query(n=1000):
                    content]
         queries.append(b"\r\n".join(request))
     app = _http_app()
-    dispatcher = build_dispatcher(app, ".", lambda s: None)
+    dispatcher = build_dispatcher(app)
     def run() -> None:
         for data in queries:
             stream = io.BytesIO(data)
-            conn = TCPConnection(stream, "127.0.0.1", 80)
-            dispatcher.handle_connection(conn)
+            dispatcher.handle_connection(stream, lambda s: None)
     return run
 
 
