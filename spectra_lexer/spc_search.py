@@ -1,10 +1,12 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, TranslationsDict
 from spectra_lexer.search.index import RegexError, StripCaseIndex
 from spectra_lexer.search.multidict import forward_multidict, reverse_multidict
 
-MatchDict = Dict[str, Tuple[str, ...]]         # JSON-compatible dict of search results.
+MatchTuple = Tuple[str, ...]                   # JSON-compatible sequence of search results.
+MatchDict = Dict[str, MatchTuple]              # JSON-compatible dict of search results.
+MatchList = List[Tuple[str, MatchTuple]]       # Ordered sequence of search results (i.e. for parts of a sentence).
 SearchData = Tuple[MatchDict, StripCaseIndex]  # Key search index paired with a standard dictionary for value lookup.
 
 INDEX_DELIM = ";;"                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
@@ -106,3 +108,35 @@ class SearchEngine:
         if not keys:
             return ""
         return rule_id + INDEX_DELIM + keys[0]
+
+    def _phrase_search(self, phrase:str) -> MatchTuple:
+        """ Search for possible stroke matches for <phrase>. """
+        d, index = self._tr_text
+        if phrase in d:
+            return d[phrase]
+        keys = index.get_similar_keys(phrase, 1)
+        if keys:
+            return d[keys[0]]
+        return ()
+
+    _SPLIT_TRANS = {ord(c): ' ' for c in r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''}
+
+    def split_search(self, text:str, stroke_delim:str, *, find_phrases=False) -> MatchList:
+        """ Remove special characters from <text> and split the rest into words.
+            Return a delimited sequence with each word and a list of possible strokes for it. """
+        s = text.translate(self._SPLIT_TRANS)
+        seq_delim = (' ', (stroke_delim,))
+        entries = []
+        stack = s.split()[::-1]
+        while stack:
+            word = stack.pop()
+            matches = result = self._phrase_search(word)
+            while find_phrases and result and stack:
+                phrase = word + ' ' + stack[-1]
+                result = self._phrase_search(phrase)
+                if result:
+                    matches = result
+                    word = phrase
+                    stack.pop()
+            entries += [(word, matches), seq_delim]
+        return entries[:-1]

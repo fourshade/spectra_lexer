@@ -1,3 +1,7 @@
+15.1.0
+------
+* Added phrase lookup to Discord bot
+
 15.0.2
 ------
 * Fixed Plover plugin activation and shortcut

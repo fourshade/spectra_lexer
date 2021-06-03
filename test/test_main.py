@@ -64,12 +64,8 @@ def test_analysis(keys, letters) -> None:
         assert BOARD_ENGINE.draw_keys(rule.keys)
         assert BOARD_ENGINE.draw_rule(rule)
     rep = (hash(keys) % 10) + 1
-    rule_seq = [analysis] * rep
-    _verify_join(rule_seq)
-    delimited = ANALYZER.delimit(rule_seq, '/')
-    _verify_join(delimited)
-    delimited = ANALYZER.delimit(rule_seq, '/', ' ')
-    _verify_join(delimited)
+    _verify_join([analysis] * rep)
+    _verify_join([analysis, ANALYZER.query('/', ' ')] * rep)
 
 
 def test_index() -> None:

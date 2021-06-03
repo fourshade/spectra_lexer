@@ -92,15 +92,6 @@ class StenoAnalyzer:
                 index[r_id][keys] = letters
         return index
 
-    def delimit(self, rules:Iterable[StenoRule], keys_delim:str, letters_delim="") -> List[StenoRule]:
-        """ Delimit a sequence of rules with <keys_delim> and <letters_delim>. """
-        self._factory.push()
-        rule_delim = self._factory.build(keys_delim, letters_delim, "delimiter")
-        delimited = []
-        for r in rules:
-            delimited += [r, rule_delim]
-        return delimited[:-1]
-
     def join(self, rules:Iterable[StenoRule]) -> StenoRule:
         """ Join several rules into one by concatenation. """
         skeys = letters = ""
