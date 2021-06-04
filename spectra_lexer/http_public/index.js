@@ -10,6 +10,7 @@ function SpectraClient() {
         // Construct an object from a URL query string with values in JSON format.
         let params = new URLSearchParams(queryString);
         for (let [k, v] of params) {
+            if (k == 'translation' || k == 'outline') continue;
             try {
                 this[k] = JSON.parse(v);
             } catch(e) {
@@ -84,9 +85,9 @@ function SpectraClient() {
 
     var lastMatches = {};
     var lastPageCount = 1;
-    function doSearch() {
+    async function doSearch() {
         let input = searchInput.value;
-        sendRequest({action: "search",
+        return sendRequest({action: "search",
                      args: [input, lastPageCount]});
     }
     function newSearch() {
@@ -235,7 +236,7 @@ function SpectraClient() {
     }
 
     let cache = new Map();
-    function sendRequest({action, args=[], ignoreCache=false}) {
+    async function sendRequest({action, args=[], ignoreCache=false}) {
         let boardOpts = JSON.parse(document.querySelector(OPT_SELECTOR + ':checked').value);
         let options = {search_mode_strokes: searchModeStrokes.checked,
                        search_mode_regex: searchModeRegex.checked,
@@ -245,23 +246,45 @@ function SpectraClient() {
                        ...queryOptions};
         let requestContent = JSON.stringify({action, args, options});
         let cachedValue = cache.get(requestContent);
-        if(cachedValue && !ignoreCache) {
+        if (cachedValue && !ignoreCache) {
             updateGUI(cachedValue);
+            return cachedValue;
         } else {
-            $.ajax({
-                method: 'POST',
-                url: 'request',
-                contentType: 'application/json',
-                data: requestContent,
-                success(value) {
-                    cache.set(requestContent, value);
-                    updateGUI(value);
-                },
-                error() {
-                    displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';
-                }
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    method: 'POST',
+                    url: 'request',
+                    contentType: 'application/json',
+                    data: requestContent,
+                    success(value) {
+                        cache.set(requestContent, value);
+                        updateGUI(value);
+                        resolve(value);
+                    },
+                    error() {
+                        displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';
+                        reject('CONNECTION ERROR');
+                    }
+                });
             });
         }
+    }
+
+    let params = new URLSearchParams(window.location.search);
+    if (params.get('translation')) {
+        searchInput.value = params.get('translation');
+        doSearch().then(function() {
+            matchSelector.selectText(searchInput.value);
+            onSelectMatch(searchInput.value);
+        });
+    }
+    if (params.get('outline')) {
+        searchInput.value = params.get('outline');
+        searchModeStrokes.checked = true;
+        doSearch().then(function() {
+            matchSelector.selectText(searchInput.value);
+            onSelectMatch(searchInput.value);
+        });
     }
 }
 
