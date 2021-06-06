@@ -27,7 +27,7 @@ class StrokeMatcher(IRuleMatcher):
 
 
 class WordMatcher(IRuleMatcher):
-    """ Matches rules against the next (whitespace-separated) word exactly and a prefix of the current keys. """
+    """ Matches rules against the next (space-separated) word exactly and a prefix of the current keys. """
 
     def __init__(self) -> None:
         self._rules_by_word = {}  # Contains rules that match a full word only.
@@ -36,15 +36,15 @@ class WordMatcher(IRuleMatcher):
         self._rules_by_word[rule.letters] = rule
 
     def match(self, skeys:str, letters:str, all_skeys:str, *_) -> RuleMatches:
-        """ We have a complete word next if we just started or the word pointer is sitting on a space. """
-        if skeys == all_skeys or letters[:1] == ' ':
-            letters = letters.lower()
-            words = letters.split()
-            if words:
-                first_word = words[0]
-                if first_word in self._rules_by_word:
-                    rule = self._rules_by_word[first_word]
-                    rule_skeys = rule.skeys
-                    if skeys.startswith(rule_skeys):
-                        return [(rule, skeys[len(rule_skeys):], letters.find(first_word))]
+        """ We have at least one more complete word if we just started or there are spaces. """
+        is_first_test = (skeys == all_skeys)
+        if is_first_test or ' ' in letters:
+            words = letters.split(' ', 2)
+            next_word = words[not is_first_test].lower()
+            if next_word in self._rules_by_word:
+                rule = self._rules_by_word[next_word]
+                rule_skeys = rule.skeys
+                if skeys.startswith(rule_skeys):
+                    idx = 0 if is_first_test else (len(words[0]) + 1)
+                    return [(rule, skeys[len(rule_skeys):], idx)]
         return []
