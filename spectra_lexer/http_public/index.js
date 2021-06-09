@@ -3,7 +3,6 @@ function SpectraClient() {
     const TR_DELIM = '->';          // Delimiter between keys and letters of translations shown in title bar.
     const MORE_TEXT = '[more...]';  // Text displayed as the final match, allowing the user to expand the search.
 
-    const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
     const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.
 
     function elementById(id) {
@@ -111,7 +110,9 @@ function SpectraClient() {
         }
     }
     displayTitle.addEventListener("input", doQuery);
-    $(OPT_SELECTOR).click(doQuery);
+    for (let elem of document.querySelectorAll(OPT_SELECTOR)) {
+        elem.addEventListener("click", doQuery);
+    }
 
     let graphFocused = false;
     let currentLink = "";
@@ -122,7 +123,7 @@ function SpectraClient() {
         displayLink.style.display = (rule_id ? "block" : "none");
         currentLink = rule_id;
     }
-    displayLink.addEventListener("click", function(){
+    displayLink.addEventListener("click", e => {
         sendRequest("search_examples", [currentLink], true);
         return false;
     });
@@ -139,22 +140,20 @@ function SpectraClient() {
         }
     }
     function anchorFragment(elem) {
-        return elem.href.split("#").pop();
+        return elem.href ? elem.href.split("#").pop() : null;
     }
-    $(displayText).on("mouseenter", NODE_SELECTOR, function(){
+    displayText.addEventListener("mouseover", e => {
         if (!graphFocused) {
-            let nodeRef = anchorFragment(this);
-            if (nodeRef != lastNodeRef) {
+            let nodeRef = anchorFragment(e.target);
+            if (nodeRef && nodeRef != lastNodeRef) {
                 graphAction(nodeRef, false);
             }
         }
         return false;
-    }).on("click", NODE_SELECTOR, function(){
-        let nodeRef = anchorFragment(this);
-        graphAction(nodeRef, true);
-        return false;
-    }).click(function(){
-        graphAction(null, false);
+    });
+    displayText.addEventListener("click", e => {
+        let nodeRef = anchorFragment(e.target);
+        graphAction(nodeRef, !!nodeRef);
         return false;
     });
 
@@ -226,29 +225,21 @@ function SpectraClient() {
                        board_show_compound: boardOpts[0],
                        board_show_letters: boardOpts[1],
                        ...queryOptions};
-        let requestContent = JSON.stringify({action, args, options});
-        let cachedValue = cache.get(requestContent);
-        if (cachedValue && !ignoreCache) {
-            updateGUI(cachedValue);
-            return cachedValue;
-        } else {
-            return new Promise((resolve, reject) => {
-                $.ajax({
-                    method: 'POST',
-                    url: 'request',
-                    contentType: 'application/json',
-                    data: requestContent,
-                    success(value) {
-                        cache.set(requestContent, value);
-                        updateGUI(value);
-                        resolve(value);
-                    },
-                    error() {
-                        displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';
-                        reject('CONNECTION ERROR');
-                    }
-                });
-            });
+        let requestBody = JSON.stringify({action, args, options});
+        try {
+            let value = cache.get(requestBody);
+            if (!value || ignoreCache) {
+                let request = {method: 'POST',
+                               body: requestBody,
+                               headers: {'Content-Type': 'application/json'}};
+                let response = await fetch('/request', request);
+                value = await response.json();
+                cache.set(requestBody, value);
+            }
+            updateGUI(value);
+        } catch(e) {
+            displayDesc.innerHTML = '<span style="color: #D00000;">CONNECTION ERROR</span>';
+            console.error(e);
         }
     }
 
@@ -277,4 +268,4 @@ function SpectraClient() {
     }
 }
 
-$(document).ready(SpectraClient);
+window.onload = SpectraClient;
