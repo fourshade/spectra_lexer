@@ -6,20 +6,6 @@ function SpectraClient() {
     const NODE_SELECTOR = '.stenoGraph a';             // CSS selector for graph nodes.
     const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.
 
-    function JSONQueryParams(queryString) {
-        // Construct an object from a URL query string with values in JSON format.
-        let params = new URLSearchParams(queryString);
-        for (let [k, v] of params) {
-            if (k == 'translation' || k == 'outline') continue;
-            try {
-                this[k] = JSON.parse(v);
-            } catch(e) {
-                console.error(e);
-            }
-        }
-    }
-    const queryOptions = new JSONQueryParams(window.location.search);
-
     function elementById(id) {
         return document.getElementById(id);
     }
@@ -42,7 +28,7 @@ function SpectraClient() {
             root.addEventListener("click", this.clickEvent.bind(this));
         }
         selectElem(elem) {
-            if(this.root === elem || this.active === elem) {
+            if (this.root === elem || this.active === elem) {
                 return false;
             }
             this.active.className = "";
@@ -52,13 +38,13 @@ function SpectraClient() {
         }
         selectText(value) {
             for (let elem of this.root.children) {
-                if(elem.textContent == value) {
+                if (elem.textContent == value) {
                     return this.selectElem(elem);
                 }
             }
         }
         clickEvent({target}) {
-            if(this.selectElem(target)) {
+            if (this.selectElem(target)) {
                 this.onSelectFn(target.textContent);
             }
         }
@@ -83,35 +69,33 @@ function SpectraClient() {
     const matchSelector = new ListHandler(searchMatches, onSelectMatch);
     const mappingSelector = new ListHandler(searchMappings, onSelectMapping);
 
-    var lastMatches = {};
-    var lastPageCount = 1;
-    async function doSearch() {
+    let lastMatches = {};
+    let lastPageCount = 1;
+    function doSearch() {
         let input = searchInput.value;
-        return sendRequest({action: "search",
-                     args: [input, lastPageCount]});
+        sendRequest("search", [input, lastPageCount]);
     }
     function newSearch() {
         lastPageCount = 1;
         doSearch();
     }
     function querySelection(match, mappings) {
-        sendRequest({action: "query_match",
-                     args: [match, mappings]});
+        sendRequest("query_match", [match, mappings]);
     }
     function onSelectMatch(match) {
-        if(match == MORE_TEXT) {
+        if (match == MORE_TEXT) {
             lastPageCount++;
             doSearch();
         } else {
             let mappings = lastMatches[match];
             mappingSelector.update(mappings);
-            if(mappings.length) {
+            if (mappings.length) {
                 querySelection(match, mappings);
             }
         }
     }
     function onSelectMapping(mapping) {
-        if(mapping) {
+        if (mapping) {
             let match = matchSelector.value;
             querySelection(match, [mapping]);
         }
@@ -122,16 +106,15 @@ function SpectraClient() {
 
     function doQuery() {
         let translation = displayTitle.value.split(TR_DELIM).map(s => s.trim()).filter(s => s);
-        if(translation.length == 2) {
-            sendRequest({action: "query",
-                         args: translation});
+        if (translation.length == 2) {
+            sendRequest("query", translation);
         }
     }
     displayTitle.addEventListener("input", doQuery);
     $(OPT_SELECTOR).click(doQuery);
 
-    var graphFocused = false;
-    var currentLink = "";
+    let graphFocused = false;
+    let currentLink = "";
     function setPage({graph, intense_graph, caption, board, rule_id}) {
         displayText.innerHTML = graphFocused ? intense_graph : graph;
         displayDesc.textContent = caption;
@@ -140,18 +123,16 @@ function SpectraClient() {
         currentLink = rule_id;
     }
     displayLink.addEventListener("click", function(){
-        sendRequest({action: "search_examples",
-                     args: [currentLink],
-                     ignoreCache: true});
+        sendRequest("search_examples", [currentLink], true);
         return false;
     });
 
-    var currentPages = {};
-    var currentDefaultPage = null;
-    var lastNodeRef = null;
+    let currentPages = {};
+    let currentDefaultPage = null;
+    let lastNodeRef = null;
     function graphAction(nodeRef, isFocused) {
         let page = currentPages[nodeRef] || currentDefaultPage;
-        if(page) {
+        if (page) {
             lastNodeRef = nodeRef;
             graphFocused = isFocused;
             setPage(page);
@@ -161,9 +142,9 @@ function SpectraClient() {
         return elem.href.split("#").pop();
     }
     $(displayText).on("mouseenter", NODE_SELECTOR, function(){
-        if(!graphFocused) {
+        if (!graphFocused) {
             let nodeRef = anchorFragment(this);
-            if(nodeRef != lastNodeRef) {
+            if (nodeRef != lastNodeRef) {
                 graphAction(nodeRef, false);
             }
         }
@@ -178,17 +159,17 @@ function SpectraClient() {
     });
 
     function updateMatches({pattern, results, can_expand}) {
-        if(pattern != searchInput.value) {
-            searchInput.value = pattern
+        if (pattern != searchInput.value) {
+            searchInput.value = pattern;
         }
         lastMatches = results;
         let keys = Object.keys(lastMatches);
-        if(can_expand) {
+        if (can_expand) {
             keys.push(MORE_TEXT);
         }
         matchSelector.update(keys);
         // If the new list does not have the previous selection, reset the mappings.
-        if(!matchSelector.value) {
+        if (!matchSelector.value) {
             mappingSelector.update([]);
         }
         if (keys.length == 1) {
@@ -200,7 +181,7 @@ function SpectraClient() {
     }
     function updateSelections({match, mapping}) {
         let mappings = lastMatches[match];
-        if(mappings) {
+        if (mappings) {
             matchSelector.selectText(match);
             mappingSelector.update(mappings);
             mappingSelector.selectText(mapping);
@@ -210,7 +191,7 @@ function SpectraClient() {
         let title = keys + ' ' + TR_DELIM + ' ' + letters;
         currentPages = pages_by_ref;
         currentDefaultPage = default_page;
-        if(title != displayTitle.value) {
+        if (title != displayTitle.value) {
             displayTitle.value = title;
             lastNodeRef = null;
         }
@@ -221,22 +202,23 @@ function SpectraClient() {
     }
     function updateGUI({matches, selections, display, example_ref}) {
         // Updates must be done *strictly in this order*.
-        if(matches) {  // New items in the search lists.
-            updateMatches(matches)
+        if (matches) {  // New items in the search lists.
+            updateMatches(matches);
         }
-        if(selections) {  // New selections in the search lists.
-            updateSelections(selections)
+        if (selections) {  // New selections in the search lists.
+            updateSelections(selections);
         }
-        if(display) {  // New graphical objects.
-            updateDisplay(display)
+        if (display) {  // New graphical objects.
+            updateDisplay(display);
         }
-        if(example_ref) {  // New example focus page.
-            updateExample(example_ref)
+        if (example_ref) {  // New example focus page.
+            updateExample(example_ref);
         }
     }
 
+    let queryOptions = {};
     let cache = new Map();
-    async function sendRequest({action, args=[], ignoreCache=false}) {
+    async function sendRequest(action, args, ignoreCache=false) {
         let boardOpts = JSON.parse(document.querySelector(OPT_SELECTOR + ':checked').value);
         let options = {search_mode_strokes: searchModeStrokes.checked,
                        search_mode_regex: searchModeRegex.checked,
@@ -270,21 +252,28 @@ function SpectraClient() {
         }
     }
 
+    // Parse JSON-based options from the URL query string, then execute startup actions.
     let params = new URLSearchParams(window.location.search);
-    if (params.get('translation')) {
-        searchInput.value = params.get('translation');
-        doSearch().then(function() {
-            matchSelector.selectText(searchInput.value);
-            onSelectMatch(searchInput.value);
-        });
+    for (let [k, v] of params) {
+        if (k == 'translation' || k == 'outline') {
+            continue;
+        }
+        try {
+            queryOptions[k] = JSON.parse(v);
+        } catch(e) {
+            console.error(e);
+        }
     }
-    if (params.get('outline')) {
-        searchInput.value = params.get('outline');
+    async function startupSearch(pattern) {
+        await sendRequest("search", [pattern, 1]);
+        onSelectMatch(pattern);
+    }
+    if (params.has('translation')) {
+        startupSearch(params.get('translation'));
+    }
+    if (params.has('outline')) {
         searchModeStrokes.checked = true;
-        doSearch().then(function() {
-            matchSelector.selectText(searchInput.value);
-            onSelectMatch(searchInput.value);
-        });
+        startupSearch(params.get('outline'));
     }
 }
 

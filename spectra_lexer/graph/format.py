@@ -29,7 +29,7 @@ HTML_STANDARD = HTMLFormat(
     footer='</div>',
     row_delim="\n",
     cell_delim="",
-    stylesheet=f'.{ROOT_CSS_CLASS} {{white-space: pre;}} '
+    stylesheet=f'.{ROOT_CSS_CLASS} {{display: inline-block; white-space: pre; cursor: pointer;}} '
                f'.{ROOT_CSS_CLASS} a {{color: black; text-decoration: none;}} ')
 
 # Format using explicit HTML tables. Useful for browsers that have trouble lining up monospace fonts.
@@ -39,8 +39,8 @@ HTML_COMPAT = HTMLFormat(
     footer='</td></tr></table>',
     row_delim='</td></tr><tr><td>',
     cell_delim='</td><td>',
-    stylesheet=f'.{ROOT_CSS_CLASS} {{white-space: pre; border-spacing: 0;}} '
-               f'.{ROOT_CSS_CLASS} a {{color: black; text-decoration: none;}} '
+    stylesheet=HTML_STANDARD.stylesheet +
+               f'.{ROOT_CSS_CLASS} {{border-spacing: 0;}} '
                f'.{ROOT_CSS_CLASS} td {{padding: 0;}} ')
 
 
