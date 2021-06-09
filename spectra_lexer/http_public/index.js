@@ -5,26 +5,10 @@ function SpectraClient() {
 
     const OPT_SELECTOR = 'input[name="w_boardopts"]';  // CSS selector for board option radio elements.
 
-    function elementById(id) {
-        return document.getElementById(id);
-    }
-    const searchInput = elementById("w_input");
-    const searchMatches = elementById("w_matches");
-    const searchMappings = elementById("w_mappings");
-    const searchModeStrokes = elementById("w_strokes");
-    const searchModeRegex = elementById("w_regex");
-    const displayTitle = elementById("w_title");
-    const displayText = elementById("w_graph");
-    const displayDesc = elementById("w_caption");
-    const displayBoard = elementById("w_board");
-    const displayLink = elementById("w_link");
-
     class ListHandler {
-        constructor(root, onSelectFn) {
+        constructor(root) {
             this.root = root;
-            this.onSelectFn = onSelectFn;
             this.active = {};
-            root.addEventListener("click", this.clickEvent.bind(this));
         }
         selectElem(elem) {
             if (this.root === elem || this.active === elem) {
@@ -42,10 +26,12 @@ function SpectraClient() {
                 }
             }
         }
-        clickEvent({target}) {
-            if (this.selectElem(target)) {
-                this.onSelectFn(target.textContent);
-            }
+        addSelectListener(onSelect) {
+            this.root.addEventListener("click", e => {
+                if (this.selectElem(e.target)) {
+                    onSelect(e.target.textContent);
+                }
+            });
         }
         update(optArray) {
             let lastValue = this.value;
@@ -65,8 +51,19 @@ function SpectraClient() {
         }
         get value() {return this.active.textContent;}
     }
-    const matchSelector = new ListHandler(searchMatches, onSelectMatch);
-    const mappingSelector = new ListHandler(searchMappings, onSelectMapping);
+    function elementById(id) {
+        return document.getElementById(id);
+    }
+    const searchInput = elementById("w_input");
+    const searchModeStrokes = elementById("w_strokes");
+    const searchModeRegex = elementById("w_regex");
+    const matchList = new ListHandler(elementById("w_matches"));
+    const mappingList = new ListHandler(elementById("w_mappings"));
+    const displayTitle = elementById("w_title");
+    const displayText = elementById("w_graph");
+    const displayDesc = elementById("w_caption");
+    const displayBoard = elementById("w_board");
+    const displayLink = elementById("w_link");
 
     let lastMatches = {};
     let lastPageCount = 1;
@@ -87,7 +84,7 @@ function SpectraClient() {
             doSearch();
         } else {
             let mappings = lastMatches[match];
-            mappingSelector.update(mappings);
+            mappingList.update(mappings);
             if (mappings.length) {
                 querySelection(match, mappings);
             }
@@ -95,13 +92,15 @@ function SpectraClient() {
     }
     function onSelectMapping(mapping) {
         if (mapping) {
-            let match = matchSelector.value;
+            let match = matchList.value;
             querySelection(match, [mapping]);
         }
     }
+    searchInput.addEventListener("input", newSearch);
     searchModeStrokes.addEventListener("change", newSearch);
     searchModeRegex.addEventListener("change", newSearch);
-    searchInput.addEventListener("input", newSearch);
+    matchList.addSelectListener(onSelectMatch);
+    mappingList.addSelectListener(onSelectMapping);
 
     function doQuery() {
         let translation = displayTitle.value.split(TR_DELIM).map(s => s.trim()).filter(s => s);
@@ -162,28 +161,28 @@ function SpectraClient() {
             searchInput.value = pattern;
         }
         lastMatches = results;
-        let keys = Object.keys(lastMatches);
+        let keys = Object.keys(results);
         if (can_expand) {
             keys.push(MORE_TEXT);
         }
-        matchSelector.update(keys);
+        matchList.update(keys);
         // If the new list does not have the previous selection, reset the mappings.
-        if (!matchSelector.value) {
-            mappingSelector.update([]);
+        if (!matchList.value) {
+            mappingList.update([]);
         }
         if (keys.length == 1) {
             // Automatically select the item if there was only one.
             let [match] = keys;
-            matchSelector.selectText(match);
+            matchList.selectText(match);
             onSelectMatch(match);
         }
     }
     function updateSelections({match, mapping}) {
         let mappings = lastMatches[match];
         if (mappings) {
-            matchSelector.selectText(match);
-            mappingSelector.update(mappings);
-            mappingSelector.selectText(mapping);
+            matchList.selectText(match);
+            mappingList.update(mappings);
+            mappingList.selectText(mapping);
         }
     }
     function updateDisplay({keys, letters, pages_by_ref, default_page}) {
