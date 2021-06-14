@@ -94,9 +94,11 @@ class Spectra:
 
     @Component
     def search_engine(self) -> SearchEngine:
-        """ For translation-based searches, spaces and hyphens should be stripped off each end. """
-        strip_chars = " " + self.keymap.split
-        return SearchEngine(strip_chars)
+        """ For stroke-based searches, hyphens should be stripped off each end. """
+        ws = " \r\n\t"
+        strip_strokes = self.keymap.split + ws
+        strip_text = ws
+        return SearchEngine(strip_strokes, strip_text)
 
     @Component
     def analyzer(self) -> StenoAnalyzer:

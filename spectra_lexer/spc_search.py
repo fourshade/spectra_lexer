@@ -9,15 +9,15 @@ MatchDict = Dict[str, MatchTuple]              # JSON-compatible dict of search 
 MatchList = List[Tuple[str, MatchTuple]]       # Ordered sequence of search results (i.e. for parts of a sentence).
 SearchData = Tuple[MatchDict, StripCaseIndex]  # Key search index paired with a standard dictionary for value lookup.
 
-INDEX_DELIM = ";;"                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
+INDEX_DELIM = ';;'                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
 EXPAND_KEY = '[more...]'           # If present, repeating the search with a higher <count> will return more items.
 BAD_REGEX_KEY = '[INVALID REGEX]'  # If present, the search input could not be compiled as a regular expression.
 
 # Reserved string keys in every lookup dict. These (and only these) map to an empty tuple of values.
-SENTINEL_KEYS = [EXPAND_KEY, BAD_REGEX_KEY]
+SENTINEL_KEYS = (EXPAND_KEY, BAD_REGEX_KEY)
 
 
-def _to_search_data(d:MatchDict, strip_chars=" ") -> SearchData:
+def _to_search_data(d:MatchDict, strip_chars:str) -> SearchData:
     """ Build a new string search index that strips characters and removes case. """
     index = StripCaseIndex(d, strip_chars)
     for k in SENTINEL_KEYS:
@@ -25,26 +25,29 @@ def _to_search_data(d:MatchDict, strip_chars=" ") -> SearchData:
     return d, index
 
 
-_EMPTY_DATA = _to_search_data({})
+_EMPTY_DATA = _to_search_data({}, ' ')
 
 
 class SearchEngine:
     """ A hybrid forward+reverse steno translation search engine with support for rule example lookup. """
 
-    def __init__(self, strip_chars:str) -> None:
-        self._strip_chars = strip_chars  # Characters to remove during search.
-        self._tr_strokes = _EMPTY_DATA   # Forward translation search data (strokes -> text).
-        self._tr_text = _EMPTY_DATA      # Reverse translation search data (text -> strokes).
-        self._examples_raw = {}          # Contains steno rule IDs mapped to dicts of example translations.
-        self._examples_cache = {}        # Cache of example search data for each rule ID and mode.
+    def __init__(self, strip_strokes:str, strip_text:str) -> None:
+        self._strip_strokes = strip_strokes  # Characters to ignore during stroke search.
+        self._strip_text = strip_text        # Characters to ignore during text search.
+        self._tr_strokes = _EMPTY_DATA       # Forward translation search data (strokes -> text).
+        self._tr_text = _EMPTY_DATA          # Reverse translation search data (text -> strokes).
+        self._examples_raw = {}              # Contains steno rule IDs mapped to dicts of example translations.
+        self._examples_cache = {}            # Cache of example search data for each rule ID and mode.
 
     def _compile_data(self, translations:TranslationsDict, mode_strokes:bool) -> SearchData:
         """ Compile string search data for <translations> in the correct direction for <mode_strokes>. """
         if mode_strokes:
             d = forward_multidict(translations)
+            strip_chars = self._strip_strokes
         else:
             d = reverse_multidict(translations)
-        return _to_search_data(d, self._strip_chars)
+            strip_chars = self._strip_text
+        return _to_search_data(d, strip_chars)
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Create new translation search data from the <translations> mapping. """

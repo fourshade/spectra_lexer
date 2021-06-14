@@ -97,17 +97,14 @@ class DiscordApplication:
 
 def build_app(spectra:Spectra) -> DiscordApplication:
     io = spectra.resource_io
-    search_engine = spectra.search_engine
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
     svg_engine = SVGEngine(background_rgba=(0, 0, 0, 0))
-    key_sep = spectra.keymap.sep
     translations = io.load_json_translations(*spectra.translations_paths)
-    # Strip Plover glue and case metacharacters so our search engine has a chance to find the actual text.
-    stripped_values = [v.strip(' {<&>}') for v in translations.values()]
-    translations = {k: v for k, v in zip(translations, stripped_values) if v}
+    # Ignore Plover glue and case metacharacters so our search engine has a chance to find the actual text.
+    search_engine = SearchEngine(' ' + spectra.keymap.split, ' {<&>}')
     search_engine.set_translations(translations)
-    return DiscordApplication(search_engine, analyzer, board_engine, svg_engine, key_sep,
+    return DiscordApplication(search_engine, analyzer, board_engine, svg_engine, spectra.keymap.sep,
                               query_max_chars=100, board_AR=1.5)
 
 
