@@ -115,22 +115,3 @@ class StenoAnalyzer:
             for r_id in rule_ids:
                 index[r_id][keys] = letters
         return index
-
-    def join(self, rules:Iterable[StenoRule]) -> StenoRule:
-        """ Join several rules into one by concatenation. """
-        skeys = letters = ""
-        offset = 0
-        self._factory.push()
-        for r in rules:
-            skeys += self._to_skeys(r.keys)
-            letters += r.letters
-            length = len(r.letters)
-            self._factory.connect(r, offset, length)
-            offset += length
-        keys = self._to_rtfcre(skeys)
-        return self._factory.build(keys, letters, "combined rules")
-
-    def normalize_keys(self, keys:str) -> str:
-        """ Normalize a set of RTFCRE keys by converting back and forth. """
-        skeys = self._to_skeys(keys)
-        return self._to_rtfcre(skeys)
