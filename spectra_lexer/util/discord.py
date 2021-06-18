@@ -46,6 +46,10 @@ class DiscordBot:
         self._client.event(self.on_ready)
         self._client.event(self.on_message)
 
+    def _log_exception(self, source:str) -> None:
+        """ Log the current exception under a known source. """
+        self._log(source + ' EXCEPTION\n' + format_exc(chain=False))
+
     def add_command(self, name:str, func:Callable[[str], Optional[DiscordMessage]]) -> None:
         """ Add a named ! command with a callable that will be executed with the remainder of the user's input. """
         self._cmds[name] = func
@@ -53,7 +57,12 @@ class DiscordBot:
     def run(self) -> int:
         """ Attempt to connect to Discord with the provided token. """
         self._log('Connecting to Discord...')
-        return self._client.run(self._token)
+        try:
+            self._client.run(self._token)
+            return 0
+        except Exception:
+            self._log_exception('DISCORD CLIENT')
+        return 1
 
     async def on_ready(self) -> None:
         """ When logged in, just print a success message and wait for user input. """
@@ -78,7 +87,7 @@ class DiscordBot:
             self._log(f'Reply: {reply}')
         except Exception:
             reply = DiscordMessage('Command parse error.')
-            self._log(format_exc())
+            self._log_exception('COMMAND')
         if reply is None:
             return
         await reply.send(message.channel)

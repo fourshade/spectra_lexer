@@ -13,6 +13,11 @@ def _http_app():
     return build_app(_spectra())
 
 
+def _discord_app():
+    from spectra_lexer.app_discord import build_app
+    return build_app(_spectra())
+
+
 def _get_translations() -> dict:
     spectra = _spectra()
     paths = spectra.translations_paths
@@ -78,8 +83,8 @@ def lexer(n=10000):
     samples = _random_translations(n)
     analyzer = _spectra().analyzer
     def run() -> None:
-        for k, w in samples:
-            analyzer.query(k, w)
+        for keys, letters in samples:
+            analyzer.query(keys, letters)
     return run
 
 
@@ -142,6 +147,19 @@ def http_query(n=1000):
         for data in queries:
             stream = io.BytesIO(data)
             dispatcher.handle_connection(stream, lambda s: None)
+    return run
+
+
+def discord_query(n=100, k=5):
+    samples = _random_translations(n)
+    queries = [f'{keys} -> {letters}' for keys, letters in samples]
+    for group in zip(*[iter(samples)]*k):
+        all_keys, all_letters = zip(*group)
+        queries += ['/'.join(all_keys), ' '.join(all_letters)]
+    app = _discord_app()
+    def run() -> None:
+        for query in queries:
+            app.run(query)
     return run
 
 
