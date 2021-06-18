@@ -1,6 +1,7 @@
 15.1.0
 ------
 * Added phrase lookup to Discord bot
+* Reduced precedence of split-stroke rules
 
 15.0.2
 ------

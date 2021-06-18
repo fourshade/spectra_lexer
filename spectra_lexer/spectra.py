@@ -128,12 +128,12 @@ class Spectra:
         idmap = {}
         for rule in rules:
             # Convert each rule to lexer format. Rule weight is assigned based on letters matched.
-            # Rare rules are uncommon in usage and/or prone to causing false positives.
+            # Rare and split-stroke rules are uncommon in usage and/or prone to causing false positives.
             # They have slightly reduced weight so that other rules with equal letter count are chosen first.
             # Word rules may be otherwise equal to some prefixes and suffixes; they need *more* weight to win.
             skeys = converter.rtfcre_to_skeys(rule.keys)
             letters = rule.letters
-            weight = 10 * len(letters) - rule.is_rare + rule.is_word
+            weight = 10 * len(letters) - rule.is_rare - rule.is_split + rule.is_word
             lr = LexerRule(skeys, letters, weight)
             # Map every lexer-format rule to the original so we can convert back.
             refmap[lr] = rule
@@ -169,7 +169,7 @@ class Spectra:
         # Each matcher group is tried in order of priority (separators first, specials last).
         matcher = PriorityRuleMatcher(*matcher_groups)
         lexer = StenoLexer(matcher)
-        return StenoAnalyzer(converter, lexer, rule_factory, refmap, idmap)
+        return StenoAnalyzer(converter, lexer, rule_factory, refmap, idmap, rule_sep)
 
     @Component
     def graph_engine(self) -> GraphEngine:

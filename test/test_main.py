@@ -42,15 +42,6 @@ def _verify_analysis(analysis) -> None:
         assert not item.child.is_unmatched, f"Lexer failed to match all keys on {analysis.keys} -> {analysis.letters}."
 
 
-def _verify_join(rules) -> None:
-    """ Join should work on arbitrary sequences of rules. """
-    compound_rule = ANALYZER.join(rules)
-    compound_rule.verify(RTFCRE_CHARS, DELIMS)
-    child_letters = [item.child.letters for item in compound_rule.rulemap]
-    assert len(child_letters) == len(rules)
-    assert ''.join(child_letters) == compound_rule.letters
-
-
 @pytest.mark.parametrize("keys, letters", TEST_TRANSLATION_PAIRS)
 def test_analysis(keys, letters) -> None:
     """ Perform tests for analysis and output. """
@@ -63,9 +54,13 @@ def test_analysis(keys, letters) -> None:
         assert graph.draw(ref, intense=True)
         assert BOARD_ENGINE.draw_keys(rule.keys)
         assert BOARD_ENGINE.draw_rule(rule)
-    rep = (hash(keys) % 10) + 1
-    _verify_join([analysis] * rep)
-    _verify_join([analysis, ANALYZER.query('/', ' ')] * rep)
+
+
+def test_compound() -> None:
+    """ Compound analysis should work on arbitrary sequences of translations. """
+    for step in range(1, 5):
+        compound = ANALYZER.compound_query(TEST_TRANSLATION_PAIRS[::step])
+        _verify_analysis(compound)
 
 
 def test_index() -> None:

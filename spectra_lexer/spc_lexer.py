@@ -15,14 +15,16 @@ class StenoAnalyzer:
     INFO_COMPLETE = "Found complete match."
     INFO_INCOMPLETE = "Incomplete match. Not reliable."
     INFO_EMPTY = "No matches found."
+    INFO_COMPOUND = "Result of compound analysis."
 
     def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory,
-                 refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID]) -> None:
+                 refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID], rule_sep:StenoRule) -> None:
         self._converter = converter  # Converts between RTFCRE and s-keys formats.
         self._lexer = lexer          # Main analysis engine; operates only on s-keys.
         self._factory = factory      # Creates steno rules from analysis data.
         self._refmap = refmap        # Mapping of lexer rule objects to their original StenoRules.
         self._idmap = idmap          # Mapping of lexer rule objects to valid example rule IDs.
+        self._rule_sep = rule_sep    # Stroke separator rule. Used as a delimiter. Letters are not allowed.
 
     def _to_skeys(self, keys:str) -> str:
         """ Convert user RTFCRE steno <keys> to s-keys. """
@@ -65,6 +67,28 @@ class StenoAnalyzer:
             skeys_list = [self._to_skeys(keys) for keys in keys_list]
             best_index = self._lexer.best_translation(skeys_list, letters)
         return keys_list[best_index]
+
+    def compound_query(self, translations:TranslationsIter) -> StenoRule:
+        """ Perform queries for several translations and flatten the results into one analysis.
+            Only translations with keys are analyzed and delimited by stroke separators. """
+        all_skeys = all_letters = ""
+        sep_skeys = self._to_skeys(self._rule_sep.keys)
+        self._factory.push()
+        is_first = True
+        for keys, letters in translations:
+            if keys:
+                offset = len(all_letters)
+                if not is_first:
+                    all_skeys += sep_skeys
+                    self._factory.connect(self._rule_sep, offset, 0)
+                all_skeys += self._to_skeys(keys)
+                rule = self.query(keys, letters)
+                for item in rule.rulemap:
+                    self._factory.connect(item.child, offset + item.start, item.length)
+                is_first = False
+            all_letters += letters
+        all_keys = self._to_rtfcre(all_skeys)
+        return self._factory.build(all_keys, all_letters, self.INFO_COMPOUND)
 
     def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.
