@@ -1,30 +1,20 @@
 from typing import Dict, Tuple
 
 from spectra_lexer.resource.translations import ExamplesDict, RuleID, TranslationsDict
-from spectra_lexer.search.index import RegexError, StripCaseIndex
+from spectra_lexer.search.index import RegexError, StringKeyIndex, StripCaseIndex
 from spectra_lexer.search.multidict import forward_multidict, reverse_multidict
 
 MatchTuple = Tuple[str, ...]                   # JSON-compatible sequence of search results.
 MatchDict = Dict[str, MatchTuple]              # JSON-compatible dict of search results.
-SearchData = Tuple[MatchDict, StripCaseIndex]  # Key search index paired with a standard dictionary for value lookup.
+SearchData = Tuple[MatchDict, StringKeyIndex]  # Key search index paired with a standard dictionary for value lookup.
 
-INDEX_DELIM = ';;'                 # Delimiter between rule ID and query for example searches. Mostly arbitrary.
-EXPAND_KEY = '[more...]'           # If present, repeating the search with a higher <count> will return more items.
+# Reserved sentinel keys in every search dict. These (and only these) map to an empty tuple of values.
+EXPAND_KEY = '[more...]'           # If present, repeating the search with a higher count will return more items.
 BAD_REGEX_KEY = '[INVALID REGEX]'  # If present, the search input could not be compiled as a regular expression.
+_SENTINEL_MAP = {k: () for k in (EXPAND_KEY, BAD_REGEX_KEY)}
+_EMPTY_DATA = (_SENTINEL_MAP, StringKeyIndex())
 
-# Reserved string keys in every lookup dict. These (and only these) map to an empty tuple of values.
-SENTINEL_KEYS = (EXPAND_KEY, BAD_REGEX_KEY)
-
-
-def _to_search_data(d:MatchDict, strip_chars:str) -> SearchData:
-    """ Build a new string search index that strips characters and removes case. """
-    index = StripCaseIndex(d, strip_chars)
-    for k in SENTINEL_KEYS:
-        d[k] = ()
-    return d, index
-
-
-_EMPTY_DATA = _to_search_data({}, ' ')
+INDEX_DELIM = ';;'  # Delimiter between rule ID and query for example searches. Mostly arbitrary.
 
 
 class SearchEngine:
@@ -46,7 +36,10 @@ class SearchEngine:
         else:
             d = reverse_multidict(translations)
             strip_chars = self._strip_text
-        return _to_search_data(d, strip_chars)
+        index = StripCaseIndex(strip_chars)
+        index.update(d)
+        d.update(_SENTINEL_MAP)
+        return (d, index)
 
     def set_translations(self, translations:TranslationsDict) -> None:
         """ Create new translation search data from the <translations> mapping. """
@@ -83,7 +76,7 @@ class SearchEngine:
         return tuple(matches)
 
     def search(self, pattern:str, count=None, *, mode_strokes=False, mode_regex=False) -> MatchDict:
-        """ Perform a detailed search for <pattern>. Return a special result if there's a regex syntax error.
+        """ Perform a detailed search for <pattern>. Unmatched keys in a result are sentinels with special behavior.
             If there is an index delimiter, search for rule examples instead. Only exact matches will work there.
             <count>        - Maximum number of matches returned. If None, there is no limit.
             <mode_strokes> - If True, search for strokes instead of translations.

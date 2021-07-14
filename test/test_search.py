@@ -18,7 +18,10 @@ def test_similar_index() -> None:
     """ Unit tests for the similar-key search class. """
     keys = {"a", "Canada", "a man!?", "^hates^", "lots\nof\nlines",
             "",  "A's don't count, just a's", "AaaAaa, Ʊnićodə!"}
-    x = _CountAIndex(keys)
+    x = _CountAIndex()
+    assert not x
+    x.update(keys)
+    assert len(x) == len(keys)
 
     # "Similar keys", should be all keys with the same number of a's as the input.
     assert x.get_similar_keys("a") == ["A's don't count, just a's", "^hates^", "a"]
@@ -30,14 +33,18 @@ def test_similar_index() -> None:
     assert x.get_similar_keys("add", 2) == ["A's don't count, just a's", "^hates^"]
     assert x.get_similar_keys("still none of the first English letter", 1) == [""]
 
-    # Add/delete/mutate individual items and make sure order is maintained for search.
+    # Add/delete/mutate items and make sure order is maintained for search.
+    x.clear()
+    x.update(keys)
+    assert x.get_similar_keys("a") == ["A's don't count, just a's", "^hates^", "a"]
     x.remove("^hates^")
     assert x.get_similar_keys("a") == ["A's don't count, just a's", "a"]
     x.insert("----I shall be first!---")
     assert x.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "a"]
-    x.insert("^hates^")
+    x.update(["^hates^"])
     assert x.get_similar_keys("a") == ["----I shall be first!---", "A's don't count, just a's", "^hates^", "a"]
     x.remove("----I shall be first!---")
+    assert x.get_similar_keys("a") == ["A's don't count, just a's", "^hates^", "a"]
 
     # For nearby keys, the number of a's don't have to match exactly; just return keys near the one we want.
     assert x.get_nearby_keys("Canada", 2) == ["a man!?", "Canada"]
@@ -55,10 +62,10 @@ def test_similar_index() -> None:
 
 def test_string_index() -> None:
     """ Unit tests for the added functionality of the string-based search class. """
-    keys = ['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly']
-    x = StripCaseIndex(keys, ' #{^}')
+    x = StripCaseIndex(' #{^}')
 
     # Similarity is based on string equality after removing case and stripping certain characters from the ends.
+    x.update(['beautiful', 'Beautiful', '{^BEAUTIFUL}  ', 'ugly'])
     assert x.get_similar_keys('beautiful') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert x.get_similar_keys('{#BEAUtiful}{^}') == ['Beautiful', 'beautiful', '{^BEAUTIFUL}  ']
     assert x.get_similar_keys('') == []

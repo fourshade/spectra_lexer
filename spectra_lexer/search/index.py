@@ -51,9 +51,8 @@ class SimilarKeyIndex(Generic[K, SK]):
     +-------------------+-----------------+------+
     """
 
-    def __init__(self, keys:Iterable_K=()) -> None:
+    def __init__(self) -> None:
         self._list = []  # Sorted list of tuples: the similarity function output paired with the original key.
-        self.update(keys)
 
     def simfn(self, k:K) -> SK:
         """ The similarity function maps raw keys that share some property to the same "simkey". Must be overridden. """
@@ -205,9 +204,9 @@ class StringKeyIndex(SimilarKeyIndex[str, str]):
 class StripCaseIndex(StringKeyIndex):
     """ String index with similarity functions that ignore case and/or certain ending characters. """
 
-    def __init__(self, keys:StringIter=(), strip=" ") -> None:
-        self._strip_chars = strip  # Characters to ignore at the ends of strings during search.
-        super().__init__(keys)
+    def __init__(self, strip_chars=" ") -> None:
+        super().__init__()
+        self._strip_chars = strip_chars  # Characters to ignore at the ends of strings during search.
 
     def simfn(self, s:str) -> str:
         """ Similarity function that removes case and strips a user-defined set of characters. """
