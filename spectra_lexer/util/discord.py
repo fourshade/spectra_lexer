@@ -12,7 +12,7 @@ class DiscordMessage:
 
     def __init__(self, content:str) -> None:
         self._content = content  # Text content of the message.
-        self._file = None        # Optional file attachment.
+        self._files = []         # Optional file attachments.
         self._attach_size = 0    # Total size of attachments in bytes.
 
     def __str__(self) -> str:
@@ -24,15 +24,16 @@ class DiscordMessage:
     def __repr__(self) -> str:
         return f'<Message: {self}>'
 
-    def attach_as_file(self, data:bytes, filename:str) -> None:
+    def attach_file(self, data:bytes, filename:str) -> None:
         """ Attach an arbitrary string of bytes to this message as a file. """
         fstream = io.BytesIO(data)
-        self._file = discord.File(fstream, filename)
-        self._attach_size = len(data)
+        file = discord.File(fstream, filename)
+        self._files.append(file)
+        self._attach_size += len(data)
 
     async def send(self, channel:discord.TextChannel) -> None:
         """ Send the message to a Discord text channel. """
-        await channel.send(self._content, file=self._file)
+        await channel.send(self._content, files=(self._files or None))
 
 
 class DiscordBot:

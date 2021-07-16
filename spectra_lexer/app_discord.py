@@ -42,7 +42,7 @@ class DiscordApplication:
         msg = self._msg_cls(f'``{caption}``')
         self._svg_engine.loads(board_data)
         png_data = self._svg_engine.encode_image(fmt="PNG")
-        msg.attach_as_file(png_data, "board.png")
+        msg.attach_file(png_data, "board.png")
         return msg
 
     def _query_keys(self, query:str) -> Optional[StenoRule]:
