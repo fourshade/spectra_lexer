@@ -2,21 +2,20 @@
 
 from typing import Union
 
-from PyQt5.QtCore import QBuffer, QIODevice, QRectF, QSize
-from PyQt5.QtGui import QColor, QImage, QPaintDevice, QPainter
+from PyQt5.QtCore import QRectF, QSize
+from PyQt5.QtGui import QPaintDevice, QPainter
 from PyQt5.QtSvg import QSvgRenderer
 
 QtSVGData = Union[bytes, str]  # Valid formats for an SVG data string. The XML header is not required.
 
 
 class SVGEngine:
-    """ Renders SVG data on Qt paint devices and/or raster images. """
+    """ Renders SVG data on Qt paint devices. """
 
-    def __init__(self, *, render_hints=QPainter.Antialiasing, background_rgba=(255, 255, 255, 255)) -> None:
-        self._data = b""                         # Current XML SVG binary data.
-        self._renderer = QSvgRenderer()          # Qt SVG renderer.
-        self._render_hints = render_hints        # SVG rendering quality hints (such as anti-aliasing).
-        self._background_rgba = background_rgba  # Color to use for raster backgrounds in RGBA 0-255 format.
+    def __init__(self, *, render_hints=QPainter.Antialiasing) -> None:
+        self._data = b""                   # Current XML SVG binary data.
+        self._renderer = QSvgRenderer()    # Qt SVG renderer.
+        self._render_hints = render_hints  # SVG rendering quality hints (such as anti-aliasing).
 
     def loads(self, data:QtSVGData) -> None:
         """ Load the renderer with SVG data. """
@@ -67,22 +66,3 @@ class SVGEngine:
         ry = (height - rh) / 2
         bounds = QRectF(rx, ry, rw, rh)
         self.render(target, bounds)
-
-    def draw_image(self, size:QSize=None) -> QImage:
-        """ Create a new bitmap image of <size> with the current background color and render the SVG data to it.
-            If <size> is None, treat the viewbox as pixel dimensions. """
-        if size is None:
-            size = self.viewbox_size()
-        im = QImage(size, QImage.Format_ARGB32)
-        bg_color = QColor(*self._background_rgba)
-        im.fill(bg_color)
-        self.render_fit(im)
-        return im
-
-    def encode_image(self, size:QSize=None, *, fmt="PNG") -> bytes:
-        """ Render to a bitmap image and convert it to a data stream. """
-        im = self.draw_image(size)
-        buf = QBuffer()
-        buf.open(QIODevice.WriteOnly)
-        im.save(buf, fmt)
-        return buf.data()

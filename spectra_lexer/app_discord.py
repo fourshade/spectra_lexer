@@ -3,14 +3,47 @@
 import sys
 from typing import Optional
 
+from PyQt5.QtCore import QBuffer, QIODevice, QRectF
+from PyQt5.QtGui import QColor, QImage, QPainter
+from PyQt5.QtSvg import QSvgRenderer
+
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.console import introspect
-from spectra_lexer.qt.svg import SVGEngine
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import SearchEngine
 from spectra_lexer.util.discord import DiscordBot, DiscordMessage
+
+
+class SVGRasterizer:
+    """ Renders SVG data to raster images. """
+
+    def __init__(self, w_max:int, h_max:int, *, bg_color=QColor(0, 0, 0, 0)) -> None:
+        self._w_max = w_max        # Limit on image width in pixels.
+        self._h_max = h_max        # Limit on image height in pixels.
+        self._bg_color = bg_color  # Color to use for raster backgrounds.
+
+    def encode(self, svg_data:str, fmt="PNG") -> bytes:
+        """ Create a new bitmap image with the current background color and render an SVG image to it.
+            Pixel dimensions will fit the viewbox at maximum scale.
+            Convert the image to a data stream and return the raw bytes. """
+        svg = QSvgRenderer(svg_data.encode("utf8"))
+        v_size = svg.viewBox().size()
+        vw = v_size.width()
+        vh = v_size.height()
+        scale = min(self._w_max / vw, self._h_max / vh)
+        w = round(vw * scale)
+        h = round(vh * scale)
+        im = QImage(w, h, QImage.Format_ARGB32)
+        im.fill(self._bg_color)
+        with QPainter(im) as p:
+            p.setRenderHints(QPainter.Antialiasing)
+            svg.render(p, QRectF(0, 0, w, h))
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        im.save(buf, fmt)
+        return buf.data()
 
 
 class DiscordApplication:
@@ -20,29 +53,24 @@ class DiscordApplication:
     TR_DELIMS = ["→", "->"]  # Possible delimiters between strokes and text in a query. Captions use the first one.
 
     def __init__(self, search_engine:SearchEngine, analyzer:StenoAnalyzer,
-                 board_engine:BoardEngine, svg_engine:SVGEngine, *, msg_cls=DiscordMessage,
+                 board_engine:BoardEngine, rasterizer:SVGRasterizer, *,
                  find_phrases=True, split_trans:dict=None, query_max_chars:int=None, board_AR:float=None) -> None:
         self._search_engine = search_engine
         self._analyzer = analyzer
         self._board_engine = board_engine
-        self._svg_engine = svg_engine
-        self._msg_cls = msg_cls                  # Factory for Discord messages.
+        self._rasterizer = rasterizer
         self._find_phrases = find_phrases        # If True, attempt searches for multi-word phrases.
         self._split_trans = split_trans          # Optional str.translate dictionary for phrase splitting.
         self._query_max_chars = query_max_chars  # Optional limit for # of characters allowed in a user query string.
         self._board_AR = board_AR                # Optional fixed aspect ratio for board images.
 
-    def _text_message(self, message:str) -> DiscordMessage:
-        """ Generate a Discord message consisting only of text. """
-        return self._msg_cls(message)
-
-    def _board_message(self, caption:str, board_data:BoardDiagram) -> DiscordMessage:
-        """ Generate a Discord message with a literal caption and a board diagram.
+    def _build_message(self, text:str, diagram:BoardDiagram=None) -> DiscordMessage:
+        """ Generate a Discord message with some text and optionally a board diagram.
             Discord will not embed SVGs directly, so use PNG raster format. """
-        msg = self._msg_cls(f'``{caption}``')
-        self._svg_engine.loads(board_data)
-        png_data = self._svg_engine.encode_image(fmt="PNG")
-        msg.attach_file(png_data, "board.png")
+        msg = DiscordMessage(text)
+        if diagram is not None:
+            png_data = self._rasterizer.encode(diagram, "PNG")
+            msg.attach_file(png_data, "board.png")
         return msg
 
     def _query_keys(self, query:str) -> Optional[StenoRule]:
@@ -96,10 +124,10 @@ class DiscordApplication:
         if not query:
             return None
         if self._query_max_chars is not None and len(query) > self._query_max_chars:
-            return self._text_message('Query is too long.')
+            return self._build_message('Query is too long.')
         analysis = self._query(query)
         if analysis is None:
-            return self._text_message('Analysis failed.')
+            return self._build_message('Analysis failed.')
         keys = analysis.keys
         letters = analysis.letters
         if letters:
@@ -109,21 +137,21 @@ class DiscordApplication:
         else:
             caption = keys
             board_data = self._board_engine.draw_keys(keys, aspect_ratio=self._board_AR)
-        return self._board_message(caption, board_data)
+        return self._build_message(f"`{caption}`", board_data)
 
 
 def build_app(spectra:Spectra) -> DiscordApplication:
     io = spectra.resource_io
     analyzer = spectra.analyzer
     board_engine = spectra.board_engine
-    svg_engine = SVGEngine(background_rgba=(0, 0, 0, 0))
+    rasterizer = SVGRasterizer(400, 300)
     translations = io.load_json_translations(*spectra.translations_paths)
     # Ignore Plover glue and case metacharacters so our search engine has a chance to find the actual text.
     search_engine = SearchEngine(' ', ' {<&>}')
     search_engine.set_translations(translations)
     split_trans = {ord(c): ' ' for c in r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''}
-    return DiscordApplication(search_engine, analyzer, board_engine, svg_engine,
-                              split_trans=split_trans, query_max_chars=100, board_AR=1.5)
+    return DiscordApplication(search_engine, analyzer, board_engine, rasterizer,
+                              split_trans=split_trans, query_max_chars=100, board_AR=400/300)
 
 
 def main() -> int:
