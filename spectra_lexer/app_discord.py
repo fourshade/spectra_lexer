@@ -3,51 +3,18 @@
 import sys
 from typing import Optional
 
-from PyQt5.QtCore import QBuffer, QIODevice, QRectF
-from PyQt5.QtGui import QColor, QImage, QPainter
-from PyQt5.QtSvg import QSvgRenderer
-
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.console import introspect
+from spectra_lexer.discord.image import SVGRasterizer
+from spectra_lexer.discord.main import DiscordApplication, DiscordBot, DiscordMessage
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
 from spectra_lexer.spc_search import SearchEngine
-from spectra_lexer.util.discord import DiscordBot, DiscordMessage
 
 
-class SVGRasterizer:
-    """ Renders SVG data to raster images. """
-
-    def __init__(self, w_max:int, h_max:int, *, bg_color=QColor(0, 0, 0, 0)) -> None:
-        self._w_max = w_max        # Limit on image width in pixels.
-        self._h_max = h_max        # Limit on image height in pixels.
-        self._bg_color = bg_color  # Color to use for raster backgrounds.
-
-    def encode(self, svg_data:str, fmt="PNG") -> bytes:
-        """ Create a new bitmap image with the current background color and render an SVG image to it.
-            Pixel dimensions will fit the viewbox at maximum scale.
-            Convert the image to a data stream and return the raw bytes. """
-        svg = QSvgRenderer(svg_data.encode("utf8"))
-        v_size = svg.viewBox().size()
-        vw = v_size.width()
-        vh = v_size.height()
-        scale = min(self._w_max / vw, self._h_max / vh)
-        w = round(vw * scale)
-        h = round(vh * scale)
-        im = QImage(w, h, QImage.Format_ARGB32)
-        im.fill(self._bg_color)
-        with QPainter(im) as p:
-            p.setRenderHints(QPainter.Antialiasing)
-            svg.render(p, QRectF(0, 0, w, h))
-        buf = QBuffer()
-        buf.open(QIODevice.WriteOnly)
-        im.save(buf, fmt)
-        return buf.data()
-
-
-class DiscordApplication:
-    """ Spectra engine application that accepts string input from Discord users. """
+class DiscordConsoleApplication(DiscordApplication):
+    """ Spectra console application that accepts string input from Discord users. """
 
     FILLER_CHAR = "-"        # Filler to replace each character in a word with no matches.
     TR_DELIMS = ["→", "->"]  # Possible delimiters between strokes and text in a query. Captions use the first one.
@@ -118,9 +85,9 @@ class DiscordApplication:
             if analysis is not None and analysis.keys:
                 return analysis
 
-    def run(self, query:str) -> Optional[DiscordMessage]:
+    def run(self, text:str) -> Optional[DiscordMessage]:
         """ Parse a user query string and return a Discord bot message, possibly with a board PNG attached. """
-        query = query.strip()
+        query = text.strip()
         if not query:
             return None
         if self._query_max_chars is not None and len(query) > self._query_max_chars:
@@ -150,8 +117,8 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     search_engine = SearchEngine(' ', ' {<&>}')
     search_engine.set_translations(translations)
     split_trans = {ord(c): ' ' for c in r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''}
-    return DiscordApplication(search_engine, analyzer, board_engine, rasterizer,
-                              split_trans=split_trans, query_max_chars=100, board_AR=400/300)
+    return DiscordConsoleApplication(search_engine, analyzer, board_engine, rasterizer,
+                                     split_trans=split_trans, query_max_chars=100, board_AR=400/300)
 
 
 def main() -> int:
@@ -167,7 +134,7 @@ def main() -> int:
         log("No token given. Opening test console...")
         return introspect(app)
     bot = DiscordBot(opts.token, log)
-    bot.add_command(opts.command, app.run)
+    bot.add_command(opts.command, app)
     log("Discord bot started.")
     return bot.run()
 
