@@ -1,24 +1,22 @@
-import io
-from traceback import format_exc
-from typing import Callable, Optional
+from typing import Optional
 
-import discord
-
-LineLogger = Callable[[str], None]  # Line-based string callable used for log messages.
+from .client import Client, EventHandler
+from .http import FileData
+from .logger import log, LineLogger
 
 
 class DiscordMessage:
-    """ Contains all data that makes up a Discord text channel message. """
+    """ Contains all data that makes up a reply to a Discord text channel. """
 
     def __init__(self, content:str) -> None:
-        self._content = content  # Text content of the message.
-        self._files = []         # Optional file attachments.
-        self._attach_size = 0    # Total size of attachments in bytes.
+        self.content = content  # Text content of the message.
+        self.files = []         # Optional file attachments.
 
     def __str__(self) -> str:
-        s = repr(self._content)
-        if self._attach_size:
-            s += f' + {self._attach_size} bytes'
+        s = repr(self.content)
+        if self.files:
+            size = sum([len(f.data) for f in self.files])
+            s += f' + {size} bytes'
         return s
 
     def __repr__(self) -> str:
@@ -26,14 +24,13 @@ class DiscordMessage:
 
     def attach_file(self, data:bytes, filename:str) -> None:
         """ Attach an arbitrary string of bytes to this message as a file. """
-        fstream = io.BytesIO(data)
-        file = discord.File(fstream, filename)
-        self._files.append(file)
-        self._attach_size += len(data)
+        if len(self.files) >= 10:
+            raise ValueError('Cannot attach more than 10 files')
+        self.files.append(FileData(data, filename))
 
-    async def send(self, channel:discord.TextChannel) -> None:
-        """ Send the message to a Discord text channel. """
-        await channel.send(self._content, files=(self._files or None))
+    def get_payload(self) -> dict:
+        return {"allowed_mentions": {"parse": []},
+                "content": self.content}
 
 
 class DiscordApplication:
@@ -43,20 +40,17 @@ class DiscordApplication:
         raise NotImplementedError
 
 
-class DiscordBot:
+class DiscordBot(EventHandler):
     """ Basic Discord bot that accepts commands from users in the form of '!command args' """
 
-    def __init__(self, token:str, logger:LineLogger=print) -> None:
-        self._token = token  # Discord bot token.
-        self._log = logger   # String callable to log all bot activity.
+    def __init__(self, token:str, logger:LineLogger=None) -> None:
         self._cmds = {}      # Dict of command applications.
-        self._client = discord.Client()
-        self._client.event(self.on_ready)
-        self._client.event(self.on_message)
-
-    def _log_exception(self, source:str) -> None:
-        """ Log the current exception under a known source. """
-        self._log(source + ' EXCEPTION\n' + format_exc(chain=False))
+        self._user_id = 0    # ID of the connected user. 0 if not logged in.
+        if logger is not None:
+            # Hackish way to log all bot activity to one callable.
+            log.line_logger = logger
+        self._client = Client(token)
+        self._client.add_event_handler(self)
 
     def add_command(self, name:str, app:DiscordApplication) -> None:
         """ Add a named ! command with an app that will be executed with the remainder of the user's input. """
@@ -64,24 +58,27 @@ class DiscordBot:
 
     def run(self) -> int:
         """ Attempt to connect to Discord with the provided token. """
-        self._log('Connecting to Discord...')
+        log.info('Connecting to Discord...')
         try:
-            self._client.run(self._token)
+            self._client.run()
             return 0
         except Exception:
-            self._log_exception('DISCORD CLIENT')
+            log.exception('CLIENT EXCEPTION')
         return 1
 
-    async def on_ready(self) -> None:
+    async def on_ready(self, data:dict) -> None:
         """ When logged in, just print a success message and wait for user input. """
-        self._log(f'Logged in as {self._client.user}.')
+        me = data['user']
+        self._user_id = me['id']
+        username = me['username']
+        log.info(f'Logged in as {username}.')
 
-    async def on_message(self, message:discord.Message) -> None:
+    async def on_message_create(self, message:dict) -> None:
         """ Parse user input and execute a command if it isn't our own message, it starts with a "!",
             and the characters after the "!" but before whitespace match a registered command. """
-        if message.author == self._client.user:
+        if message['author']['id'] == self._user_id:
             return
-        content = message.content
+        content = message['content']
         if not content.startswith('!'):
             return
         cmd_name, *cmd_body = content[1:].split(None, 1)
@@ -89,13 +86,13 @@ class DiscordBot:
         if cmd_app is None:
             return
         arg_string = cmd_body[0].strip() if cmd_body else ''
-        self._log(f'Command: {cmd_name} {arg_string}')
+        log.info(f'Command: {cmd_name} {arg_string}')
         try:
             reply = cmd_app.run(arg_string)
-            self._log(f'Reply: {reply}')
+            log.info(f'Reply: {reply}')
         except Exception:
             reply = DiscordMessage('Command parse error.')
-            self._log_exception('COMMAND')
+            log.exception('APPLICATION EXCEPTION')
         if reply is None:
             return
-        await reply.send(message.channel)
+        await self._client.create_message(message['channel_id'], reply.get_payload(), reply.files)
