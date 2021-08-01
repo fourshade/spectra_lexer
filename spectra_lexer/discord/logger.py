@@ -14,13 +14,13 @@ class Logger:
         pass
 
     def info(self, message:str, *args) -> None:
-        self.line_logger(message % args)
+        self.line_logger((message % args) if args else message)
 
-    def warning(self, message:str, *args) -> None:
-        self.line_logger(message % args)
+    warning = error = info
 
-    def exception(self, message:str, *args) -> None:
-        self.line_logger((message % args) + '\n' + format_exc())
+    def exception(self, *args) -> None:
+        self.error(*args)
+        self.line_logger(format_exc())
 
 
 log = Logger(print)

@@ -118,8 +118,7 @@ class KeepAliveHandler(threading.Thread):
                 finally:
                     self.stop()
                     return
-            # This bypasses the rate limit handling code since it has a higher priority
-            coro = self._ws.send_heartbeat(limited=False)
+            coro = self._ws.priority_heartbeat()
             f = asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
             try:
                 # block until sending is complete
@@ -172,12 +171,12 @@ class GatewayWebSocket:
                  initial=False, resume=False, session=None, sequence=None, heartbeat_timeout=60.0) -> None:
         self._socket = socket
         self._dispatcher = dispatcher
-        self._keep_alive = None
         self._initial_identify = initial
         self._resume = resume
         self.session_id = session
         self.sequence = sequence
         self._max_heartbeat_timeout = heartbeat_timeout
+        self._keep_alive = None
         self._zlib = zlib.decompressobj()
         self._buffer = bytearray()
         self._close_code = None
@@ -186,13 +185,26 @@ class GatewayWebSocket:
     def is_open(self) -> bool:
         return not self._socket.closed
 
-    async def connect(self, token:str) -> None:
-        """ Connect after polling for OP Hello. """
-        await self.poll_event()
-        if self._resume:
-            await self._resume(token)
-        else:
-            await self._identify(token)
+    async def close(self, code=4000) -> None:
+        if self._keep_alive:
+            self._keep_alive.stop()
+            self._keep_alive = None
+        self._close_code = code
+        await self._socket.close(code=code)
+
+    def _can_handle_close(self) -> bool:
+        code = self._close_code or self._socket.close_code
+        return code not in (1000, 4004, 4010, 4011, 4012, 4013, 4014)
+
+    async def _send_json(self, data:dict, *, limited=True) -> None:
+        try:
+            if limited:
+                await self._rate_limiter.block()
+            s = json.dumps(data, separators=(',', ':'), ensure_ascii=True)
+            await self._socket.send_str(s)
+        except RuntimeError as exc:
+            if not self._can_handle_close():
+                raise ConnectionClosed(self._socket.close_code) from exc
 
     async def _identify(self, token:str) -> None:
         """ Send the IDENTIFY packet. """
@@ -233,6 +245,18 @@ class GatewayWebSocket:
         await self._send_json(payload)
         log.info('Sent the RESUME payload.')
 
+    async def _heartbeat(self, *, limited=True) -> None:
+        payload = {
+            'op': Opcodes.HEARTBEAT,
+            'd': self.sequence
+        }
+        await self._send_json(payload, limited=limited)
+        log.debug('Sent a HEARTBEAT with sequence %s.', self.sequence)
+
+    async def priority_heartbeat(self) -> None:
+        """ This bypasses the rate limit handling code since it has a higher priority. """
+        await self._heartbeat(limited=False)
+
     async def _received_message(self, msg) -> None:
         if type(msg) is bytes:
             # Detect and decompress zlib payloads to plaintext JSON.
@@ -251,51 +275,43 @@ class GatewayWebSocket:
             self.sequence = seq
         if self._keep_alive:
             self._keep_alive.tick()
-        if op != Opcodes.DISPATCH:
-            if op == Opcodes.RECONNECT:
-                # "reconnect" can only be handled by the Client so we terminate our connection
-                # and raise an internal exception signalling to reconnect.
-                log.debug('Received RECONNECT opcode.')
+        if op == Opcodes.DISPATCH:
+            event = msg.get('t')
+            if event == 'READY':
+                self.sequence = msg['s']
+                self.session_id = data['session_id']
+                log.info('Connected to Gateway (Session ID: %s).', self.session_id)
+            elif event == 'RESUMED':
+                log.info('Successfully RESUMED session %s.', self.session_id)
+            self._dispatcher.dispatch(event, data)
+        elif op == Opcodes.RECONNECT:
+            # "reconnect" can only be handled by the Client so we terminate our connection
+            # and raise an internal exception signalling to reconnect.
+            await self.close()
+            raise ReconnectWebSocket()
+        elif op == Opcodes.HEARTBEAT_ACK:
+            if self._keep_alive:
+                self._keep_alive.ack()
+        elif op == Opcodes.HEARTBEAT:
+            if self._keep_alive:
+                await self._heartbeat()
+        elif op == Opcodes.HELLO:
+            interval = data['heartbeat_interval'] / 1000.0
+            self._keep_alive = KeepAliveHandler(self, interval, self._max_heartbeat_timeout)
+            # send a heartbeat immediately
+            await self._heartbeat()
+            self._keep_alive.start()
+        elif op == Opcodes.INVALID_SESSION:
+            if data is True:
                 await self.close()
                 raise ReconnectWebSocket()
-            if op == Opcodes.HEARTBEAT_ACK:
-                if self._keep_alive:
-                    self._keep_alive.ack()
-                return
-            if op == Opcodes.HEARTBEAT:
-                if self._keep_alive:
-                    await self.send_heartbeat()
-                return
-            if op == Opcodes.HELLO:
-                interval = data['heartbeat_interval'] / 1000.0
-                self._keep_alive = KeepAliveHandler(self, interval, self._max_heartbeat_timeout)
-                # send a heartbeat immediately
-                await self.send_heartbeat()
-                self._keep_alive.start()
-                return
-            if op == Opcodes.INVALID_SESSION:
-                if data is True:
-                    await self.close()
-                    raise ReconnectWebSocket()
-                self.sequence = None
-                self.session_id = None
-                log.info('Session has been invalidated.')
-                await self.close(code=1000)
-                raise ReconnectWebSocket(resume=False)
+            self.sequence = None
+            self.session_id = None
+            log.info('Session has been invalidated.')
+            await self.close(code=1000)
+            raise ReconnectWebSocket(resume=False)
+        else:
             log.warning('Unknown OP code %s.', op)
-            return
-        event = msg.get('t')
-        if event == 'READY':
-            self.sequence = msg['s']
-            self.session_id = data['session_id']
-            log.info('Connected to Gateway (Session ID: %s).', self.session_id)
-        elif event == 'RESUMED':
-            log.info('Successfully RESUMED session %s.', self.session_id)
-        self._dispatcher.dispatch(event, data)
-
-    def _can_handle_close(self) -> bool:
-        code = self._close_code or self._socket.close_code
-        return code not in (1000, 4004, 4010, 4011, 4012, 4013, 4014)
 
     async def poll_event(self) -> None:
         """ Poll for DISPATCH events and handle the general gateway loop. """
@@ -325,23 +341,10 @@ class GatewayWebSocket:
                 log.info('Websocket closed with %s, cannot reconnect.', code)
                 raise ConnectionClosed(code) from None
 
-    async def _send_json(self, data:dict, *, limited=True) -> None:
-        try:
-            if limited:
-                await self._rate_limiter.block()
-            s = json.dumps(data, separators=(',', ':'), ensure_ascii=True)
-            await self._socket.send_str(s)
-        except RuntimeError as exc:
-            if not self._can_handle_close():
-                raise ConnectionClosed(self._socket.close_code) from exc
-
-    async def send_heartbeat(self, *, limited=True) -> None:
-        log.debug('Keeping websocket alive with sequence %s.', self.sequence)
-        await self._send_json({'op': Opcodes.HEARTBEAT, 'd': self.sequence}, limited=limited)
-
-    async def close(self, code=4000) -> None:
-        if self._keep_alive:
-            self._keep_alive.stop()
-            self._keep_alive = None
-        self._close_code = code
-        await self._socket.close(code=code)
+    async def connect(self, token:str) -> None:
+        """ Connect after polling for OP Hello. """
+        await self.poll_event()
+        if self._resume:
+            await self._resume(token)
+        else:
+            await self._identify(token)

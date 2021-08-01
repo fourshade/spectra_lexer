@@ -3,22 +3,11 @@ import datetime
 import json
 import sys
 import weakref
-from urllib.parse import quote as _uriquote
 
-from aiohttp import __version__ as aiohttp_version, ClientResponse, ClientSession, ClientWebSocketResponse, FormData
+from aiohttp import __version__ as aiohttp_version, ClientResponse, ClientSession, ClientWebSocketResponse
 
 from .logger import log
-
-
-class FileData:
-    """ A parameter object used for sending binary data files. """
-
-    __slots__ = ('data', 'filename', 'content_type')
-
-    def __init__(self, data:bytes, filename:str, content_type='application/octet-stream') -> None:
-        self.data = data
-        self.filename = filename  # Filename to display when uploading to Discord.
-        self.content_type = content_type
+from .request import AbstractRequest
 
 
 def _flatten_error_dict(d:dict, key='') -> dict:
@@ -78,27 +67,6 @@ class DiscordClientWebSocketResponse(ClientWebSocketResponse):
         return await super().close(code=code, message=message)
 
 
-class Route:
-
-    BASE = 'https://discord.com/api/v9'
-
-    def __init__(self, method:str, path:str, **parameters) -> None:
-        self.method = method
-        self.path = path
-        url = self.BASE + path
-        if parameters:
-            self.url = url.format(**{k: _uriquote(v) if isinstance(v, str) else v for k, v in parameters.items()})
-        else:
-            self.url = url
-        # major parameters:
-        self.channel_id = parameters.get('channel_id')
-        self.guild_id = parameters.get('guild_id')
-
-    def bucket(self) -> str:
-        # the bucket is just method + path w/ major parameters
-        return '{0.channel_id}:{0.guild_id}:{0.path}'.format(self)
-
-
 class _MaybeUnlock:
 
     def __init__(self, lock:asyncio.Lock) -> None:
@@ -119,83 +87,74 @@ class _MaybeUnlock:
 class HTTPClient:
     """ Represents an HTTP client sending HTTP requests to the Discord API. """
 
-    def __init__(self, token:str) -> None:
-        self.token = token  # Raw authentication token.
+    user_agent = f'SpectraBot/0.1 Python/{sys.version.split()[0]} aiohttp/{aiohttp_version}'
+
+    def __init__(self, token:str, *, is_bot=True) -> None:
+        self._auth = ('Bot ' if is_bot else 'Bearer ') + token
         self._loop = asyncio.get_event_loop()
         self._session = ClientSession(ws_response_class=DiscordClientWebSocketResponse)
         self._locks = weakref.WeakValueDictionary()
         self._global_over = asyncio.Event()
         self._global_over.set()
-        user_agent = 'SpectraBot/0.1 Python/{0} aiohttp/{1}'
-        self._user_agent = user_agent.format(sys.version.split()[0], aiohttp_version)
 
     async def ws_connect(self, url:str) -> ClientWebSocketResponse:
-        headers = {'User-Agent': self._user_agent}
+        headers = {'User-Agent': self.user_agent}
         return await self._session.ws_connect(url, max_msg_size=0, timeout=30.0, autoclose=False, headers=headers)
 
-    async def request(self, route:Route, *, json_data:str=None, form:list=None) -> dict:
-        method = route.method
-        url = route.url
-        bucket = route.bucket()
+    async def request(self, req:AbstractRequest) -> dict:
+        method = req.method
+        url = req.url
+        bucket = req.bucket()
         lock = self._locks.get(bucket)
         if lock is None:
             lock = asyncio.Lock()
             if bucket is not None:
                 self._locks[bucket] = lock
-        headers = {'User-Agent': self._user_agent,
+        headers = {'User-Agent': self.user_agent,
                    'X-Ratelimit-Precision': 'millisecond',
-                   'Authorization': 'Bot ' + self.token}
-        content = None
-        if json_data is not None:
-            # unlike forms, aiohttp doesn't detect JSON, so we must set the header manually.
-            headers['Content-Type'] = 'application/json'
-            content = json_data
+                   'Authorization': self._auth,
+                   **req.headers()}
+        content = req.content()
         if not self._global_over.is_set():
             # wait until the global lock is complete
             await self._global_over.wait()
         await lock.acquire()
         with _MaybeUnlock(lock) as maybe_lock:
             for tries in range(5):
-                if form:
-                    form_data = FormData()
-                    for params in form:
-                        if params['name'].startswith('file'):
-                            params['value'].seek(0)
-                        form_data.add_field(**params)
-                    content = form_data
+                req.reset()
                 try:
-                    async with self._session.request(method, url, headers=headers, data=content) as r:
-                        log.debug('%s %s with %s has returned %s', method, url, content, r.status)
-                        text = await r.text(encoding='utf-8')
-                        if r.headers.get('content-type', '') == 'application/json':
+                    async with self._session.request(method, url, headers=headers, data=content) as rsp:
+                        log.debug('%s %s with %s has returned %s', method, url, content, rsp.status)
+                        text = await rsp.text(encoding='utf-8')
+                        if rsp.headers.get('content-type', '') == 'application/json':
                             data = json.loads(text)
                         else:
                             # Thanks Cloudflare
                             data = {'message': text}
                         # check if we have rate limit header information
-                        remaining = r.headers.get('X-Ratelimit-Remaining')
-                        if remaining == '0' and r.status != 429:
+                        remaining = rsp.headers.get('X-Ratelimit-Remaining')
+                        if remaining == '0' and rsp.status != 429:
                             # we've depleted our current bucket
-                            reset_after = r.headers.get('X-Ratelimit-Reset-After')
+                            reset_after = rsp.headers.get('X-Ratelimit-Reset-After')
                             if reset_after:
                                 delta = float(reset_after)
                             else:
                                 utc = datetime.timezone.utc
                                 now = datetime.datetime.now(utc)
-                                reset = datetime.datetime.fromtimestamp(float(r.headers['X-Ratelimit-Reset']), utc)
+                                reset = datetime.datetime.fromtimestamp(float(rsp.headers['X-Ratelimit-Reset']), utc)
                                 delta = (reset - now).total_seconds()
                             log.debug('A rate limit bucket has been exhausted (bucket: %s, retry: %s).', bucket, delta)
                             maybe_lock.defer()
                             self._loop.call_later(delta, lock.release)
                         # the request was successful so just return the text/json
-                        if 300 > r.status >= 200:
+                        if 300 > rsp.status >= 200:
                             log.debug('%s %s has received %s', method, url, data)
                             return data
                         # we are being rate limited
-                        if r.status == 429:
-                            if not r.headers.get('Via'):
+                        if rsp.status == 429:
+                            if not rsp.headers.get('Via'):
                                 # Banned by Cloudflare more than likely.
-                                raise HTTPException(r, data)
+                                raise HTTPException(rsp, data)
                             # check if it's a global rate limit
                             is_global = data.get('global', False)
                             if is_global:
@@ -212,20 +171,20 @@ class HTTPClient:
                                 self._global_over.set()
                             continue
                         # we've received a 500 or 502, unconditional retry
-                        if r.status in {500, 502}:
+                        if rsp.status in {500, 502}:
                             await asyncio.sleep(1 + tries * 2)
                             continue
                         # the usual error cases
-                        if r.status == 401:
-                            raise Unauthorized(r, data)
-                        if r.status == 403:
-                            raise Forbidden(r, data)
-                        elif r.status == 404:
-                            raise NotFound(r, data)
-                        elif r.status == 503:
-                            raise DiscordServerError(r, data)
+                        if rsp.status == 401:
+                            raise Unauthorized(rsp, data)
+                        if rsp.status == 403:
+                            raise Forbidden(rsp, data)
+                        elif rsp.status == 404:
+                            raise NotFound(rsp, data)
+                        elif rsp.status == 503:
+                            raise DiscordServerError(rsp, data)
                         else:
-                            raise HTTPException(r, data)
+                            raise HTTPException(rsp, data)
                 # This is handling exceptions from the request
                 except OSError as e:
                     # Connection reset by peer
@@ -233,9 +192,9 @@ class HTTPClient:
                         continue
                     raise
             # We've run out of retries, raise.
-            if r.status >= 500:
-                raise DiscordServerError(r, data)
-            raise HTTPException(r, data)
+            if rsp.status >= 500:
+                raise DiscordServerError(rsp, data)
+            raise HTTPException(rsp, data)
 
     async def close(self) -> None:
         if self._session:

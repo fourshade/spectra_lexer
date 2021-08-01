@@ -1,20 +1,14 @@
 import asyncio
-import io
-import json
 import signal
 
 from aiohttp import ClientError
 
 from .backoff import ExponentialBackoff
-from .gateway import ConnectionClosed, GatewayEventDispatcher, GatewayWebSocket, Intents, ReconnectWebSocket
-from .http import HTTPClient, HTTPException, Route, Unauthorized, NotFound
+from .event import EventHandler
+from .gateway import ConnectionClosed, GatewayEventDispatcher, GatewayWebSocket, ReconnectWebSocket
+from .http import HTTPClient, HTTPException, Unauthorized, NotFound
+from .request import BotGatewayRequest, GatewayRequest
 from .logger import log
-
-
-class EventHandler:
-    """ Contains coroutine methods to handle named Discord events.
-        Method signature format:
-            async def on_{event_name_lowercase}(self, data:dict) -> None: """
 
 
 class ClientException(Exception):
@@ -34,16 +28,20 @@ async def _run_event(coro, event:str, data:dict) -> None:
 class Client(GatewayEventDispatcher):
     """ This class is used to interact with the Discord WebSocket and API as a client. """
 
-    def __init__(self, token:str) -> None:
-        self._token = token.strip()  # Raw authentication token.
-        self._ws = None              # The websocket gateway the client is currently connected to.
-        self._http = HTTPClient(self._token)
-        self._loop = asyncio.get_event_loop()
+    def __init__(self, http:HTTPClient, token:str, *, is_bot=True) -> None:
+        self._http = http
+        self._token = token  # Raw authentication token.
+        self._is_bot = is_bot
+        self._ws = None  # The websocket gateway the client is currently connected to.
         self._event_handlers = []
+        self._loop = asyncio.get_event_loop()
         self._closed = False
 
     def required_intents(self) -> int:
-        return Intents.GUILD_MESSAGES
+        intents = 0
+        for handler in self._event_handlers:
+            intents |= handler.required_intents()
+        return intents
 
     def dispatch(self, event:str, data:dict) -> None:
         for handler in self._event_handlers:
@@ -65,8 +63,17 @@ class Client(GatewayEventDispatcher):
         if self._ws is not None and self._ws.is_open():
             await self._ws.close(code=1000)
 
+    async def _get_gateway_url(self, *, encoding='json', v=9, zlib=True) -> str:
+        req = BotGatewayRequest() if self._is_bot else GatewayRequest()
+        data = await self._http.request(req)
+        value = '{0}?encoding={1}&v={2}'
+        if zlib:
+            value += '&compress=zlib-stream'
+        return value.format(data['url'], encoding, v)
+
     async def _login(self, ws_params:dict) -> None:
         """ Log in the client with the saved credentials. """
+        log.info('Connecting to Discord...')
         try:
             gateway_url = await self._get_gateway_url()
         except Unauthorized as exc:
@@ -162,6 +169,8 @@ class Client(GatewayEventDispatcher):
             loop.run_forever()
         except KeyboardInterrupt:
             log.info('Received signal to terminate application and event loop.')
+        except Exception:
+            log.exception('CLIENT EXCEPTION')
         finally:
             future.remove_done_callback(stop_loop_on_completion)
             log.info('Cleaning up tasks.')
@@ -200,32 +209,3 @@ class Client(GatewayEventDispatcher):
         finally:
             log.info('Closing the event loop.')
             loop.close()
-
-    async def _get_gateway_url(self, *, bot=True, encoding='json', v=9, zlib=True) -> str:
-        r = Route('GET', '/gateway/bot' if bot else '/gateway')
-        data = await self._http.request(r)
-        value = '{0}?encoding={1}&v={2}'
-        if zlib:
-            value += '&compress=zlib-stream'
-        return value.format(data['url'], encoding, v)
-
-    async def create_message(self, channel_id:int, payload:dict, files=()) -> None:
-        """ Create a Discord message with a JSON object payload.
-            Attached files may be provided as a sequence of FileData objects. """
-        r = Route('POST', '/channels/{channel_id}/messages', channel_id=channel_id)
-        data = json.dumps(payload, separators=(',', ':'), ensure_ascii=True)
-        if not files:
-            await self._http.request(r, json_data=data)
-            return
-        form = [{'name': 'payload_json', 'value': data}]
-        for i, file in enumerate(files):
-            # stub each file object so aiohttp doesn't close it.
-            fp = io.BytesIO(file.data)
-            fp.close = lambda: None
-            form.append({
-                'name': f'file{i}',
-                'value': fp,
-                'filename': file.filename,
-                'content_type': file.content_type
-            })
-        await self._http.request(r, form=form)
