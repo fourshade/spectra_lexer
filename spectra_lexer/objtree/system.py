@@ -26,7 +26,7 @@ class AutoImporter(dict):
         try:
             module = self[k] = self._import(k)
         except Exception:
-            raise KeyError(k)
+            raise KeyError(k) from None
         try:
             for finder, name, ispkg in pkgutil.walk_packages(module.__path__, k + '.'):
                 self._import(name)

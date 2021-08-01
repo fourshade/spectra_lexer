@@ -1,6 +1,7 @@
 16.0.0
 ------
 * Moved Discord client code into project
+* Improved GUI startup exception handling
 
 15.1.0
 ------

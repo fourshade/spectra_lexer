@@ -13,8 +13,11 @@ def main() -> int:
     q_app = QApplication(sys.argv)
     opts = SpectraOptions("Run Spectra as a standalone GUI application.")
     spectra = Spectra(opts)
-    app = build_app(spectra)
-    app.start()
+    try:
+        app = build_app(spectra)
+        app.start()
+    except Exception as e:
+        sys.excepthook(type(e), e, e.__traceback__)
     return q_app.exec_()
 
 

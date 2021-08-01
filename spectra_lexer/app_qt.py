@@ -18,7 +18,7 @@ from spectra_lexer.qt.system import QtTaskExecutor
 from spectra_lexer.qt.window import WindowController
 from spectra_lexer.resource.translations import TranslationsDict, TranslationFilter
 from spectra_lexer.spc_search import EXPAND_KEY
-from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionLogger
+from spectra_lexer.util.exception import CompositeExceptionHandler, ExceptionHandler, ExceptionLogger
 
 INDEX_STARTUP_MESSAGE = """<p>
 In order to cross-reference examples of specific steno rules, this program must create an index
@@ -66,15 +66,13 @@ def cfg_spec() -> ConfigSpec:
 class QtGUIApplication(GUIHooks):
     """ Top-level object for Qt GUI operations. Contains all components for the application as a whole. """
 
-    last_exception: BaseException = None  # Most recently trapped exception, saved for debug tools.
-
-    def __init__(self, engine:Engine, config:QtConfigManager, tasks:QtTaskExecutor, dialogs:DialogManager,
-                 window:WindowController, gui:GUIController) -> None:
+    def __init__(self, engine: Engine, config:QtConfigManager, tasks:QtTaskExecutor,
+                 window:WindowController, dialogs:DialogManager, gui:GUIController) -> None:
         self._engine = engine
         self._config = config
         self._tasks = tasks
-        self._dialogs = dialogs
         self._window = window
+        self._dialogs = dialogs
         self._gui = gui
 
     def _show_page(self, focused:bool) -> None:
@@ -270,24 +268,6 @@ class QtGUIApplication(GUIHooks):
     def config_editor(self) -> None:
         self._dialogs.open_unique(self._config_opener)
 
-    def _debug_opener(self) -> QDialog:
-        """ Create an interpreter console dialog with this app as the namespace. """
-        dialog = ConsoleDialog()
-        dialog.introspect(self)
-        return dialog
-
-    def debug_console(self) -> None:
-        self._dialogs.open_unique(self._debug_opener)
-
-    def _tree_opener(self) -> QDialog:
-        """ Create a debug tree dialog with this app's vars. """
-        dialog = NamespaceTreeDialog()
-        dialog.set_namespace(vars(self), root_package=__package__)
-        return dialog
-
-    def debug_tree(self) -> None:
-        self._dialogs.open_unique(self._tree_opener)
-
     def _on_ready(self) -> None:
         """ When all major resources are ready, load the config and connect the GUI callbacks.
             If the config settings are blank, this is the first time the program has been run.
@@ -306,39 +286,78 @@ class QtGUIApplication(GUIHooks):
         self.show()
         self._tasks.start()
 
-    def on_exception(self, exc_type:type, exc_value:Exception, _) -> bool:
-        """ Display an error message with an appropriate title. Save the exception afterward to allow debugging. """
+
+class QtGUIExceptionManager(ExceptionHandler):
+
+    def __init__(self, window:WindowController, dialogs:DialogManager, gui:GUIController) -> None:
+        self._root = self  # Root Python object to examine with debug tools. Must possess a __dict__.
+        self._window = window
+        self._dialogs = dialogs
+        self._gui = gui
+
+    def set_debug_root(self, root:object) -> None:
+        self._root = root
+
+    def _debug_opener(self) -> QDialog:
+        """ Create an interpreter console dialog with the root object as the namespace. """
+        dialog = ConsoleDialog()
+        dialog.introspect(self._root)
+        return dialog
+
+    def debug_console(self) -> None:
+        self._dialogs.open_unique(self._debug_opener)
+
+    def _tree_opener(self) -> QDialog:
+        """ Create a debug tree dialog with the root object's vars. """
+        dialog = NamespaceTreeDialog()
+        dialog.set_namespace(vars(self._root), root_package=__package__)
+        return dialog
+
+    def debug_tree(self) -> None:
+        self._dialogs.open_unique(self._tree_opener)
+
+    def __call__(self, exc_type:type, exc_value:Exception, _) -> bool:
+        """ Display an error message with an appropriate title.
+            Save the exception and enable all widgets to allow debugging. """
         title = f'EXCEPTION - {exc_type.__name__}'
         text = f'{exc_value}\n\nIn the menu, go to "Debug -> View Object Tree..." for debug details.'
         self._gui.set_title(title)
         self._gui.set_graph_plain(text)
-        self.last_exception = exc_value
+        self._root.last_exception = exc_value
+        self._gui.set_enabled(True)
+        self._window.show()
         return True
 
 
 def build_app(spectra:Spectra) -> QtGUIApplication:
-    """ Build the interactive Qt GUI application with all necessary components. """
+    """ Build the interactive Qt GUI application with all necessary components, starting with exception handlers. """
     exc_handler = CompositeExceptionHandler()
     exc_logger = ExceptionLogger(spectra.logger.log)
     exc_handler.add(exc_logger)
     sys.excepthook = exc_handler
+    w_window = QMainWindow()
+    window = WindowController(w_window)
+    dialogs = DialogManager(w_window)
+    gui = build_gui(w_window)
+    dbg = QtGUIExceptionManager(window, dialogs, gui)
+    dbg.set_debug_root(spectra)
+    gui.add_menu("File")
+    gui.add_menu("Tools")
+    gui.add_menu("Debug")
+    gui.add_menu_action("Debug", "Open Console...", dbg.debug_console)
+    gui.add_menu_action("Debug", "View Object Tree...", dbg.debug_tree)
+    exc_handler.add(dbg)
+    icon_data = pkgutil.get_data(ICON_PACKAGE, ICON_PATH)
+    window.set_icon(icon_data)
     engine = build_engine(spectra)
     config = QtConfigManager(spectra.cfg_path, cfg_spec())
     tasks = QtTaskExecutor()
-    w_window = QMainWindow()
-    dialogs = DialogManager(w_window)
-    window = WindowController(w_window)
-    icon_data = pkgutil.get_data(ICON_PACKAGE, ICON_PATH)
-    window.set_icon(icon_data)
-    gui = build_gui(w_window)
-    app = QtGUIApplication(engine, config, tasks, dialogs, window, gui)
-    exc_handler.add(app.on_exception)
+    app = QtGUIApplication(engine, config, tasks, window, dialogs, gui)
+    dbg.set_debug_root(app)
     gui.add_menu_action("File", "Load Translations...", app.open_translations)
     gui.add_menu_action("File", "Load Index...", app.open_index)
     gui.add_menu_separator("File")
     gui.add_menu_action("File", "Close", app.close)
     gui.add_menu_action("Tools", "Edit Configuration...", app.config_editor)
     gui.add_menu_action("Tools", "Make Index...", app.custom_index)
-    gui.add_menu_action("Debug", "Open Console...", app.debug_console)
-    gui.add_menu_action("Debug", "View Object Tree...", app.debug_tree)
     return app

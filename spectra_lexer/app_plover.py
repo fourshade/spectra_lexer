@@ -34,7 +34,7 @@ class PloverPlugin:
             Command-line arguments are not used (sys.argv belongs to Plover), and translations are not read from files.
             We must create the main application object *and* start it before __init__ returns.
             The extension is added as attribute 'plover' solely to make it visible to the debug tools. """
-        opts = SpectraOptions()
+        opts = SpectraOptions("If you're seeing this, the engine exploded. What a mess.")
         opts.translations = []
         spectra = Spectra(opts, parse_args=False)
         self._app = app = build_app(spectra)

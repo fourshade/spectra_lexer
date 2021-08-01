@@ -25,7 +25,7 @@ class JSONStruct(JSONDict):
                 try:
                     self[k] = getattr(self, k)
                 except AttributeError:
-                    raise TypeError(f'Missing required field "{k}"')
+                    raise TypeError(f'Missing required field "{k}"') from None
         self.__dict__ = self
 
 

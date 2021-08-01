@@ -155,21 +155,20 @@ class GUIController:
         self._w_link_save.linkActivated.connect(noargs(hooks.on_board_save))
         self._w_link_examples.linkActivated.connect(noargs(hooks.on_request_examples))
 
-    def _get_menu(self, heading:str) -> QMenu:
-        """ Return the menu under <heading>. Create and add it to the menu bar if it does not exist. """
+    def add_menu(self, heading:str) -> None:
+        """ Create a menu under <heading> and add it to the menu bar if it does not exist. """
         if heading not in self._menus:
             self._menus[heading] = self._w_menubar.addMenu(heading)
-        return self._menus[heading]
 
     def add_menu_action(self, heading:str, text:str, func:ActionCallback) -> None:
         """ Create a menu item under <heading> with label <text> that calls <func> with no args when selected. """
-        menu = self._get_menu(heading)
+        menu = self._menus[heading]
         action = menu.addAction(text)
         action.triggered.connect(noargs(func))
 
     def add_menu_separator(self, heading:str) -> None:
         """ Create a separator under <heading>. """
-        menu = self._get_menu(heading)
+        menu = self._menus[heading]
         menu.addSeparator()
 
 

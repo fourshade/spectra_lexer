@@ -51,7 +51,7 @@ class JSONDictionaryIO:
             before = e.doc[i-20:i]
             after = e.doc[i:i+20]
             context = repr(before + '<<!>>' + after)[1:-1]
-            raise ValueError(f'JSON decoding error in {filename}: ...{context}...')
+            raise ValueError(f'JSON decoding error in {filename}: ...{context}...') from None
         check_dict(d)
         return d
 
