@@ -17,9 +17,9 @@ SPLIT_TRANS = {ord(c): ' ' for c in SPLIT_CHARS}      # str.translate dictionary
 class QueryPage(SimpleNamespace):
     """ Namespace for a page of query information usable in a Discord message. """
 
-    title: str          # Page title (the diagram type).
-    description: str    # Page description (the diagram caption).
-    png_diagram: bytes  # Raw PNG data for board diagram.
+    title: str                 # Page title (the diagram type).
+    description: str           # Page description (the diagram caption).
+    png_diagram: bytes = None  # Optional raw PNG data for board diagram.
 
 
 QueryResult = Sequence[QueryPage]  # Full Discord query result.
@@ -98,8 +98,8 @@ class DiscordApplication:
         letters = analysis.letters
         if letters:
             caption = f'{keys} {TR_DELIMS[0]} {letters}'
-            sounds_diagram = self._draw_rule(analysis, show_letters=False)
-            yield self._build_page('Sounds Diagram', caption, sounds_diagram)
+            sound_diagram = self._draw_rule(analysis, show_letters=False)
+            yield self._build_page('Sound Diagram', caption, sound_diagram)
             text_diagram = self._draw_rule(analysis, show_letters=True)
             yield self._build_page('Text Diagram', caption, text_diagram)
 

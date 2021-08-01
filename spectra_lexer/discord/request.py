@@ -127,3 +127,22 @@ class CreateFormMessageRequest(CreateMessageRequest):
         """ Rewind every file object to the start. """
         for fp, *_ in self._files:
             fp.seek(0)
+
+
+class EditMessageRequest(AbstractJSONRequest):
+    """ Edit a standard Discord message. """
+
+    method = 'PATCH'
+    path = '/channels/{channel_id}/messages/{message_id}'
+
+    def __init__(self, channel_id:str, message_id:str, *, allow_mentions=False) -> None:
+        super().__init__(channel_id=channel_id, message_id=message_id)
+        if not allow_mentions:
+            self["allowed_mentions"] = {"parse": []}
+
+
+class CreateInteractionResponseRequest(AbstractJSONRequest):
+    """ Create a response to an Interaction from the gateway. """
+
+    method = 'POST'
+    path = '/interactions/{interaction_id}/{interaction_token}/callback'
