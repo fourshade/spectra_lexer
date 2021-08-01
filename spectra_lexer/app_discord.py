@@ -1,12 +1,8 @@
-""" Main module for the Discord bot application. """
-
-import sys
 from typing import Optional
 
-from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.console import introspect
+from spectra_lexer import Spectra
 from spectra_lexer.discord.image import SVGRasterizer
-from spectra_lexer.discord.main import DiscordApplication, DiscordBot, DiscordMessage
+from spectra_lexer.discord.main import DiscordApplication, DiscordMessage
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
 from spectra_lexer.spc_lexer import StenoAnalyzer
@@ -119,25 +115,3 @@ def build_app(spectra:Spectra) -> DiscordApplication:
     split_trans = {ord(c): ' ' for c in r'''#$%&()*+-,.?!/:;<=>@[\]^_`"{|}~'''}
     return DiscordConsoleApplication(search_engine, analyzer, board_engine, rasterizer,
                                      split_trans=split_trans, query_max_chars=100, board_AR=400/300)
-
-
-def main() -> int:
-    """ Run the application as a Discord bot. """
-    opts = SpectraOptions("Run Spectra as a Discord bot.")
-    opts.add("token", "", "Discord bot token (REQUIRED).")
-    opts.add("command", "spectra", "!command string for Discord users.")
-    spectra = Spectra(opts)
-    log = spectra.logger.log
-    log("Loading Discord bot...")
-    app = build_app(spectra)
-    if not opts.token:
-        log("No token given. Opening test console...")
-        return introspect(app)
-    bot = DiscordBot(opts.token, log)
-    bot.add_command(opts.command, app)
-    log("Discord bot started.")
-    return bot.run()
-
-
-if __name__ == '__main__':
-    sys.exit(main())

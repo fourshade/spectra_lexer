@@ -4,10 +4,9 @@ import os
 import sys
 
 from spectra_lexer import Spectra, SpectraOptions
-from spectra_lexer.engine import Engine
-from spectra_lexer.gui_json import JSONGUIApplication
+from spectra_lexer.app_json import build_app
 from spectra_lexer.http.connect import HTTPConnectionHandler
-from spectra_lexer.http.json import JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
+from spectra_lexer.http.json import JSONApplication, JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
@@ -16,21 +15,7 @@ SERVER_VERSION = f"Spectra/0.6 Python/{sys.version.split()[0]}"
 HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 
 
-def build_app(spectra:Spectra) -> JSONGUIApplication:
-    """ Start with standard command-line options and build the app. """
-    io = spectra.resource_io
-    search_engine = spectra.search_engine
-    analyzer = spectra.analyzer
-    graph_engine = spectra.graph_engine
-    board_engine = spectra.board_engine
-    translations_paths = spectra.translations_paths
-    index_path = spectra.index_path
-    engine = Engine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
-    engine.load_initial()
-    return JSONGUIApplication(engine)
-
-
-def build_dispatcher(app:JSONGUIApplication, root_dir=".") -> HTTPConnectionHandler:
+def build_dispatcher(app:JSONApplication, root_dir=".") -> HTTPConnectionHandler:
     """ Build an HTTP server object customized to Spectra's requirements. """
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
     codec = JSONCodec(decoder)

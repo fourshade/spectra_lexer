@@ -8,14 +8,9 @@ def _spectra():
     return Spectra()
 
 
-def _http_app():
-    from spectra_lexer.app_http import build_app
-    return build_app(_spectra())
-
-
-def _discord_app():
-    from spectra_lexer.app_discord import build_app
-    return build_app(_spectra())
+def _engine():
+    from spectra_lexer.engine import build_engine
+    return build_engine(_spectra())
 
 
 def _get_translations() -> dict:
@@ -65,10 +60,6 @@ def _random_analyses(n:int) -> list:
 
 # Main benchmark functions. Each returns a no-arg callable suitable for profiling a particular component.
 
-def app_start():
-    return _http_app
-
-
 def search(n=50000):
     prefixes = _random_prefixes(n)
     return _search_fn(prefixes, count=100)
@@ -114,17 +105,9 @@ def board(n=10000):
     return run
 
 
-def gui_query(n=1000):
-    samples = _random_translations(n)
-    app = _http_app()
-    def run() -> None:
-        for keys, letters in samples:
-            app.do_query(keys, letters)
-    return run
-
-
 def http_query(n=1000):
-    from spectra_lexer.app_http import build_dispatcher
+    from spectra_lexer.app_json import build_app
+    from spectra_lexer.main_http import build_dispatcher
     import io, json
     queries = []
     samples = _random_translations(n)
@@ -141,7 +124,7 @@ def http_query(n=1000):
                    b"",
                    content]
         queries.append(b"\r\n".join(request))
-    app = _http_app()
+    app = build_app(_spectra())
     dispatcher = build_dispatcher(app)
     def run() -> None:
         for data in queries:
@@ -151,12 +134,13 @@ def http_query(n=1000):
 
 
 def discord_query(n=100, k=5):
+    from spectra_lexer.app_discord import build_app
     samples = _random_translations(n)
     queries = [f'{keys} -> {letters}' for keys, letters in samples]
     for group in zip(*[iter(samples)]*k):
         all_keys, all_letters = zip(*group)
         queries += ['/'.join(all_keys), ' '.join(all_letters)]
-    app = _discord_app()
+    app = build_app(_spectra())
     def run() -> None:
         for query in queries:
             app.run(query)
@@ -171,3 +155,9 @@ def plover_convert(n=10):
         for _ in range(n):
             test_plover.dc_to_dict(steno_dc)
     return run
+
+
+def engine_load():
+    def load() -> None:
+        _engine().load_initial()
+    return load

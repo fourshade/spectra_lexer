@@ -1,6 +1,7 @@
 from typing import Dict, Sequence
 
-from spectra_lexer.engine import Engine
+from spectra_lexer import Spectra
+from spectra_lexer.engine import Engine, build_engine
 from spectra_lexer.http.json import JSONApplication, JSONDict, JSONList, JSONStruct
 from spectra_lexer.spc_board import BoardDiagram
 from spectra_lexer.spc_graph import HTMLGraph
@@ -130,3 +131,9 @@ class JSONGUIApplication(JSONApplication):
                        selections=self._select(keys, letters),
                        display=self._display(keys, letters),
                        example_ref=self._engine.find_ref(link_ref))
+
+
+def build_app(spectra:Spectra) -> JSONGUIApplication:
+    engine = build_engine(spectra)
+    engine.load_initial()
+    return JSONGUIApplication(engine)

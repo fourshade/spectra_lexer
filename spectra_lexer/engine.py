@@ -2,6 +2,7 @@ import random
 from types import SimpleNamespace
 from typing import List, Sequence
 
+from spectra_lexer import Spectra
 from spectra_lexer.resource.rules import StenoRule
 from spectra_lexer.resource.translations import ExamplesDict, Translation, TranslationsDict, TranslationFilter
 from spectra_lexer.spc_board import BoardDiagram, BoardEngine
@@ -185,3 +186,14 @@ class Engine:
             if example_id == rule.id:
                 return ref
         return ""
+
+
+def build_engine(spectra:Spectra) -> Engine:
+    io = spectra.resource_io
+    search_engine = spectra.search_engine
+    analyzer = spectra.analyzer
+    graph_engine = spectra.graph_engine
+    board_engine = spectra.board_engine
+    translations_paths = spectra.translations_paths
+    index_path = spectra.index_path
+    return Engine(io, search_engine, analyzer, graph_engine, board_engine, translations_paths, index_path)
