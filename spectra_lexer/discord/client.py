@@ -71,8 +71,8 @@ class Client(GatewayEventDispatcher):
             value += '&compress=zlib-stream'
         return value.format(data['url'], encoding, v)
 
-    async def _login(self, ws_params:dict) -> None:
-        """ Log in the client with the saved credentials. """
+    async def _connect(self, ws_params:dict) -> None:
+        """ Create a websocket connection to listen to messages from Discord. """
         log.info('Connecting to Discord...')
         try:
             gateway_url = await self._get_gateway_url()
@@ -85,30 +85,23 @@ class Client(GatewayEventDispatcher):
         log.info(f'Created websocket connected to {gateway_url}.')
         await self._ws.connect(self._token)
 
-    async def connect(self, *, reconnect=True) -> None:
-        """ Create a websocket connection to listen to messages from Discord.
-            This is a loop that runs the entire event system.
-            Control is not resumed until the WebSocket connection is terminated.
+    async def _run(self, *, reconnect=True) -> None:
+        """ Loop that runs the entire event system. Returns control once the WebSocket connection is terminated.
             reconnect: If True, attempt reconnecting after most failures. """
         backoff = ExponentialBackoff()
         ws_params = {'initial': True}
         while not self._closed:
             try:
-                coro = self._login(ws_params)
+                coro = self._connect(ws_params)
                 await asyncio.wait_for(coro, timeout=60.0)
                 ws_params['initial'] = False
                 while True:
                     await self._ws.poll_event()
-            except ReconnectWebSocket as e:
-                log.info('Got a request to %s the websocket.', e.op)
-                log.info("Disconnected from websocket.")
-                ws_params.update(sequence=self._ws.sequence, resume=e.resume, session=self._ws.session_id)
+            except ReconnectWebSocket as exc:
+                log.info(f'Websocket is closed; got a request to {exc.op}.')
+                ws_params.update(sequence=self._ws.sequence, resume=exc.resume, session=self._ws.session_id)
                 continue
-            except (OSError,
-                    HTTPException,
-                    ConnectionClosed,
-                    ClientError,
-                    asyncio.TimeoutError) as exc:
+            except (OSError, HTTPException, ConnectionClosed, ClientError, asyncio.TimeoutError) as exc:
                 log.info("Disconnected from websocket.")
                 if not reconnect:
                     await self.close()
@@ -142,14 +135,16 @@ class Client(GatewayEventDispatcher):
                 # This is apparently what the official Discord client does.
                 ws_params.update(sequence=self._ws.sequence, resume=True, session=self._ws.session_id)
 
-    async def _run(self, **kwargs) -> None:
+    async def run(self, **kwargs) -> None:
         try:
-            await self.connect(**kwargs)
+            await self._run(**kwargs)
+        except Exception:
+            log.exception('CLIENT EXCEPTION')
         finally:
             if not self._closed:
                 await self.close()
 
-    def run(self, **kwargs) -> None:
+    def start(self, **kwargs) -> None:
         """ A blocking call that abstracts away the event loop initialization.
             This function must be the last function to call due to the fact that it
             is blocking. That means that registration of events or anything being
@@ -162,15 +157,13 @@ class Client(GatewayEventDispatcher):
             pass
         def stop_loop_on_completion(_) -> None:
             loop.stop()
-        coro = self._run(**kwargs)
+        coro = self.run(**kwargs)
         future = asyncio.ensure_future(coro, loop=loop)
         future.add_done_callback(stop_loop_on_completion)
         try:
             loop.run_forever()
         except KeyboardInterrupt:
             log.info('Received signal to terminate application and event loop.')
-        except Exception:
-            log.exception('CLIENT EXCEPTION')
         finally:
             future.remove_done_callback(stop_loop_on_completion)
             log.info('Cleaning up tasks.')

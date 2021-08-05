@@ -172,7 +172,7 @@ class GatewayWebSocket:
         self._socket = socket
         self._dispatcher = dispatcher
         self._initial_identify = initial
-        self._resume = resume
+        self._is_resume = resume
         self.session_id = session
         self.sequence = sequence
         self._max_heartbeat_timeout = heartbeat_timeout
@@ -344,7 +344,7 @@ class GatewayWebSocket:
     async def connect(self, token:str) -> None:
         """ Connect after polling for OP Hello. """
         await self.poll_event()
-        if self._resume:
+        if self._is_resume:
             await self._resume(token)
         else:
             await self._identify(token)

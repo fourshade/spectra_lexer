@@ -150,8 +150,7 @@ def main() -> int:
     opts.add("command", "spectra", "!command string for Discord users.")
     opts.add("cache_id", "", "Optional channel ID for image cache.")
     spectra = Spectra(opts)
-    # Hackish way to log all bot activity to one callable.
-    log.line_logger = spectra.logger.log
+    log.setHandler(spectra.logger.log)
     log.info("Loading Discord bot...")
     app = build_app(spectra, 400, 300, max_chars=100)
     token = opts.token.strip()
@@ -166,7 +165,7 @@ def main() -> int:
     client.add_event_handler(cmds)
     client.add_event_handler(bot)
     log.info("Discord bot started.")
-    client.run()
+    client.start()
     return 0
 
 

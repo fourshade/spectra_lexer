@@ -1,11 +1,9 @@
 16.0.0
 ------
 * Moved Discord client code into project
+* Added phrase lookup and interactive pages to Discord bot
+* Refactored HTTP client to use Fetch API
 * Improved GUI startup exception handling
-
-15.1.0
-------
-* Added phrase lookup to Discord bot
 * Reduced precedence of split-stroke rules
 
 15.0.2

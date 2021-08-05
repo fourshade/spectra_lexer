@@ -1,6 +1,6 @@
 from typing import Callable, Sequence
 
-from PyQt5.QtWidgets import QCheckBox, QLabel, QMainWindow, QMenu, QMenuBar, QSlider
+from PyQt5.QtWidgets import QCheckBox, QLabel, QMainWindow, QMenuBar, QSlider
 
 from .board import BoardWidget
 from .graph import GraphWidget

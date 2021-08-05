@@ -140,7 +140,7 @@ def discord_query(n=100, k=5):
     for group in zip(*[iter(samples)]*k):
         all_keys, all_letters = zip(*group)
         queries += ['/'.join(all_keys), ' '.join(all_letters)]
-    app = build_app(_spectra())
+    app = build_app(_spectra(), 400, 300)
     def run() -> None:
         for query in queries:
             app.run(query)
