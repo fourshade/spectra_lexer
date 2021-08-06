@@ -2,8 +2,8 @@
 
 from typing import Union
 
-from PyQt5.QtCore import QBuffer, QIODevice, QRectF, QSize
-from PyQt5.QtGui import QColor, QImage, QPaintDevice, QPainter
+from PyQt5.QtCore import QBuffer, QRectF, QSize
+from PyQt5.QtGui import QColor, QImage, QImageWriter, QPaintDevice, QPainter
 from PyQt5.QtSvg import QSvgRenderer
 
 QtSVGData = Union[bytes, str]  # Valid formats for an SVG data string. The XML header is not required.
@@ -76,11 +76,10 @@ class SVGRasterizer:
         self._h_max = h_max        # Limit on image height in pixels.
         self._bg_color = bg_color  # Color to use for raster backgrounds.
 
-    def encode(self, svg_data:str, fmt="PNG") -> bytes:
+    def _render(self, svg_data:str) -> QImage:
         """ Create a new raster image with the current background color and render an SVG image to it.
-            Pixel dimensions will fit the viewbox at maximum scale.
-            Convert the image to a data stream and return the raw bytes. """
-        svg = QSvgRenderer(svg_data.encode("utf8"))
+            Pixel dimensions will fit the viewbox at maximum scale. """
+        svg = QSvgRenderer(svg_data.encode("utf-8"))
         v_size = svg.viewBox().size()
         vw = v_size.width()
         vh = v_size.height()
@@ -92,7 +91,13 @@ class SVGRasterizer:
         with QPainter(im) as p:
             p.setRenderHints(QPainter.Antialiasing)
             svg.render(p, QRectF(0, 0, w, h))
+        return im
+
+    def render_png(self, svg_data:str, *, compression=40) -> bytes:
+        """ Rasterize an SVG image to PNG format and return the raw bytes. """
+        im = self._render(svg_data)
         buf = QBuffer()
-        buf.open(QIODevice.WriteOnly)
-        im.save(buf, fmt)
+        writer = QImageWriter(buf, b'PNG')
+        writer.setCompression(compression)
+        writer.write(im)
         return buf.data().data()

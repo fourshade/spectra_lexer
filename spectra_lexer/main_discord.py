@@ -20,7 +20,7 @@ If the bot is lagging or the message is too old, they may fail or disappear."""
 def _embed(page:QueryPage, image_url:str=None, footer:str=None) -> dict:
     embed = {
         "title": page.title,
-        "description": f'``{page.description}``'
+        "description": f'```{page.description}```'
     }
     if image_url is not None:
         embed["image"] = {"url": image_url}

@@ -92,3 +92,25 @@ class GraphEngine:
         layout = CompressedGraphLayout() if compressed else CascadedGraphLayout()
         grid = root.render(layout)
         return GraphTree(tree_map, grid)
+
+    def _iter_info(self, r:StenoRule, prefix:str, below:str, attach:str) -> Iterator[str]:
+        info = r.info
+        if not r.rulemap:
+            keys = r.keys
+            if keys == self._key_sep:
+                yield prefix + (keys * 20)
+            else:
+                yield f'{prefix}{attach}══{keys} ({info})'
+            return
+        yield f'{prefix}{attach}═╦[{r.letters}: {info}]'
+        *rest, last = r.rulemap
+        prefix += below
+        for item in rest:
+            yield from self._iter_info(item.child, prefix, "║ ", "╠")
+        yield from self._iter_info(last.child, prefix, "  ", "╚")
+
+    def info_graph(self, rule:StenoRule) -> str:
+        """ Generate a plaintext graph of all rule info using monospaced box characters. """
+        lines = [*self._iter_info(rule, "", "", "")]
+        lines[0] = rule.letters
+        return "\n".join(lines)
