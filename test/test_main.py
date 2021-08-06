@@ -56,11 +56,11 @@ def test_analysis(keys, letters) -> None:
         assert BOARD_ENGINE.draw_rule(rule)
 
 
-def test_compound() -> None:
+@pytest.mark.parametrize("step", range(1, 6))
+def test_compound(step) -> None:
     """ Compound analysis should work on arbitrary sequences of translations. """
-    for step in range(1, 5):
-        compound = ANALYZER.compound_query(TEST_TRANSLATION_PAIRS[::step])
-        _verify_analysis(compound)
+    compound = ANALYZER.compound_query(TEST_TRANSLATION_PAIRS[step::step])
+    _verify_analysis(compound)
 
 
 def test_index() -> None:

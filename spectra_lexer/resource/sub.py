@@ -24,11 +24,13 @@ class TextSubstitutionParser:
     """ Performs substitution on text patterns with nested references and returns flattened text and info.
         In order to recursively resolve references, all data should be added before any parsing is done. """
 
-    def __init__(self, ref_start="(", ref_end=")", alias_delim="|", *, allow_duplicates=False) -> None:
+    def __init__(self, ref_start="(", ref_end=")", escape="\\", alias_delim="|", *, allow_duplicates=False) -> None:
         assert len(ref_start) == 1
         assert len(ref_end) == 1
+        assert len(escape) == 1
         self._ref_start = ref_start         # Delimiter marking the start of a reference.
         self._ref_end = ref_end             # Delimiter marking the end of a reference.
+        self._escape = escape               # Escape character for <ref_start> as a literal.
         self._alias_delim = alias_delim     # Delimiter between a reference and its alias text when different.
         self._allow_dup = allow_duplicates  # If True, allow references with duplicate names (only the last is kept).
         self._pattern_data = {}             # Dict of input pattern data by reference name.
@@ -63,9 +65,17 @@ class TextSubstitutionParser:
         pattern = self._pattern_data[ref]
         char_list = list(pattern)
         subs = []
+        start = 0
         # Find every pair of parentheses and parse the references.
-        while self._ref_start in char_list:
-            start = char_list.index(self._ref_start)
+        while True:
+            try:
+                start = char_list.index(self._ref_start, start)
+            except ValueError:
+                break
+            # If an escape precedes a ref start, remove the escape and continue.
+            if start > 0 and char_list[start - 1] == self._escape:
+                del char_list[start - 1]
+                continue
             end = char_list.index(self._ref_end, start) + 1
             reference = "".join(char_list[start+1:end-1])
             if self._alias_delim in reference:

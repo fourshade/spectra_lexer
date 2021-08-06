@@ -4,6 +4,7 @@
 * Added phrase lookup and interactive pages to Discord bot
 * Refactored HTTP client to use Fetch API
 * Improved GUI startup exception handling
+* Added more rules for symbol characters
 * Reduced precedence of split-stroke rules
 
 15.0.2
