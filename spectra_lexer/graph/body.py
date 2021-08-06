@@ -1,6 +1,31 @@
 """ Styles for the appearance of keys and translations in text graphs. """
 
-from . import IBody
+
+class IBody:
+
+    __slots__ = ()
+
+    def height(self) -> int:
+        """ Return the height of the node body in rows. """
+        raise NotImplementedError
+
+    def width(self) -> int:
+        """ Return the width of the node body in columns. """
+        raise NotImplementedError
+
+    def is_always_bold(self) -> bool:
+        raise NotImplementedError
+
+    def is_separator(self) -> bool:
+        raise NotImplementedError
+
+    def text(self) -> str:
+        """ Return a string of text to write as a row. """
+        raise NotImplementedError
+
+    def offset(self) -> int:
+        """ Return a column offset for where text should be written. """
+        raise NotImplementedError
 
 
 class SeparatorBody(IBody):

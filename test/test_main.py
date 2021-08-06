@@ -52,6 +52,7 @@ def test_analysis(keys, letters) -> None:
     for ref, rule in graph.items():
         assert graph.draw(ref)
         assert graph.draw(ref, intense=True)
+        assert graph.draw(ref, compat=True)
         assert BOARD_ENGINE.draw_keys(rule.keys)
         assert BOARD_ENGINE.draw_rule(rule)
 

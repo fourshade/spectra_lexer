@@ -1,6 +1,22 @@
 """ Styles for the appearance of line connectors in text graphs. """
 
-from . import ConnectorRows, IConnectors
+from typing import Iterator
+
+ConnectorRows = Iterator[str]
+
+
+class IConnectors:
+    """ A set of connector characters joining a node to its parent. """
+
+    __slots__ = ()
+
+    def rows(self, height:int) -> ConnectorRows:
+        """ Yield <height> row strings going downward, starting with the row under the parent. """
+        raise NotImplementedError
+
+    def min_height(self) -> int:
+        """ Minimum height is 3 characters, or 2 if the bottom attachment is one character wide. """
+        raise NotImplementedError
 
 
 class NullConnectors(IConnectors):

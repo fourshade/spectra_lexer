@@ -128,8 +128,7 @@ class Engine:
     def run_query(self, keys:str, letters:str) -> None:
         """ Run a lexer analysis and build a node graph of every rule in it recursively. """
         self._analysis = self._analyzer.query(keys, letters, strict_mode=self._opts.lexer_strict_mode)
-        self._graph = self._graph_engine.graph(self._analysis, compressed=self._opts.graph_compressed_layout,
-                                               compat=self._opts.graph_compatibility_mode)
+        self._graph = self._graph_engine.graph(self._analysis, compressed=self._opts.graph_compressed_layout)
         self._ref = ""
 
     def get_refs(self) -> List[str]:
@@ -160,7 +159,7 @@ class Engine:
 
     def draw_graph(self, *, intense=False) -> HTMLGraph:
         """ Generate an HTML text graph for the current rule. """
-        return self._graph.draw(self._ref, intense=intense)
+        return self._graph.draw(self._ref, intense=intense, compat=self._opts.graph_compatibility_mode)
 
     def draw_board(self) -> BoardDiagram:
         """ Generate a board diagram for the current rule. """
