@@ -1,3 +1,7 @@
+16.1.0
+------
+* Improved rule info tree appearance
+
 16.0.0
 ------
 * Moved Discord client code into project

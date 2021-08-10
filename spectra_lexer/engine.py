@@ -144,18 +144,22 @@ class Engine:
         return self._graph.get(self._ref, self._analysis)
 
     def get_caption(self) -> str:
-        """ Generate a caption for the current rule. The root analysis shows its info only. Others also show the keys.
-            Rules with children show the complete mapping of keys to letters. """
+        """ Generate a caption for the current rule. The root analysis caption shows its reliability.
+            Others show the keys and info string. Rules with children show the complete mapping of keys to letters. """
         rule = self._current_rule()
+        rulemap = rule.rulemap
+        if rule is self._analysis:
+            if not any(item.child.is_unmatched for item in rulemap):
+                return 'Found complete match.'
+            if len(rulemap) == 1:
+                return 'No matches found.'
+            return 'Incomplete match. Not reliable.'
         keys = rule.keys
         letters = rule.letters
         info = rule.info
-        if rule is self._analysis:
-            return info
-        elif rule.rulemap and letters:
+        if rulemap and letters:
             return f'{keys} → {letters}: {info}'
-        else:
-            return f'{keys}: {info}'
+        return f'{keys}: {info}'
 
     def draw_graph(self, *, intense=False) -> HTMLGraph:
         """ Generate an HTML text graph for the current rule. """

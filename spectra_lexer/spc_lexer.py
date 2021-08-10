@@ -11,12 +11,6 @@ from spectra_lexer.resource.translations import ExamplesDict, RuleID, Translatio
 class StenoAnalyzer:
     """ Key-converting wrapper for the lexer. Also uses multiprocessing to make an examples index. """
 
-    # Rule info strings for analysis results. The output is nowhere near reliable if some keys are unmatched.
-    INFO_COMPLETE = "Found complete match."
-    INFO_INCOMPLETE = "Incomplete match. Not reliable."
-    INFO_EMPTY = "No matches found."
-    INFO_COMPOUND = "Result of compound analysis."
-
     def __init__(self, converter:StenoKeyConverter, lexer:StenoLexer, factory:StenoRuleFactory,
                  refmap:Mapping[LexerRule, StenoRule], idmap:Mapping[LexerRule, RuleID], rule_sep:StenoRule) -> None:
         self._converter = converter  # Converts between RTFCRE and s-keys formats.
@@ -46,15 +40,14 @@ class StenoAnalyzer:
             child = self._refmap[lr]
             length = len(lr.letters)
             self._factory.connect(child, start, length)
-        info = self.INFO_COMPLETE
         unmatched_skeys = result.unmatched_skeys
         if unmatched_skeys:
-            info = self.INFO_INCOMPLETE if result.rules else self.INFO_EMPTY
+            self._factory.push()
             unmatched_keys = self._to_rtfcre(unmatched_skeys)
-            nletters = len(letters)
-            self._factory.connect_unmatched(unmatched_keys, nletters, "unmatched keys")
+            child = self._factory.build(unmatched_keys, "", "unmatched keys", is_unmatched=True)
+            self._factory.connect_rest(child, len(letters))
         keys = self._to_rtfcre(skeys)
-        return self._factory.build(keys, letters, info)
+        return self._factory.build(keys, letters)
 
     def best_translation(self, keys_iter:Iterable[str], letters:str) -> str:
         """ Return the best (most accurate) match to <letters> out of <keys_iter> according to lexer ranking. """
@@ -69,7 +62,7 @@ class StenoAnalyzer:
         return keys_list[best_index]
 
     def compound_query(self, translations:TranslationsIter) -> StenoRule:
-        """ Perform queries for several translations and flatten the results into one analysis.
+        """ Perform queries for several translations and combine the results.
             Only translations with keys are analyzed and delimited by stroke separators. """
         all_skeys = all_letters = ""
         sep_skeys = self._to_skeys(self._rule_sep.keys)
@@ -83,12 +76,11 @@ class StenoAnalyzer:
                     self._factory.connect(self._rule_sep, offset, 0)
                 all_skeys += self._to_skeys(keys)
                 rule = self.query(keys, letters)
-                for item in rule.rulemap:
-                    self._factory.connect(item.child, offset + item.start, item.length)
+                self._factory.connect(rule, offset, len(letters))
                 is_first = False
             all_letters += letters
         all_keys = self._to_rtfcre(all_skeys)
-        return self._factory.build(all_keys, all_letters, self.INFO_COMPOUND)
+        return self._factory.build(all_keys, all_letters)
 
     def _query_rule_ids(self, keys:str, letters:str) -> List[str]:
         """ Make a parallel-safe lexer query and return the result as a list of strings.

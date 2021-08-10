@@ -95,22 +95,29 @@ class GraphEngine:
 
     def _iter_info(self, r:StenoRule, prefix:str, below:str, attach:str) -> Iterator[str]:
         info = r.info
-        if not r.rulemap:
+        rulemap = r.rulemap
+        if not rulemap:
             keys = r.keys
             if keys == self._key_sep:
                 yield prefix + (keys * 20)
             else:
-                yield f'{prefix}{attach}══{keys} ({info})'
+                yield f'{prefix}{attach}╡{keys} ({info})'
             return
-        yield f'{prefix}{attach}═╦[{r.letters}: {info}]'
-        *rest, last = r.rulemap
+        letters = r.letters
+        *rest, last = [item.child for item in rulemap]
+        if not rest and last.letters == letters and last.rulemap:
+            # Flatten branches with a single compound child and identical letters.
+            yield from self._iter_info(last, prefix, below, attach)
+            return
+        body = f'{prefix}{attach}╦{letters}'
+        if info:
+            body += f' [{info}]'
+        yield body
         prefix += below
-        for item in rest:
-            yield from self._iter_info(item.child, prefix, "║ ", "╠")
-        yield from self._iter_info(last.child, prefix, "  ", "╚")
+        for child in rest:
+            yield from self._iter_info(child, prefix, "║ ", "╠═")
+        yield from self._iter_info(last, prefix, "  ", "╚═")
 
     def info_graph(self, rule:StenoRule) -> str:
         """ Generate a plaintext graph of all rule info using monospaced box characters. """
-        lines = [*self._iter_info(rule, "", "", "")]
-        lines[0] = rule.letters
-        return "\n".join(lines)
+        return "\n".join(self._iter_info(rule, "", "", ""))

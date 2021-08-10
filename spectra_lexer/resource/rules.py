@@ -21,9 +21,9 @@ class StenoRule(FrozenStruct):
     # Required attributes:
     keys: str         # RTFCRE steno keys that make up the rule.
     letters: str      # Raw English text of the word.
-    info: str         # Textual description of the rule.
+    info: str         # Textual description of the rule. May be empty if dynamically generated.
     id: str           # Rule ID string. Used as a unique identifier. May be empty if dynamically generated.
-    alt: str          # Alternate text specifically for display in diagrams.
+    alt: str          # Alternate text specifically for display in diagrams. May be empty.
     rulemap: Rulemap  # Sequence of child rules mapped to letter positions *in order*.
 
     # Lexer-related flags:
@@ -76,7 +76,7 @@ class StenoRuleFactory:
         self._stack.append(self._head)
         self._head = []
 
-    def build(self, keys:str, letters:str, info="no description", alt="", r_id="", **flags:bool) -> StenoRule:
+    def build(self, keys:str, letters:str, info="", alt="", r_id="", **flags:bool) -> StenoRule:
         """ Pop the current rulemap from the stack and build a new rule using it. """
         rulemap = tuple(self._head)
         self._head = self._stack.pop()
@@ -87,14 +87,12 @@ class StenoRuleFactory:
         item = self._rule_cls.Connection(child=child, start=start, length=length)
         self._head.append(item)
 
-    def connect_unmatched(self, unmatched_keys:str, nletters:int, info:str) -> None:
-        """ Add a special (empty) rule at the end with <unmatched_keys> taking up the rest of <nletters>. """
+    def connect_rest(self, child:StenoRule, end:int) -> None:
+        """ Add a <child> rule to the rulemap covering all distance from the previous child to <end>. """
         if self._head:
             last_item = self._head[-1]
             last_child_end = last_item.start + last_item.length
         else:
             last_child_end = 0
-        remaining_length = nletters - last_child_end
-        self.push()
-        child = self.build(unmatched_keys, "", info, is_unmatched=True)
+        remaining_length = end - last_child_end
         self.connect(child, last_child_end, remaining_length)
