@@ -317,6 +317,7 @@
   "io":    ["OEU",   "(i)(o)",     "", "INVERSION", "i/o inversion"],
   ".rf":   ["-FR",   "(.r)(.f)",   "", "INVERSION", "f/r inversion"],
   ".rph":  ["-FR",   "(.r)(.ph)",  "", "INVERSION", "f/r inversion"],
+  ".rs":   ["-FR",   "(.r)(.s.)",  "", "INVERSION", "s/r inversion"],
   ".nf":   ["-FPB",  "(.n)(.f)",   "", "INVERSION", "f/n inversion"],
   ".nv":   ["-FPB",  "(.n)(.v)",   "", "INVERSION", "f/n inversion"],
   ".mph":  ["-FPL",  "(.m)(.ph)",  "", "INVERSION", "f/m inversion"],
