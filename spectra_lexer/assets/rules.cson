@@ -413,7 +413,8 @@
   # Miscellaneous special cases
   "uY~":    ["KWR",   "u",             "Y",    "REFERENCE", "phonetic Y"],
   "ua.":    ["KWRA",  "(uY~)(a)",      "",     "",          "`u` has phonetic Y onset"],
-  "on.":    ["WUPB",  "(|w.)(o+)(.n)", "",     "",          "unique WUN sound as in `one` and `once`"],
+  "W~":     ["W",     "-",             "W",    "REFERENCE", "sound with no written letter"],
+  "on.":    ["WUPB",  "(|W~)(o+)(.n)", "",     "",          "unique WUN sound as in `one` and `once`"],
   #"kno.":   ["TPHOE", "(kn.)(o!)",     "",     "",          "disambiguation from `no`"],
   #"~ea":    ["E",     "ea",            "",     "REFERENCE", "special case for `eav`"],
   #".eav":   ["EF",    "(~ea)(.v)",     "",     "",          "disambiguation from `eaf`"],
