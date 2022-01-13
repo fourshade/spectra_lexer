@@ -66,7 +66,7 @@ def cfg_spec() -> ConfigSpec:
 class QtGUIApplication(GUIHooks):
     """ Top-level object for Qt GUI operations. Contains all components for the application as a whole. """
 
-    def __init__(self, engine: Engine, config:QtConfigManager, tasks:QtTaskExecutor,
+    def __init__(self, engine:Engine, config:QtConfigManager, tasks:QtTaskExecutor,
                  window:WindowController, dialogs:DialogManager, gui:GUIController) -> None:
         self._engine = engine
         self._config = config
@@ -198,9 +198,11 @@ class QtGUIApplication(GUIHooks):
         self._gui.set_loading_title(msg_loading)
 
     def _unblock(self, msg_done:str) -> None:
-        """ Re-enable the controls and show <msg_done> when all worker tasks are done. """
+        """ Re-enable the controls and show <msg_done> when all worker tasks are done.
+            These tasks can leave focus anywhere, so reset it to the default location. """
         self._gui.set_enabled(True)
         self._gui.set_title(msg_done)
+        self._gui.reset_focus()
 
     def async_run(self, func:Callable, *args) -> None:
         """ Queue a function to execute on the worker thread. """
@@ -273,6 +275,7 @@ class QtGUIApplication(GUIHooks):
             If the config settings are blank, this is the first time the program has been run.
             Create the config file and present an index generation dialog in this case. """
         self._gui.connect(self)
+        self._window.activated.connect(self._gui.reset_focus)
         if not self._config.load():
             self._config.save()
             self.confirm_startup_index()

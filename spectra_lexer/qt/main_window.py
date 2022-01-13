@@ -130,6 +130,10 @@ class GUIController:
         """ Save the current diagram to an SVG file (or other format). """
         self._w_board.saveImage(filename)
 
+    def reset_focus(self) -> None:
+        """ Reset focus to the default location (the search input box). """
+        self._search.focus_input()
+
     def set_enabled(self, enabled:bool) -> None:
         """ Enable/disable all display widgets. The title bar should be set read-only instead. """
         self._search.set_enabled(enabled)

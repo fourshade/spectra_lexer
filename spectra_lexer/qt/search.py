@@ -143,6 +143,11 @@ class SearchPanel(QObject):
         self._w_matches.setEnabled(enabled)
         self._w_mappings.setEnabled(enabled)
 
+    def focus_input(self) -> None:
+        """ Set focus to the search input box manually. """
+        self._w_input.selectAll()
+        self._w_input.setFocus(Qt.OtherFocusReason)
+
     def update_input(self, value:str) -> None:
         self._w_input.setText(value)
 
