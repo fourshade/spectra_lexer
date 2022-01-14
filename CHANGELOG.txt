@@ -1,6 +1,7 @@
 16.1.0
 ------
-* Improved rule info tree appearance
+* Fixed focus and tab issues in the Qt GUI
+* Improved Discord rule info tree appearance
 
 16.0.0
 ------
