@@ -48,55 +48,38 @@ class RestrictedJSONDecoder(JSONDecoder):
     def decode(self, s:str, **kwargs) -> JSONType:
         """ Validate and decode an untrusted JSON string. """
         if self._size_limit is not None and len(s) > self._size_limit:
-            self._reject(s, "too large")
+            self._reject(s, 'too large')
         # The Python JSON parser is fast, but dumb. It does naive recursion on containers.
         # The stack can be overwhelmed by a long sequence of '{' and/or '[' characters. Do not let this happen.
-        if self._obj_limit is not None and s.count("{") > self._obj_limit:
-            self._reject(s, "too many objects")
-        if self._arr_limit is not None and s.count("[") > self._arr_limit:
-            self._reject(s, "too many arrays")
+        if self._obj_limit is not None and s.count('{') > self._obj_limit:
+            self._reject(s, 'too many objects')
+        if self._arr_limit is not None and s.count('[') > self._arr_limit:
+            self._reject(s, 'too many arrays')
         return super().decode(s, **kwargs)
-
-
-class JSONCodec:
-    """ Combines a JSON decoder and encoder for binary data using the same character encoding. """
-
-    def __init__(self, decoder:JSONDecoder=None, encoder:JSONEncoder=None, *, encoding='utf-8') -> None:
-        self._decoder = decoder or JSONDecoder()  # JSON decoder: decode(str) -> JSONType.
-        self._encoder = encoder or JSONEncoder()  # JSON encoder: encode(JSONType) -> str.
-        self._encoding = encoding                 # Pretty much has to be UTF-8.
-
-    def decode(self, data:bytes) -> JSONType:
-        """ Decode raw input data as a JSON object and return it. """
-        str_in = data.decode(self._encoding)
-        return self._decoder.decode(str_in)
-
-    def encode(self, obj:JSONType) -> bytes:
-        """ Encode an output object as JSON and return the raw output data. """
-        str_out = self._encoder.encode(obj)
-        return str_out.encode(self._encoding)
 
 
 class JSONApplication:
     """ Interface for an application that accepts and returns JSON-compatible types at its boundary. """
 
-    def run(self, **kwargs:JSONType) -> JSONType:
+    def run(self, obj:JSONType) -> JSONType:
         raise NotImplementedError
 
 
-class JSONObjectProcessor(BinaryDataProcessor):
-    """ Application wrapper that converts JSON to/from binary data. """
+class JSONDataProcessor(BinaryDataProcessor):
+    """ Application wrapper that converts JSON-compatible objects to/from binary form. """
 
-    output_type = "application/json"
+    output_type = 'application/json'
+    encoding = 'utf-8'
 
-    def __init__(self, app:JSONApplication, codec:JSONCodec=None) -> None:
-        self._app = app                     # Wrapped application.
-        self._codec = codec or JSONCodec()  # Converter between encoded JSON objects and Python dictionaries.
+    def __init__(self, app:JSONApplication, decoder:JSONDecoder=None, encoder:JSONEncoder=None) -> None:
+        self._app = app                           # Wrapped application.
+        self._decoder = decoder or JSONDecoder()  # JSON decoder: decode(str) -> JSONType.
+        self._encoder = encoder or JSONEncoder()  # JSON encoder: encode(JSONType) -> str.
 
     def process(self, data:bytes) -> bytes:
         """ Decode the input data, call the application, and return the encoded output data. """
-        obj_in = self._codec.decode(data)
-        if not isinstance(obj_in, dict):
-            raise TypeError('Top level of input data must be a JSON object.')
-        obj_out = self._app.run(**obj_in)
-        return self._codec.encode(obj_out)
+        str_in = data.decode(self.encoding)
+        obj_in = self._decoder.decode(str_in)
+        obj_out = self._app.run(obj_in)
+        str_out = self._encoder.encode(obj_out)
+        return str_out.encode(self.encoding)

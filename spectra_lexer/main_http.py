@@ -6,7 +6,7 @@ import sys
 from spectra_lexer import Spectra, SpectraOptions
 from spectra_lexer.app_json import build_app
 from spectra_lexer.http.connect import HTTPConnectionHandler
-from spectra_lexer.http.json import JSONApplication, JSONCodec, JSONObjectProcessor, RestrictedJSONDecoder
+from spectra_lexer.http.json import JSONApplication, JSONDataProcessor, RestrictedJSONDecoder
 from spectra_lexer.http.service import HTTPDataService, HTTPFileService, HTTPGzipFilter, \
     HTTPContentTypeRouter, HTTPMethodRouter, HTTPPathRouter
 from spectra_lexer.http.tcp import ThreadedTCPServer
@@ -18,8 +18,7 @@ HTTP_PUBLIC_DEFAULT = os.path.join(os.path.split(__file__)[0], "http_public")
 def build_dispatcher(app:JSONApplication, root_dir=".") -> HTTPConnectionHandler:
     """ Build an HTTP server object customized to Spectra's requirements. """
     decoder = RestrictedJSONDecoder(size_limit=100000, obj_limit=20, arr_limit=20)
-    codec = JSONCodec(decoder)
-    processor = JSONObjectProcessor(app, codec)
+    processor = JSONDataProcessor(app, decoder)
     data_service = HTTPDataService(processor)
     compressed_service = HTTPGzipFilter(data_service, size_threshold=1000)
     file_service = HTTPFileService(root_dir)

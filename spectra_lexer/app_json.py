@@ -8,6 +8,14 @@ from spectra_lexer.spc_graph import HTMLGraph
 from spectra_lexer.spc_search import EXPAND_KEY, MatchDict
 
 
+class Request(JSONStruct):
+    """ Contains all information from a JSON web request. """
+
+    action: str               # Name of an action method to call.
+    args: JSONList            # Positional arguments for the method.
+    options: JSONDict = None  # GUI engine options to set before calling the method.
+
+
 class Matches(JSONStruct):
     """ Contains results for the search lists. """
 
@@ -64,14 +72,14 @@ class JSONGUIApplication(JSONApplication):
     def __init__(self, engine:Engine) -> None:
         self._engine = engine
 
-    def run(self, *, action:str, args:JSONList, options:JSONDict, **_) -> JSONDict:
-        """ Perform a named app action. Engine state must be reset each time.
-            action -  Name of an action method to call.
-            args -    Positional arguments for the method.
-            options - GUI engine options to set before calling the method. """
-        self._engine.set_options(options)
-        method = getattr(self, "do_" + action)
-        return method(*args)
+    def run(self, obj:JSONDict) -> JSONDict:
+        """ Perform a requested app action. Engine state must be reset each time. """
+        if not isinstance(obj, dict):
+            raise TypeError('Top level of input data must be a JSON object.')
+        req = Request(**obj)
+        self._engine.set_options(req.options or {})
+        method = getattr(self, "do_" + req.action)
+        return method(*req.args)
 
     def _match(self, pattern:str, pages:int) -> Matches:
         results = self._engine.search(pattern, pages)
