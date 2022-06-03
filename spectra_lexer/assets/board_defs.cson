@@ -271,7 +271,7 @@
     "PH":     {"pos": "P",  "shape": "rect"},
     "SK":     {"pos": "S2", "shape": "wide"},
     "KW":     {"pos": "K",  "shape": "wide"},
-    "WR":     {"pos": "K",  "shape": "wide"},
+    "WR":     {"pos": "W",  "shape": "wide"},
     "AO":     {"pos": "A",  "shape": "wide"},
     "EU":     {"pos": "E",  "shape": "wide"},
     "fp":     {"pos": "f",  "shape": "rect"},
